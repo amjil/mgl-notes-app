@@ -1,0 +1,85 @@
+(ns mongol-notes.states.tag
+  (:require
+   ["package:flutter/material.dart" :as m]
+   [mongol-notes.services.tag :as tag-service]))
+
+(declare update-filtered-tags)
+
+(defn get-note-tags [state id]
+  (let [tags (await (tag-service/query-note-tags id))] 
+    (swap! state assoc :draft-tags tags)))
+
+(defn add-note-tag [state name]
+  (let [id  (await (tag-service/create-tag name))
+        draft-id (-> @state :note (get "id"))
+        _ (await (tag-service/add-note-tag draft-id id))]
+    (swap! state update :note-tags concat
+           [{"id" id "name" name "related_num" 1}])))
+
+(defn delete-note-tag [state id]
+  (let [note (:note @state)
+        tags (:note-tags @state)
+        _ (await (tag-service/delete-note-tag (:note_id note) id))]
+    (swap! state assoc :note-tags 
+           (remove #(= id (get % "id")) tags))))
+
+(defn query-tags [state q]
+  (let [result (await (tag-service/query-tags q))]
+    (swap! state assoc :tags result)
+    (update-filtered-tags state)))
+
+(defn all-tags [state]
+  (let [result (await (tag-service/all-tags))]
+    (swap! state assoc :tags result)
+    (update-filtered-tags state)))
+
+(defn update-filtered-tags [state]
+  (let [tag-in-ids (:filter-tags @state)
+        tag-out-ids (:omitted-tags @state)
+        tag-search (:tag-search @state)
+        tags (:tags @state)
+        exclude-ids (concat (map #(get % "id") tag-in-ids)
+                            (map #(get % "id") tag-out-ids))]
+    
+    (swap! state assoc :filtered-tags
+           (cond->> tags
+             (not-empty exclude-ids)
+             (remove #(some #{(get % "id")} exclude-ids))
+
+             (not-empty tag-search)
+             (filter #(clojure.string/starts-with? (get % "name") tag-search))))))
+
+(defn add-filter-tag [state tag]
+  (swap! state update :filter-tags concat [tag])
+  (update-filtered-tags state))
+
+(defn delete-filter-tag [state tag]
+  (swap! state assoc :filter-tags
+         (remove #(= (get % "id") (get tag "id")) (:filter-tags @state)))
+  (update-filtered-tags state))
+
+(defn add-omitted-tag [state tag]
+  (swap! state update :omitted-tags concat [tag])
+  (update-filtered-tags state)
+  (draft-state/query-drafts state (:draft-search @state) true))
+
+(defn delete-omitted-tag [state tag]
+  (swap! state assoc :omitted-tags
+         (remove #(= (get % "id") (get tag "id")) (:omitted-tags @state)))
+  (update-filtered-tags state)
+  (draft-state/query-drafts state (:draft-search @state) true))
+
+(defn clear-filter [state
+                    ^m/TextEditingController
+                    controller]
+  (swap! state assoc :omitted-tags [])
+  (swap! state assoc :filter-tags [])
+  (swap! state assoc :filtered-tags [])
+  (swap! state assoc :tag-search "")
+  (when (empty? (:tag-search @state))
+    (.clear controller))
+  (draft-state/query-drafts state (:draft-search @state) true))
+
+(defn update-tag-search [state content]
+  (swap! state assoc :tag-search content)
+  (update-filtered-tags state))

@@ -1,0 +1,116 @@
+(ns mongol-notes.services.tag
+  (:require
+   ["package:sqflite/sqflite.dart" :as sqf]
+   [mongol-notes.services.sqlite :as sql]))
+
+(declare query-tag-with-name)
+
+(defn create-tag [v]
+  (let [^sqf/Database db (await (sql/initialize-db))
+        result (await (query-tag-with-name v))
+        id1
+        (if (empty? result)
+          (await
+           (.rawInsert db
+                       "INSERT INTO tags (name) values (?)"
+                       [v]))
+          (-> result first (get "id")))]
+    id1))
+
+(defn delete-tag [id]
+  (let [^sqf/Database db (await (sql/initialize-db))]
+    (await
+     (.rawDelete db
+                 "DELETE FROM tags WHERE rowid = ?"
+                 [id]))))
+
+(defn count-tags []
+  (let [^sqf/Database db (await (sql/initialize-db))]
+    (->
+     (await
+      (.rawQuery db "SELECT count(*) as total FROM tags "))
+     first
+     (get "total"))))
+
+(defn all-tags []
+  (let [^sqf/Database db (await (sql/initialize-db))]
+    (await
+     (.rawQuery
+      db
+      "SELECT rowid as id, name, related_num
+       FROM tags 
+       ORDER BY related_num desc
+       ;"))))
+
+(defn query-tags [word]
+  (let [^sqf/Database db (await (sql/initialize-db))]
+    (await
+     (.rawQuery
+      db
+      "SELECT rowid as id, name, related_num
+       FROM tags 
+       WHERE name like '%?%'
+       ORDER BY related_num desc
+       ;"
+      [word]))))
+
+(defn query-tag-with-name [n]
+  (let [^sqf/Database db (await (sql/initialize-db))]
+    (await
+     (.rawQuery
+      db
+      "SELECT rowid as id, name, related_num
+       FROM tags 
+       WHERE name = ?
+       ;"
+      [n]))))
+
+(defn query-note-tags [id]
+  (let [^sqf/Database db (await (sql/initialize-db))]
+    (await
+     (.rawQuery
+      db
+      "SELECT b.tag_id as id, a.name, a.related_num
+       FROM tags a 
+       LEFT JOIN note_tags b ON a.rowid = b.tag_id
+       WHERE b.note_id = ?
+       ORDER BY related_num desc
+       ;"
+      [id]))))
+
+(defn add-note-tag [note_id tag_id]
+  (let [^sqf/Database db (await (sql/initialize-db))]
+    (await
+     (.rawInsert db
+                 "INSERT INTO note_tags (note_id, tag_id) VALUES (?, ?)"
+                 [note_id tag_id]))
+    (await
+     (.rawUpdate db
+                 "UPDATE tags SET related_num = related_num + 1
+                  WHERE rowid = ?"
+                 [tag_id]))))
+
+(defn delete-note-tag [note_id tag_id]
+  (let [^sqf/Database db (await (sql/initialize-db))
+        num (-> 
+             (.rawQuery db "SELECT related_num as num FROM tags
+                            WHERE rowid = ?"
+                        [tag_id])
+             await
+             first
+             (get "num"))]
+    (await
+     (.rawDelete db
+                 "DELETE FROM note_tags 
+                  WHERE note_id = ? and tag_id = ?"
+                 [note_id tag_id]))
+    (if (zero? num)
+      (await
+       (.rawDelete db
+                   "DELETE FROM tags WHERE rowid = ?"
+                   [tag_id]))
+      (await
+       (.rawUpdate db
+                   "UPDATE tags SET related_num = related_num - 1
+                    WHERE rowid = ?"
+                   [tag_id])))))
