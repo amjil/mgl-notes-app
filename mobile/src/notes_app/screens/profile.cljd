@@ -1,0 +1,16 @@
+(ns notes-app.screens.profile
+  (:require
+   ["package:flutter/material.dart" :as m]
+   ["package:persistent_bottom_nav_bar/persistent_tab_view.dart" :as tab]
+   [cljd.flutter.alpha2 :as f]))
+
+(def screen
+  (f/widget
+   (m/Scaffold
+    .appBar nil
+    .body
+    (m/Center
+     .child
+     (m/Text "Profile")))))
+     
+

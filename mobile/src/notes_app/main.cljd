@@ -5,6 +5,7 @@
    ["package:adaptive_theme/adaptive_theme.dart" :as adaptive]
    [cljd.flutter.alpha2 :as f]
    [virtual-keyboard.options :as keyboard-options]
+   [notes-app.widgets.navbar :as nav]
    [notes-app.utils.themes :as themes]
    [notes-app.states.global :as gs]))
 
@@ -37,11 +38,6 @@
                    .theme light
                    .darkTheme dark
                    .debugShowCheckedModeBanner false
-                   .home
-                   (m/Center
-                    .child (mgl/MongolText
-                            " ᠳᠠᠶᠠᠭᠠᠷ ᠰᠠᠶ᠋ᠢᠨ ᠪᠠᠶ᠋ᠢᠨ᠎ᠠ ᠊ᠤᠤ?"
-                            .style (m/TextStyle
-                                    .color m.Colors/blue
-                                    .fontFamily "MongolianBaiZheng"
-                                    .fontSize 32.0))))))))))
+                   .home (nav/bottom-nav)
+                   
+                   )))))))
