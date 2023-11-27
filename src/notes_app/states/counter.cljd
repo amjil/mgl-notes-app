@@ -1,4 +1,4 @@
-(ns mongol-notes.states.counter
+(ns notes-app.states.counter
   (:require 
    [clojure.string :as str]))
 

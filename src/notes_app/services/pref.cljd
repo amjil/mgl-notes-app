@@ -1,4 +1,4 @@
-(ns mongol-notes.services.shared-preferences
+(ns notes-app.services.pref
   (:require 
    ["package:shared_preferences/shared_preferences.dart" :as sp]))
 
@@ -19,6 +19,39 @@
       :bool (await (.setBool prefs (:key info) (:value info)))
       :double (await (.setDouble prefs (:key info) (:value info)))
       :list (await (.setStringList prefs (:key info) (:value info))))))
+
+(defn get-string [k]
+  (await
+   (get-value {:type :string :key k})))
+
+(defn set-string [k v]
+  (await
+   (set-value {:type :string :key k :value v})))
+
+(defn get-int [k]
+  (await
+   (get-value {:type :int :key k})))
+
+(defn set-int [k v]
+  (await
+   (set-value {:type :int :key k :value v})))
+
+(defn get-bool [k]
+  (await
+   (get-value {:type :bool :key k})))
+
+(defn set-bool [k v]
+  (await
+   (set-value {:type :bool :key k :value v})))
+
+(defn get-list [k]
+  (await
+   (get-value {:type :list :key k})))
+
+(defn set-list [k v]
+  (await
+   (set-value {:type :list :key k :value v})))
+
 
 (defn remove-value [k]
   (let [prefs (await (sp.SharedPreferences/getInstance))]

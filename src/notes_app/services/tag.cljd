@@ -1,7 +1,7 @@
-(ns mongol-notes.services.tag
+(ns notes-app.services.tag
   (:require
    ["package:sqflite/sqflite.dart" :as sqf]
-   [mongol-notes.services.sqlite :as sql]))
+   [notes-app.services.sqlite :as sql]))
 
 (declare query-tag-with-name)
 

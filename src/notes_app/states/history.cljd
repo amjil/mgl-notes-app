@@ -1,4 +1,4 @@
-(ns mongol-drafts.states.history
+(ns notes-app.states.history
   (:require
    ["package:flutter/material.dart" :as m]
    ["package:diff_match_patch/diff_match_patch.dart" :as diff-patch]))

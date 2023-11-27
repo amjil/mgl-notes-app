@@ -1,4 +1,4 @@
-(ns mongol-notes.services.sqlite
+(ns notes-app.services.sqlite
   (:require
    ["package:sqflite/sqflite.dart" :as sql]
    ["package:path/path.dart" :as path]))

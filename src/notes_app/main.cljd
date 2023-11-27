@@ -1,9 +1,9 @@
-(ns mongol-notes.main
+(ns notes-app.main
   (:require
    ["package:flutter/material.dart" :as m]
    ["package:mongol/mongol.dart" :as mgl]
    [cljd.flutter.alpha2 :as f]
-   [mongol-notes.widgets.theme :as theme]))
+   [notes-app.widgets.theme :as theme]))
 
 (defn main []
   (m/runApp

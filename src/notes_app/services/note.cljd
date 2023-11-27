@@ -1,8 +1,8 @@
-(ns mongol-notes.services.note
+(ns notes-app.services.note
   (:require
    ["package:sqflite/sqflite.dart" :as sqf]
    ["package:flutter/material.dart" :as m]
-   [mongol-notes.services.sqlite :as sql]))
+   [notes-app.services.sqlite :as sql]))
 
 (defn create-note [v]
   (let [^sqf/Database db (await (sql/initialize-db))

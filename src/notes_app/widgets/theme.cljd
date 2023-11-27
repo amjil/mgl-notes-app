@@ -1,4 +1,4 @@
-(ns mongol-notes.widgets.theme
+(ns notes-app.widgets.theme
   (:require 
    ["package:flutter/material.dart" :as m]))
 

@@ -1,4 +1,4 @@
-(ns mongol-drafts.states.selection
+(ns notes-app.states.selection
   (:require
    ["package:flutter/material.dart" :as m]
    ["package:flutter/services.dart" :as services]))

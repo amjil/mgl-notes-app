@@ -1,7 +1,7 @@
-(ns mongol-notes.states.tag
+(ns notes-app.states.tag
   (:require
    ["package:flutter/material.dart" :as m]
-   [mongol-notes.services.tag :as tag-service]))
+   [notes-app.services.tag :as tag-service]))
 
 (declare update-filtered-tags)
 
