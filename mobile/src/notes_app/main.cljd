@@ -2,21 +2,46 @@
   (:require
    ["package:flutter/material.dart" :as m]
    ["package:mongol/mongol.dart" :as mgl]
+   ["package:adaptive_theme/adaptive_theme.dart" :as adaptive]
    [cljd.flutter.alpha2 :as f]
-   [notes-app.widgets.theme :as theme]))
+   [virtual-keyboard.options :as keyboard-options]
+   [notes-app.utils.themes :as themes]
+   [notes-app.states.global :as gs]))
 
 (defn main []
-  (m/runApp
-   (m/MaterialApp
-    .title "Welcome to Flutter"
-    .theme theme/default-light-theme
-    .darkTheme theme/default-dark-theme
-    .debugShowCheckedModeBanner false
-    .home
-    (m/Center
-     .child (mgl/MongolText
-             " ᠳᠠᠶᠠᠭᠠᠷ ᠰᠠᠶ᠋ᠢᠨ ᠪᠠᠶ᠋ᠢᠨ᠎ᠠ ᠊ᠤᠤ?"
-             .style (m/TextStyle
-                     .color m.Colors/blue
-                     .fontFamily "MongolianBaiZheng"
-                     .fontSize 32.0))))))
+  (m.WidgetsFlutterBinding/ensureInitialized)
+  
+  ;; (let [window (-> m/WidgetsBinding .instance .-window)]
+  ;;   (set!
+  ;;    (.-onPlatformBrightnessChanged window)
+  ;;    (fn []
+  ;;      (dart:core/print (str "brightnes = " (.-platformBrightness window)))
+  ;;      (swap! gs/state assoc :theme/brightness (.-platformBrightness window)))))
+
+  (let [initial-theme (await (themes/initial-theme))]
+    (m/runApp
+     (f/widget
+      :context ctx
+      :let [width  (-> m/MediaQuery (.of ctx) .-size .-width)
+            info (merge keyboard-options/keyboard-option
+                        {:keyboard/key-cap-border-radius 6}
+                        {:keyboard/width width})]
+      :bind {:info info :state gs/state}
+      (adaptive/AdaptiveTheme
+       .light themes/default-light-theme
+       .dark themes/default-dark-theme
+       .initial initial-theme
+       .builder (fn [light dark]
+                  (m/MaterialApp
+                   .title "Welcome to Flutter"
+                   .theme light
+                   .darkTheme dark
+                   .debugShowCheckedModeBanner false
+                   .home
+                   (m/Center
+                    .child (mgl/MongolText
+                            " ᠳᠠᠶᠠᠭᠠᠷ ᠰᠠᠶ᠋ᠢᠨ ᠪᠠᠶ᠋ᠢᠨ᠎ᠠ ᠊ᠤᠤ?"
+                            .style (m/TextStyle
+                                    .color m.Colors/blue
+                                    .fontFamily "MongolianBaiZheng"
+                                    .fontSize 32.0))))))))))
