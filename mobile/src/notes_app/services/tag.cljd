@@ -21,7 +21,7 @@
   (let [^sqf/Database db (await (sql/initialize-db))]
     (await
      (.rawDelete db
-                 "DELETE FROM tags WHERE rowid = ?"
+                 "DELETE FROM tags WHERE id = ?"
                  [id]))))
 
 (defn count-tags []
@@ -37,7 +37,7 @@
     (await
      (.rawQuery
       db
-      "SELECT rowid as id, name, related_num
+      "SELECT id, name, related_num
        FROM tags 
        ORDER BY related_num desc
        ;"))))
@@ -47,7 +47,7 @@
     (await
      (.rawQuery
       db
-      "SELECT rowid as id, name, related_num
+      "SELECT id, name, related_num
        FROM tags 
        WHERE name like '%?%'
        ORDER BY related_num desc
@@ -72,7 +72,7 @@
       db
       "SELECT b.tag_id as id, a.name, a.related_num
        FROM tags a 
-       LEFT JOIN note_tags b ON a.rowid = b.tag_id
+       LEFT JOIN note_tags b ON a.id = b.tag_id
        WHERE b.note_id = ?
        ORDER BY related_num desc
        ;"
@@ -87,14 +87,14 @@
     (await
      (.rawUpdate db
                  "UPDATE tags SET related_num = related_num + 1
-                  WHERE rowid = ?"
+                  WHERE id = ?"
                  [tag_id]))))
 
 (defn delete-note-tag [note_id tag_id]
   (let [^sqf/Database db (await (sql/initialize-db))
         num (-> 
              (.rawQuery db "SELECT related_num as num FROM tags
-                            WHERE rowid = ?"
+                            WHERE id = ?"
                         [tag_id])
              await
              first
@@ -112,5 +112,5 @@
       (await
        (.rawUpdate db
                    "UPDATE tags SET related_num = related_num - 1
-                    WHERE rowid = ?"
+                    WHERE id = ?"
                    [tag_id])))))

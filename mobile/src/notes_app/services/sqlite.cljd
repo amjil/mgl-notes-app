@@ -1,7 +1,8 @@
 (ns notes-app.services.sqlite
   (:require
    ["package:sqflite/sqflite.dart" :as sql]
-   ["package:path/path.dart" :as path]))
+   ["package:path/path.dart" :as path]
+   [notes-app.services.pref :as perf]))
 
 (declare add-column-if-not-exists)
 
@@ -10,27 +11,41 @@
                           "database.db")]
     (sql/openDatabase dbpath
                       .onCreate (fn [^sql/Database db version]
-                                  (.execute db "CREATE TABLE IF NOT EXISTS folders(name varchar(100))")
-                                  (.execute db "CREATE VIRTUAL TABLE IF NOT EXISTS notes USING fts4(content TEXT)")
-                                  (.execute db "CREATE TABLE IF NOT EXISTS note_info (
-                                                         folder_id integer DEFAULT 0, 
-                                                         note_id integer primary key,
-                                                         flag boolean NOT NULL DEFAULT 0,
-                                                         status smallint NOT NULL DEFAULT 0,
-                                                         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP, 
-                                                         updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP)")
-                                  (.execute db "CREATE TABLE IF NOT EXISTS tags(folder_id integer DEFAULT 0, name varchar(100), related_num integer DEFAULT 0)")
-                                  (.execute db "CREATE TABLE IF NOT EXISTS note_tags(tag_id integer, note_id integer)")
-                                  (.execute db "CREATE INDEX IF NOT EXISTS note_tags_index_tag ON note_tags(tag_id)")
-                                  (.execute db "CREATE INDEX IF NOT EXISTS note_tags_index_note ON note_tags(note_id)")
-
-                                  (add-column-if-not-exists
-                                   db "note_info" "flag"
-                                   "ALTER TABLE note_info ADD COLUMN flag boolean NOT NULL DEFAULT 0;")
-                                  (add-column-if-not-exists
-                                   db "note_info" "status"
-                                   "ALTER TABLE note_info ADD COLUMN status smallint NOT NULL DEFAULT 0;"))
+                                  (init-database db)
+                                  )
                       .version 1)))
+
+(defn init-database [^sql/Database db]
+  (let [result (await (perf/get-int "db-version"))]
+    (cond
+      (nil? result)
+      (do
+        ;; ALL table's id is THE UUID because of sync with multi platforms, awoid Id confilicts.
+        ;;   - Except the notes table, it's a virtual table & it's rowid is always integer. 
+        ;;   - Don't add uuid id to virtual table, it will be indexed.
+        (await (.execute db "CREATE TABLE IF NOT EXISTS folders(id uuid primary key, name varchar(100))"))
+        (await (.execute db "CREATE VIRTUAL TABLE IF NOT EXISTS notes USING fts4(content TEXT)"))
+        (await (.execute db "CREATE TABLE IF NOT EXISTS note_infos (
+                                                                 id uuid primary key,
+                                                                 folder_id uuid, 
+                                                                 note_id integer,
+                                                                 flag boolean NOT NULL DEFAULT 0,
+                                                                 status smallint NOT NULL DEFAULT 0,
+                                                                 created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP, 
+                                                                 updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP)"))
+        (await (.execute db "CREATE INDEX IF NOT EXISTS note_info_index_folder ON note_infos(folder_id)"))
+        (await (.execute db "CREATE INDEX IF NOT EXISTS note_info_index_note ON note_infos(note_id)"))
+        (await (.execute db "CREATE TABLE IF NOT EXISTS tags(id uuid, name varchar(100), related_num integer DEFAULT 0)"))
+        (await (.execute db "CREATE TABLE IF NOT EXISTS note_tags(tag_id uuid, note_id uuid)"))
+        (await (.execute db "CREATE INDEX IF NOT EXISTS note_tags_index_tag ON note_tags(tag_id)"))
+        (await (.execute db "CREATE INDEX IF NOT EXISTS note_tags_index_note ON note_tags(note_id)"))
+        (await (.execute db "CREATE TABLE IF NOT EXISTS waiting_for_sync(id uuid, table_id varchar(20), column_id uuid, 
+                                                                         types_of smallint diff varchar(1000), 
+                                                                         status smallint default 0,
+                                                                         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP)"))
+        (perf/set-int "db-version" 1))
+      :else (dart:core/print "init-database :else"))))
+        
 
 (defn add-column-if-not-exists [^sql/Database db table column new-column-sql]
   (let [sql (str "SELECT COUNT (*) AS CNTREC 

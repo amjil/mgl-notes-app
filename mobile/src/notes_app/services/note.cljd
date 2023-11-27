@@ -4,7 +4,7 @@
    ["package:flutter/material.dart" :as m]
    [notes-app.services.sqlite :as sql]))
 
-(defn create-note [v]
+(defn create-note [dir id v]
   (let [^sqf/Database db (await (sql/initialize-db))
         id1 (await
              (.rawInsert db
@@ -12,8 +12,8 @@
                          [v]))
         _ (await
            (.rawInsert db
-                       "INSERT INTO note_info (note_id) values (?)"
-                       [id1]))]
+                       "INSERT INTO note_infos (folder_id, id, note_id) values (?, ?, ?)"
+                       [dir id id1]))]
     id1))
 
 (defn delete-note [id]
@@ -24,7 +24,7 @@
                  [id]))
     (await
      (.rawDelete db
-                 "DELETE FROM note_info WHERE note_id = ?"
+                 "DELETE FROM note_infos WHERE note_id = ?"
                  [id]))))
 
 
@@ -38,35 +38,35 @@
 (defn flag-note [id]
   (let [^sqf/Database db (await (sql/initialize-db))
         num (await (.rawUpdate db
-                               "UPDATE note_info SET flag = 1 WHERE rowid = ?"
+                               "UPDATE note_infos SET flag = 1 WHERE id = ?"
                                [id]))]
     num))
 
 (defn unflag-note [id]
   (let [^sqf/Database db (await (sql/initialize-db))
         num (await (.rawUpdate db
-                               "UPDATE note_info SET flag = 0 WHERE rowid = ?"
+                               "UPDATE note_infos SET flag = 0 WHERE id = ?"
                                [id]))]
     num))
 
 (defn recycle-note [id]
   (let [^sqf/Database db (await (sql/initialize-db))
         num (await (.rawUpdate db
-                               "UPDATE note_info SET status = -1 WHERE rowid = ?"
+                               "UPDATE note_infos SET status = -1 WHERE id = ?"
                                [id]))]
     num))
 
 (defn archive-note [id]
   (let [^sqf/Database db (await (sql/initialize-db))
         num (await (.rawUpdate db
-                               "UPDATE note_info SET status = 1 WHERE rowid = ?"
+                               "UPDATE note_infos SET status = 1 WHERE id = ?"
                                [id]))]
     num))
 
 (defn inbox-note [id]
   (let [^sqf/Database db (await (sql/initialize-db))
         num (await (.rawUpdate db
-                               "UPDATE note_info SET status = 0 WHERE rowid = ?"
+                               "UPDATE note_infos SET status = 0 WHERE rowid = ?"
                                [id]))]
     num))
   
@@ -75,10 +75,10 @@
     (await
      (.rawQuery
       db
-      "select a.*, b.content, b.rowid as id 
+      "select a.*, b.content
        from note_info a 
           left join notes b on a.note_id = b.rowid 
-       where b.rowid = ?
+       where a.id = ?
        order by a.note_id desc
        limit 1
        ;"
