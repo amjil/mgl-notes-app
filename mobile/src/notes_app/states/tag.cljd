@@ -1,7 +1,8 @@
 (ns notes-app.states.tag
   (:require
    ["package:flutter/material.dart" :as m]
-   [notes-app.services.tag :as tag-service]))
+   [notes-app.services.tag :as tag-service]
+   [notes-app.states.global :as gs]))
 
 (declare update-filtered-tags)
 
@@ -28,10 +29,10 @@
     (swap! state assoc :tags result)
     (update-filtered-tags state)))
 
-(defn all-tags [state]
+(defn all-tags []
   (let [result (await (tag-service/all-tags))]
-    (swap! state assoc :tags result)
-    (update-filtered-tags state)))
+    (swap! gs/state assoc :tags result)
+    (update-filtered-tags gs/state)))
 
 (defn update-filtered-tags [state]
   (let [tag-in-ids (:filter-tags @state)
@@ -60,14 +61,12 @@
 
 (defn add-omitted-tag [state tag]
   (swap! state update :omitted-tags concat [tag])
-  (update-filtered-tags state)
-  (draft-state/query-drafts state (:draft-search @state) true))
+  (update-filtered-tags state))
 
 (defn delete-omitted-tag [state tag]
   (swap! state assoc :omitted-tags
          (remove #(= (get % "id") (get tag "id")) (:omitted-tags @state)))
-  (update-filtered-tags state)
-  (draft-state/query-drafts state (:draft-search @state) true))
+  (update-filtered-tags state))
 
 (defn clear-filter [state
                     ^m/TextEditingController
@@ -77,8 +76,7 @@
   (swap! state assoc :filtered-tags [])
   (swap! state assoc :tag-search "")
   (when (empty? (:tag-search @state))
-    (.clear controller))
-  (draft-state/query-drafts state (:draft-search @state) true))
+    (.clear controller)))
 
 (defn update-tag-search [state content]
   (swap! state assoc :tag-search content)

@@ -7,10 +7,20 @@
    [virtual-keyboard.options :as keyboard-options]
    [notes-app.screens.home :as home]
    [notes-app.utils.themes :as themes]
-   [notes-app.states.global :as gs]))
+   [notes-app.states.global :as gs]
+   [notes-app.states.folder :as folder-state]
+   [notes-app.states.tag :as tag-state]
+   [notes-app.states.profile :as profile-state]))
 
 (defn main []
   (m.WidgetsFlutterBinding/ensureInitialized)
+  
+  ;;
+  (profile-state/prepopulate-profile-settings)
+  
+  (folder-state/all-folders)
+  (tag-state/all-tags)
+
   
   (let [initial-theme (await (themes/initial-theme))]
     (m/runApp
