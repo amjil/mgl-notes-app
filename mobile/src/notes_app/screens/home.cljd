@@ -1,16 +1,47 @@
 (ns notes-app.screens.home
   (:require
    ["package:flutter/material.dart" :as m]
-   ["package:persistent_bottom_nav_bar/persistent_tab_view.dart" :as tab]
-   [cljd.flutter.alpha2 :as f]))
+   [cljd.flutter.alpha2 :as f]
+   [notes-app.widgets.folders-list :as folders-list]))
 
 (def screen
   (f/widget
+   :context ctx
+  ;;  :watch 
    (m/Scaffold
-    .appBar nil
-    .body
-    (m/Center
-     .child
-     (m/Text "Home")))))
+    .appBar nil)
+   .body
+   (m/Column
+    .mainAxisAlignment m.MainAxisAlignment/center
+    .crossAxisAlignment m.CrossAxisAlignment/stretch
+    .children
+    [(m/Expanded
+      .child
+      (m/SafeArea
+       .bottom false
+       .child
+       (folders-list/list-view)))
+     (m/Container
+      .width double/infinity
+      .decoration (m/BoxDecoration
+                   .border (m/Border
+                            .top (m/BorderSide
+                                  .color (-> m/Theme (.of ctx) .-colorScheme .-outlineVariant))))
+      .child
+      (m/SafeArea
+       .top false
+       .child
+       (m/Row
+        .mainAxisAlignment m.MainAxisAlignment/spaceBetween
+        .children [(m/IconButton
+                    .padding (m.EdgeInsets/all 12)
+                    .constraints (m/BoxConstraints)
+                    .icon (m/Icon m.Icons/create_new_folder)
+                    .onPressed #(dart:core/print "xxxx"))
+                   (m/IconButton
+                    .padding (m.EdgeInsets/all 12)
+                    .constraints (m/BoxConstraints)
+                    .icon (m/Icon m.Icons/edit)
+                    .onPressed #(dart:core/print "xxxx"))])))])))
      
 

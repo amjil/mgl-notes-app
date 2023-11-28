@@ -1,0 +1,39 @@
+(ns notes-app.widgets.folders-list
+  (:require 
+   ["package:flutter/material.dart" :as m]
+   ["package:mongol/mongol.dart" :as mgl]
+   [cljd.flutter.alpha2 :as f]
+   [notes-app.states.global :as gs]
+   [notes-app.utils.colors :as colors]))
+   
+   
+(defn list-item [item]
+  (m/Column
+   .mainAxisAlignment m.MainAxisAlignment/center
+   .children [(m/Expanded
+               .child (mgl/MongolText (get item "name")))
+              (mgl/MongolText (get item "related_num"))]))
+
+(defn list-view []
+  (f/widget
+   :context ctx
+   :watch [{folders :folders} gs/state]
+   (m/SingleChildScrollView
+    .scrollDirection m.Axis/horizontal)
+   (m/Row
+    .crossAxisAlignment m.CrossAxisAlignment/start
+    .children
+    [(mgl/MongolText "Folders"
+                     .style (m/TextStyle
+                             .fontSize 20
+                             .color (-> m/Theme (.of ctx) .-colorScheme .-primary)
+                             .fontWeight m.FontWeight/w600))
+     (m.ListView/separated
+      .scrollDirection m.Axis/horizontal
+      .physics (m/NeverScrollableScrollPhysics)
+      .separatorBuilder (fn [context i]
+                          (m/VerticalDivider))
+      .itemCount (count folders)
+      .itemBuilder (fn [context i]
+                     (list-item (nth folders i)))
+      .shrinkWrap true)])))

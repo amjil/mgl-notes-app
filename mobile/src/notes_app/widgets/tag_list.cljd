@@ -1,0 +1,28 @@
+(ns notes-app.widgets.tag-list
+  (:require
+   ["package:flutter/material.dart" :as m]
+   ["package:mongol/mongol.dart" :as mgl]
+   [cljd.flutter.alpha2 :as f]
+   [notes-app.states.global :as gs]))
+   
+(defn list-item [item]
+  (m/Container 
+   .child (mgl/MongolText item)))
+   
+(defn list-view []
+  (f/widget 
+   :watch [{tags :tags} gs/state]
+   (m/SingleChildScrollView
+    .scrollDirection m.Axis/horizontal)
+   (m/Row
+    .children
+    [(mgl/MongolText "Tags")
+     (m.ListView/separated
+      .scrollDirection m.Axis/horizontal
+      .physics (m/NeverScrollableScrollPhysics)
+      .separatorBuilder (fn [context i]
+                          (m/VerticalDivider))
+      .itemCount (count tags)
+      .itemBuilder (fn [context i]
+                     (list-item (nth tags i)))
+      .shrinkWrap true)])))

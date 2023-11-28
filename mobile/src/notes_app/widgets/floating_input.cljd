@@ -1,0 +1,85 @@
+(ns notes-app.widgets.floating-input
+  (:require
+   ["package:flutter/material.dart" :as m]
+   ["package:mongol/mongol.dart" :as mgl]
+   [cljd.flutter.alpha2 :as f]
+   [virtual-keyboard.keyboard :as keyboard]
+   [virtual-keyboard.options :as keyboard-options]
+   [virtual-keyboard.keyboard-action :as keyboard-action]
+   [menu-bar.menu :as menu]
+   [notes-app.states.global :as gs]))
+
+(defn ^m/Widget input-box [value]
+  (f/widget
+   :context ctx
+   :get [:info]
+   :let [w (-> m/MediaQuery (.of ctx) .-size .-width)
+         h (-> m/MediaQuery (.of ctx) .-size .-height)
+         text-controller (:keyboard/text-controller @gs/state)]
+   :watch [{candidates-list :keyboard/candidates-list
+            keyboard-height :keyboard-height
+            {in-app-keyboard "in-app-keyboard"} :profile} gs/state
+           text-value value]
+   :bg-watcher ([^m/TextEditingValue {input-text .-text} text-controller]
+                (reset! value input-text))
+   (m/Column
+    ;; .crossAxisAlignment m.CrossAxisAlignment/stretch
+    .mainAxisAlignment m.MainAxisAlignment/start
+    .children
+    [(m/Expanded
+      .child
+      (m/Stack
+       .children
+       [(m/Container
+         .width double/infinity
+         .height double/infinity
+         .child
+         (m/GestureDetector
+          .child
+          (m/Container
+           .color m.Colors/transparent
+           .width double/infinity
+           .height double/infinity)
+          .onTap (fn []
+                   (swap! gs/state assoc :floating-input false))))
+        (m/Container
+         .height (if (true? in-app-keyboard)
+                   nil
+                   (- h keyboard-height 60))
+         .padding (.all m/EdgeInsets 5)
+         .decoration (m/BoxDecoration
+                      .color m.Colors/white
+                      .borderRadius
+                      (.all m/BorderRadius (.circular m/Radius 10))
+                      .border (.all m/Border .width 0.1))
+        ;;  .constraints (m/BoxConstraints
+        ;;                .minHeight double/infinity
+        ;;                .minWidth 100
+        ;;                .maxWidth (/ w 2))
+         .child
+         (mgl/MongolTextField
+          .controller (get @gs/state :keyboard/text-controller)
+          .style (m/TextStyle .fontSize 22)
+          .decoration (m/InputDecoration
+                       .border m.InputBorder/none)
+          .showCursor true
+          .autofocus true
+          .readOnly (if (true? in-app-keyboard) true false)))
+        (m/Positioned
+         .bottom 10
+         .right 0
+         .left 0
+         .child
+         (menu/menu {:bar {:elavation 10
+                           :background-color
+                           (-> m/Theme (.of ctx) .-colorScheme .-tertiaryContainer)}
+                     :item {:on-tap (fn [x] (keyboard-action/on-candidates-clicked x gs/state info))}}
+                    candidates-list))]))
+     (if (true? in-app-keyboard)
+       (m/Container
+        .color (-> m/Theme (.of ctx) .-colorScheme .-background)
+        .child
+        (m/IntrinsicHeight
+         .child
+         (keyboard/keyboard)))
+       (m/Container))])))
