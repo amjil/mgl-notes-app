@@ -5,20 +5,13 @@
    ["package:adaptive_theme/adaptive_theme.dart" :as adaptive]
    [cljd.flutter.alpha2 :as f]
    [virtual-keyboard.options :as keyboard-options]
-   [notes-app.widgets.navbar :as nav]
+   [notes-app.screens.home :as home]
    [notes-app.utils.themes :as themes]
    [notes-app.states.global :as gs]))
 
 (defn main []
   (m.WidgetsFlutterBinding/ensureInitialized)
   
-  ;; (let [window (-> m/WidgetsBinding .instance .-window)]
-  ;;   (set!
-  ;;    (.-onPlatformBrightnessChanged window)
-  ;;    (fn []
-  ;;      (dart:core/print (str "brightnes = " (.-platformBrightness window)))
-  ;;      (swap! gs/state assoc :theme/brightness (.-platformBrightness window)))))
-
   (let [initial-theme (await (themes/initial-theme))]
     (m/runApp
      (f/widget
@@ -38,6 +31,4 @@
                    .theme light
                    .darkTheme dark
                    .debugShowCheckedModeBanner false
-                   .home (nav/bottom-nav)
-                   
-                   )))))))
+                   .home home/screen)))))))

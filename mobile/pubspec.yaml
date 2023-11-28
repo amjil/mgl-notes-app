@@ -42,10 +42,10 @@ dependencies:
   mongol: ^6.0.1
   mongol_code: ^0.3.0
   path: ^1.8.3
-  persistent_bottom_nav_bar: ^5.0.2
   shared_preferences: ^2.2.1
   sqflite: ^2.3.0
   sqlite3_flutter_libs: ^0.5.18
+  uuid: ^4.2.1
   vibration: ^1.8.1
 
 dev_dependencies:
