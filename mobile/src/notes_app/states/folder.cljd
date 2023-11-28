@@ -1,0 +1,18 @@
+(ns notes-app.states.folder
+  (:require 
+   [notes-app.services.folder :as service]
+   [notes-app.states.global :as gs])) 
+   
+(declare all-folders)
+
+(defn create-folder [name]
+  (service/create-folder name)
+  (all-folders))
+  
+(defn delete-folder [id]
+  (service/delete-folder id)
+  (all-folders))
+  
+(defn all-folders []
+  (let [result (await (service/all-folders))]
+    (swap! gs/state assoc :folders result)))

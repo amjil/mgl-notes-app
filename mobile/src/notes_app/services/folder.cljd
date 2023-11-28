@@ -1,0 +1,57 @@
+(ns notes-app.services.folder
+  (:require
+   ["package:sqflite/sqflite.dart" :as sqf]
+   ["package:uuid/uuid.dart" :as uuid]
+   [notes-app.services.sqlite :as sql]))
+
+(declare query-folder-with-name)
+
+(defn create-folder [v]
+  (let [^sqf/Database db (await (sql/initialize-db))
+        result (await (query-folder-with-name v))
+        uuid (uuid/Uuid)
+        id (.v4 uuid)
+        id1
+        (if (empty? result)
+          (await
+           (.rawInsert db
+                       "INSERT INTO folders (id, name) values (?, ?)"
+                       [id v]))
+          (-> result first (get "id")))]
+    id1))
+    
+(defn update-folder [id name]
+  (let [^sqf/Database db (await (sql/initialize-db))
+        num (await (.rawUpdate db
+                               "UPDATE folders SET name = ? WHERE id = ?"
+                               [name id]))]
+    num))
+
+
+(defn delete-folder [id]
+  (let [^sqf/Database db (await (sql/initialize-db))]
+    (await
+     (.rawDelete db
+                 "DELETE FROM folders WHERE id = ?"
+                 [id]))))
+
+(defn all-folders []
+  (let [^sqf/Database db (await (sql/initialize-db))]
+    (await
+     (.rawQuery
+      db
+      "SELECT id, name, order_num, related_num
+       FROM folders 
+       ORDER BY order_num desc
+       ;"))))
+
+(defn query-folder-with-name [n]
+  (let [^sqf/Database db (await (sql/initialize-db))]
+    (await
+     (.rawQuery
+      db
+      "SELECT id, name
+       FROM folders 
+       WHERE name = ?
+       ;"
+      [n]))))
