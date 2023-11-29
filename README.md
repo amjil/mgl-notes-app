@@ -2,6 +2,12 @@
 
 A new Flutter project.
 
+## Mobile App Screenshots
+<p  float="left">
+    <img src="screenshots/screenshot1.png" width="200">
+    <img src="screenshots/screenshot2.png" width="200">
+</p>
+
 ## Getting Started
 
 This project is a starting point for a Flutter application.
