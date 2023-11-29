@@ -3,11 +3,13 @@
    ["package:flutter/material.dart" :as m]
    [cljd.flutter.alpha2 :as f]
    [notes-app.widgets.folders-list :as folders-list]
-   [notes-app.utils.bottom-sheet :as bottom-sheet]))
+   [notes-app.utils.bottom-sheet :as bottom-sheet]
+   [notes-app.states.global :as gs]))
 
 (def screen
   (f/widget
    :context ctx
+   :managed [text-controller (m/TextEditingController)]
   ;;  :watch 
    (m/Scaffold
     .appBar nil)
@@ -39,9 +41,8 @@
                     .constraints (m/BoxConstraints)
                     .icon (m/Icon m.Icons/create_new_folder)
                     .onPressed (fn []
-                                ;;  (dart:core/print (-> m/MediaQuery (.of ctx) .-size .-height))
-                                 (bottom-sheet/modal-bottom-sheet ctx nil)
-                                 ))
+                                 (swap! gs/state assoc :keyboard/text-controller text-controller)
+                                 (bottom-sheet/modal-bottom-sheet ctx nil)))
                    (m/IconButton
                     .padding (m.EdgeInsets/all 12)
                     .constraints (m/BoxConstraints)

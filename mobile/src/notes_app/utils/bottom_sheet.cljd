@@ -2,7 +2,7 @@
   (:require 
    ["package:flutter/material.dart" :as m]
    [cljd.flutter.alpha2 :as f]
-   [notes-app.widgets.floating-input :as floating-input]))
+   [notes-app.widgets.text-input :as text-input]))
    
 (defn modal-bottom-sheet [^m/BuildContext ctx child]
   (m/showModalBottomSheet
@@ -16,6 +16,8 @@
        (f/widget
         (m/FractionallySizedBox
          .heightFactor 0.9)
+        (m/Scaffold)
+        .body
         (m/Container)
         (m/SafeArea .top false)
-        (floating-input/input-box text))))))
+        (text-input/input-box text))))))

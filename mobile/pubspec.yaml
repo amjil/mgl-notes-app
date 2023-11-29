@@ -38,6 +38,7 @@ dependencies:
   adaptive_theme: ^3.4.1
   cupertino_icons: ^1.0.6
   diff_match_patch: ^0.4.1
+  keyboard_height_plugin: ^0.0.4
   flutter_keyboard_visibility: ^5.4.1
   http: ^1.1.0
   mongol: ^6.0.1

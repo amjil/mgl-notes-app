@@ -17,4 +17,6 @@
            :current-layout "mg"
            ;; lock for bg-watcher text-controller
            :edit-watcher/lock 2
-           :draft/tabbar-index 0})))
+           :draft/tabbar-index 0
+           
+           :keyboard-height 0})))

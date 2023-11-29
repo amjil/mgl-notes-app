@@ -71,7 +71,7 @@
    .scaffoldBackgroundColor (-> m/Colors .black45)
    .colorScheme
    (.dark m/ColorScheme
-          .primary m.Colors/white
+          .primary m.Colors/blueGrey
           .onPrimary m.Colors/white
           .outlineVariant (-> m/Colors .yellowAccent)
           .secondary m.Colors/red
