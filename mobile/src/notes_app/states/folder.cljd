@@ -1,13 +1,18 @@
 (ns notes-app.states.folder
-  (:require 
+  (:require
+   ["package:flutter/material.dart" :as m]
    [notes-app.services.folder :as service]
-   [notes-app.states.global :as gs])) 
+   [notes-app.states.global :as gs]
+   [notes-app.utils.util :as util])) 
    
 (declare all-folders)
 
-(defn create-folder [name]
-  (service/create-folder name)
-  (all-folders))
+(defn create-folder [ctx name]
+  (let [result (await (service/create-folder name))]
+    (if (nil? result)
+      (util/show-toast ctx "message!")
+      (do (all-folders)
+          (-> m/Navigator (.of ctx) .pop)))))
   
 (defn delete-folder [id]
   (service/delete-folder id)

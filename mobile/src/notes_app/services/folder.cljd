@@ -17,7 +17,7 @@
            (.rawInsert db
                        "INSERT INTO folders (id, name) values (?, ?)"
                        [id v]))
-          (-> result first (get "id")))]
+          nil)]
     id1))
     
 (defn update-folder [id name]

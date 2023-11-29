@@ -12,12 +12,11 @@
            .borderRadius (m.BorderRadius/vertical .top (m.Radius/circular 20)))
    .builder
    (fn [^m/BuildContext context]
-     (let [text (atom "")]
-       (f/widget
-        (m/FractionallySizedBox
-         .heightFactor 0.9)
-        (m/Scaffold)
-        .body
-        (m/Container)
-        (m/SafeArea .top false)
-        (text-input/input-box text))))))
+     (f/widget
+      (m/FractionallySizedBox
+       .heightFactor 0.9)
+      (m/Scaffold)
+      .body
+      (m/Container)
+      (m/SafeArea .top false)
+      (text-input/input-box)))))

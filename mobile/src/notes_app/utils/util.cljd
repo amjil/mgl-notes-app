@@ -1,0 +1,41 @@
+(ns finance-app.utils.util
+  (:require
+   ["package:flutter/material.dart" :as m]
+   ["package:mongol/mongol.dart" :as mgl]
+   ["package:flutter_styled_toast/flutter_styled_toast.dart" :as styled-toast]
+   [cljd.flutter.alpha2 :as f]))
+
+(defn show-toast [ctx msg]
+  (styled-toast/showToastWidget
+   (m/Container
+    .padding (m.EdgeInsets/all 18)
+    .decoration (m/BoxDecoration
+                 .borderRadius (.all m/BorderRadius (.circular m/Radius 20))
+                 .color m.Colors/blueAccent)
+    .child
+    (mgl/MongolText msg)) 
+   .context ctx
+   .reverseAnimation styled-toast.StyledToastAnimation/fade
+   .animation styled-toast.StyledToastAnimation/fade
+   .position styled-toast.StyledToastPosition/center))
+   
+(defn show-confirm-dialog [ctx msg callback]
+  (m/showDialog
+   .context ctx
+   .builder (f/build
+             (f/widget
+              :context ctx
+              :get [m/Navigator]
+              (m/WillPopScope
+               .onWillPop ^:async (fn [] false)
+               .child
+               (mgl/MongolAlertDialog
+                .content (mgl/MongolText msg)
+                .actions [(mgl/MongolTextButton .child (mgl/MongolText "ᠲᠡᠢᠮᠦ")
+                                                .onPressed (fn [] 
+                                                             (callback)
+                                                             (.pop navigator)))
+                          (mgl/MongolTextButton .child (mgl/MongolText "ᠦᠭᠡᠢ")
+                                                .onPressed (fn []
+                                                             (.pop navigator)))]))))))
+                                                             
