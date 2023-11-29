@@ -1,0 +1,21 @@
+(ns notes-app.utils.bottom-sheet
+  (:require 
+   ["package:flutter/material.dart" :as m]
+   [cljd.flutter.alpha2 :as f]
+   [notes-app.widgets.floating-input :as floating-input]))
+   
+(defn modal-bottom-sheet [^m/BuildContext ctx child]
+  (m/showModalBottomSheet
+   .context ctx
+   .isScrollControlled true
+   .shape (m/RoundedRectangleBorder
+           .borderRadius (m.BorderRadius/vertical .top (m.Radius/circular 20)))
+   .builder
+   (fn [^m/BuildContext context]
+     (let [text (atom "")]
+       (f/widget
+        (m/FractionallySizedBox
+         .heightFactor 0.9)
+        (m/Container)
+        (m/SafeArea .top false)
+        (floating-input/input-box text))))))

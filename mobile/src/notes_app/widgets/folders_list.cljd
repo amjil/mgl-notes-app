@@ -1,10 +1,9 @@
 (ns notes-app.widgets.folders-list
-  (:require 
+  (:require
    ["package:flutter/material.dart" :as m]
    ["package:mongol/mongol.dart" :as mgl]
    [cljd.flutter.alpha2 :as f]
-   [notes-app.states.global :as gs]
-   [notes-app.utils.colors :as colors]))
+   [notes-app.states.global :as gs]))
    
    
 (defn list-item [item]

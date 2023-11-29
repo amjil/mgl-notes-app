@@ -2,7 +2,8 @@
   (:require
    ["package:flutter/material.dart" :as m]
    [cljd.flutter.alpha2 :as f]
-   [notes-app.widgets.folders-list :as folders-list]))
+   [notes-app.widgets.folders-list :as folders-list]
+   [notes-app.utils.bottom-sheet :as bottom-sheet]))
 
 (def screen
   (f/widget
@@ -37,7 +38,10 @@
                     .padding (m.EdgeInsets/all 12)
                     .constraints (m/BoxConstraints)
                     .icon (m/Icon m.Icons/create_new_folder)
-                    .onPressed #(dart:core/print "xxxx"))
+                    .onPressed (fn []
+                                ;;  (dart:core/print (-> m/MediaQuery (.of ctx) .-size .-height))
+                                 (bottom-sheet/modal-bottom-sheet ctx nil)
+                                 ))
                    (m/IconButton
                     .padding (m.EdgeInsets/all 12)
                     .constraints (m/BoxConstraints)
