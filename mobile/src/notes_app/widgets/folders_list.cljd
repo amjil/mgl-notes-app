@@ -19,6 +19,7 @@
      .child
      (slidable/folder
       i
+      item
       (m/Container
        .width 40
        .child

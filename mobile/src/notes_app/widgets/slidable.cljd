@@ -1,9 +1,10 @@
 (ns notes-app.widgets.slidable
   (:require 
    ["package:flutter/material.dart" :as m]
-   ["package:flutter_slidable/flutter_slidable.dart" :as slidable]))
+   ["package:flutter_slidable/flutter_slidable.dart" :as slidable]
+   [notes-app.states.folder :as folder-state]))
    
-(defn folder [i child]
+(defn folder [i item child]
   (slidable/Slidable
    .key (m/ValueKey i)
    .direction m/Axis.vertical
@@ -32,7 +33,7 @@
                               .icon (.inbox_outlined m/Icons))
      (slidable/SlidableAction .onPressed
                               (fn [context]
-                                (dart:core/print "slide333"))
+                                (folder-state/delete-folder (get item "id")))
                               .backgroundColor (.red m/Colors)
                               .foregroundColor (.white m/Colors)
                               .padding (m.EdgeInsets/all 0)
