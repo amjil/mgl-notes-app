@@ -8,38 +8,40 @@
     [notes-app.screens.folder :as folder-screen]))
 
  (defn list-item [i item]
-    (slidable/folder
-     i
-     (f/widget
-      :get [m/Navigator]
-      (m/GestureDetector
-       .onTap (fn []
-                (.push navigator
-                       (#/(m/MaterialPageRoute Object)
-                        .builder (f/build folder-screen/screen)))
-                nil))
+   (f/widget
+    :get [m/Navigator]
+    (m/GestureDetector
+     .onTap (fn []
+              (.push navigator
+                     (#/(m/MaterialPageRoute Object)
+                      .builder (f/build folder-screen/screen)))
+              nil)
+     .child
+     (slidable/folder
+      i
       (m/Container
-       .width 40)
-      (m/Column
-       .mainAxisAlignment m.MainAxisAlignment/center
-       .children [(m/Expanded
-                   .child (m/Column
-                           .children
-                           [(m/Icon m.Icons/folder)
-                            (m/SizedBox .height 10)
-                            (mgl/MongolText
-                             (get item "name")
-                             .maxLines 1
-                             .softWrap true
-                             .overflow m.TextOverflow/ellipsis
-                             .style (m/TextStyle
-                                     .fontSize 20))]))
-                  (m/Padding
-                   .padding (m.EdgeInsets/only .bottom 10)
-                   .child
-                   (m/Column
-                    .children [(mgl/MongolText (str (get item "related_num")))
-                               (m/Icon m.Icons/keyboard_arrow_down_outlined)]))]))))
+       .width 40
+       .child
+       (m/Column
+        .mainAxisAlignment m.MainAxisAlignment/center
+        .children [(m/Expanded
+                    .child (m/Column
+                            .children
+                            [(m/Icon m.Icons/folder)
+                             (m/SizedBox .height 10)
+                             (mgl/MongolText
+                              (get item "name")
+                              .maxLines 1
+                              .softWrap true
+                              .overflow m.TextOverflow/ellipsis
+                              .style (m/TextStyle
+                                      .fontSize 20))]))
+                   (m/Padding
+                    .padding (m.EdgeInsets/only .bottom 10)
+                    .child
+                    (m/Column
+                     .children [(mgl/MongolText (str (get item "related_num")))
+                                (m/Icon m.Icons/keyboard_arrow_down_outlined)]))]))))))
 
 (defn list-view []
   (f/widget
