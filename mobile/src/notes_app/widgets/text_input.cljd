@@ -30,6 +30,7 @@
            text-controller (:keyboard/text-controller @gs/state)]
      :watch [{candidates-list :keyboard/candidates-list
               keyboard-height :keyboard-height
+              current-folder :current-folder
               {in-app-keyboard "in-app-keyboard"} :profile} gs/state]
      :bg-watcher ([^m/TextEditingValue {input-text .-text} text-controller]
                   (reset! value input-text))
@@ -52,7 +53,11 @@
           (bar-button
            (m/Icon (.check m/Icons))
            (fn []
-             (folder-state/create-folder ctx @value))))])
+             (folder-state/create-folder ctx 
+                                         (if (nil? current-folder)
+                                           nil
+                                           (get current-folder "id")) 
+                                         @value))))])
        (m/Divider)
        (m/Expanded
         .child

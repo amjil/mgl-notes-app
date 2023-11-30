@@ -114,3 +114,10 @@
                    "UPDATE tags SET related_num = related_num - 1
                     WHERE id = ?"
                    [tag_id])))))
+                   
+(defn extract-tags-from-note [^String t]
+  (let [pattern (RegExp "#(\\w+)" .caseSensitive false .multiLine true)
+        matchs (.allMatches pattern t)
+        tags (map (fn [^Match x] (subs t (inc (.-start x)) (.-end x)))
+                  matchs)]
+    tags))

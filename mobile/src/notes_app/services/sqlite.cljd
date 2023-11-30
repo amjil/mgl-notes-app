@@ -23,7 +23,7 @@
         ;; ALL table's id is THE UUID because of sync with multi platforms, awoid Id confilicts.
         ;;   - Except the notes table, it's a virtual table & it's rowid is always integer. 
         ;;   - Don't add uuid id to virtual table, it will be indexed.
-        (await (.execute db "CREATE TABLE IF NOT EXISTS folders(id uuid primary key, name varchar(100), order_num integer DEFAULT 0, related_num integer DEFAULT 0)"))
+        (await (.execute db "CREATE TABLE IF NOT EXISTS folders(id uuid primary key,parent_id uuid,  name varchar(100), order_num integer DEFAULT 0, related_num integer DEFAULT 0)"))
         (await (.execute db "CREATE VIRTUAL TABLE IF NOT EXISTS notes USING fts4(content TEXT)"))
         ;; The Notes status -1 recycled, 0 inbox, 1 archived
         (await (.execute db "CREATE TABLE IF NOT EXISTS note_infos (

@@ -6,17 +6,17 @@
 
 (declare query-folder-with-name)
 
-(defn create-folder [v]
+(defn create-folder [pid v]
   (let [^sqf/Database db (await (sql/initialize-db))
-        result (await (query-folder-with-name v))
+        result (await (query-folder-with-name pid v))
         uuid (uuid/Uuid)
         id (.v4 uuid)
         id1
         (if (empty? result)
           (await
            (.rawInsert db
-                       "INSERT INTO folders (id, name) values (?, ?)"
-                       [id v]))
+                       "INSERT INTO folders (id, parent_id, name) values (?, ?, ?)"
+                       [id pid v]))
           nil)]
     id1))
     
@@ -42,16 +42,31 @@
       db
       "SELECT id, name, order_num, related_num
        FROM folders 
+       WHERE parent_id is null
        ORDER BY order_num desc
        ;"))))
+       
+(defn sub-folders [id]
+  (let [^sqf/Database db (await (sql/initialize-db))]
+    (await
+     (.rawQuery
+      db
+      "SELECT id, name, order_num, related_num
+       FROM folders 
+       WHERE parent_id = ? 
+       ORDER BY order_num desc
+       ;"
+      [id]))))
 
-(defn query-folder-with-name [n]
+(defn query-folder-with-name [id n]
   (let [^sqf/Database db (await (sql/initialize-db))]
     (await
      (.rawQuery
       db
       "SELECT id, name
        FROM folders 
-       WHERE name = ?
+       WHERE 
+        parent_id = ?
+        AND name = ?
        ;"
-      [n]))))
+      [id n]))))

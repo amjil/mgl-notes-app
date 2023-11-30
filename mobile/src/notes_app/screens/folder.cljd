@@ -1,0 +1,23 @@
+(ns notes-app.screens.folder
+  (:require 
+   ["package:flutter/material.dart" :as m]
+   [cljd.flutter.alpha2 :as f]
+   [notes-app.states.global :as gs]))
+   
+(def screen
+  (f/widget
+   :context ctx
+   :get [m/Navigator]
+   :let [h 100]
+   (m/Scaffold
+    .appBar nil)
+   .body
+   (m/SafeArea)
+   (m/Column
+    .crossAxisAlignment m.CrossAxisAlignment/start
+    .children [(m/InkWell
+                .customBorder (m/CircleBorder)
+                .onTap (fn [] (-> m/Navigator (.of ctx) .pop))
+                .child
+                (m/Icon m.Icons/keyboard_backspace))
+               (m/SizedBox .height (* 0.02 h))])))

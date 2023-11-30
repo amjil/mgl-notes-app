@@ -36,7 +36,8 @@
       :context ctx
       :let [width  (-> m/MediaQuery (.of ctx) .-size .-width)
             info (merge keyboard-options/keyboard-option
-                        {:keyboard/key-cap-border-radius 6}
+                        {:keyboard/key-cap-border-radius 6
+                         :keyboard/key-container-color (-> m/Theme (.of ctx) .-colorScheme .-tertiaryContainer)}
                         {:keyboard/width width})]
       :bind {:info info :state gs/state}
       (adaptive/AdaptiveTheme

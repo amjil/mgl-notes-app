@@ -3,21 +3,25 @@
    ["package:flutter/material.dart" :as m]
    [notes-app.services.folder :as service]
    [notes-app.states.global :as gs]
-   [notes-app.utils.util :as util])) 
-   
+   [notes-app.utils.util :as util]))
+
 (declare all-folders)
 
-(defn create-folder [ctx name]
-  (let [result (await (service/create-folder name))]
+(defn create-folder [ctx pid name]
+  (let [result (await (service/create-folder pid name))]
     (if (nil? result)
       (util/show-toast ctx "message!")
       (do (all-folders)
           (-> m/Navigator (.of ctx) .pop)))))
-  
+
 (defn delete-folder [id]
   (service/delete-folder id)
   (all-folders))
-  
+
 (defn all-folders []
   (let [result (await (service/all-folders))]
     (swap! gs/state assoc :folders result)))
+    
+(defn sub-folders [id]
+  (let [result (await (service/sub-folders id))]
+    (swap! gs/state assoc :sub-folders result)))
