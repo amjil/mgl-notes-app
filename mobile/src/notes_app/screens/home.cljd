@@ -3,12 +3,14 @@
    ["package:flutter/material.dart" :as m]
    [cljd.flutter.alpha2 :as f]
    [notes-app.widgets.folders-list :as folders-list]
+   [notes-app.widgets.tag-list :as tag-list]
    [notes-app.utils.bottom-sheet :as bottom-sheet]
    [notes-app.states.global :as gs]))
 
 (def screen
   (f/widget
    :context ctx
+   :let [h (-> m/MediaQuery (.of ctx) .-size .-height)]
    :managed [text-controller (m/TextEditingController)]
   ;;  :watch 
    (m/Scaffold
@@ -24,6 +26,12 @@
        .bottom false
        .child
        (folders-list/list-view)))
+     (m/Divider .color (-> m/Theme (.of ctx) .-colorScheme .-outlineVariant)
+                .thickness 1)
+     (m/Container
+      .height (* 0.20 h)
+      .child
+      (tag-list/list-view))
      (m/Container
       .width double/infinity
       .decoration (m/BoxDecoration

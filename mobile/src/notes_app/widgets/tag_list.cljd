@@ -6,17 +6,29 @@
    [notes-app.states.global :as gs]))
    
 (defn list-item [item]
-  (m/Container 
-   .child (mgl/MongolText item)))
+  (f/widget
+   :context ctx
+   (m/Container
+    .child (mgl/MongolText item
+                           .style (m/TextStyle
+                                   .fontSize 20
+                                   .color (-> m/Theme (.of ctx) .-colorScheme .-primary)
+                                   .fontWeight m.FontWeight/w600)))))
    
 (defn list-view []
-  (f/widget 
+  (f/widget
+   :context ctx
    :watch [{tags :tags} gs/state]
    (m/SingleChildScrollView
     .scrollDirection m.Axis/horizontal)
    (m/Row
+    .crossAxisAlignment m.CrossAxisAlignment/start
     .children
-    [(mgl/MongolText "Tags")
+    [(mgl/MongolText "Tags"
+                     .style (m/TextStyle
+                             .fontSize 20
+                             .color (-> m/Theme (.of ctx) .-colorScheme .-primary)
+                             .fontWeight m.FontWeight/w600))
      (m.ListView/separated
       .scrollDirection m.Axis/horizontal
       .physics (m/NeverScrollableScrollPhysics)

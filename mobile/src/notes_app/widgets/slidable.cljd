@@ -3,7 +3,7 @@
    ["package:flutter/material.dart" :as m]
    ["package:flutter_slidable/flutter_slidable.dart" :as slidable]))
    
-(defn view [i child]
+(defn folder [i child]
   (slidable/Slidable
    .key (m/ValueKey i)
    .direction m/Axis.vertical
