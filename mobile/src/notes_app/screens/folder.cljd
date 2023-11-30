@@ -2,6 +2,7 @@
   (:require 
    ["package:flutter/material.dart" :as m]
    [cljd.flutter.alpha2 :as f]
+   [notes-app.widgets.bottom-bar :as bottom-bar]
    [notes-app.states.global :as gs]))
    
 (def screen
@@ -20,4 +21,9 @@
                 .onTap (fn [] (-> m/Navigator (.of ctx) .pop))
                 .child
                 (m/Icon m.Icons/keyboard_backspace))
-               (m/SizedBox .height (* 0.02 h))])))
+               (m/SizedBox .height (* 0.02 h))
+               (m/Expanded
+                .child 
+                (m/Center 
+                 .child (m/Text "ABC")))
+               (bottom-bar/sub-folder)])))

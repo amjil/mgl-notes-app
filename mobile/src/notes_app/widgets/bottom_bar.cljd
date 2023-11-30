@@ -1,0 +1,26 @@
+(ns notes-app.widgets.bottom-bar
+  (:require 
+   ["package:flutter/material.dart" :as m]
+   [cljd.flutter.alpha2 :as f]))
+   
+
+(defn sub-folder []
+  (f/widget
+   :context ctx
+   (m/Container
+    .width double/infinity
+    .decoration (m/BoxDecoration
+                 .border (m/Border
+                          .top (m/BorderSide
+                                .color (-> m/Theme (.of ctx) .-colorScheme .-outlineVariant)))))
+   (m/SafeArea
+    .top false)
+   (m/Stack
+    .children [(m/Align
+                .alignment m.Alignment/centerRight
+                .child
+               (m/IconButton
+                .padding (m.EdgeInsets/all 12)
+                .constraints (m/BoxConstraints)
+                .icon (m/Icon m.Icons/edit)
+                .onPressed #(dart:core/print "xxxx")))])))
