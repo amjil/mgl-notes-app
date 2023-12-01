@@ -24,7 +24,5 @@
                 .padding (m.EdgeInsets/all 12)
                 .constraints (m/BoxConstraints)
                 .icon (m/Icon m.Icons/edit)
-                .onPressed (fn [] 
-                             (dart:core/print "xxxx")
-                             (util/show-general-dialog ctx)
-                             )))])))
+                .onPressed (fn []
+                             (dart:core/print "xxxx"))))])))

@@ -1,10 +1,10 @@
 (ns notes-app.screens.folder
-  (:require 
+  (:require
    ["package:flutter/material.dart" :as m]
    ["package:mongol/mongol.dart" :as mgl]
    [cljd.flutter.alpha2 :as f]
    [notes-app.widgets.bottom-bar :as bottom-bar]
-  ;;  [notes-app.widgets.folders-list :as folders-list]
+   [notes-app.utils.util :as util]
    [notes-app.states.global :as gs]))
    
 (def screen
@@ -29,7 +29,7 @@
                  (m/InkWell
                   .customBorder (m/CircleBorder)
                   .onTap (fn [] 
-                           (dart:core/print "more ..."))
+                           (util/show-general-dialog ctx))
                   .child
                   (m/Icon m.Icons/more_horiz_outlined))])
                (m/SizedBox .height (* 0.02 h))
