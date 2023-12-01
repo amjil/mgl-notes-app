@@ -39,3 +39,27 @@
                                                 .onPressed (fn []
                                                              (.pop navigator)))]))))))
                                                              
+
+(defn show-general-dialog [ctx]
+  (m/showGeneralDialog
+   .barrierLabel "Label"
+   .barrierDismissible true
+   .barrierColor (-> m/Colors .-black (.withOpacity 0.1))
+   .transitionDuration (dart:core/Duration .milliseconds 250)
+   .context ctx
+   .pageBuilder (fn [context anim1 anim2]
+                  (m/Align
+                   .alignment m.Alignment/centerRight
+                   .child (m/Container
+                           .height 300
+                           .child (m.SizedBox/expand
+                                   .child (m/FlutterLogo))
+                           .decoration (m/BoxDecoration .color (.-white m/Colors)
+                                                        .borderRadius (.circular m/BorderRadius 40)))))
+   .transitionBuilder (fn [context anim1 anim2 child]
+                        (m/SlideTransition
+                         .position (.animate (m/Tween .begin (m/Offset 0 1) .end (m/Offset 0 0))
+                                             anim1)
+                         .child child))))
+                                                             
+

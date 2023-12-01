@@ -1,8 +1,10 @@
 (ns notes-app.screens.folder
   (:require 
    ["package:flutter/material.dart" :as m]
+   ["package:mongol/mongol.dart" :as mgl]
    [cljd.flutter.alpha2 :as f]
    [notes-app.widgets.bottom-bar :as bottom-bar]
+  ;;  [notes-app.widgets.folders-list :as folders-list]
    [notes-app.states.global :as gs]))
    
 (def screen
@@ -16,14 +18,29 @@
    (m/SafeArea)
    (m/Column
     .crossAxisAlignment m.CrossAxisAlignment/start
-    .children [(m/InkWell
-                .customBorder (m/CircleBorder)
-                .onTap (fn [] (-> m/Navigator (.of ctx) .pop))
-                .child
-                (m/Icon m.Icons/keyboard_backspace))
+    .children [(m/Row
+                .mainAxisAlignment m.MainAxisAlignment/spaceBetween
+                .children
+                [(m/InkWell
+                  .customBorder (m/CircleBorder)
+                  .onTap (fn [] (-> m/Navigator (.of ctx) .pop))
+                  .child
+                  (m/Icon m.Icons/keyboard_backspace))
+                 (m/InkWell
+                  .customBorder (m/CircleBorder)
+                  .onTap (fn [] 
+                           (dart:core/print "more ..."))
+                  .child
+                  (m/Icon m.Icons/more_horiz_outlined))])
                (m/SizedBox .height (* 0.02 h))
                (m/Expanded
-                .child 
-                (m/Center 
-                 .child (m/Text "ABC")))
+                .child
+                (m/Column
+                 .children
+                 [
+                  ;; (folders-list/list-view)
+                  
+                            
+                  
+                  ]))
                (bottom-bar/sub-folder)])))
