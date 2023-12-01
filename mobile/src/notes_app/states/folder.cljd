@@ -5,14 +5,17 @@
    [notes-app.states.global :as gs]
    [notes-app.utils.util :as util]))
 
-(declare all-folders)
+(declare all-folders sub-folders)
 
 (defn create-folder [ctx pid name]
   (let [result (await (service/create-folder pid name))]
     (if (nil? result)
       (util/show-toast ctx "message!")
-      (do (all-folders)
-          (-> m/Navigator (.of ctx) .pop)))))
+      (do
+        (if (nil? (:folder @gs/state))
+          (all-folders)
+          (sub-folders (get (:folder @gs/state) "id")))
+        (-> m/Navigator (.of ctx) .pop)))))
 
 (defn delete-folder [id]
   (service/delete-folder id)

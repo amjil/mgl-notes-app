@@ -2,7 +2,9 @@
   (:require
    ["package:flutter/material.dart" :as m]
    ["package:mongol/mongol.dart" :as mgl]
-   [cljd.flutter.alpha2 :as f]))
+   [cljd.flutter.alpha2 :as f]
+   [notes-app.utils.bottom-sheet :as bottom-sheet]
+   [notes-app.states.global :as gs]))
    
 (defn menu-item [text icon on-press]
   (f/widget
@@ -24,7 +26,7 @@
                       .color (-> m/Theme (.of ctx) .-colorScheme .-onPrimary)))])
     .onPressed on-press)))
     
-(defn folder []
+(defn folder [controller]
   (f/widget
    :context ctx
    :get [m/Navigator]
@@ -35,8 +37,9 @@
                (menu-item "ᠰᠢᠨ᠎ᠡ ᠴᠣᠮᠤᠭ"
                           m.Icons/create_new_folder
                           (fn []
-                            (dart:core/print "xxx")
-                            (.pop navigator)))
+                            (.pop navigator)
+                            (swap! gs/state assoc :keyboard/text-controller controller)
+                            (bottom-sheet/modal-bottom-sheet ctx nil)))
                (m/VerticalDivider
                 .color (-> m/Theme (.of ctx) .-colorScheme .-outlineVariant))
                (menu-item "Rename This Folder"

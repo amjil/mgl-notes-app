@@ -13,6 +13,7 @@
   (f/widget
    :context ctx
    :get [m/Navigator]
+   :managed [controller (m/TextEditingController)]
    :let [h 100]
    :watch [{folder :folder} gs/state]
    (m/Scaffold
@@ -34,7 +35,9 @@
                  (m/InkWell
                   .customBorder (m/CircleBorder)
                   .onTap (fn [] 
-                           (util/show-general-dialog ctx (menu-buttons/folder)))
+                           (util/show-general-dialog
+                            ctx
+                            (menu-buttons/folder controller)))
                   .child
                   (m/Icon m.Icons/more_horiz_outlined))])
                (m/SizedBox .height (* 0.02 h))
