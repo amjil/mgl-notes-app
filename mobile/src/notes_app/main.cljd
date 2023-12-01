@@ -7,6 +7,7 @@
    [cljd.flutter.alpha2 :as f]
    [virtual-keyboard.options :as keyboard-options]
    [notes-app.screens.home :as home]
+   [notes-app.screens.folder :as folder]
    [notes-app.utils.themes :as themes]
    [notes-app.states.global :as gs]
    [notes-app.states.folder :as folder-state]
@@ -32,19 +33,19 @@
   
   (let [initial-theme (await (themes/initial-theme))]
     (m/runApp
-     (f/widget
-      :context ctx
-      :let [width  (-> m/MediaQuery (.of ctx) .-size .-width)
-            info (merge keyboard-options/keyboard-option
-                        {:keyboard/key-cap-border-radius 6
-                         :keyboard/key-container-color (-> m/Theme (.of ctx) .-colorScheme .-tertiaryContainer)}
-                        {:keyboard/width width})]
-      :bind {:info info :state gs/state}
-      (adaptive/AdaptiveTheme
-       .light themes/default-light-theme
-       .dark themes/default-dark-theme
-       .initial initial-theme
-       .builder (fn [light dark]
+     (adaptive/AdaptiveTheme
+      .light themes/default-light-theme
+      .dark themes/default-dark-theme
+      .initial initial-theme
+      .builder (fn [light dark]
+                 (f/widget
+                  :context ctx
+                  :let [width  (-> m/MediaQuery (.of ctx) .-size .-width)
+                        info (merge keyboard-options/keyboard-option
+                                    {:keyboard/key-cap-border-radius 6
+                                     :keyboard/key-container-color (-> m/Theme (.of ctx) .-colorScheme .-tertiaryContainer)}
+                                    {:keyboard/width width})]
+                  :bind {:info info :state gs/state}
                   (m/MaterialApp
                    .title "Welcome to Flutter"
                    .theme light

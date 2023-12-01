@@ -7,14 +7,13 @@
     [notes-app.widgets.slidable :as slidable]
     [notes-app.screens.folder :as folder-screen]))
 
- (defn list-item [i item]
+ (defn list-item [i item router-fn]
    (f/widget
     :get [m/Navigator]
     (m/GestureDetector
      .onTap (fn []
-              (.push navigator
-                     (#/(m/MaterialPageRoute Object)
-                      .builder (f/build folder-screen/screen)))
+              (swap! gs/state assoc :folder item)
+              (router-fn)
               nil)
      .child
      (slidable/folder
@@ -44,7 +43,7 @@
                      .children [(mgl/MongolText (str (get item "related_num")))
                                 (m/Icon m.Icons/keyboard_arrow_down_outlined)]))]))))))
 
-(defn list-view []
+(defn list-view [router-fn]
   (f/widget
    :context ctx
    :watch [{folders :folders} gs/state]
@@ -69,5 +68,5 @@
                            .color (-> m/Theme (.of ctx) .-colorScheme .-primary)))
       .itemCount (count folders)
       .itemBuilder (fn [context i]
-                     (list-item i (nth folders i)))
+                     (list-item i (nth folders i) router-fn))
       .shrinkWrap true)])))
