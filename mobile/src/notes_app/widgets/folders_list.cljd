@@ -4,8 +4,8 @@
     ["package:mongol/mongol.dart" :as mgl]
     [cljd.flutter.alpha2 :as f]
     [notes-app.states.global :as gs]
-    [notes-app.widgets.slidable :as slidable]
-    [notes-app.screens.folder :as folder-screen]))
+    [notes-app.states.folder :as folder]
+    [notes-app.widgets.slidable :as slidable]))
 
  (defn list-item [i item router-fn]
    (f/widget
@@ -13,6 +13,7 @@
     (m/GestureDetector
      .onTap (fn []
               (swap! gs/state assoc :folder item)
+              (folder/sub-folders (get item "id"))
               (router-fn)
               nil)
      .child
@@ -30,7 +31,7 @@
                             [(m/Icon m.Icons/folder)
                              (m/SizedBox .height 10)
                              (mgl/MongolText
-                              (get item "name")
+                              (str "" (get item "name"))
                               .maxLines 1
                               .softWrap true
                               .overflow m.TextOverflow/ellipsis
@@ -40,13 +41,15 @@
                     .padding (m.EdgeInsets/only .bottom 10)
                     .child
                     (m/Column
-                     .children [(mgl/MongolText (str (get item "related_num")))
+                     .children [(mgl/MongolText (str "" (get item "related_num")))
                                 (m/Icon m.Icons/keyboard_arrow_down_outlined)]))]))))))
 
 (defn list-view [router-fn]
   (f/widget
    :context ctx
-   :watch [{folders :folders} gs/state]
+   :watch [{folders :folders
+            folder :folder
+            sub-folders :sub-folders} gs/state]
    (m/SingleChildScrollView
     .scrollDirection m.Axis/horizontal)
    (m/Row
@@ -55,18 +58,37 @@
     [(m/Padding
       .padding (m.EdgeInsets/symmetric .horizontal 10)
       .child
-      (mgl/MongolText "Folders"
-                      .style (m/TextStyle
-                              .fontSize 20
-                              .color (-> m/Theme (.of ctx) .-colorScheme .-primary)
-                              .fontWeight m.FontWeight/w600)))
+      (m/Column
+       .children
+       [(mgl/MongolText "Folders"
+                        .style (m/TextStyle
+                                .fontSize 20
+                                .color (-> m/Theme (.of ctx) .-colorScheme .-primary)
+                                .fontWeight m.FontWeight/w600))
+        (m/SizedBox .height 10)
+        (if (nil? folder)
+          (m/SizedBox)
+          (mgl/MongolText
+           (str (get folder "name") "")
+           .maxLines 1
+           .softWrap true
+           .overflow m.TextOverflow/ellipsis
+           .style (m/TextStyle
+                   .fontSize 16
+                   .color (-> m/Theme (.of ctx) .-colorScheme .-secondary)
+                   .fontWeight m.FontWeight/w400)))]))
      (m.ListView/separated
       .scrollDirection m.Axis/horizontal
       .physics (m/NeverScrollableScrollPhysics)
       .separatorBuilder (fn [context i]
                           (m/VerticalDivider
                            .color (-> m/Theme (.of ctx) .-colorScheme .-primary)))
-      .itemCount (count folders)
+      .itemCount (count (if (nil? folder)
+                          folders
+                          sub-folders))
       .itemBuilder (fn [context i]
-                     (list-item i (nth folders i) router-fn))
+                     (list-item i (nth (if (nil? folder)
+                                         folders 
+                                         sub-folders) i) 
+                                router-fn))
       .shrinkWrap true)])))
