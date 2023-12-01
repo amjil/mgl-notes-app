@@ -4,56 +4,50 @@
    ["package:mongol/mongol.dart" :as mgl]
    [cljd.flutter.alpha2 :as f]))
    
+(defn menu-item [text icon on-press]
+  (f/widget
+   :context ctx
+   (m/TextButton
+    .style (m.TextButton/styleFrom
+            .minimumSize m.Size/zero
+            .padding (m.EdgeInsets/all 8)
+            .tapTargetSize m.MaterialTapTargetSize/shrinkWrap)
+    .child (m/Column
+            .mainAxisAlignment m.MainAxisAlignment/spaceBetween
+            .children
+            [(m/Icon icon
+                     .color (-> m/Theme (.of ctx) .-colorScheme .-onPrimary))
+             (mgl/MongolText
+              text
+              .style (m/TextStyle
+                      .fontSize 20
+                      .color (-> m/Theme (.of ctx) .-colorScheme .-onPrimary)))])
+    .onPressed on-press)))
+    
 (defn folder []
   (f/widget
    :context ctx
+   :get [m/Navigator]
    (m/ListView
     .scrollDirection m.Axis/horizontal
     .shrinkWrap true
     .children [(m/SizedBox .width 8)
-               (m/TextButton
-                .style (m.TextButton/styleFrom
-                        .minimumSize m.Size/zero
-                        .padding (m.EdgeInsets/all 8)
-                        .tapTargetSize m.MaterialTapTargetSize/shrinkWrap)
-                .child (m/Column
-                        .mainAxisAlignment m.MainAxisAlignment/spaceBetween
-                        .children
-                        [(m/Icon m.Icons/create_new_folder
-                                 .color (-> m/Theme (.of ctx) .-colorScheme .-onPrimary))
-                         (mgl/MongolText "Create Folder"
-                                         .style (m/TextStyle
-                                                 .color (-> m/Theme (.of ctx) .-colorScheme .-onPrimary)))])
-                .onPressed (fn [] (dart:core/print "xxx")))
+               (menu-item "ᠰᠢᠨ᠎ᠡ ᠴᠣᠮᠤᠭ"
+                          m.Icons/create_new_folder
+                          (fn []
+                            (dart:core/print "xxx")
+                            (.pop navigator)))
                (m/VerticalDivider
                 .color (-> m/Theme (.of ctx) .-colorScheme .-outlineVariant))
-               (m/TextButton
-                .style (m.TextButton/styleFrom
-                        .minimumSize m.Size/zero
-                        .padding (m.EdgeInsets/all 8)
-                        .tapTargetSize m.MaterialTapTargetSize/shrinkWrap)
-                .child (m/Column
-                        .mainAxisAlignment m.MainAxisAlignment/spaceBetween
-                        .children
-                        [(m/Icon m.Icons/edit
-                                 .color (-> m/Theme (.of ctx) .-colorScheme .-onPrimary))
-                         (mgl/MongolText "Rename This Folder"
-                                         .style (m/TextStyle
-                                                 .color (-> m/Theme (.of ctx) .-colorScheme .-onPrimary)))])
-                .onPressed (fn [] (dart:core/print "xxx")))
+               (menu-item "Rename This Folder"
+                          m.Icons/edit
+                          (fn []
+                            (dart:core/print "xxx")
+                            (.pop navigator)))
                (m/VerticalDivider
                 .color (-> m/Theme (.of ctx) .-colorScheme .-outlineVariant))
-               (m/TextButton
-                .style (m.TextButton/styleFrom
-                        .minimumSize m.Size/zero
-                        .padding (m.EdgeInsets/all 8)
-                        .tapTargetSize m.MaterialTapTargetSize/shrinkWrap)
-                .child (m/Column
-                        .mainAxisAlignment m.MainAxisAlignment/spaceBetween
-                        .children
-                        [(m/Icon m.Icons/create_new_folder
-                                 .color (-> m/Theme (.of ctx) .-colorScheme .-onPrimary))
-                         (mgl/MongolText "Move This Folder"
-                                         .style (m/TextStyle
-                                                 .color (-> m/Theme (.of ctx) .-colorScheme .-onPrimary)))])
-                .onPressed (fn [] (dart:core/print "xxx")))])))
+               (menu-item "Move This Folder"
+                          m.Icons/folder
+                          (fn []
+                            (dart:core/print "xxx")
+                            (.pop navigator)))])))
