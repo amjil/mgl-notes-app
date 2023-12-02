@@ -5,6 +5,8 @@
     [cljd.flutter.alpha2 :as f]
     [notes-app.states.global :as gs]
     [notes-app.states.folder :as folder]
+    [notes-app.states.note :as note]
+    [notes-app.widgets.notes-list :as notes-list]
     [notes-app.widgets.slidable :as slidable]))
 
  (defn list-item [i item router-fn]
@@ -15,6 +17,7 @@
               (swap! gs/state assoc :folder item)
               (swap! gs/state update :folder-link conj item)
               (folder/sub-folders (get item "id"))
+              (note/notes-from-folder)
               (router-fn)
               nil)
      .child
@@ -45,11 +48,12 @@
                      .children [(mgl/MongolText (str "" (get item "related_num")))
                                 (m/Icon m.Icons/keyboard_arrow_down_outlined)]))]))))))
 
-(defn list-view [router-fn]
+(defn list-view [router-fn router-fn-notes]
   (f/widget
    :context ctx
    :watch [{folders :folders
             folder :folder
+            folder-link :folder-link
             sub-folders :sub-folders} gs/state]
    (m/SingleChildScrollView
     .scrollDirection m.Axis/horizontal)
@@ -92,4 +96,7 @@
                                          folders 
                                          sub-folders) i) 
                                 router-fn))
-      .shrinkWrap true)])))
+      .shrinkWrap true)
+     (if (empty? folder-link)
+       (m/Container)
+       (notes-list/list-view router-fn-notes))])))

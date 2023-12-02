@@ -1,0 +1,34 @@
+(ns notes-app.states.note
+  (:require
+   ["package:flutter/material.dart" :as m]
+   ["package:uuid/uuid.dart" :as uuid]
+   [notes-app.services.note :as service]
+   [notes-app.states.global :as gs]))
+   
+(def text-controller (m/TextEditingController))
+
+(defn setting-note-controller []
+  (set! (.-text text-controller) 
+        (if (nil? (:note @gs/state))
+          ""
+          (get (:note @gs/state) "content")))
+  (swap! gs/state assoc :keyboard/text-controller text-controller))
+
+(defn create-note [content]
+  (let [uuid (uuid/Uuid)
+        id (.v4 uuid)
+        did (if (nil? (:folder @gs/state))
+              nil
+              (get (:folder @gs/state) "id"))]
+    (service/create-note did id content)))
+    
+(defn update-note [content]
+  (let [id (get (:note @gs/state) "id")]
+    (service/update-note id content)))
+    
+(defn notes-from-folder []
+  (let [fid (if (nil? (:folder @gs/state))
+              nil
+              (get (:folder @gs/state) "id"))
+        result (await (service/query-notes-from-folder fid))]
+    (swap! gs/state assoc :notes result)))

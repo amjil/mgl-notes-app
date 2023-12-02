@@ -10,7 +10,8 @@
    [notes-app.utils.util :as util]
    [notes-app.utils.router :as router]
    [notes-app.states.global :as gs]
-   [notes-app.states.folder :as folder-state]))
+   [notes-app.states.folder :as folder-state]
+   [notes-app.states.note :as note-state]))
    
 (def screen
   (f/widget
@@ -49,5 +50,9 @@
                   (m/Icon m.Icons/more_horiz_outlined))])
                (m/SizedBox .height (* 0.02 h))
                (m/Expanded
-                .child (folders-list/list-view #(router/open-screen navigator screen)))
+                .child (folders-list/list-view
+                        #(router/open-screen navigator screen)
+                        (fn [] 
+                          (router/open-editor navigator note-screen/screen)
+                          (note-state/setting-note-controller))))
                (bottom-bar/sub-folder #(router/open-editor navigator note-screen/screen))])))

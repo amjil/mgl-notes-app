@@ -6,14 +6,19 @@
    [menu-bar.menu :as menu]
    [virtual-keyboard.keyboard :as keyboard]
    [virtual-keyboard.keyboard-action :as keyboard-action]
+   [notes-app.states.note :as note-state]
    [notes-app.states.global :as gs]))
    
 (def screen 
   (f/widget 
    :context ctx
    :get [:info]
-   :let [h (-> m/MediaQuery (.of ctx) .-size .-height)]
-   :managed [controller (m/TextEditingController)]
+  ;;  :managed [controller (m/TextEditingController 
+  ;;                        .text (if (nil? (:note @gs/state))
+  ;;                                ""
+  ;;                                (get (:note @gs/state) "content")))]
+   :let [h (-> m/MediaQuery (.of ctx) .-size .-height)
+         controller (:keyboard/text-controller @gs/state)]
    :watch [{candidates-list :keyboard/candidates-list
             show-keyboard :show-keyboard
             keyboard-height :keyboard-height
@@ -32,13 +37,17 @@
                   .customBorder (m/CircleBorder)
                   .onTap (fn []
                            (-> m/Navigator (.of ctx) .pop)
-                           (swap! gs/state assoc :folder nil))
+                           (swap! gs/state assoc :note nil))
                   .child
                   (m/Icon m.Icons/keyboard_backspace))
                  (m/InkWell
                   .customBorder (m/CircleBorder)
                   .onTap (fn []
-                           (dart:core/print "xxxxx"))
+                           (-> m/Navigator (.of ctx) .pop)
+                           (if (nil? (:note @gs/state))
+                             (note-state/create-note (.-text controller))
+                             (note-state/update-note (.-text controller)))
+                           (swap! gs/state assoc :note nil))
                   .child
                   (m/Icon m.Icons/check))])
                (m/SizedBox .height (* 0.02 h))

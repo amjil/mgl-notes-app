@@ -4,6 +4,7 @@
    ["package:flutter/material.dart" :as m]
    [notes-app.services.sqlite :as sql]))
 
+
 (defn create-note [dir id v]
   (let [^sqf/Database db (await (sql/initialize-db))
         id1 (await
@@ -30,9 +31,15 @@
 
 (defn update-note [id content]
   (let [^sqf/Database db (await (sql/initialize-db))
+        result (await (.rawQuery db
+                                 "select note_id
+                                  from note_infos a 
+                                  where id = ?;"
+                                 [id]))
+        note-id (-> result first (get "note_id"))
         num (await (.rawUpdate db
                                "UPDATE notes SET content = ? WHERE rowid = ?"
-                               [content id]))]
+                               [content note-id]))]
     num))
 
 (defn flag-note [id]
@@ -76,12 +83,25 @@
      (.rawQuery
       db
       "select a.*, b.content
-       from note_info a 
+       from note_infos a 
           left join notes b on a.note_id = b.rowid 
        where a.id = ?
        order by a.note_id desc
        limit 1
        ;"
+      [id]))))
+      
+(defn query-notes-from-folder [id]
+  (let [^sqf/Database db (await (sql/initialize-db))]
+    (await
+     (.rawQuery
+      db
+      "select a.*, b.content
+         from note_infos a 
+            left join notes b on a.note_id = b.rowid 
+         where folder_id = ?
+         order by a.note_id desc
+         ;"
       [id]))))
 
 
