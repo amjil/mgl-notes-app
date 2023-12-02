@@ -9,7 +9,8 @@
    [notes-app.widgets.folders-list :as folders-list]
    [notes-app.utils.util :as util]
    [notes-app.utils.router :as router]
-   [notes-app.states.global :as gs]))
+   [notes-app.states.global :as gs]
+   [notes-app.states.folder :as folder-state]))
    
 (def screen
   (f/widget
@@ -31,7 +32,11 @@
                   .customBorder (m/CircleBorder)
                   .onTap (fn []
                            (-> m/Navigator (.of ctx) .pop)
-                           (swap! gs/state assoc :folder nil))
+                           (swap! gs/state update :folder-link pop)
+                           (swap! gs/state assoc :folder (last (:folder-link @gs/state)))
+                           (if (nil? (:folder @gs/state))
+                             (folder-state/all-folders)
+                             (folder-state/sub-folders (get (:folder @gs/state) "id"))))
                   .child
                   (m/Icon m.Icons/keyboard_backspace))
                  (m/InkWell

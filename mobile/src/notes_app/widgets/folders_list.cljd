@@ -13,6 +13,7 @@
     (m/GestureDetector
      .onTap (fn []
               (swap! gs/state assoc :folder item)
+              (swap! gs/state update :folder-link conj item)
               (folder/sub-folders (get item "id"))
               (router-fn)
               nil)
