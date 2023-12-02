@@ -13,12 +13,8 @@
   (f/widget 
    :context ctx
    :get [:info]
-  ;;  :managed [controller (m/TextEditingController 
-  ;;                        .text (if (nil? (:note @gs/state))
-  ;;                                ""
-  ;;                                (get (:note @gs/state) "content")))]
    :let [h (-> m/MediaQuery (.of ctx) .-size .-height)
-         controller (:keyboard/text-controller @gs/state)]
+         ^m/TextEditingController controller (:keyboard/text-controller @gs/state)]
    :watch [{candidates-list :keyboard/candidates-list
             show-keyboard :show-keyboard
             keyboard-height :keyboard-height

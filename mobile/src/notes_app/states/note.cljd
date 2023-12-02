@@ -5,7 +5,9 @@
    [notes-app.services.note :as service]
    [notes-app.states.global :as gs]))
    
-(def text-controller (m/TextEditingController))
+(declare notes-from-folder)
+   
+(def ^m/TextEditingController text-controller (m/TextEditingController))
 
 (defn setting-note-controller []
   (set! (.-text text-controller) 
@@ -25,6 +27,10 @@
 (defn update-note [content]
   (let [id (get (:note @gs/state) "id")]
     (service/update-note id content)))
+    
+(defn delete-note [id]
+  (await (service/delete-note id))
+  (notes-from-folder))
     
 (defn notes-from-folder []
   (let [fid (if (nil? (:folder @gs/state))

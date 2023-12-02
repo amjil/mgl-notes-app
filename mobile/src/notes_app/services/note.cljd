@@ -4,7 +4,6 @@
    ["package:flutter/material.dart" :as m]
    [notes-app.services.sqlite :as sql]))
 
-
 (defn create-note [dir id v]
   (let [^sqf/Database db (await (sql/initialize-db))
         id1 (await
