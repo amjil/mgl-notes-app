@@ -7,9 +7,9 @@
    
 (declare notes-from-folder)
    
-(def ^m/TextEditingController text-controller (m/TextEditingController))
+;; (def ^m/TextEditingController text-controller (m/TextEditingController))
 
-(defn setting-note-controller []
+(defn setting-note-controller [text-controller]
   (set! (.-text text-controller) 
         (if (nil? (:note @gs/state))
           ""
