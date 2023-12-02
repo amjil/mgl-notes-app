@@ -2,12 +2,14 @@
   (:require
    ["package:flutter/material.dart" :as m]
    [cljd.flutter.alpha2 :as f]
-   [notes-app.utils.util :as util]))
+   [notes-app.utils.util :as util]
+   [notes-app.utils.router :as router]))
    
 
-(defn sub-folder []
+(defn sub-folder [router-fn]
   (f/widget
    :context ctx
+   :get [m/Navigator]
    (m/Container
     .width double/infinity
     .decoration (m/BoxDecoration
@@ -25,4 +27,4 @@
                 .constraints (m/BoxConstraints)
                 .icon (m/Icon m.Icons/edit)
                 .onPressed (fn []
-                             (dart:core/print "xxxx"))))])))
+                             (router-fn))))])))

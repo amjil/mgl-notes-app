@@ -3,10 +3,12 @@
    ["package:flutter/material.dart" :as m]
    ["package:mongol/mongol.dart" :as mgl]
    [cljd.flutter.alpha2 :as f]
+   [notes-app.screens.note :as note-screen]
    [notes-app.widgets.bottom-bar :as bottom-bar]
    [notes-app.widgets.menu-buttons :as menu-buttons]
    [notes-app.widgets.folders-list :as folders-list]
    [notes-app.utils.util :as util]
+   [notes-app.utils.router :as router]
    [notes-app.states.global :as gs]))
    
 (def screen
@@ -14,7 +16,7 @@
    :context ctx
    :get [m/Navigator]
    :managed [controller (m/TextEditingController)]
-   :let [h 100]
+   :let [h (-> m/MediaQuery (.of ctx) .-size .-height)]
    :watch [{folder :folder} gs/state]
    (m/Scaffold
     .appBar nil)
@@ -42,5 +44,5 @@
                   (m/Icon m.Icons/more_horiz_outlined))])
                (m/SizedBox .height (* 0.02 h))
                (m/Expanded
-                .child (folders-list/list-view identity))
-               (bottom-bar/sub-folder)])))
+                .child (folders-list/list-view #(router/open-screen navigator screen)))
+               (bottom-bar/sub-folder #(router/open-editor navigator note-screen/screen))])))

@@ -8,3 +8,8 @@
   (.push navigator
          (#/(m/MaterialPageRoute Object)
           .builder (f/build screen))))
+          
+(defn open-editor [navigator screen]
+  (.push navigator
+         (#/(m/MaterialPageRoute Object)
+          .builder (f/build screen))))
