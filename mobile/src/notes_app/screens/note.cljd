@@ -81,7 +81,7 @@
                               .showCursor (if (true? show-keyboard) true false)
                               .readOnly (if (true? in-app-keyboard) true false)
                               .style (m/TextStyle .fontSize 22
-                                                  .color (-> m/Theme (.of ctx) .-colorScheme .-primary))))
+                                                  .color (-> m/Theme (.of ctx) .-colorScheme .-onPrimary))))
                             (m/Positioned
                              .bottom 10
                              .right 0
