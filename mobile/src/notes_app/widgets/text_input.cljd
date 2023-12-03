@@ -24,12 +24,13 @@
   (let [value (atom "")]
     (f/widget
      :context ctx
-     :get [:info]
+     :get [:info m/Navigator]
      :let [w (-> m/MediaQuery (.of ctx) .-size .-width)
            h (-> m/MediaQuery (.of ctx) .-size .-height)
            text-controller (:keyboard/text-controller @gs/state)]
      :watch [{candidates-list :keyboard/candidates-list
               keyboard-height :keyboard-height
+              rename-folder :rename-folder
               folder :folder
               {in-app-keyboard "in-app-keyboard"} :profile} gs/state]
      :bg-watcher ([^m/TextEditingValue {input-text .-text} text-controller]
@@ -53,11 +54,14 @@
           (bar-button
            (m/Icon (.check m/Icons))
            (fn []
-             (folder-state/create-folder ctx 
-                                         (if (nil? folder)
-                                           nil
-                                           (get folder "id")) 
-                                         @value))))])
+             (if (true? rename-folder)
+               (folder-state/rename-folder @value)
+               (folder-state/create-folder ctx
+                                           (if (nil? folder)
+                                             nil
+                                             (get folder "id"))
+                                           @value))
+             (.pop navigator))))])
        (m/Divider)
        (m/Expanded
         .child

@@ -42,11 +42,14 @@
                             (bottom-sheet/modal-bottom-sheet ctx nil)))
                (m/VerticalDivider
                 .color (-> m/Theme (.of ctx) .-colorScheme .-outlineVariant))
-               (menu-item "Rename This Folder"
+               (menu-item "ᠳᠠᠬᠢᠨ ᠨᠡᠷᠡᠯᠡᠬᠦ"
                           m.Icons/edit
                           (fn []
-                            (dart:core/print "xxx")
-                            (.pop navigator)))
+                            (.pop navigator)
+                            (swap! gs/state assoc :keyboard/text-controller controller)
+                            (swap! gs/state assoc :rename-folder true)
+                            (set! (.-text controller) (-> @gs/state :folder (get "name")))
+                            (bottom-sheet/modal-bottom-sheet ctx nil)))
                (m/VerticalDivider
                 .color (-> m/Theme (.of ctx) .-colorScheme .-outlineVariant))
                (menu-item "Move This Folder"

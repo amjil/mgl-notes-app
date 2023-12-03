@@ -85,3 +85,14 @@
                 ",") ")")
               (concat [pid] (vec ids))))]
     num))
+    
+(defn rename-folder [id name]
+  (let [^sqf/Database db (await (sql/initialize-db))
+        num (await
+             (.rawUpdate
+              db
+              (str
+               "UPDATE folders SET name = ? 
+                WHERE id = ?")
+              [name id]))]
+    num))

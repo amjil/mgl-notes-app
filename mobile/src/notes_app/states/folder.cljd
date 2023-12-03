@@ -34,3 +34,13 @@
   (if (nil? (:folder @gs/state))
     (all-folders)
     (sub-folders (get (:folder @gs/state) "id"))))
+    
+(defn rename-folder [name]
+  (let [id (-> (:folder @gs/state)
+               (get "id"))]
+    (await (service/rename-folder id name)))
+  (let [new-map (into {} (:folder @gs/state))]
+    (swap! gs/state assoc :folder (assoc new-map "name" name)))
+  (if (nil? (:folder @gs/state))
+    (all-folders)
+    (sub-folders (get (:folder @gs/state) "id"))))
