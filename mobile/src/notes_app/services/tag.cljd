@@ -1,6 +1,8 @@
 (ns notes-app.services.tag
   (:require
    ["package:sqflite/sqflite.dart" :as sqf]
+   ["package:uuid/uuid.dart" :as uuid]
+   [clojure.string :as str]
    [notes-app.services.sqlite :as sql]))
 
 (declare query-tag-with-name)
@@ -8,20 +10,25 @@
 (defn create-tag [v]
   (let [^sqf/Database db (await (sql/initialize-db))
         result (await (query-tag-with-name v))
-        id1
-        (if (empty? result)
-          (await
-           (.rawInsert db
-                       "INSERT INTO tags (name) values (?)"
-                       [v]))
-          (-> result first (get "id")))]
-    id1))
+        uuid (uuid/Uuid)
+        id (.v4 uuid)]
+    (if (empty? result)
+      (let [result (await
+                    (.rawInsert db
+                                "INSERT INTO tags (id, name) values (?, ?)"
+                                [id v]))]
+        id)
+      (get (first result) "id"))))
 
 (defn delete-tag [id]
   (let [^sqf/Database db (await (sql/initialize-db))]
     (await
      (.rawDelete db
                  "DELETE FROM tags WHERE id = ?"
+                 [id]))
+    (await 
+     (.rawDelete db
+                 "DELETE FROM note_tags WHERE tag_id = ?"
                  [id]))))
 
 (defn count-tags []
@@ -59,7 +66,7 @@
     (await
      (.rawQuery
       db
-      "SELECT rowid as id, name, related_num
+      "SELECT id, name, related_num
        FROM tags 
        WHERE name = ?
        ;"
@@ -107,7 +114,7 @@
     (if (zero? num)
       (await
        (.rawDelete db
-                   "DELETE FROM tags WHERE rowid = ?"
+                   "DELETE FROM tags WHERE id = ?"
                    [tag_id]))
       (await
        (.rawUpdate db
@@ -115,9 +122,26 @@
                     WHERE id = ?"
                    [tag_id])))))
                    
-(defn extract-tags-from-note [^String t]
-  (let [pattern (RegExp "#(\\w+)" .caseSensitive false .multiLine true)
-        matchs (.allMatches pattern t)
+(defn extract-tags-from-note [t]
+  (let [pattern (RegExp "#([\u1800-\u1881]+)" .caseSensitive false .multiLine true .unicode true)
+        matchs (await (.allMatches pattern t))
         tags (map (fn [^Match x] (subs t (inc (.-start x)) (.-end x)))
                   matchs)]
     tags))
+    
+
+(defn add-or-delete-note-tags [id content]
+  (let [tags (await (extract-tags-from-note content))
+        n-tags (await (query-note-tags id))
+        ids (await (mapv #(await (create-tag %)) tags))]
+
+    ;; add - tags
+    (doall
+     (map #(when-not (some #{(await %)} (seq (map (fn [x] (get x "id")) n-tags)))
+             (add-note-tag id (await %)))
+          ids))
+
+    ;; delete-tags
+    (doall
+     (map (fn [x] (delete-note-tag id (get x "id")))
+          (remove #(some #{(get % "name")} (seq tags)) n-tags)))))

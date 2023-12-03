@@ -7,7 +7,8 @@
    [virtual-keyboard.keyboard :as keyboard]
    [virtual-keyboard.keyboard-action :as keyboard-action]
    [notes-app.states.note :as note-state]
-   [notes-app.states.global :as gs]))
+   [notes-app.states.global :as gs]
+   [notes-app.services.tag :as tag-service]))
    
 (def screen 
   (f/widget 
@@ -47,6 +48,7 @@
                            (if (nil? (:note @gs/state))
                              (await (note-state/create-note (.-text controller)))
                              (await (note-state/update-note (.-text controller))))
+                           (tag-service/all-tags)
                            (swap! gs/state assoc :note nil))
                   .child
                   (m/Icon m.Icons/check))])

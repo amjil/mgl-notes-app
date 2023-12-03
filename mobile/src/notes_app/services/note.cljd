@@ -2,7 +2,8 @@
   (:require
    ["package:sqflite/sqflite.dart" :as sqf]
    ["package:flutter/material.dart" :as m]
-   [notes-app.services.sqlite :as sql]))
+   [notes-app.services.sqlite :as sql]
+   [notes-app.services.tag :as tag-service]))
 
 (defn create-note [dir id v]
   (let [^sqf/Database db (await (sql/initialize-db))
@@ -14,7 +15,8 @@
            (.rawInsert db
                        "INSERT INTO note_infos (folder_id, id, note_id) values (?, ?, ?)"
                        [dir id id1]))]
-    id1))
+    (tag-service/add-or-delete-note-tags id v)
+    id))
 
 (defn delete-note [id]
   (let [^sqf/Database db (await (sql/initialize-db))]
@@ -39,6 +41,7 @@
         num (await (.rawUpdate db
                                "UPDATE notes SET content = ? WHERE rowid = ?"
                                [content note-id]))]
+    (tag-service/add-or-delete-note-tags id content)
     num))
 
 (defn flag-note [id]

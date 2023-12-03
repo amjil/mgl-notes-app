@@ -12,8 +12,8 @@
 
 (defn add-note-tag [state name]
   (let [id  (await (tag-service/create-tag name))
-        draft-id (-> @state :note (get "id"))
-        _ (await (tag-service/add-note-tag draft-id id))]
+        note-id (-> @state :note (get "id"))
+        _ (await (tag-service/add-note-tag note-id id))]
     (swap! state update :note-tags concat
            [{"id" id "name" name "related_num" 1}])))
 
