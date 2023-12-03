@@ -40,3 +40,9 @@
               (get (:folder @gs/state) "id"))
         result (await (service/query-notes-from-folder fid))]
     (swap! gs/state assoc :notes result)))
+    
+
+;;
+(defn move-notes [folder-id ids]
+  (await (service/move-notes folder-id ids))
+  (notes-from-folder))

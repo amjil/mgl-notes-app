@@ -2,6 +2,7 @@
   (:require
    ["package:sqflite/sqflite.dart" :as sqf]
    ["package:flutter/material.dart" :as m]
+   [clojure.string :as str]
    [notes-app.services.sqlite :as sql]
    [notes-app.services.tag :as tag-service]))
 
@@ -107,3 +108,15 @@
       [id]))))
 
 
+(defn move-notes [folder-id ids]
+  (let [^sqf/Database db (await (sql/initialize-db))]
+    (await
+     (.rawUpdate
+      db
+      (str
+       "UPDATE note_infos SET folder_id = ? 
+        WHERE id in ()"
+       (str/join
+        (map (fn [_] (str "?")) ids)
+        ","))
+      (concat [folder-id] (vec ids))))))

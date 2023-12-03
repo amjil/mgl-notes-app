@@ -28,3 +28,9 @@
 (defn sub-folders [id]
   (let [result (await (service/sub-folders id))]
     (swap! gs/state assoc :sub-folders result)))
+    
+(defn move-folders [pid ids]
+  (await (service/move-folders pid ids))
+  (if (nil? (:folder @gs/state))
+    (all-folders)
+    (sub-folders (get (:folder @gs/state) "id"))))

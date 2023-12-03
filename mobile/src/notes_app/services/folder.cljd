@@ -2,6 +2,7 @@
   (:require
    ["package:sqflite/sqflite.dart" :as sqf]
    ["package:uuid/uuid.dart" :as uuid]
+   [clojure.string :as str]
    [notes-app.services.sqlite :as sql]))
 
 (declare query-folder-with-name)
@@ -70,3 +71,17 @@
         AND name = ?
        ;"
       [id n]))))
+
+(defn move-folders [pid ids]
+  (let [^sqf/Database db (await (sql/initialize-db))
+        num (await
+             (.rawUpdate
+              db
+              (str
+               "UPDATE folders SET parent_id = ? 
+                WHERE id in ("
+               (str/join
+                (map (fn [_] (str "?")) ids)
+                ",") ")")
+              (concat [pid] (vec ids))))]
+    num))
