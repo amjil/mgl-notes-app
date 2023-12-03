@@ -9,6 +9,7 @@ A new Flutter project.
     <img src="screenshots/screenshot3.png" width="200">
     <img src="screenshots/screenshot4.png" width="200">
     <img src="screenshots/screenshot5.png" width="200">
+    <img src="screenshots/screenshot6.png" width="200">
 </p>
 
 ## Getting Started
