@@ -22,11 +22,13 @@
         did (if (nil? (:folder @gs/state))
               nil
               (get (:folder @gs/state) "id"))]
-    (service/create-note did id content)))
+    (await (service/create-note did id content))
+    (notes-from-folder)))
     
 (defn update-note [content]
   (let [id (get (:note @gs/state) "id")]
-    (service/update-note id content)))
+    (await (service/update-note id content))
+    (notes-from-folder)))
     
 (defn delete-note [id]
   (await (service/delete-note id))

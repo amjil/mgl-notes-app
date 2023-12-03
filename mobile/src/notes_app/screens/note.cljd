@@ -45,8 +45,8 @@
                   .onTap (fn []
                            (-> m/Navigator (.of ctx) .pop)
                            (if (nil? (:note @gs/state))
-                             (note-state/create-note (.-text controller))
-                             (note-state/update-note (.-text controller)))
+                             (await (note-state/create-note (.-text controller)))
+                             (await (note-state/update-note (.-text controller))))
                            (swap! gs/state assoc :note nil))
                   .child
                   (m/Icon m.Icons/check))])
