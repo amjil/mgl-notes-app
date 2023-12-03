@@ -1,0 +1,23 @@
+(ns notes-app.widgets.top-bar
+  (:require 
+   ["package:flutter/material.dart" :as m]
+   [cljd.flutter.alpha2 :as f]))
+   
+(defn move-folder-bars []
+  (f/widget
+   :context ctx
+   (m/Row
+    .mainAxisAlignment m.MainAxisAlignment/spaceBetween
+    .children
+    [(m/InkWell
+      .customBorder (m/CircleBorder)
+      .onTap (fn []
+               (-> m/Navigator (.of ctx) .pop))
+      .child
+      (m/Icon m.Icons/keyboard_backspace))
+     (m/InkWell
+      .customBorder (m/CircleBorder)
+      .onTap (fn []
+               (-> m/Navigator (.of ctx) .pop))
+      .child
+      (m/Icon m.Icons/check))])))
