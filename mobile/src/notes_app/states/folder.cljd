@@ -44,3 +44,13 @@
   (if (nil? (:folder @gs/state))
     (all-folders)
     (sub-folders (get (:folder @gs/state) "id"))))
+    
+(defn parent-folders []
+  (let [result (await (service/all-folders))]
+    (swap! gs/state assoc :parent-folders 
+           (concat [{"id" nil "name" "All Notes" "related_num" "*"}]
+                   result))))
+                   
+(defn move-sub-folders [id]
+  (let [result (await (service/sub-folders id))]
+    (swap! gs/state assoc :move-sub-folders result)))

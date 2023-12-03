@@ -4,7 +4,8 @@
    ["package:mongol/mongol.dart" :as mgl]
    [cljd.flutter.alpha2 :as f]
    [notes-app.utils.bottom-sheet :as bottom-sheet]
-   [notes-app.states.global :as gs]))
+   [notes-app.states.global :as gs]
+   [notes-app.states.folder :as folder-state]))
    
 (defn menu-item [text icon on-press]
   (f/widget
@@ -52,8 +53,10 @@
                             (bottom-sheet/modal-bottom-sheet ctx nil)))
                (m/VerticalDivider
                 .color (-> m/Theme (.of ctx) .-colorScheme .-outlineVariant))
-               (menu-item "Move This Folder"
+               (menu-item "ᠨᠡᠭᠦᠯᠭᠡᠬᠦ"
                           m.Icons/folder
                           (fn []
-                            (dart:core/print "xxx")
-                            (.pop navigator)))])))
+                            (.pop navigator)
+                            (folder-state/parent-folders)
+                            (swap! gs/state assoc :move-folder nil)
+                            (bottom-sheet/folder-selector-bottom-sheet ctx)))])))
