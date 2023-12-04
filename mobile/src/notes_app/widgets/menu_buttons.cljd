@@ -57,6 +57,6 @@
                           m.Icons/folder
                           (fn []
                             (.pop navigator)
-                            (folder-state/parent-folders)
+                            (folder-state/folders-tree)
                             (swap! gs/state assoc :move-folder nil)
                             (bottom-sheet/folder-selector-bottom-sheet ctx)))])))

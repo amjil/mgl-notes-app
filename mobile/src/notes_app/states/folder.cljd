@@ -51,6 +51,23 @@
            (concat [{"id" nil "name" "All Notes" "related_num" "*"}]
                    result))))
                    
+;; copied from https://gist.github.com/dnaeon/5e4f02a18a6f5e48bdb5925a60c48be8
+(defn item-children [item coll]
+  (let [children (-> (filter #(= (get % "parent_id") (get item "id")) coll) seq)]
+    (assoc item "children" (map #(item-children % coll) children))))
+
+(defn folders-tree []
+  (let [result (->> (await (service/get-folders))
+                    (map #(into {} %))
+                    (map #(assoc % "parent_id"
+                                 (if (empty? (get % "parent_id"))
+                                   "0"
+                                   (get % "parent_id")))))
+        top-folder {"id" "0" "name" "All Notes" "related_num" "*"}
+        trees (item-children top-folder result)]
+    (swap! gs/state assoc :folders-tree
+           (get trees "children"))))
+                   
 (defn move-sub-folders [id]
   (let [result (await (service/sub-folders id))]
     (swap! gs/state assoc :move-sub-folders result)))

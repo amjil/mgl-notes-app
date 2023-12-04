@@ -47,6 +47,16 @@
        ORDER BY order_num desc
        ;"))))
        
+(defn get-folders []
+  (let [^sqf/Database db (await (sql/initialize-db))]
+    (await
+     (.rawQuery
+      db
+      "SELECT id, parent_id, name, order_num, related_num
+       FROM folders 
+       ORDER BY order_num desc
+       ;"))))
+       
 (defn sub-folders [id]
   (let [^sqf/Database db (await (sql/initialize-db))]
     (await
