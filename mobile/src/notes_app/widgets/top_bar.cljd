@@ -5,11 +5,11 @@
    [notes-app.states.folder :as folder-state]
    [notes-app.states.global :as gs]))
    
-(defn move-folder-bars []
+(defn move-view-bars []
   (f/widget
    :context ctx
    (m/Row
-    .mainAxisAlignment m.MainAxisAlignment/spaceBetween
+    .mainAxisAlignment m.MainAxisAlignment/start
     .children
     [(m/InkWell
       .customBorder (m/CircleBorder)
@@ -17,12 +17,13 @@
                (-> m/Navigator (.of ctx) .pop))
       .child
       (m/Icon m.Icons/keyboard_backspace))
-     (m/InkWell
-      .customBorder (m/CircleBorder)
-      .onTap (fn []
-               (-> m/Navigator (.of ctx) .pop)
-               (folder-state/move-folders 
-                (get (:move-folder @gs/state) "id")
-                [(get (:folder @gs/state) "id")]))
-      .child
-      (m/Icon m.Icons/check))])))
+    ;;  (m/InkWell
+    ;;   .customBorder (m/CircleBorder)
+    ;;   .onTap (fn []
+    ;;            (-> m/Navigator (.of ctx) .pop)
+    ;;            (folder-state/move-folders 
+    ;;             (get (:move-folder @gs/state) "id")
+    ;;             [(get (:folder @gs/state) "id")]))
+    ;;   .child
+    ;;   (m/Icon m.Icons/check))
+     ])))
