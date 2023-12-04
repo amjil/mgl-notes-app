@@ -5,7 +5,8 @@
    [cljd.flutter.alpha2 :as f]
    [notes-app.widgets.text-input :as text-input]
    [notes-app.widgets.top-bar :as top-bar]
-   [notes-app.states.global :as gs]))
+   [notes-app.states.global :as gs]
+   [notes-app.states.folder :as folder-state]))
    
 (defn modal-bottom-sheet [^m/BuildContext ctx child]
   (m/showModalBottomSheet
@@ -29,6 +30,8 @@
    :get [m/Navigator]
    (m/GestureDetector
     .onTap (fn []
+             (swap! gs/state assoc :move-folder item)
+             (folder-state/move-sub-folders (get item "id"))
              nil)
     .child
     (m/Container
