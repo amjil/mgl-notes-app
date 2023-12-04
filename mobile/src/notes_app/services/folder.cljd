@@ -91,8 +91,9 @@
                "UPDATE folders SET parent_id = ? 
                 WHERE id in ("
                (str/join
-                (map (fn [_] (str "?")) ids)
-                ",") ")")
+                ","
+                (mapv (fn [_] (str "?")) (seq ids)))
+               ")")
               (concat [pid] (vec ids))))]
     num))
     

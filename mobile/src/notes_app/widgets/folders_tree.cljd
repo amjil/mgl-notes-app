@@ -4,7 +4,8 @@
    ["package:mongol/mongol.dart" :as mgl]
    [cljd.flutter.alpha2 :as f]
    [notes-app.widgets.top-bar :as top-bar]
-   [notes-app.states.global :as gs]))
+   [notes-app.states.global :as gs]
+   [notes-app.states.folder :as folder-state]))
 
 (declare list-view list-item)
 
@@ -12,7 +13,8 @@
   (f/widget
    :context ctx
    :let [w (-> m/MediaQuery (.of ctx) .-size .-width)]
-   :watch [{folders-tree :folders-tree} gs/state]
+   :watch [{folders-tree :folders-tree
+            folder :folder} gs/state]
    (m/Container)
    (m/Column
     .crossAxisAlignment m.CrossAxisAlignment/start
@@ -46,34 +48,38 @@
                        (mgl/MongolListTile
                         .title
                         (list-item 0 %))) (get item "children"))
-      .title (m/GestureDetector
-              .onTap (fn [] (dart:core/print "icon on tap >>>>"))
-              .child (m/RotatedBox
-                      .quarterTurns 2
-                      .child (m/Icon (if (true? expanded)
-                                       m.Icons/arrow_drop_down_circle
-                                       m.Icons/arrow_drop_down))))
-      .trailing (m/RotatedBox
-                 .quarterTurns 2
-                 .child
-                 (m/Container
-                  .width w
-                  .child
-                  (m/Row 
-                   .children 
-                   [(m/RotatedBox
-                     .quarterTurns -1
-                     .child (m/Icon
-                             m.Icons/folder
-                             .color (-> m/Theme (.of ctx) .-colorScheme .-outlineVariant)))
-                    (m/Text
-                     (str "" (get item "name"))
-                     .maxLines 1
-                     .softWrap true
-                     .overflow m.TextOverflow/ellipsis
-                     .style (m/TextStyle
-                             .fontSize 20))])
-                  ))))))
+      .title (m/RotatedBox
+              .quarterTurns 2
+              .child (m/Icon (if (true? expanded)
+                               m.Icons/arrow_drop_down_circle
+                               m.Icons/arrow_drop_down)))
+      .trailing (m/GestureDetector
+                 .onTap (fn []
+                          (folder-state/move-folders
+                           (get item "id")
+                           [(get (:folder @gs/state) "id")])
+                          (.pop navigator)
+                          nil)
+                 .child (m/RotatedBox
+                         .quarterTurns 2
+                         .child
+                         (m/Container
+                          .width w
+                          .child
+                          (m/Row
+                           .children
+                           [(m/RotatedBox
+                             .quarterTurns -1
+                             .child (m/Icon
+                                     m.Icons/folder
+                                     .color (-> m/Theme (.of ctx) .-colorScheme .-outlineVariant)))
+                            (m/Text
+                             (str "" (get item "name"))
+                             .maxLines 1
+                             .softWrap true
+                             .overflow m.TextOverflow/ellipsis
+                             .style (m/TextStyle
+                                     .fontSize 20))]))))))))
 
 (defn list-view [items]
   (f/widget
