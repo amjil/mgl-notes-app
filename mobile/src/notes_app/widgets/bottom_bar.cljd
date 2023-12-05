@@ -2,8 +2,8 @@
   (:require
    ["package:flutter/material.dart" :as m]
    [cljd.flutter.alpha2 :as f]
-   [notes-app.utils.util :as util]
-   [notes-app.utils.router :as router]))
+   [notes-app.utils.bottom-sheet :as bottom-sheet]
+   [notes-app.states.global :as gs]))
    
 
 (defn sub-folder [router-fn]
@@ -28,3 +28,32 @@
                 .icon (m/Icon m.Icons/edit)
                 .onPressed (fn []
                              (router-fn))))])))
+                             
+
+(defn home [controller]
+  (f/widget 
+   :context ctx
+  (m/Container
+   .width double/infinity
+   .decoration (m/BoxDecoration
+                .border (m/Border
+                         .top (m/BorderSide
+                               .color (-> m/Theme (.of ctx) .-colorScheme .-outlineVariant))))
+   .child
+   (m/SafeArea
+    .top false
+    .child
+    (m/Row
+     .mainAxisAlignment m.MainAxisAlignment/spaceBetween
+     .children [(m/IconButton
+                 .padding (m.EdgeInsets/all 12)
+                 .constraints (m/BoxConstraints)
+                 .icon (m/Icon m.Icons/create_new_folder)
+                 .onPressed (fn []
+                              (swap! gs/state assoc :keyboard/text-controller controller)
+                              (bottom-sheet/modal-bottom-sheet ctx nil)))
+                (m/IconButton
+                 .padding (m.EdgeInsets/all 12)
+                 .constraints (m/BoxConstraints)
+                 .icon (m/Icon m.Icons/edit)
+                 .onPressed #(dart:core/print "xxxx"))])))))
