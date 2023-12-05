@@ -49,7 +49,7 @@
                         .title
                         (list-item 0 %))) (get item "children"))
       .title (m/RotatedBox
-              .quarterTurns 2
+              .quarterTurns 0
               .child (m/Icon (if (true? expanded)
                                m.Icons/arrow_drop_down_circle
                                m.Icons/arrow_drop_down)))
