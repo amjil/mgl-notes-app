@@ -34,31 +34,5 @@
       .height (* 0.20 h)
       .child
       (tag-list/list-view))
-      (bottom-bar/home text-controller)
-    ;;  (m/Container
-    ;;   .width double/infinity
-    ;;   .decoration (m/BoxDecoration
-    ;;                .border (m/Border
-    ;;                         .top (m/BorderSide
-    ;;                               .color (-> m/Theme (.of ctx) .-colorScheme .-outlineVariant))))
-    ;;   .child
-    ;;   (m/SafeArea
-    ;;    .top false
-    ;;    .child
-    ;;    (m/Row
-    ;;     .mainAxisAlignment m.MainAxisAlignment/spaceBetween
-    ;;     .children [(m/IconButton
-    ;;                 .padding (m.EdgeInsets/all 12)
-    ;;                 .constraints (m/BoxConstraints)
-    ;;                 .icon (m/Icon m.Icons/create_new_folder)
-    ;;                 .onPressed (fn []
-    ;;                              (swap! gs/state assoc :keyboard/text-controller text-controller)
-    ;;                              (bottom-sheet/modal-bottom-sheet ctx nil)))
-    ;;                (m/IconButton
-    ;;                 .padding (m.EdgeInsets/all 12)
-    ;;                 .constraints (m/BoxConstraints)
-    ;;                 .icon (m/Icon m.Icons/edit)
-    ;;                 .onPressed #(dart:core/print "xxxx"))])))
-                    ])))
+     (bottom-bar/home text-controller)])))
      
-
