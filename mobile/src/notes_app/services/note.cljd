@@ -120,3 +120,23 @@
         ",")
        (map (fn [_] (str "?")) ids))
       (concat [folder-id] (vec ids))))))
+      
+(defn query-notes [word]
+  (let [^sqf/Database db (await (sql/initialize-db))
+        ids (->> (.rawQuery db
+                            "select rowid from notes 
+                             where notes match ?"
+                            [word])
+                 await
+                 (map #(get % "rowid")))
+        ids-q (str "(" (clojure.string/join ", " (map #(str %) ids)) ")")]
+    (await
+     (.rawQuery
+      db
+      (str
+       "select a.*, b.content
+           from note_infos a 
+              left join notes b on a.note_id = b.rowid 
+           where note_id in " ids-q "
+           order by a.note_id desc
+           ;")))))

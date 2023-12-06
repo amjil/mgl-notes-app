@@ -41,8 +41,10 @@
         result (await (service/query-notes-from-folder fid))]
     (swap! gs/state assoc :notes result)))
     
-
-;;
 (defn move-notes [folder-id ids]
   (await (service/move-notes folder-id ids))
   (notes-from-folder))
+  
+(defn query-notes [word]
+  (let [result (await (service/query-notes word))]
+    (swap! gs/state assoc :search-result result)))

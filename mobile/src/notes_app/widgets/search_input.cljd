@@ -48,14 +48,10 @@
                    (- h keyboard-height 60))
          .padding (.all m/EdgeInsets 5)
          .decoration (m/BoxDecoration
-                      .color m.Colors/white
                       .borderRadius
                       (.all m/BorderRadius (.circular m/Radius 10))
+                      .color (-> m/Theme (.of ctx) .-colorScheme .-secondaryContainer)
                       .border (.all m/Border .width 0.1))
-        ;;  .constraints (m/BoxConstraints
-        ;;                .minHeight double/infinity
-        ;;                .minWidth 100
-        ;;                .maxWidth (/ w 2))
          .child
          (mgl/MongolTextField
           .controller (get @gs/state :keyboard/text-controller)

@@ -1,7 +1,6 @@
 (ns notes-app.screens.folder
   (:require
    ["package:flutter/material.dart" :as m]
-   ["package:mongol/mongol.dart" :as mgl]
    [cljd.flutter.alpha2 :as f]
    [notes-app.screens.note :as note-screen]
    [notes-app.widgets.bottom-bar :as bottom-bar]
@@ -10,8 +9,7 @@
    [notes-app.utils.util :as util]
    [notes-app.utils.router :as router]
    [notes-app.states.global :as gs]
-   [notes-app.states.folder :as folder-state]
-   [notes-app.states.note :as note-state]))
+   [notes-app.states.folder :as folder-state]))
    
 (def screen
   (f/widget
