@@ -31,7 +31,6 @@
    :watch [{tags :tags} gs/state]
    (m/SingleChildScrollView
     .scrollDirection m.Axis/horizontal)
-
    (m/Row
     .crossAxisAlignment m.CrossAxisAlignment/start
     .children
@@ -42,9 +41,12 @@
                              .color (-> m/Theme (.of ctx) .-colorScheme .-primary)
                              .fontWeight m.FontWeight/w600))
      (m/SizedBox .width 10)
-     (m/Wrap
-      .direction m.Axis/vertical
-      .runSpacing 4
-      .spacing 4
-      .children
-      (map #(list-item %) tags))])))
+     (m/Padding
+      .padding (m.EdgeInsets/all 8)
+      .child
+      (m/Wrap
+       .direction m.Axis/vertical
+       .runSpacing 4
+       .spacing 4
+       .children
+       (map #(list-item %) tags)))])))

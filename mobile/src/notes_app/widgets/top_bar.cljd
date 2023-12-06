@@ -27,3 +27,17 @@
     ;;   .child
     ;;   (m/Icon m.Icons/check))
      ])))
+     
+(defn home []
+  (f/widget
+   :context ctx
+   (m/SafeArea .bottom false)
+   (m/Row
+    .mainAxisAlignment m.MainAxisAlignment/end
+    .children
+    [(m/InkWell
+      .customBorder (m/CircleBorder)
+      .onTap (fn []
+               nil)
+      .child
+      (m/Icon m.Icons/content_paste_search))])))

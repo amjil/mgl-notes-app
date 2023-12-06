@@ -5,6 +5,7 @@
    [notes-app.screens.folder :as folder-screen]
    [notes-app.widgets.folders-list :as folders-list]
    [notes-app.widgets.tag-list :as tag-list]
+   [notes-app.widgets.top-bar :as top-bar]
    [notes-app.utils.router :as router]
    [notes-app.widgets.bottom-bar :as bottom-bar]))
 
@@ -14,31 +15,27 @@
    :get [m/Navigator]
    :let [h (-> m/MediaQuery (.of ctx) .-size .-height)]
    :managed [text-controller (m/TextEditingController)]
-  ;;  :watch 
    (m/Scaffold
     .appBar nil)
    .body
    (m/Column
     .mainAxisAlignment m.MainAxisAlignment/center
-    .crossAxisAlignment m.CrossAxisAlignment/stretch
+    .crossAxisAlignment m.CrossAxisAlignment/start
     .children
-    [(m/Expanded
+    [(top-bar/home)
+     (m/Expanded
       .child
-      (m/SafeArea
-       .bottom false
+      (m/SingleChildScrollView
+       .scrollDirection m.Axis/horizontal
        .child
-       (m/SingleChildScrollView
-        .scrollDirection m.Axis/horizontal
-        .child
-        (m/Row
-         .children
-         [(folders-list/list-view #(router/open-screen navigator folder-screen/screen) nil)
-          (m/SizedBox .width 10)
-          (f/widget
-           :let [h (-> m/MediaQuery (.of ctx) .-size .-height)]
-           (m/Container
-            .height h
-            .child
-            (tag-list/list-view)))]))))
+       (m/Row
+        .children
+        [(folders-list/list-view #(router/open-screen navigator folder-screen/screen) nil)
+         (m/SizedBox .width 10)
+         (f/widget
+          :let [h (-> m/MediaQuery (.of ctx) .-size .-height)]
+          (m/Container
+           .height h)
+          (tag-list/list-view))])))
      (bottom-bar/home text-controller)])))
      

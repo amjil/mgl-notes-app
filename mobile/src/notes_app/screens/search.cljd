@@ -1,0 +1,45 @@
+(ns notes-app.screens.search 
+  (:require 
+   ["package:flutter/material.dart" :as m]
+   [cljd.flutter.alpha2 :as f]
+   [menu-bar.menu :as menu]
+   [virtual-keyboard.keyboard :as keyboard]
+   [virtual-keyboard.keyboard-action :as keyboard-action]
+   [notes-app.states.global :as gs]))
+   
+(def screen
+  (f/widget
+   :context ctx
+   :get [m/Navigator]
+   :let [h (-> m/MediaQuery (.of ctx) .-size .-height)]
+   :managed [controller (m/TextEditingController)]
+   :watch [{candidates-list :keyboard/candidates-list
+            show-keyboard :show-keyboard
+            keyboard-height :keyboard-height
+            search :search
+            {in-app-keyboard "in-app-keyboard"} :profile} gs/state]
+   (m/Scaffold .appBar nil)
+   .body
+   (m/SafeArea)
+   (m/Column
+    .crossAxisAlignment m.CrossAxisAlignment/start
+    .children [(m/Row
+                .mainAxisAlignment m.MainAxisAlignment/start
+                .children
+                [(m/InkWell
+                  .customBorder (m/CircleBorder)
+                  .onTap (fn []
+                           (-> m/Navigator (.of ctx) .pop))
+                  .child
+                  (m/Icon m.Icons/keyboard_backspace))])
+               (m/SizedBox .height (* 0.02 h))
+               (m/Expanded
+                .child (m/Text "ABC"))
+               (if (and (true? in-app-keyboard) (true? show-keyboard))
+                 (m/Container
+                  .color (-> m/Theme (.of ctx) .-colorScheme .-background)
+                  .child
+                  (m/IntrinsicHeight
+                   .child
+                   (keyboard/keyboard)))
+                 (m/Container))])))
