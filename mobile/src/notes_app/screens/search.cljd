@@ -1,45 +1,67 @@
 (ns notes-app.screens.search 
   (:require 
    ["package:flutter/material.dart" :as m]
+   ["package:mongol/mongol.dart" :as mgl]
    [cljd.flutter.alpha2 :as f]
-   [menu-bar.menu :as menu]
-   [virtual-keyboard.keyboard :as keyboard]
-   [virtual-keyboard.keyboard-action :as keyboard-action]
+   [notes-app.widgets.search-input :as search-input]
    [notes-app.states.global :as gs]))
    
 (def screen
-  (f/widget
-   :context ctx
-   :get [m/Navigator]
-   :let [h (-> m/MediaQuery (.of ctx) .-size .-height)]
-   :managed [controller (m/TextEditingController)]
-   :watch [{candidates-list :keyboard/candidates-list
-            show-keyboard :show-keyboard
-            keyboard-height :keyboard-height
-            search :search
-            {in-app-keyboard "in-app-keyboard"} :profile} gs/state]
-   (m/Scaffold .appBar nil)
-   .body
-   (m/SafeArea)
-   (m/Column
-    .crossAxisAlignment m.CrossAxisAlignment/start
-    .children [(m/Row
-                .mainAxisAlignment m.MainAxisAlignment/start
-                .children
-                [(m/InkWell
-                  .customBorder (m/CircleBorder)
-                  .onTap (fn []
-                           (-> m/Navigator (.of ctx) .pop))
-                  .child
-                  (m/Icon m.Icons/keyboard_backspace))])
-               (m/SizedBox .height (* 0.02 h))
-               (m/Expanded
-                .child (m/Text "ABC"))
-               (if (and (true? in-app-keyboard) (true? show-keyboard))
-                 (m/Container
-                  .color (-> m/Theme (.of ctx) .-colorScheme .-background)
-                  .child
-                  (m/IntrinsicHeight
-                   .child
-                   (keyboard/keyboard)))
-                 (m/Container))])))
+  (let [text-value (atom nil)]
+    (f/widget
+     :context ctx
+     :get [:info m/Navigator]
+     :let [h (-> m/MediaQuery (.of ctx) .-size .-height)]
+     :managed [controller (m/TextEditingController)]
+     :watch [{floating-input :floating-input
+              search-result :search-result} gs/state
+             text text-value]
+     (m/Scaffold .appBar nil)
+     .body
+     (m/SafeArea)
+     (m/Stack
+      .children
+      [(m/Column
+        .crossAxisAlignment m.CrossAxisAlignment/start
+        .children [(m/Row
+                    .mainAxisAlignment m.MainAxisAlignment/start
+                    .children
+                    [(m/InkWell
+                      .customBorder (m/CircleBorder)
+                      .onTap (fn []
+                               (-> m/Navigator (.of ctx) .pop))
+                      .child
+                      (m/Icon m.Icons/keyboard_backspace))])
+                   (m/Divider .color (-> m/Theme (.of ctx) .-colorScheme .-outlineVariant)
+                              .thickness 1)
+                   (m/Expanded
+                    .child
+                    (m/GestureDetector
+                     .onTap (fn []
+                              (swap! gs/state assoc :floating-input true)
+                              (swap! gs/state assoc :keyboard/text-controller controller)
+                              (swap! gs/state assoc :keyboard/return-callback
+                                     (fn []
+                                       (swap! gs/state assoc :floating-input false)
+                                       (reset! text-value (.-text controller))))
+                              (swap! gs/state assoc :keyboard/return-mode :single-line)
+                              nil)
+                     .child
+                     (f/widget
+                      :context ctx
+                      :let [h (-> m/MediaQuery (.of ctx) .-size .-height)]
+                      (m/Container
+                       .decoration (m/BoxDecoration
+                                    .border (m.Border/all .color m.Colors/blueAccent))
+                       .padding (m.EdgeInsets/all 10)
+                       .height (* 0.8 h)
+                       .child
+                       (mgl/MongolText
+                        (if (empty? text)
+                          "ᠪᠢᠴᠢᠭᠡᠷᠡᠢ"
+                          text)
+                        .style (m/TextStyle .fontSize 20
+                                            .fontWeight m.FontWeight/w400))))))])
+       (if (true? floating-input)
+         (search-input/input-box text-value)
+         (m/SizedBox))]))))

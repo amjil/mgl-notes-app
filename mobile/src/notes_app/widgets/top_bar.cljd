@@ -2,7 +2,8 @@
   (:require 
    ["package:flutter/material.dart" :as m]
    [cljd.flutter.alpha2 :as f]
-   [notes-app.states.folder :as folder-state]
+   [notes-app.screens.search :as search-screen]
+   [notes-app.utils.router :as router]
    [notes-app.states.global :as gs]))
    
 (defn move-view-bars []
@@ -28,9 +29,10 @@
     ;;   (m/Icon m.Icons/check))
      ])))
      
-(defn home []
+(defn home [controller]
   (f/widget
    :context ctx
+   :get [m/Navigator]
    (m/SafeArea .bottom false)
    (m/Row
     .mainAxisAlignment m.MainAxisAlignment/end
@@ -38,6 +40,9 @@
     [(m/InkWell
       .customBorder (m/CircleBorder)
       .onTap (fn []
+               (swap! gs/state assoc :keyboard/text-controller controller)
+               (swap! gs/state assoc :floating-input true)
+               (router/open-editor navigator search-screen/screen)
                nil)
       .child
-      (m/Icon m.Icons/content_paste_search))])))
+      (m/Icon m.Icons/search))])))

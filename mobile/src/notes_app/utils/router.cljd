@@ -4,12 +4,12 @@
    [cljd.flutter.alpha2 :as f]))
 
 
-(defn open-screen [navigator screen]
+(defn open-screen [^m/NavigatorState navigator screen]
   (.push navigator
          (#/(m/MaterialPageRoute Object)
           .builder (f/build screen))))
           
-(defn open-editor [navigator screen]
+(defn open-editor [^m/NavigatorState navigator screen]
   (.push navigator
          (#/(m/MaterialPageRoute Object)
           .builder (f/build screen))))

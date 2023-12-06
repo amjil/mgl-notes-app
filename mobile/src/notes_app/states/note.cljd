@@ -9,7 +9,7 @@
    
 ;; (def ^m/TextEditingController text-controller (m/TextEditingController))
 
-(defn setting-note-controller [text-controller]
+(defn setting-note-controller [^m/TextEditingController text-controller]
   (set! (.-text text-controller) 
         (if (nil? (:note @gs/state))
           ""

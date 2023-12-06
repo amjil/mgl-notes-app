@@ -27,7 +27,7 @@
                       .color (-> m/Theme (.of ctx) .-colorScheme .-onPrimary)))])
     .onPressed on-press)))
     
-(defn folder [controller]
+(defn folder [^m/TextEditingController controller]
   (f/widget
    :context ctx
    :get [m/Navigator]

@@ -22,7 +22,9 @@
     .mainAxisAlignment m.MainAxisAlignment/center
     .crossAxisAlignment m.CrossAxisAlignment/start
     .children
-    [(top-bar/home)
+    [(top-bar/home text-controller)
+     (m/Divider .color (-> m/Theme (.of ctx) .-colorScheme .-outlineVariant)
+                .thickness 1)
      (m/Expanded
       .child
       (m/SingleChildScrollView
