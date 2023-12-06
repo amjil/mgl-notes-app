@@ -3,6 +3,7 @@
    ["package:flutter/material.dart" :as m]
    [cljd.flutter.alpha2 :as f]
    [notes-app.screens.search :as search-screen]
+   [notes-app.screens.profile :as profile-screen]
    [notes-app.utils.router :as router]
    [notes-app.states.global :as gs]
    [notes-app.states.note :as note-state]))
@@ -18,17 +19,7 @@
       .onTap (fn []
                (-> m/Navigator (.of ctx) .pop))
       .child
-      (m/Icon m.Icons/keyboard_backspace))
-    ;;  (m/InkWell
-    ;;   .customBorder (m/CircleBorder)
-    ;;   .onTap (fn []
-    ;;            (-> m/Navigator (.of ctx) .pop)
-    ;;            (folder-state/move-folders 
-    ;;             (get (:move-folder @gs/state) "id")
-    ;;             [(get (:folder @gs/state) "id")]))
-    ;;   .child
-    ;;   (m/Icon m.Icons/check))
-     ])))
+      (m/Icon m.Icons/keyboard_backspace))])))
      
 (defn home [^m/TextEditingController controller]
   (f/widget
@@ -36,9 +27,15 @@
    :get [m/Navigator]
    (m/SafeArea .bottom false)
    (m/Row
-    .mainAxisAlignment m.MainAxisAlignment/end
+    .mainAxisAlignment m.MainAxisAlignment/spaceBetween
     .children
     [(m/InkWell
+      .customBorder (m/CircleBorder)
+      .onTap (fn []
+               (router/open-editor navigator profile-screen/screen))
+      .child
+      (m/Icon m.Icons/person))
+     (m/InkWell
       .customBorder (m/CircleBorder)
       .onTap (fn []
                (swap! gs/state assoc :keyboard/text-controller controller)
