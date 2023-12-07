@@ -1,0 +1,41 @@
+(ns notes-app.services.auth
+  (:require
+   ["package:flutter/widgets.dart" :as widgets]
+   ["package:http/http.dart" :as http]
+   ["dart:convert" :as convert]
+   [notes-app.utils.util :as util]
+   [notes-app.utils.response :as response]
+   [notes-app.services.env :as env]
+   [notes-app.services.token :as token-service]
+   [notes-app.utils.router :as router]))
+
+(defn login [ctx ^widgets/NavigatorState navigator info]
+  (util/show-indicator ctx)
+  (let [result (await
+                (http/post (Uri/http (env/get "base_url") "/api/auth/login")
+                           .headers {"Content-Type" "application/json; charset=UTF-8"}
+                           .body
+                           (convert/jsonEncode
+                            info)))]
+    (response/response-message
+     ctx
+     result
+     (fn [x]
+       (token-service/save-token (get x "token"))))))
+
+(defn signup [ctx ^widgets/NavigatorState navigator info login-screen]
+  (util/show-indicator ctx)
+  (if (not= (get info "password")
+            (get info "password_confirmation"))
+    (util/show-toast ctx "Password confirmation")
+    (let [result (await
+                  (http/post (Uri/http (env/get "base_url") "/api/auth/signup")
+                             .headers {"Content-Type" "application/json; charset=UTF-8"}
+                             .body
+                             (convert/jsonEncode
+                              info)))]
+      (response/response-message
+       ctx
+       result
+       (fn [_] 
+         (router/open-screen navigator login-screen))))))

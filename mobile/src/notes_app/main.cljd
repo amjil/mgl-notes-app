@@ -7,6 +7,7 @@
    [cljd.flutter.alpha2 :as f]
    [virtual-keyboard.options :as keyboard-options]
    [notes-app.screens.home :as home]
+   [notes-app.services.pref :as pref]
    [notes-app.utils.themes :as themes]
    [notes-app.states.global :as gs]
    [notes-app.states.folder :as folder-state]
@@ -31,8 +32,10 @@
   (folder-state/all-folders)
   (tag-state/all-tags)
 
-
-  (let [initial-theme (await (themes/initial-theme))]
+  (let [initial-theme (await (themes/initial-theme))
+        token (await (pref/get-string "user-token"))]
+    (when (not-empty token)
+      (swap! gs/state assoc :user-token token))
     (m/runApp
      (adaptive/AdaptiveTheme
       .light themes/default-light-theme

@@ -1,0 +1,27 @@
+(ns notes-app.services.token
+  (:require
+   [notes-app.services.pref :as pref]
+   [notes-app.states.global :as gs]
+   [notes-app.utils.util :as util]
+   [notes-app.utils.response :as response]
+   ["package:http/http.dart" :as http]
+   ["dart:convert" :as convert]))
+
+(defn get-token [ctx]
+  (stream
+   (map (fn [result]
+          (swap! gs/state assoc :user-token result)
+          :ok-token))
+   (map (fn [[er st]]
+          (util/show-toast ctx "error get user-id")
+          :error-token))
+   :as-values
+   (.asStream (pref/get-string "user-token"))))
+
+(defn save-token [token]
+  (pref/set-string "user-token" token)
+  (swap! gs/state assoc :user-token token))
+
+(defn delete-token []
+  (pref/remove-value "user-token")
+  (swap! gs/state assoc :user-token nil))
