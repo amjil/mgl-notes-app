@@ -1,0 +1,46 @@
+(ns notes-app.services.ws
+  (:require
+   ["dart:convert" :as convert]
+   ["package:web_socket_client/web_socket_client.dart" :as websocket]
+   [notes-app.states.global :as gs]
+   [notes-app.services.pref :as pref]
+   [notes-app.utils.util :as util]))
+
+(def conn (atom nil))
+
+(def server-url "ws://localhost:3002/api/ws/")
+
+(declare handle-message)
+
+(defn connect
+  []
+  (let [uri (Uri/parse (str server-url (:user-token @gs/state)))
+        socket (websocket/WebSocket uri)]
+    (reset! conn socket)
+    (.listen (.-connection socket) (fn [state] (dart:core/print (str "state = " state))))
+    (.listen (.-messages socket)
+             (fn [msg]
+               (dart:core/print (str "message = " msg))
+               (handle-message msg)))))
+
+(defn close []
+  (when-not (nil? @conn)
+    (.close @conn)))
+
+(defn send-msg [ctx type msg]
+  (if (nil? @conn)
+    (util/show-toast ctx "The Network is disconnected!")
+    (.send @conn (convert/jsonEncode
+                  {"type" type
+                   "data" msg}))))
+
+(defn handle-message
+  [msg]
+  (let [data (convert/jsonDecode msg)]
+    (case (get data "type")
+      "notification"
+      (let [data (get data "data")
+            id (or (await (pref/get-int "ntf-id")) 1)]
+        (pref/set-int "ntf-id" id))
+
+      (dart:core/print (str "No handle case")))))

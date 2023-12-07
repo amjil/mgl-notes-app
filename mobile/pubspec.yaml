@@ -52,6 +52,7 @@ dependencies:
   sqlite3_flutter_libs: ^0.5.18
   uuid: ^4.2.1
   vibration: ^1.8.1
+  web_socket_client: ^0.1.0
 
 dev_dependencies:
   flutter_test:
