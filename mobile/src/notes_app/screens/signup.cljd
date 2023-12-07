@@ -1,0 +1,55 @@
+(ns notes-app.screens.signup
+  (:require 
+   ["package:flutter/material.dart" :as m]
+   ["package:mongol/mongol.dart" :as mgl]
+   [cljd.flutter.alpha2 :as f]
+   [notes-app.screens.login :as login-screen]
+   [notes-app.widgets.auth :as auth-widget]
+   [notes-app.services.auth :as auth-service]
+   [notes-app.utils.router :as router]))
+
+(def screen 
+  (f/widget
+   :context ctx
+   :get [m/Navigator]
+   :managed [email-controller (m/TextEditingController)
+             password-controller (m/TextEditingController)
+             password-confirmation-controller (m/TextEditingController)]
+   (m/Scaffold)
+   .body
+   (m/SafeArea)
+   (m/Center)
+   (m/Padding
+    .padding (.all m/EdgeInsets 40))
+   (m/Column
+    .children
+    [(auth-widget/auth-form-field email-controller "Email")
+     (m/SizedBox .height 10)
+     (auth-widget/auth-form-field password-controller "Password")
+     (m/SizedBox .height 10)
+     (auth-widget/auth-form-field password-confirmation-controller "Password Confirmation")
+     (m/SizedBox .height 30)
+     (m/Row
+      .mainAxisAlignment m.MainAxisAlignment/spaceAround
+      .children
+      [(m/SizedBox .height 100
+                   .child
+                   (m/GestureDetector
+                    .onTap (fn []
+                             (router/open-screen navigator login-screen/screen)
+                             nil)
+                    .child
+                    (mgl/MongolRichText
+                     .text (m/TextSpan
+                            .text "Already have an account?"
+                            .style (m/TextStyle .fontSize 16)
+                            .children [(m/TextSpan .text " Login"
+                                                   .style (m/TextStyle .fontSize 16))]))))
+       (auth-widget/rounded-button (fn [] (auth-service/signup
+                                            ctx
+                                            navigator
+                                            {"email" (.-text email-controller)
+                                             "password" (.-text password-controller)
+                                             "password_confirmation" (.-text password-confirmation-controller)}
+                                           login-screen/screen))
+                                    "Done" nil nil)])])))

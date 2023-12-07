@@ -9,7 +9,7 @@
    [notes-app.services.token :as token-service]
    [notes-app.utils.router :as router]))
 
-(defn login [ctx ^widgets/NavigatorState navigator info]
+(defn login [ctx ^widgets/NavigatorState navigator info success-fn]
   (util/show-indicator ctx)
   (let [result (await
                 (http/post (Uri/http (env/get "base_url") "/api/auth/login")
@@ -21,7 +21,9 @@
      ctx
      result
      (fn [x]
-       (token-service/save-token (get x "token"))))))
+       (token-service/save-token (get x "token"))
+       (when-not (nil? success-fn)
+         (success-fn))))))
 
 (defn signup [ctx ^widgets/NavigatorState navigator info login-screen]
   (util/show-indicator ctx)
