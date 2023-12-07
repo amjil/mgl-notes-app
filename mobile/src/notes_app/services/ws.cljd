@@ -4,17 +4,16 @@
    ["package:web_socket_client/web_socket_client.dart" :as websocket]
    [notes-app.states.global :as gs]
    [notes-app.services.pref :as pref]
+   [notes-app.services.env :as env]
    [notes-app.utils.util :as util]))
 
 (def conn (atom nil))
-
-(def server-url "ws://localhost:3002/api/ws/")
 
 (declare handle-message)
 
 (defn connect
   []
-  (let [uri (Uri/parse (str server-url (:user-token @gs/state)))
+  (let [uri (Uri/parse (str "ws://" (env/get "base_url") "/api/ws/" (:user-token @gs/state)))
         socket (websocket/WebSocket uri)]
     (reset! conn socket)
     (.listen (.-connection socket) (fn [state] (dart:core/print (str "state = " state))))
