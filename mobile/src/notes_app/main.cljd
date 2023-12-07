@@ -1,13 +1,12 @@
 (ns notes-app.main
   (:require
    ["package:flutter/material.dart" :as m]
-   ["package:mongol/mongol.dart" :as mgl]
+   ["package:flutter_dotenv/flutter_dotenv.dart" :as dotenv]
    ["package:adaptive_theme/adaptive_theme.dart" :as adaptive]
    ["package:keyboard_height_plugin/keyboard_height_plugin.dart" :as keyboard-plugin]
    [cljd.flutter.alpha2 :as f]
    [virtual-keyboard.options :as keyboard-options]
    [notes-app.screens.home :as home]
-   [notes-app.screens.folder :as folder]
    [notes-app.utils.themes :as themes]
    [notes-app.states.global :as gs]
    [notes-app.states.folder :as folder-state]
@@ -16,21 +15,23 @@
 
 (defn main []
   (m.WidgetsFlutterBinding/ensureInitialized)
-  
+  ;; dotenv
+  (await (.load dotenv/dotenv .fileName "assets/.env"))
+
   ;;
   (profile-state/prepopulate-profile-settings)
-  
+
   ;; keyboard height
   (let [keyboard-height-plugin (keyboard-plugin/KeyboardHeightPlugin)]
     (.onKeyboardHeightChanged
      keyboard-height-plugin
      (fn [height]
        (swap! gs/state assoc :keyboard-height height))))
-  
+
   (folder-state/all-folders)
   (tag-state/all-tags)
 
-  
+
   (let [initial-theme (await (themes/initial-theme))]
     (m/runApp
      (adaptive/AdaptiveTheme
