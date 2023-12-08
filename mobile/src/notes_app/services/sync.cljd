@@ -1,0 +1,47 @@
+(ns notes-app.services.sync
+  (:require
+   ["package:sqflite/sqflite.dart" :as sqf]
+   ["package:uuid/uuid.dart" :as uuid]
+   [notes-app.services.sqlite :as sql]
+   [notes-app.services.ws :as ws]
+   [notes-app.utils.util :as util]))
+
+(defn create-sync [types_of table rid status]
+  ;; t 0 create 1 update 2 delete
+  (let [^sqf/Database db (await (sql/initialize-db))
+        uuid (uuid/Uuid)
+        id (.v4 uuid)
+        result (await
+                (.rawInsert db
+                            "INSERT INTO waiting_for_sync 
+                             (id, table_id, row_id, types_of, status) 
+                             VALUES (?, ?, ?, ?, ?)"
+                            [id table rid types_of status]))]
+    result))
+    
+(defn query-needs-sync-data []
+  (let [^sqf/Database db (await (sql/initialize-db))
+        result (->> (await
+                     (.rawQuery
+                      db
+                      "SELECT id, table_id, row_id, types_of 
+                       FROM waiting_for_sync 
+                       WHERE status = 0 
+                       ORDER BY created_at desc 
+                       ;"))
+                    (group-by (fn [x] [(get x "table_id") (get x "row_id")]))
+                    (map (fn [[_ v]] (assoc (into {} (last v))
+                                            "ids"
+                                            (map #(get % "id") v)))))]
+    result))
+    
+(defn commit-to-server [ctx data]
+  (condp = (get data "types_of")
+    0 (ws/send-msg ctx "data_create" data)
+    1 (ws/send-msg ctx "data_update" data)
+    2 (ws/send-msg ctx "data_delete" data)
+    (util/show-toast ctx "sync data type error")))
+    
+(defn sync-data [ctx data-list]
+  (doall 
+   (map #(commit-to-server ctx %) data-list)))
