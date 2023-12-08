@@ -1,0 +1,8 @@
+(ns notes-app.services.common
+  (:require 
+   ["package:connectivity_plus/connectivity_plus.dart" :as conn]
+   ))
+   
+(defn check-connectivity []
+  (let [result (await (.checkConnectivity (conn/Connectivity)))]
+    (not (= conn.ConnectivityResult/none result))))
