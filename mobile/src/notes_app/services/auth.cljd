@@ -1,37 +1,22 @@
 (ns notes-app.services.auth
   (:require
+   ["package:flutter/material.dart" :as m]
    ["package:flutter/widgets.dart" :as widgets]
    ["package:http/http.dart" :as http]
    ["dart:convert" :as convert]
+   ["dart:io" :as io]
    [notes-app.utils.util :as util]
    [notes-app.utils.response :as response]
    [notes-app.services.env :as env]
    [notes-app.services.token :as token-service]
-   [notes-app.utils.router :as router]))
+   [notes-app.utils.router :as router]
+   [notes-app.states.global :as gs]))
 
 (defn login [ctx ^widgets/NavigatorState navigator info success-fn]
   (util/show-indicator ctx)
-  (let [result (await
-                (http/post (Uri/http (env/get "base_url") "/api/auth/login")
-                           .headers {"Content-Type" "application/json; charset=UTF-8"}
-                           .body
-                           (convert/jsonEncode
-                            info)))]
-    (response/response-message
-     ctx
-     result
-     (fn [x]
-       (token-service/save-token (get x "token"))
-       (when-not (nil? success-fn)
-         (success-fn))))))
-
-(defn signup [ctx ^widgets/NavigatorState navigator info login-screen]
-  (util/show-indicator ctx)
-  (if (not= (get info "password")
-            (get info "password_confirmation"))
-    (util/show-toast ctx "Password confirmation")
+  (try
     (let [result (await
-                  (http/post (Uri/http (env/get "base_url") "/api/auth/signup")
+                  (http/post (Uri/http (env/get "base_url") "/api/auth/login")
                              .headers {"Content-Type" "application/json; charset=UTF-8"}
                              .body
                              (convert/jsonEncode
@@ -39,5 +24,36 @@
       (response/response-message
        ctx
        result
-       (fn [_] 
-         (router/open-screen navigator login-screen))))))
+       (fn [x]
+         (token-service/save-token (get x "token"))
+         (when-not (nil? success-fn)
+           (success-fn)))))
+    (catch io/SocketException e
+      (util/show-toast ctx "Socket Exception")
+      (when (true? (:is-loading? @gs/state))
+        (swap! gs/state assoc :is-loading? false)
+        (-> m/Navigator (.of ctx) .pop)))))
+
+(defn signup [ctx ^widgets/NavigatorState navigator info login-screen]
+  (swap! gs/state assoc :is-loading? true)
+  (util/show-indicator ctx)
+  (if (not= (get info "password")
+            (get info "password_confirmation"))
+    (util/show-toast ctx "Password confirmation")
+    (try
+      (let [result (await
+                    (http/post (Uri/http (env/get "base_url") "/api/auth/signup")
+                               .headers {"Content-Type" "application/json; charset=UTF-8"}
+                               .body
+                               (convert/jsonEncode
+                                info)))]
+        (response/response-message
+         ctx
+         result
+         (fn [_]
+           (router/open-screen navigator login-screen))))
+      (catch io/SocketException e
+        (util/show-toast ctx "Socket Exception")
+        (when (true? (:is-loading? @gs/state))
+          (swap! gs/state assoc :is-loading? false)
+          (-> m/Navigator (.of ctx) .pop))))))
