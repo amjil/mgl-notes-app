@@ -11,6 +11,7 @@
 (def screen
   (f/widget
    :context ctx
+   :let [w (-> m/MediaQuery (.of ctx) .-size .-width)]
    :get [m/Navigator]
    :managed [email-controller (m/TextEditingController)
              password-controller (m/TextEditingController)]
@@ -30,6 +31,7 @@
       .mainAxisAlignment m.MainAxisAlignment/spaceAround
       .children
       [(m/SizedBox .height 100
+                   .width (* 0.5 w)
                    .child
                    (m/GestureDetector
                     .onTap (fn []
