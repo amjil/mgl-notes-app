@@ -1,6 +1,7 @@
 (ns notes-app.screens.login
   (:require
    ["package:flutter/material.dart" :as m]
+   ["package:flutter/widgets.dart" :as widgets]
    ["package:mongol/mongol.dart" :as mgl]
    [cljd.flutter.alpha2 :as f]
    [notes-app.widgets.auth :as auth-widget]
@@ -46,4 +47,6 @@
                                                               {"email" (.-text email-controller)
                                                                "password" (.-text password-controller)}
                                                               #(util/show-toast ctx "yessss")))
-                                   "Done" nil nil)])])))
+                                   "Done" nil nil)
+       (auth-widget/rounded-button (fn [] (.popUntil navigator (widgets.ModalRoute/withName "/")))
+                                   "Back" nil nil)])])))

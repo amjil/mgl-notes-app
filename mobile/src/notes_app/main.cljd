@@ -8,6 +8,7 @@
    [virtual-keyboard.options :as keyboard-options]
    [notes-app.screens.home :as home]
    [notes-app.screens.signup :as signup]
+   [notes-app.screens.login :as login]
    [notes-app.services.pref :as pref]
    [notes-app.utils.themes :as themes]
    [notes-app.states.global :as gs]
@@ -56,6 +57,8 @@
                    .theme light
                    .darkTheme dark
                    .debugShowCheckedModeBanner false
-                   .home home/screen
-                   .routes {"/signup" (fn ^m/Widget [ctx]
-                                        signup/screen)})))))))
+                  ;;  .home home/screen
+                   .routes {
+                            "/" (fn ^m/Widget [ctx] home/screen)
+                            "/signup" (fn ^m/Widget [ctx] signup/screen)
+                            "/login" (fn ^m/Widget [ctx] login/screen)})))))))

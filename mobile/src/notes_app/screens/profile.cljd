@@ -1,6 +1,7 @@
 (ns notes-app.screens.profile
   (:require
    ["package:flutter/material.dart" :as m]
+   ["package:mongol/mongol.dart" :as mgl]
    [cljd.flutter.alpha2 :as f]
    [notes-app.widgets.settings :as settings]
    [notes-app.states.profile :as profile-state]
@@ -9,6 +10,7 @@
 (def screen
   (f/widget
    :context ctx
+   :get [m/Navigator]
    (m/Scaffold
     .appBar nil)
    .body
@@ -21,24 +23,52 @@
                (m/SizedBox .height 10)
                (m/Expanded
                 .child
-                (m/ListView
-                 .scrollDirection m.Axis/horizontal
-                 .children [(settings/settings-group
-                             [{:title "In-APP embeded virtual keyboard"
-                               :trailing
-                               (f/widget
-                                :watch [{{v "in-app-keyboard"} :profile} gs/state]
-                                (m/RotatedBox
-                                 .quarterTurns 1)
-                                (m/Switch
-                                 .activeColor m.Colors/blueAccent
-                                 .value v
-                                 .onChanged (fn [b]
-                                              (profile-state/set-profile-setting {:key "in-app-keyboard" :type :bool :value b}))))}])
-                            (settings/settings-group
-                             [{:title "About"
-                               :on-tap (fn []
-                                         )}
-                              {:title "License"}])]))])))
+                (m/Row
+                 .children
+                 [(m/Column
+                   .mainAxisAlignment m.MainAxisAlignment/spaceBetween
+                   .children
+                   [(m/CircleAvatar
+                     .radius 30
+                     .backgroundColor m.Colors/blueAccent)
+                    (m/TextButton
+                     .style (m.TextButton/styleFrom
+                             .backgroundColor (-> m/Theme (.of ctx) .-colorScheme .-secondaryContainer)
+                             .minimumSize m.Size/zero
+                             .padding (m.EdgeInsets/symmetric .horizontal 8 .vertical 20)
+                             .tapTargetSize m.MaterialTapTargetSize/shrinkWrap)
+                     .child (m/Column
+                             .mainAxisAlignment m.MainAxisAlignment/spaceBetween
+                             .children
+                             [(m/Icon m.Icons/person
+                                      .color (-> m/Theme (.of ctx) .-colorScheme .-onPrimary))
+                              (m/SizedBox .height 20)
+                              (mgl/MongolText
+                               "Login"
+                               .style (m/TextStyle
+                                       .fontSize 20
+                                       .color (-> m/Theme (.of ctx) .-colorScheme .-onPrimary)))])
+                     .onPressed (fn [] (.pushNamed navigator "/login") nil))])
+                  (m/Expanded
+                   .child
+                   (m/ListView
+                    .scrollDirection m.Axis/horizontal
+                    .children [(settings/settings-group
+                                [{:title "In-APP embeded virtual keyboard"
+                                  :trailing
+                                  (f/widget
+                                   :watch [{{v "in-app-keyboard"} :profile} gs/state]
+                                   (m/RotatedBox
+                                    .quarterTurns 1)
+                                   (m/Switch
+                                    .activeColor m.Colors/blueAccent
+                                    .value v
+                                    .onChanged (fn [b]
+                                                 (profile-state/set-profile-setting {:key "in-app-keyboard" :type :bool :value b}))))}])
+                               (settings/settings-group
+                                [{:title "About"
+                                  :on-tap (fn [])}
+                                 {:title "License"}])]))]))])))
+                
      
 
