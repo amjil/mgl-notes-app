@@ -57,8 +57,8 @@
                    .theme light
                    .darkTheme dark
                    .debugShowCheckedModeBanner false
-                  ;;  .home home/screen
+                   .home home/screen
                    .routes {
-                            "/" (fn ^m/Widget [ctx] home/screen)
+                            ;; "/" (fn ^m/Widget [ctx] home/screen)
                             "/signup" (fn ^m/Widget [ctx] signup/screen)
                             "/login" (fn ^m/Widget [ctx] login/screen)})))))))
