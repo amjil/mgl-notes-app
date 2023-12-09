@@ -3,7 +3,7 @@ CREATE TABLE notes (
     folder_id uuid,
     user_id uuid not null,
     content text,
-    flag boolean DEFAULT 0,
+    flag boolean DEFAULT false,
     "status" smallint DEFAULT 0,
     created_at timestamp without time zone DEFAULT CURRENT_TIMESTAMP,
     updated_at timestamp without time zone DEFAULT CURRENT_TIMESTAMP

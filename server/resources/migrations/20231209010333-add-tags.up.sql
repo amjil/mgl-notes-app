@@ -5,4 +5,4 @@ CREATE TABLE tags (
     related_num integer default 0
 );
 --;;
-create index notes_user_id_index on notes(user_id);
+create index tags_user_id_index on tags(user_id);
