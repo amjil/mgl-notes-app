@@ -1,6 +1,7 @@
 (ns kit.notes.web.routes.api
   (:require
     [kit.notes.web.controllers.health :as health]
+    [kit.notes.web.controllers.auth :as auth]
     [kit.notes.web.middleware.exception :as exception]
     [kit.notes.web.middleware.formats :as formats]
     [integrant.core :as ig]
@@ -38,7 +39,25 @@
            :swagger {:info {:title "kit.notes API"}}
            :handler (swagger/create-swagger-handler)}}]
    ["/health"
-    {:get health/healthcheck!}]])
+    {:get health/healthcheck!}]
+   ["/auth"
+    {:swagger {:tags ["auth"]}}
+    ["/login"
+     {:post {:summary "sign in."
+             :parameters {:body {:email string?
+                                 :password string?}}
+             :responses {200 {:body any?}}
+             :handler (fn [{{:keys [body]} :parameters headers :headers addr :remote-addr}]
+                        {:status 200 :body
+                         (auth/login (:db-conn _opts) (:token-secret _opts) body)})}}]
+    ["/signup"
+     {:post {:summary "sign up."
+             :parameters {:body {:email string?
+                                 :password string?}}
+             :responses {200 {:body {:token string?}}}
+             :handler (fn [{{:keys [body]} :parameters headers :headers addr :remote-addr}]
+                        {:status 200 :body
+                         (auth/signup (:db-conn _opts) (:token-secret _opts) body)})}}]]])
 
 (derive :reitit.routes/api :reitit/routes)
 
