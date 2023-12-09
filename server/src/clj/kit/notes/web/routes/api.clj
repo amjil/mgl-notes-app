@@ -2,6 +2,7 @@
   (:require
     [kit.notes.web.controllers.health :as health]
     [kit.notes.web.controllers.auth :as auth]
+    [kit.notes.web.controllers.ws :as ws]
     [kit.notes.web.middleware.exception :as exception]
     [kit.notes.web.middleware.formats :as formats]
     [integrant.core :as ig]
@@ -57,7 +58,10 @@
              :responses {200 {:body {:token string?}}}
              :handler (fn [{{:keys [body]} :parameters headers :headers addr :remote-addr}]
                         {:status 200 :body
-                         (auth/signup (:db-conn _opts) (:token-secret _opts) body)})}}]]])
+                         (auth/signup (:db-conn _opts) (:token-secret _opts) body)})}}]]
+
+   ["/ws/:token"
+    #(ws/handler (select-keys _opts [:db-conn :query-fn :token-secret]) %)]])
 
 (derive :reitit.routes/api :reitit/routes)
 
