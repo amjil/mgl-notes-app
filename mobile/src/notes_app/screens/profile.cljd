@@ -73,7 +73,7 @@
                                 [{:title "In-APP embeded virtual keyboard"
                                   :trailing
                                   (f/widget
-                                   :watch [{{v "in-app-keyboard"} :profile} gs/state]
+                                   :watch [{{v "in-app-keyboard" :or {v true}} :profile} gs/state]
                                    (m/RotatedBox
                                     .quarterTurns 1)
                                    (m/Switch

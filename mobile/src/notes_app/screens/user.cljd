@@ -4,6 +4,7 @@
    [cljd.flutter.alpha2 :as f]
    [notes-app.widgets.settings :as settings]
    [notes-app.services.token :as token]
+   [notes-app.states.profile :as profile-state]
    [notes-app.states.global :as gs]))
    
 (def screen
@@ -25,7 +26,20 @@
                 .child
                 (m/ListView
                  .scrollDirection m.Axis/horizontal
-                 .children [(settings/settings-group
+                 .children [(settings/settings-group 
+                             [{:title "Synchronizing"; data between multi devices."
+                               :trailing
+                               (f/widget
+                                :watch [{{v "sync-data" :or {v false}} :profile} gs/state]
+                                (m/RotatedBox
+                                 .quarterTurns 1)
+                                (m/Switch
+                                 .activeColor m.Colors/blueAccent
+                                 .value v
+                                 .onChanged (fn [b]
+                                              (profile-state/set-profile-setting {:key "sync-data" :type :bool :value b}))))
+                               }])
+                            (settings/settings-group
                              [{:title "Logout"
                                :on-tap (fn [] 
                                          (token/delete-token)
