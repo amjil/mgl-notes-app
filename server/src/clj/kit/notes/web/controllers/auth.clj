@@ -12,19 +12,14 @@
 
 (defn login
   [conn secret params]
-  (let [entity (db/find-one-by-keys conn :users (dissoc params :password :token :code))]
+  (let [entity (db/find-one-by-keys conn :users (dissoc params :password :token :code :device_id))]
     (check/check-must-exist entity "User must exists!")
     (check/check-locked entity "User locked!")
     (check/check-password entity params "User Password Do Not Match!")
-    (let [info (db/find-one-by-keys
-                conn
-                :user_info
-                ["id = ?::uuid" (:id entity)]
-                {:columns [:profile_image_url :sex
-                           :followings_count :profile_banner_url :screen_name :bio :birth_date :location :followers_count
-                           :id]})]
-      {:token (token/jwt-token secret (:id entity))
-       :info info})))
+    (db/insert! conn :user_devices
+                {:user_id (:id entity)
+                 :device_id (:device_id params)})
+    {:token (token/jwt-token secret (:id (:device_id params)))}))
 
 (declare check-before-signup)
 
@@ -34,9 +29,6 @@
   (let [result (db/insert! conn :users {:email (:email params)
                                         :encrypted_password  (hashers/derive (:password params))})]
     (check/check-not-nil (:id result) "Account Save Error!")
-
-    (db/insert! conn :user_info {:id (:id result)})
-
     {}))
 
 (defn- check-before-signup

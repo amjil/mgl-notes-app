@@ -44,3 +44,10 @@
 (defn send-response 
   [data channel]
   (undertow-ws/send data channel))
+
+
+;; 
+;; (when-let [channel (get @channels uid)]
+;;   (wss/send-response
+;;    {:type :xxxx}
+;;    channel))
