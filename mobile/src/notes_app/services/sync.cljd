@@ -42,6 +42,7 @@
     2 (ws/send-msg ctx "data_delete" data)
     (util/show-toast ctx "sync data type error")))
     
-(defn sync-data [ctx data-list]
-  (doall 
-   (map #(commit-to-server ctx %) data-list)))
+(defn sync-batch-data [ctx]
+  (let [data-list (query-needs-sync-data)]
+    (doall
+     (map #(commit-to-server ctx %) data-list))))

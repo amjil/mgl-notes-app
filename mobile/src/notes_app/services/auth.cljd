@@ -9,18 +9,21 @@
    [notes-app.utils.response :as response]
    [notes-app.services.env :as env]
    [notes-app.services.token :as token-service]
+   [notes-app.services.common :as common-service]
    [notes-app.utils.router :as router]
    [notes-app.states.global :as gs]))
 
 (defn login [ctx ^widgets/NavigatorState navigator info success-fn]
   (util/show-indicator ctx)
   (try
-    (let [result (await
+    (let [device-id (await (common-service/device-id))
+          result (await
                   (http/post (Uri/http (env/get "base_url") "/api/auth/login")
                              .headers {"Content-Type" "application/json; charset=UTF-8"}
                              .body
                              (convert/jsonEncode
-                              info)))]
+                              (assoc
+                               info "device_id" device-id))))]
       (response/response-message
        ctx
        result

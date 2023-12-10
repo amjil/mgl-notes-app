@@ -6,7 +6,8 @@
    [cljd.flutter.alpha2 :as f]
    [notes-app.widgets.auth :as auth-widget]
    [notes-app.services.auth :as auth-service]
-   [notes-app.utils.util :as util]))
+   [notes-app.utils.util :as util]
+   [notes-app.states.global :as gs]))
    
 (def screen
   (f/widget
@@ -48,7 +49,10 @@
                                                               navigator
                                                               {"email" (.-text email-controller)
                                                                "password" (.-text password-controller)}
-                                                              #(util/show-toast ctx "yessss")))
+                                                              (fn []
+                                                                (swap! gs/state assoc :is-loading? false)
+                                                                (.popUntil navigator (widgets.ModalRoute/withName "/"))
+                                                                (util/show-toast ctx "yessss"))))
                                    "Done" nil nil)
        (auth-widget/rounded-button (fn [] (.popUntil navigator (widgets.ModalRoute/withName "/")))
                                    "Back" nil nil)])])))
