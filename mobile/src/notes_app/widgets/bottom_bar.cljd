@@ -47,17 +47,11 @@
      .top false
      .child
      (m/Row
-      .mainAxisAlignment m.MainAxisAlignment/spaceBetween
+      .mainAxisAlignment m.MainAxisAlignment/start
       .children [(m/IconButton
                   .padding (m.EdgeInsets/all 12)
                   .constraints (m/BoxConstraints)
                   .icon (m/Icon m.Icons/create_new_folder)
                   .onPressed (fn []
                                (swap! gs/state assoc :keyboard/text-controller controller)
-                               (bottom-sheet/modal-bottom-sheet ctx nil)))
-                 (m/IconButton
-                  .padding (m.EdgeInsets/all 12)
-                  .constraints (m/BoxConstraints)
-                  .icon (m/Icon m.Icons/edit)
-                  .onPressed (fn []
-                               (router/open-editor navigator note-screen/screen)))])))))
+                               (bottom-sheet/modal-bottom-sheet ctx nil)))])))))
