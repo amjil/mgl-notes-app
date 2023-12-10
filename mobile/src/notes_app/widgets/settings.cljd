@@ -25,19 +25,29 @@
             .padding m.EdgeInsets/zero
             .physics (m/ScrollPhysics)))))
                         
-(defn settings-item [item]
-  (f/widget 
-   (m/ClipRRect 
+(defn settings-item-rect [item]
+  (f/widget
+   
+   (m/ClipRRect
     .borderRadius (m.BorderRadius/circular 15))
-    (mgl/MongolListTile
-    ;;  .leading (m/Padding 
-    ;;            .padding (m.EdgeInsets/all 5)
-    ;;            .child 
-    ;;            (m/Icon icon)
-    ;;            )
-     .title (mgl/MongolText (:title item))
-     .subtitle nil
-     .trailing (if (:trailing item)
-                 (:trailing item)
-                 nil))))
+   (mgl/MongolListTile
+    .leading (if (nil? (:leading item))
+               nil
+               (m/Padding
+                .padding (m.EdgeInsets/all 5)
+                .child
+                (m/Icon (:leading item))))
+    .title (mgl/MongolText (:title item))
+    .subtitle nil
+    .trailing (if (:trailing item)
+                (:trailing item)
+                nil))))
+                
+(defn settings-item [item]
+  (if (nil? (:on-tap item))
+    (settings-item-rect item)
+    (m/GestureDetector
+     .onTap (fn [] 
+              ((:on-tap item)))
+     .child (settings-item-rect item))))
 

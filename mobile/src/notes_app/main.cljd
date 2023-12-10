@@ -7,6 +7,7 @@
    [cljd.flutter.alpha2 :as f]
    [virtual-keyboard.options :as keyboard-options]
    [notes-app.screens.home :as home]
+   [notes-app.screens.user :as user]
    [notes-app.screens.signup :as signup]
    [notes-app.screens.login :as login]
    [notes-app.services.pref :as pref]
@@ -60,5 +61,6 @@
                    .home home/screen
                    .routes {
                             ;; "/" (fn ^m/Widget [ctx] home/screen)
+                            "/user" (fn ^m/Widget [ctx] user/screen)
                             "/signup" (fn ^m/Widget [ctx] signup/screen)
                             "/login" (fn ^m/Widget [ctx] login/screen)})))))))

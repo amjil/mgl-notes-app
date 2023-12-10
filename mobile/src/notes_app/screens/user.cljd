@@ -1,0 +1,35 @@
+(ns notes-app.screens.user
+  (:require 
+   ["package:flutter/material.dart" :as m]
+   [cljd.flutter.alpha2 :as f]
+   [notes-app.widgets.settings :as settings]
+   [notes-app.services.token :as token]
+   [notes-app.states.global :as gs]))
+   
+(def screen
+  (f/widget
+   :context ctx
+   :get [m/Navigator]
+   :watch [{token :user-token} gs/state]
+   (m/Scaffold
+    .appBar nil)
+   .body
+   (m/SafeArea)
+   (m/Column
+    .crossAxisAlignment m.CrossAxisAlignment/start
+    .children [(m/IconButton
+                .onPressed (fn [] (-> m/Navigator (.of ctx) .pop))
+                .icon (m/Icon m.Icons/keyboard_backspace))
+               (m/SizedBox .height 10)
+               (m/Expanded
+                .child
+                (m/ListView
+                 .scrollDirection m.Axis/horizontal
+                 .children [(settings/settings-group
+                             [{:title "Logout"
+                               :on-tap (fn [] 
+                                         (token/delete-token)
+                                         (.pop navigator))}])]))])))
+                
+     
+
