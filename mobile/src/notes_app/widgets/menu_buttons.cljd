@@ -5,7 +5,8 @@
    [cljd.flutter.alpha2 :as f]
    [notes-app.utils.bottom-sheet :as bottom-sheet]
    [notes-app.states.global :as gs]
-   [notes-app.states.folder :as folder-state]))
+   [notes-app.states.folder :as folder-state]
+   [notes-app.states.tag :as tag-state]))
    
 (defn menu-item [text icon on-press]
   (f/widget
@@ -60,3 +61,20 @@
                             (folder-state/folders-tree)
                             (swap! gs/state assoc :move-folder nil)
                             (bottom-sheet/folder-selector-bottom-sheet ctx)))])))
+                            
+
+(defn tag [item]
+  (f/widget
+   :context ctx
+   :get [m/Navigator]
+   (m/ListView
+    .scrollDirection m.Axis/horizontal
+    .shrinkWrap true
+    .children [(m/SizedBox .width 8)
+               (menu-item "Delete"
+                          m.Icons/tag
+                          (fn []
+                            (.pop navigator)
+                            (tag-state/delete-tag item)))
+               (m/VerticalDivider
+                .color (-> m/Theme (.of ctx) .-colorScheme .-outlineVariant))])))

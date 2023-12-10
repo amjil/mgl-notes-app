@@ -1,7 +1,9 @@
 (ns notes-app.states.tag
   (:require
    ["package:flutter/material.dart" :as m]
+   [clojure.string :as str]
    [notes-app.services.tag :as tag-service]
+   [notes-app.services.note :as note-service]
    [notes-app.states.global :as gs]))
 
 (declare update-filtered-tags)
@@ -44,3 +46,27 @@
                      (map first))
         result (await (tag-service/tag-filterd-search filterd omitted))]
     (swap! gs/state assoc :search-result result)))
+    
+(defn get-tag-notes [id]
+  (let [result (->> (await (tag-service/query-tag-notes id))
+                    (map #(get % "note_id")))]
+    result))
+    
+(defn delete-tag [item]
+  (let [id (get item "id")
+        tag (get item "name")
+        result (await (get-tag-notes id))]
+    (doall
+     (map (fn [x]
+            (let [note (->> (await (note-service/get-note x))
+                            first)
+                  ^String original-content (get note "content")
+                  new-content (.replaceAll original-content
+                                           (str "#" tag)
+                                           "")]
+              (note-service/update-note
+               (get note "id")
+               new-content)))
+          result))
+    (tag-service/delete-tag id)
+    (all-tags)))

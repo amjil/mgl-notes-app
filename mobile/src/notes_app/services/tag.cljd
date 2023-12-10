@@ -96,6 +96,17 @@
                  "UPDATE tags SET related_num = related_num + 1
                   WHERE id = ?"
                  [tag_id]))))
+                 
+(defn query-tag-notes [id]
+  (let [^sqf/Database db (await (sql/initialize-db))]
+    (await
+     (.rawQuery
+      db
+      "SELECT note_id
+         FROM note_tags 
+         WHERE tag_id = ?
+         ;"
+      [id]))))
 
 (defn delete-note-tag [note_id tag_id]
   (let [^sqf/Database db (await (sql/initialize-db))

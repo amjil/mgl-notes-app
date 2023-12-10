@@ -3,8 +3,10 @@
    ["package:flutter/material.dart" :as m]
    ["package:mongol/mongol.dart" :as mgl]
    [cljd.flutter.alpha2 :as f]
+   [notes-app.widgets.menu-buttons :as menu-buttons]
    [notes-app.states.global :as gs]
-   [notes-app.states.tag :as tag-state]))
+   [notes-app.states.tag :as tag-state]
+   [notes-app.utils.util :as util]))
    
 (defn list-item [item]
   (f/widget
@@ -15,7 +17,12 @@
              (.pushNamed navigator "/tag")
              (swap! gs/state assoc-in [:tag :filter (get item "id")] 1)
              (tag-state/tag-filterd-search)
-             nil))
+             nil)
+    .onLongPress (fn []
+                   (dart:core/print "xxxx")
+                   (util/show-tag-menus
+                    ctx
+                    (menu-buttons/tag item))))
    (m/Container
     .padding (m.EdgeInsets/symmetric .vertical 8 .horizontal 4)
     .margin (m.EdgeInsets/only .bottom 8)
