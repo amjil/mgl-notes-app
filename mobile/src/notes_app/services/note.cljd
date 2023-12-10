@@ -117,8 +117,8 @@
        "UPDATE note_infos SET folder_id = ? 
         WHERE id in ()"
        (str/join
-        ",")
-       (map (fn [_] (str "?")) ids))
+        ","
+        (map (fn [_] (str "?")) ids)))
       (concat [folder-id] (vec ids))))))
       
 (defn query-notes [word]

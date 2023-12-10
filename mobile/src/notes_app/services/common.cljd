@@ -10,7 +10,7 @@
     
 (defn device-info []
   (let [plugin (dip/DeviceInfoPlugin)
-        info (await (.deviceInfo plugin))]
+        info (await (.-deviceInfo plugin))]
     (.-data info)))
     
 (defn device-id []

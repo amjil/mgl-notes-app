@@ -10,6 +10,7 @@
    [notes-app.screens.user :as user]
    [notes-app.screens.signup :as signup]
    [notes-app.screens.login :as login]
+   [notes-app.screens.tag :as tag]
    [notes-app.services.pref :as pref]
    [notes-app.utils.themes :as themes]
    [notes-app.states.global :as gs]
@@ -63,4 +64,6 @@
                             ;; "/" (fn ^m/Widget [ctx] home/screen)
                             "/user" (fn ^m/Widget [ctx] user/screen)
                             "/signup" (fn ^m/Widget [ctx] signup/screen)
-                            "/login" (fn ^m/Widget [ctx] login/screen)})))))))
+                            "/login" (fn ^m/Widget [ctx] login/screen)
+                            "/tag" (fn ^m/Widget [ctx] tag/screen)
+                            })))))))

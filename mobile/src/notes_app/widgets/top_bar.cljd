@@ -1,5 +1,5 @@
 (ns notes-app.widgets.top-bar
-  (:require 
+  (:require
    ["package:flutter/material.dart" :as m]
    [cljd.flutter.alpha2 :as f]
    [notes-app.screens.search :as search-screen]

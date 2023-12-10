@@ -145,3 +145,37 @@
     (doall
      (map (fn [x] (delete-note-tag id (get x "id")))
           (remove #(some #{(get % "name")} (seq tags)) n-tags)))))
+          
+(defn tag-filterd-search [filterd omitted]
+  (let [^sqf/Database db (await (sql/initialize-db))]
+    (await
+     (.rawQuery
+      db
+      (str
+       "select a.*, b.content
+             from note_infos a 
+                left join notes b on a.note_id = b.rowid 
+             where 1 = 1 "
+       (when-not (empty? filterd)
+         (str
+          "and a.id in 
+           (select note_id from note_tags
+           where tag_id in 
+           ("
+          (str/join
+           ","
+           (map (fn [_] (str "?")) filterd))
+          ")) "))
+       (when-not (empty? omitted)
+         (str
+          "and a.id not in 
+           (select note_id from note_tags 
+           where tag_id in 
+           ("
+          (str/join
+           ","
+           (map (fn [_] (str "?")) omitted))
+          ")) "))
+       "order by a.note_id desc
+       ;")
+      (concat filterd omitted)))))

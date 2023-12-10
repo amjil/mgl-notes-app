@@ -26,58 +26,21 @@
 
 (defn query-tags [state q]
   (let [result (await (tag-service/query-tags q))]
-    (swap! state assoc :tags result)
-    (update-filtered-tags state)))
+    (swap! state assoc :tags result)))
 
 (defn all-tags []
   (let [result (await (tag-service/all-tags))]
-    (swap! gs/state assoc :tags result)
-    (update-filtered-tags gs/state)))
+    (swap! gs/state assoc :tags result)))
 
-(defn update-filtered-tags [state]
-  (let [tag-in-ids (:filter-tags @state)
-        tag-out-ids (:omitted-tags @state)
-        tag-search (:tag-search @state)
-        tags (:tags @state)
-        exclude-ids (concat (map #(get % "id") tag-in-ids)
-                            (map #(get % "id") tag-out-ids))]
-    
-    (swap! state assoc :filtered-tags
-           (cond->> tags
-             (not-empty exclude-ids)
-             (remove #(some #{(get % "id")} exclude-ids))
-
-             (not-empty tag-search)
-             (filter #(clojure.string/starts-with? (get % "name") tag-search))))))
-
-(defn add-filter-tag [state tag]
-  (swap! state update :filter-tags concat [tag])
-  (update-filtered-tags state))
-
-(defn delete-filter-tag [state tag]
-  (swap! state assoc :filter-tags
-         (remove #(= (get % "id") (get tag "id")) (:filter-tags @state)))
-  (update-filtered-tags state))
-
-(defn add-omitted-tag [state tag]
-  (swap! state update :omitted-tags concat [tag])
-  (update-filtered-tags state))
-
-(defn delete-omitted-tag [state tag]
-  (swap! state assoc :omitted-tags
-         (remove #(= (get % "id") (get tag "id")) (:omitted-tags @state)))
-  (update-filtered-tags state))
-
-(defn clear-filter [state
-                    ^m/TextEditingController
-                    controller]
-  (swap! state assoc :omitted-tags [])
-  (swap! state assoc :filter-tags [])
-  (swap! state assoc :filtered-tags [])
-  (swap! state assoc :tag-search "")
-  (when (empty? (:tag-search @state))
-    (.clear controller)))
-
-(defn update-tag-search [state content]
-  (swap! state assoc :tag-search content)
-  (update-filtered-tags state))
+(defn clear-filter []
+  (swap! gs/state assoc :tag nil))
+  
+(defn tag-filterd-search []
+  (let [filterd (->> (get-in @gs/state [:tag :filter])
+                     (filter (fn [[_ v]] (= 1 v)))
+                     (map first))
+        omitted (->> (get-in @gs/state [:tag :filter])
+                     (filter (fn [[_ v]] (= 2 v)))
+                     (map first))
+        result (await (tag-service/tag-filterd-search filterd omitted))]
+    (swap! gs/state assoc :search-result result)))

@@ -37,8 +37,7 @@
                                  .activeColor m.Colors/blueAccent
                                  .value v
                                  .onChanged (fn [b]
-                                              (profile-state/set-profile-setting {:key "sync-data" :type :bool :value b}))))
-                               }])
+                                              (profile-state/set-profile-setting {:key "sync-data" :type :bool :value b}))))}])
                             (settings/settings-group
                              [{:title "Logout"
                                :on-tap (fn [] 

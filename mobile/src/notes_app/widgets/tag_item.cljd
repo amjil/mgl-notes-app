@@ -1,0 +1,58 @@
+(ns notes-app.widgets.tag-item
+  (:require
+   ["package:flutter/material.dart" :as m]
+   ["package:mongol/mongol.dart" :as mgl]
+   [cljd.flutter.alpha2 :as f]
+   [notes-app.states.global :as gs]
+   [notes-app.states.tag :as tag-state]))
+
+(defn list-item [item]
+  (f/widget
+   :context ctx
+   :watch [{{tag-filter :filter :or {tag-filter []}} :tag} gs/state]
+   (m/GestureDetector 
+    .onTap (fn []
+             (cond
+               (nil? (get tag-filter (get item "id")))
+               (swap! gs/state assoc-in [:tag :filter (get item "id")] 1)
+
+               (= 1 (get tag-filter (get item "id")))
+               (swap! gs/state assoc-in [:tag :filter (get item "id")] 2)
+
+               :else
+               (swap! gs/state assoc-in [:tag :filter (get item "id")] nil))
+             (tag-state/tag-filterd-search)))
+   (m/Container
+    .padding (m.EdgeInsets/symmetric .vertical 8 .horizontal 4)
+    .margin (m.EdgeInsets/only .bottom 8)
+    .decoration (m/BoxDecoration
+                 .borderRadius (.all m/BorderRadius (.circular m/Radius 10))
+                 .border (.all m/Border .width 0.1)
+                 .color
+                 (cond 
+                   (nil? (get tag-filter (get item "id")))
+                   (-> m/Theme (.of ctx) .-colorScheme .-secondaryContainer)
+                   
+                   (= 1 (get tag-filter (get item "id")))
+                   (-> m/Theme (.of ctx) .-colorScheme .-outlineVariant)
+                   
+                   :else 
+                   (-> m/Theme (.of ctx) .-colorScheme .-outlineVariant)))
+
+    .child (mgl/MongolText (str "#" (get item "name"))
+                           .maxLines 1
+                           .softWrap true
+                           .overflow m.TextOverflow/ellipsis
+                           .style (m/TextStyle
+                                   .fontSize 20
+                                   .color (-> m/Theme (.of ctx) .-colorScheme .-primary)
+                                   .decoration (cond 
+                                                 (nil? (get tag-filter (get item "id")))
+                                                 nil
+                                                 
+                                                 (= 2 (get tag-filter (get item "id")))
+                                                 m.TextDecoration/lineThrough
+                                                 
+                                                 :else 
+                                                 nil)
+                                   .fontWeight m.FontWeight/w600)))))
