@@ -46,13 +46,14 @@
                            .style (m/TextStyle
                                    .fontSize 20
                                    .color (-> m/Theme (.of ctx) .-colorScheme .-primary)
-                                   .decoration (cond 
+                                   .decoration (cond
                                                  (nil? (get tag-filter (get item "id")))
                                                  nil
-                                                 
+
                                                  (= 2 (get tag-filter (get item "id")))
                                                  m.TextDecoration/lineThrough
-                                                 
-                                                 :else 
+
+                                                 :else
                                                  nil)
+                                   .decorationThickness 3.0
                                    .fontWeight m.FontWeight/w600)))))

@@ -29,6 +29,7 @@
                 .constraints (m/BoxConstraints)
                 .icon (m/Icon m.Icons/edit)
                 .onPressed (fn []
+                             (swap! gs/state assoc :note nil)
                              (router-fn))))])))
                              
 

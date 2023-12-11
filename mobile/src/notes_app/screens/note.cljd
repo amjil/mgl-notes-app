@@ -8,14 +8,15 @@
    [virtual-keyboard.keyboard-action :as keyboard-action]
    [notes-app.states.note :as note-state]
    [notes-app.states.global :as gs]
-   [notes-app.services.tag :as tag-service]))
+   [notes-app.services.tag :as tag-service]
+   [notes-app.utils.util :as util]))
    
-(def screen 
-  (f/widget 
+(def screen
+  (f/widget
    :context ctx
-   :get [:info]
+   :get [:info m/Navigator]
    :let [h (-> m/MediaQuery (.of ctx) .-size .-height)]
-   :managed [controller (m/TextEditingController 
+   :managed [controller (m/TextEditingController
                          .text (if (nil? (:note @gs/state))
                                  ""
                                  (get (:note @gs/state) "content")))]
@@ -36,9 +37,16 @@
                 [(m/InkWell
                   .customBorder (m/CircleBorder)
                   .onTap (fn []
-                           (-> m/Navigator (.of ctx) .pop)
-                           (swap! gs/state assoc :show-keyboard false)
-                           (swap! gs/state assoc :note nil))
+                           (if (or (and (empty? (.-text controller))
+                                        (nil? (:note @gs/state)))
+                                   (= (.-text controller) (get (:note @gs/state) "content")))
+                             (.pop navigator)
+                             (util/show-confirm-dialog
+                              ctx "ᠬᠡᠷᠪᠡ ᠪᠤᠴᠠᠪᠠᠯ ᠲᠠᠨ ᠊ᠤ  ᠪᠢᠴᠢᠵᠦ ᠪᠠᠶ᠋ᠢᠭ᠎ᠠ ᠲᠡᠮᠳᠡᠭᠯᠡᠯ ᠴᠢᠨᠢ ᠴᠥᠮ ᠬᠠᠶᠠᠭᠳᠠᠬᠤ ᠪᠣᠯᠤᠨ᠎ᠠ᠂ ᠦᠨᠡᠬᠡᠷ ᠪᠤᠴᠠᠨ᠎ᠠ ᠊ᠤᠤ?"
+                              (fn []
+                                (.pop navigator)
+                                (swap! gs/state assoc :show-keyboard false)
+                                (swap! gs/state assoc :note nil)))))
                   .child
                   (m/Icon m.Icons/keyboard_backspace))
                  (m/InkWell
