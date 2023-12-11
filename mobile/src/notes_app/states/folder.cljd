@@ -11,11 +11,9 @@
   (let [result (await (service/create-folder pid name))]
     (if (nil? result)
       (util/show-toast ctx "message!")
-      (do
-        (if (nil? (:folder @gs/state))
-          (all-folders)
-          (sub-folders (get (:folder @gs/state) "id")))
-        (-> m/Navigator (.of ctx) .pop)))))
+      (if (nil? (:folder @gs/state))
+        (all-folders)
+        (sub-folders (get (:folder @gs/state) "id"))))))
 
 (defn delete-folder [id]
   (service/delete-folder id)
