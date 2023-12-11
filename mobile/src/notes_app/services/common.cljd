@@ -4,7 +4,7 @@
    ["package:package_info_plus/package_info_plus.dart" :as pip]
    ["package:device_info_plus/device_info_plus.dart" :as dip]))
    
-(defn check-connectivity []
+(defn connectivity []
   (let [result (await (.checkConnectivity (conn/Connectivity)))]
     (not (= conn.ConnectivityResult/none result))))
     

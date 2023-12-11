@@ -4,20 +4,21 @@
    ["package:uuid/uuid.dart" :as uuid]
    [notes-app.services.sqlite :as sql]
    [notes-app.services.ws :as ws]
+   [notes-app.services.common :as common]
    [notes-app.utils.util :as util]))
 
-(defn create-sync [types_of table rid status]
+(defn create-sync-record [types_of table rid]
   ;; t 0 create 1 update 2 delete
   (let [^sqf/Database db (await (sql/initialize-db))
         uuid (uuid/Uuid)
-        id (.v4 uuid)
-        result (await
-                (.rawInsert db
-                            "INSERT INTO waiting_for_sync 
-                             (id, table_id, row_id, types_of, status) 
-                             VALUES (?, ?, ?, ?, ?)"
-                            [id table rid types_of status]))]
-    result))
+        id (.v4 uuid)]
+    (await
+     (.rawInsert db
+                 "INSERT INTO waiting_for_sync 
+                             (id, table_id, row_id, types_of) 
+                             VALUES (?, ?, ?, ?)"
+                 [id table rid types_of]))
+    id))
     
 (defn query-needs-sync-data []
   (let [^sqf/Database db (await (sql/initialize-db))
@@ -46,3 +47,23 @@
   (let [data-list (query-needs-sync-data)]
     (doall
      (map #(commit-to-server ctx %) data-list))))
+     
+(defn sync-data-trigger [types-of table data]
+  (let [result (create-sync-record types-of table (or (get data "id")
+                                                      (str (get data "tag_id")
+                                                           "|"
+                                                           (get data "note_id"))))]
+    (when (true? (await (common/connectivity)))
+      (ws/send-msg2 "sync-data"
+                    {"types_of" types-of
+                     "table" table
+                     "data" data
+                     "sync_id" result}))))
+                    
+(defn sync-data-ok [id]
+  (let [^sqf/Database db (await (sql/initialize-db))
+        num (await (.rawUpdate db
+                               "UPDATE waiting_for_sync SET status = 1 
+                                WHERE id = ?"
+                               [id]))]
+    num))

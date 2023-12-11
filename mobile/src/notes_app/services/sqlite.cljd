@@ -40,7 +40,7 @@
         (await (.execute db "CREATE TABLE IF NOT EXISTS note_tags(tag_id uuid, note_id uuid)"))
         (await (.execute db "CREATE INDEX IF NOT EXISTS note_tags_index_tag ON note_tags(tag_id)"))
         (await (.execute db "CREATE INDEX IF NOT EXISTS note_tags_index_note ON note_tags(note_id)"))
-        (await (.execute db "CREATE TABLE IF NOT EXISTS waiting_for_sync(id uuid, table_id varchar(20), row_id uuid, 
+        (await (.execute db "CREATE TABLE IF NOT EXISTS waiting_for_sync(id uuid, table_id varchar(20), row_id text, 
                                                                          types_of smallint,
                                                                          status smallint default 0,
                                                                          created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP)"))

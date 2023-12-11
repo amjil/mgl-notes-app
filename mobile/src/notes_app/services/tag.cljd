@@ -3,7 +3,8 @@
    ["package:sqflite/sqflite.dart" :as sqf]
    ["package:uuid/uuid.dart" :as uuid]
    [clojure.string :as str]
-   [notes-app.services.sqlite :as sql]))
+   [notes-app.services.sqlite :as sql]
+   [notes-app.services.sync :as sync]))
 
 (declare query-tag-with-name)
 
@@ -17,6 +18,8 @@
                     (.rawInsert db
                                 "INSERT INTO tags (id, name) values (?, ?)"
                                 [id v]))]
+        (sync/sync-data-trigger
+         0 "tags" {"id" id "name" v})
         id)
       (get (first result) "id"))))
 
@@ -29,7 +32,9 @@
     (await 
      (.rawDelete db
                  "DELETE FROM note_tags WHERE tag_id = ?"
-                 [id]))))
+                 [id]))
+    (sync/sync-data-trigger
+     2 "tags" {"id" id})))
 
 (defn count-tags []
   (let [^sqf/Database db (await (sql/initialize-db))]
@@ -95,7 +100,9 @@
      (.rawUpdate db
                  "UPDATE tags SET related_num = related_num + 1
                   WHERE id = ?"
-                 [tag_id]))))
+                 [tag_id]))
+    (sync/sync-data-trigger
+     0 "note_tags" {"note_id" note_id "tag_id" tag_id})))
                  
 (defn query-tag-notes [id]
   (let [^sqf/Database db (await (sql/initialize-db))]
@@ -110,7 +117,7 @@
 
 (defn delete-note-tag [note_id tag_id]
   (let [^sqf/Database db (await (sql/initialize-db))
-        num (-> 
+        num (->
              (.rawQuery db "SELECT related_num as num FROM tags
                             WHERE id = ?"
                         [tag_id])
@@ -131,7 +138,9 @@
        (.rawUpdate db
                    "UPDATE tags SET related_num = related_num - 1
                     WHERE id = ?"
-                   [tag_id])))))
+                   [tag_id])))
+    (sync/sync-data-trigger
+     2 "note_tags" {"note_id" note_id "tag_id" tag_id})))
                    
 (defn extract-tags-from-note [t]
   (let [pattern (RegExp "#([\u1800-\u1881]+)" .caseSensitive false .multiLine true .unicode true)

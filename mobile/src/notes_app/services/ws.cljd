@@ -32,6 +32,11 @@
     (.send @conn (convert/jsonEncode
                   {"type" type
                    "data" msg}))))
+                   
+(defn send-msg2 [type msg]
+  (.send @conn (convert/jsonEncode
+                {"type" type
+                 "data" msg})))
 
 (defn handle-message
   [msg]

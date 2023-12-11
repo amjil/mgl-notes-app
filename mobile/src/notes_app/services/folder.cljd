@@ -3,7 +3,8 @@
    ["package:sqflite/sqflite.dart" :as sqf]
    ["package:uuid/uuid.dart" :as uuid]
    [clojure.string :as str]
-   [notes-app.services.sqlite :as sql]))
+   [notes-app.services.sqlite :as sql]
+   [notes-app.services.sync :as sync]))
 
 (declare query-folder-with-name)
 
@@ -19,6 +20,8 @@
                        "INSERT INTO folders (id, parent_id, name) values (?, ?, ?)"
                        [id pid v]))
           nil)]
+    (sync/sync-data-trigger
+     0 "folders" {"id" id "parent_id" pid "name" v})
     id1))
     
 (defn update-folder [id name]
@@ -34,7 +37,9 @@
     (await
      (.rawDelete db
                  "DELETE FROM folders WHERE id = ?"
-                 [id]))))
+                 [id]))
+    (sync/sync-data-trigger
+     2 "folders" {"id" id})))
 
 (defn all-folders []
   (let [^sqf/Database db (await (sql/initialize-db))]
@@ -95,6 +100,10 @@
                 (mapv (fn [_] (str "?")) (seq ids)))
                ")")
               (concat [pid] (vec ids))))]
+    (doall 
+     (map #(sync/sync-data-trigger
+            2 "folders" {"id" % "parent_id" pid})
+          ids))
     num))
     
 (defn rename-folder [id name]
@@ -106,4 +115,6 @@
                "UPDATE folders SET name = ? 
                 WHERE id = ?")
               [name id]))]
+    (sync/sync-data-trigger
+     1 "folders" {"id" id "name" name})
     num))
