@@ -12,6 +12,7 @@
    [notes-app.screens.login :as login]
    [notes-app.screens.tag :as tag]
    [notes-app.services.pref :as pref]
+   [notes-app.services.ws :as ws]
    [notes-app.utils.themes :as themes]
    [notes-app.states.global :as gs]
    [notes-app.states.folder :as folder-state]
@@ -39,7 +40,8 @@
   (let [initial-theme (await (themes/initial-theme))
         token (await (pref/get-string "user-token"))]
     (when (not-empty token)
-      (swap! gs/state assoc :user-token token))
+      (swap! gs/state assoc :user-token token)
+      (ws/connect))
     (m/runApp
      (adaptive/AdaptiveTheme
       .light themes/default-light-theme
