@@ -5,7 +5,8 @@
    [kit.notes.web.utils.token :as token]
    [cheshire.core :as cheshire]
    [clojure.tools.logging :as log]
-   [kit.notes.web.utils.db :as db])
+   [kit.notes.web.utils.db :as db]
+   [next.jdbc :as jdbc])
   (:import
    [java.util UUID]))
 
@@ -51,20 +52,42 @@
 (defmethod handle-message
   "sync-data"
   [opts userinfo message]
-  (let [{{data :data
-          types-of :types_of
-          table :table
-          sync-id :sync_id} :data} message
-        d (assoc data :user_id (UUID/fromString (:uid userinfo)))
-        result (condp = types-of
-                 0 (create-record (:db-conn opts) table d sync-id)
-                 1 (update-record (:db-conn opts) table d sync-id)
-                 2 (delete-record (:db-conn opts) table d sync-id)
-                 false)]
-    ;; Todo notify other devices
-    (if (true? result)
-      {:type "sync-data-ok" :data sync-id}
-      {:type "none"})))
+  (jdbc/with-transaction [tx (:db-conn opts)]
+    (let [{{data :data
+            types-of :types_of
+            table :table
+            sync-id :sync_id} :data} message
+          d (assoc data :user_id (UUID/fromString (:uid userinfo)))]
+
+      (condp = types-of
+        0 (create-record tx table d sync-id)
+        1 (update-record tx table d sync-id)
+        2 (delete-record tx table d sync-id)
+        false)
+
+      (db/insert! tx :waiting_for_sync
+                  {:id (UUID/fromString sync-id) :table_id table :types_of types-of
+                   :row_id (or (get data "id")
+                               (str (get data "tag_id")
+                                    "|"
+                                    (get data "note_id")))
+                   :user_id (UUID/fromString (:uid userinfo))})
+      
+      (db/insert! tx :sync_devices 
+                  {:device_id (UUID/fromString (:id userinfo))
+                   :sync_id (UUID/fromString sync-id)})
+
+      ;; send notification to the others
+      (when-let [other-devices (db/find-by-keys tx :user_devices
+                                                ["user_id = ? and device_id != ?"
+                                                 (UUID/fromString (:uid userinfo))
+                                                 (:id userinfo)]
+                                                {:columns [:device_id]})]
+        (map #(when-let [c (get @channels (:device_id %))]
+                (send-response message c))
+             other-devices))
+
+      {:type "sync-data-ok" :data sync-id})))
 
 (defn send-response 
   [data channel]

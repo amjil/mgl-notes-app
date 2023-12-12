@@ -1,7 +1,8 @@
 CREATE TABLE waiting_for_sync (
     id uuid,
     user_id uuid not null,
-    table_id varchar(20), row_id text, 
+    table_id varchar(20), 
+    row_id text, 
     types_of smallint,
     "status" smallint default 0,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
