@@ -15,9 +15,9 @@
         exp    (-> (time/plus (time/zoned-date-time) (time/days 90))
                    time/instant
                    time/to-millis-from-epoch)
-        claims {:id  id
-                :jti uuid
-                :exp exp}]
+        claims (merge {:jti uuid
+                       :exp exp}
+                      id)]
     (encrypt claims (hash/sha256 secret)
              {:alg :a256kw
               :enc :a128gcm})))
