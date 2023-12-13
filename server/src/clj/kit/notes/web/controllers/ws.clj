@@ -106,7 +106,8 @@
                 (send-response message c))
              other-devices))
 
-      {:type "sync-data-result" :data {:sync_id sync-id}})))
+      {:type "sync-data-result" :data {:sync_id sync-id 
+                                       :sync_ids (:sync_ids data)}})))
 
 (defmethod handle-message
   "sync-data-result"
@@ -115,7 +116,7 @@
   (let [{{sync-id :sync_id} :data} message]
     (db/insert! (:db-conn opts)
                 :sync_devices
-                {:device_id (UUID/fromString (:id userinfo))
+                {:device_id (:id userinfo)
                  :sync_id (UUID/fromString sync-id)})
     {}))
 
@@ -167,7 +168,7 @@
                     {:tag_id (first x) :note_id (last x)})))]
     (send-response
      (cheshire/generate-string
-      {:data {:data (dissoc result :user_id :created_at :updated_at)
+      {:data {:data (dissoc result :user_id)
               :types_of (:types_of data)
               :table (:table_id data)
               :sync_id (:id data)

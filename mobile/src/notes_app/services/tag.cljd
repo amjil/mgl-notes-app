@@ -4,7 +4,7 @@
    ["package:uuid/uuid.dart" :as uuid]
    [clojure.string :as str]
    [notes-app.services.sqlite :as sql]
-   [notes-app.services.sync :as sync]))
+   [notes-app.services.ws :as ws]))
 
 (declare query-tag-with-name)
 
@@ -18,7 +18,7 @@
                     (.rawInsert db
                                 "INSERT INTO tags (id, name) values (?, ?)"
                                 [id v]))]
-        (sync/sync-data-trigger
+        (ws/sync-data-trigger
          0 "tags" {"id" id "name" v})
         id)
       (get (first result) "id"))))
@@ -33,7 +33,7 @@
      (.rawDelete db
                  "DELETE FROM note_tags WHERE tag_id = ?"
                  [id]))
-    (sync/sync-data-trigger
+    (ws/sync-data-trigger
      2 "tags" {"id" id})))
 
 (defn count-tags []
@@ -101,7 +101,7 @@
                  "UPDATE tags SET related_num = related_num + 1
                   WHERE id = ?"
                  [tag_id]))
-    (sync/sync-data-trigger
+    (ws/sync-data-trigger
      0 "note_tags" {"note_id" note_id "tag_id" tag_id})))
                  
 (defn query-tag-notes [id]
@@ -139,7 +139,7 @@
                    "UPDATE tags SET related_num = related_num - 1
                     WHERE id = ?"
                    [tag_id])))
-    (sync/sync-data-trigger
+    (ws/sync-data-trigger
      2 "note_tags" {"note_id" note_id "tag_id" tag_id})))
                    
 (defn extract-tags-from-note [t]

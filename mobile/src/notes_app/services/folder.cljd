@@ -4,7 +4,7 @@
    ["package:uuid/uuid.dart" :as uuid]
    [clojure.string :as str]
    [notes-app.services.sqlite :as sql]
-   [notes-app.services.sync :as sync]))
+   [notes-app.services.ws :as ws]))
 
 (declare query-folder-with-name)
 
@@ -20,7 +20,7 @@
                        "INSERT INTO folders (id, parent_id, name) values (?, ?, ?)"
                        [id pid v]))
           nil)]
-    (sync/sync-data-trigger
+    (ws/sync-data-trigger
      0 "folders" {"id" id "parent_id" pid "name" v})
     id1))
     
@@ -38,7 +38,7 @@
      (.rawDelete db
                  "DELETE FROM folders WHERE id = ?"
                  [id]))
-    (sync/sync-data-trigger
+    (ws/sync-data-trigger
      2 "folders" {"id" id})))
 
 (defn all-folders []
@@ -101,7 +101,7 @@
                ")")
               (concat [pid] (vec ids))))]
     (doall 
-     (map #(sync/sync-data-trigger
+     (map #(ws/sync-data-trigger
             2 "folders" {"id" % "parent_id" pid})
           ids))
     num))
@@ -115,6 +115,6 @@
                "UPDATE folders SET name = ? 
                 WHERE id = ?")
               [name id]))]
-    (sync/sync-data-trigger
+    (ws/sync-data-trigger
      1 "folders" {"id" id "name" name})
     num))

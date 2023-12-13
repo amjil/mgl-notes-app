@@ -4,7 +4,7 @@
    ["package:flutter_dotenv/flutter_dotenv.dart" :as dotenv]
    ["package:adaptive_theme/adaptive_theme.dart" :as adaptive]
    ["package:keyboard_height_plugin/keyboard_height_plugin.dart" :as keyboard-plugin]
-   [cljd.flutter :as f]
+   [cljd.flutter.alpha2 :as f]
    [virtual-keyboard.options :as keyboard-options]
    [notes-app.screens.home :as home]
    [notes-app.screens.user :as user]
