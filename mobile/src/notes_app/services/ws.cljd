@@ -1,15 +1,19 @@
 (ns notes-app.services.ws
   (:require
    ["dart:convert" :as convert]
+   ["package:sqflite/sqflite.dart" :as sqf]
    ["package:web_socket_client/web_socket_client.dart" :as websocket]
+   [clojure.string :as str]
    [notes-app.states.global :as gs]
+   [notes-app.services.sqlite :as sql]
    [notes-app.services.pref :as pref]
    [notes-app.services.env :as env]
    [notes-app.utils.util :as util]))
 
 (def conn (atom nil))
 
-(declare handle-message)
+(declare handle-message
+         sync-data-result)
 
 (defn connect
   []
@@ -41,10 +45,48 @@
 (defn handle-message
   [msg]
   (let [data (convert/jsonDecode msg)]
-    (case (get data "type")
-      "notification"
-      (let [data (get data "data")
-            id (or (await (pref/get-int "ntf-id")) 1)]
-        (pref/set-int "ntf-id" id))
+    (condp = (get data "type")
+      "chk-data-result"
+      (let [{num "data"} data]
+        nil)
 
-      (dart:core/print (str "No handle case")))))
+      "sync-data"
+      nil
+      
+      "sync-data-result"
+      (sync-data-result data)
+
+      ;; else
+      nil)))
+      
+(defn sync-data-result [data]
+  (let [^sqf/Database db (await (sql/initialize-db))
+        ids (get data "sync_ids")
+        id (get data "sync_id")
+        num (if (empty? ids)
+              (await (.rawUpdate db
+                                 "UPDATE waiting_for_sync SET status = 1 
+                                  WHERE id = ?"
+                                 [id]))
+              (await (.rawUpdate db
+                                 (str 
+                                 "UPDATE waiting_for_sync SET status = 1 
+                                  WHERE id in ("
+                                  (str/join ", "
+                                            (map (fn [_] (str "?")) ids))
+                                  ")")
+                                 [ids])))]
+    num))
+    
+(defn fetch-data []
+  (send-msg2 "fetch-data" {}))
+
+(defn check-data [data]
+  (when (> data 0)
+    (fetch-data)))
+
+;; Todo
+(defn sync-data-conflict-handling [] nil)
+
+;; Todo
+(defn sync-data-merge [] nil)

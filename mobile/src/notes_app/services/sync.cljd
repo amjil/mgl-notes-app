@@ -32,7 +32,7 @@
                        ;"))
                     (group-by (fn [x] [(get x "table_id") (get x "row_id")]))
                     (map (fn [[_ v]] (assoc (into {} (last v))
-                                            "ids"
+                                            "sync_ids"
                                             (map #(get % "id") v)))))]
     result))
     
@@ -59,11 +59,3 @@
                      "table" table
                      "data" data
                      "sync_id" result}))))
-                    
-(defn sync-data-ok [id]
-  (let [^sqf/Database db (await (sql/initialize-db))
-        num (await (.rawUpdate db
-                               "UPDATE waiting_for_sync SET status = 1 
-                                WHERE id = ?"
-                               [id]))]
-    num))
