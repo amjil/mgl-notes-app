@@ -5,6 +5,7 @@
    [kit.notes.web.utils.token :as token]
    [cheshire.core :as cheshire]
    [clojure.tools.logging :as log]
+   [clojure.string :as str]
    [kit.notes.web.utils.db :as db]
    [next.jdbc :as jdbc])
   (:import
@@ -15,7 +16,22 @@
          send-response
          create-record
          update-record
-         delete-record)
+         delete-record
+         put-data
+         check-data
+         check-and-put-data)
+
+          ;;  -----------------
+          ;;  |               |
+          ;;  -----------------
+;; client -> server   ;;sync-data
+;; server -> client   ;;sync-data
+
+;; offline client login to server
+;; 1 server -> client ;; notify-sync-data
+;; 2 client -> server ;; fetch-data
+;; 3 client -> sqlite ;; conflict handling  Todo
+;; 4 client -> server ;; sync-data
 
 ;; ^:private
 (def channels (atom {}))
@@ -41,9 +57,10 @@
       (println "WS closeed!"))}})
 
 (defn handle-request [opts userinfo message]
-  (-> (handle-message opts userinfo message)
-      (cheshire/generate-string)
-      (send-response (:channel opts))))
+  (when-let [response (handle-message opts userinfo message)]
+    (-> response
+        (cheshire/generate-string)
+        (send-response (:channel opts)))))
 
 (defmulti handle-message
   (fn [_ _ msg]
@@ -60,11 +77,12 @@
           d (assoc data :user_id (UUID/fromString (:uid userinfo)))]
 
       (condp = types-of
-        0 (create-record tx table d sync-id)
-        1 (update-record tx table d sync-id)
-        2 (delete-record tx table d sync-id)
+        0 (create-record tx table d)
+        1 (update-record tx table d)
+        2 (delete-record tx table d)
         false)
 
+      ;; Insert waiting_for_sync
       (db/insert! tx :waiting_for_sync
                   {:id (UUID/fromString sync-id) :table_id table :types_of types-of
                    :row_id (or (get data "id")
@@ -72,8 +90,9 @@
                                     "|"
                                     (get data "note_id")))
                    :user_id (UUID/fromString (:uid userinfo))})
-      
-      (db/insert! tx :sync_devices 
+
+      ;; Insert sync_devices
+      (db/insert! tx :sync_devices
                   {:device_id (UUID/fromString (:id userinfo))
                    :sync_id (UUID/fromString sync-id)})
 
@@ -87,31 +106,93 @@
                 (send-response message c))
              other-devices))
 
-      {:type "sync-data-ok" :data sync-id})))
+      {:type "sync-data-result" :data {:sync_id sync-id}})))
 
-(defn send-response 
+(defmethod handle-message
+  "sync-data-result"
+  [opts userinfo message]
+  ;; Insert sync_devices
+  (let [{{sync-id :sync_id} :data} message]
+    (db/insert! (:db-conn opts)
+                :sync_devices
+                {:device_id (UUID/fromString (:id userinfo))
+                 :sync_id (UUID/fromString sync-id)})
+    {}))
+
+(defmethod handle-message
+  "chk-data"
+  [opts userinfo _]
+  (check-data (:query-fn opts) userinfo))
+
+(defmethod handle-message
+  "fetch-data"
+  [opts userinfo _]
+  (check-and-put-data (:query-fn opts) (:db-conn opts) userinfo)
+  nil)
+
+(defmethod handle-message
+  nil
+  [_ _ _]
+  nil)
+
+(defn send-response
   [data channel]
   (undertow-ws/send data channel))
 
-;; 
-;; (when-let [channel (get @channels uid)]
-;;   (wss/send-response
-;;    {:type :xxxx}
-;;    channel))
-
-(defn create-record [conn table data sync-id]
+;;;;;;;;;
+(defn create-record [conn table data]
   (let [data (assoc data :id (UUID/fromString (:id data)))
         result (db/insert! conn table data)]
     (some? result)))
 
-(defn update-record [conn table data sync-id]
+(defn update-record [conn table data]
   (let [result (db/update! conn table
                            (dissoc data :id)
                            (select-keys data [:id]))]
     (some? result)))
 
-(defn delete-record [conn table data sync-id]
+(defn delete-record [conn table data]
   (let [result (db/delete! conn table (if (nil? (:id data))
                                         data
                                         (select-keys data [:id])))]
     (some? result)))
+
+(defn put-data [conn data channel]
+  (let [result (db/find-by-keys
+                conn
+                (:table_id data)
+                (if (nil? (str/index-of (:row_id data) "|"))
+                  {:id (:row_id data)}
+                  (let [x (str/split (:row_id data) #"|")]
+                    {:tag_id (first x) :note_id (last x)})))]
+    (send-response
+     (cheshire/generate-string
+      {:data {:data (dissoc result :user_id :created_at :updated_at)
+              :types_of (:types_of data)
+              :table (:table_id data)
+              :sync_id (:id data)
+              :sync_ids (:sync_ids data)}
+       :type "sync-data"})
+     channel)))
+
+(defn check-and-put-data
+  [query-fn conn uinfo]
+  (when-let [result (as-> (query-fn :query-server-sync-data {:device_id (:id uinfo) 
+                                                             :user_id (:uid uinfo)}) m
+                      (group-by (fn [x] [(get x :table_id) (get x :row_id)]) m)
+                      (map (fn [[_ v]] (dissoc (assoc (into {} (last v))
+                                                      "sync_ids"
+                                                      (map #(get % :id) v))
+                                               :user_id)) m))]
+    (when-let [channel (get @channels (:id uinfo))]
+      (doall
+       (map #(put-data conn % channel) result))))) 
+
+
+(defn check-data [query-fn uinfo]
+  (if-let [result (as-> (query-fn :query-server-sync-count {:device_id (:id uinfo)
+                                                            :user_id (:uid uinfo)}) m
+                      (last m)
+                      (:num m))]
+    {:type "chk-data-ok" :data result}
+    {:type "chk-data-ok" :data 0}))

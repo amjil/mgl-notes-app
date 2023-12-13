@@ -1,6 +1,6 @@
 CREATE TABLE sync_devices (
     sync_id uuid,
-    device_id uuid not null,
+    device_id text not null,
     "status" smallint default 0,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
