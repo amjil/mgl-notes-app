@@ -3,11 +3,11 @@
    ["dart:convert" :as convert]
    ["package:sqflite/sqflite.dart" :as sqf]
    ["package:web_socket_client/web_socket_client.dart" :as websocket]
+   ["package:diff_match_patch/diff_match_patch.dart" :as diff-patch]
    [clojure.string :as str]
    [notes-app.states.global :as gs]
    [notes-app.services.sqlite :as sql]
    [notes-app.services.common :as common]
-   [notes-app.services.pref :as pref]
    [notes-app.services.sync :as sync]
    [notes-app.services.env :as env]
    [notes-app.utils.util :as util]))
@@ -16,6 +16,8 @@
 
 (declare handle-message
          sync-data-result
+         sync-data-trigger
+         sync-data-merge
          check-data-result)
 
 (defn connect
@@ -46,18 +48,19 @@
                  "data" msg})))
 
 (defn handle-message
-  [msg]
-  (let [data (convert/jsonDecode msg)]
-    (condp = (get data "type")
+  [response]
+  (let [msg (convert/jsonDecode response)]
+    (condp = (get msg "type")
       "chk-data-result"
-      (let [{num "data"} data]
+      (let [{num "data"} msg]
         (check-data-result num))
 
       "sync-data"
       nil
       
       "sync-data-result"
-      (sync-data-result data)
+      (let [{data "data"} msg]
+        (sync-data-result data))
 
       ;; else
       nil)))
@@ -82,34 +85,79 @@
     num))
     
 (defn sync-data [d]
-  (let [{table :table
-         data :data
+  (let [{table :table_id
+         row :row_id
          types-of :types_of} d]
-    (when-let [record (as-> (sync/query-needs-sync-data) m
-                        (filter #(and (= table (get % "table_id"))
-                                      (= (get data "row_id") (get % "row_id")))
-                                m)
-                        (last m))]
+    (if-let [record (sync/query-sync-data row)]
       (cond
         (= 2 types-of (get record "types_of"))
-        nil ;; do nothing
+        ;; 1 update sqlite  2 notify server updated
+        (do
+          (sync/update-data-status (get d "sync_ids"))
+          (send-msg2 "sync-data-result" (select-keys d ["sync_id" "sync_ids"])))
 
         ;; server deleted
         (= 2 types-of)
-        nil))))
-    
+        (do
+          (sync/update-data-status (get d "sync_ids"))
+          (send-msg2 "sync-data-result" (select-keys d ["sync_id" "sync_ids"])))
+
+        ;; client delete
+        (= 2 (get record "types_of"))
+        (do
+          (send-msg2 "sync-data-result" (select-keys d ["sync_id" "sync_ids"]))
+          (send-msg2 "sync-data"
+                     {"types_of" types-of
+                      "table" table
+                      "data" {"id" row}
+                      "sync_id" (get record "id")
+                      "sync_ids" (get record "sync_ids")}))
+
+        ;; conflict handling
+        :else
+        (let [local (sync/get-record-data table row)]
+          (sync-data-merge d (assoc record "data" local))))
+      (do
+        (sync/save-data d)
+        (send-msg2 "sync-data-result" (select-keys d ["sync_id" "sync_ids"]))))))
+          
 (defn fetch-data []
   (send-msg2 "fetch-data" {}))
 
 (defn check-data-result [data]
   (when (> data 0)
     (fetch-data)))
+    
 
-;; Todo
-(defn sync-data-conflict-handling [] nil)
+(defn merge-content [old-content new-content]
+  (let [dmp (diff-patch/DiffMatchPatch)
+        patch (.patch dmp old-content new-content)]
+    (first (.patch_apply dmp patch old-content))))
 
-;; Todo
-(defn sync-data-merge [] nil)
+(defn update-record [remote local]
+  (let [new-content (if (> (get remote "created_at")
+                           (get local  "created_at"))
+                      (merge-content (-> local  (get "data") (get "content"))
+                                     (-> remote (get "data") (get "content")))
+                      (merge-content (-> remote (get "data") (get "content"))
+                                     (-> local  (get "data") (get "content"))))
+        id (-> local (get "data") (get "id"))]
+    (sync/update-record id new-content)
+    (sync-data-trigger 1 "notes" {"id" id "content" new-content})))
+
+(defn sync-data-merge [remote local]
+  (let [{table "table_id"} remote]
+    (if (= table "notes")
+      (do
+        (send-msg2 "sync-data-result" (select-keys remote ["sync_id" "sync_ids"]))
+        (sync/update-data-status (get local "sync_ids"))
+        (update-record remote local))
+
+      (if (> (get remote "created_at") (get local "created_at"))
+        (do
+          (sync/save-data remote)
+          (send-msg2 "sync-data-result" (select-keys remote ["sync_id" "sync_ids"])))
+        (send-msg2 "sync-data" local)))))
 
 (defn sync-batch-data [ctx]
   (let [data-list (sync/query-needs-sync-data)]

@@ -2,6 +2,7 @@
   (:require
    ["package:sqflite/sqflite.dart" :as sqf]
    ["package:uuid/uuid.dart" :as uuid]
+   [clojure.string :as str]
    [notes-app.services.sqlite :as sql]))
 
 (defn create-sync-record [types_of table rid]
@@ -32,5 +33,76 @@
                                             "sync_ids"
                                             (map #(get % "id") v)))))]
     result))
+
+(defn query-sync-data [id]
+  (let [^sqf/Database db (await (sql/initialize-db))
+        result (await
+                (.rawQuery
+                 db
+                 "SELECT id, table_id, row_id, types_of, created_at
+                       FROM waiting_for_sync 
+                       WHERE status = 0 and row_id = ?
+                       ORDER BY created_at desc 
+                       ;" [id]))]
+    (as-> result m
+      (last m)
+      (assoc m "sync_ids" (map #(get % "id") m)))))
+    
+(defn update-data-status [ids]
+  (let [^sqf/Database db (await (sql/initialize-db))
+        result (->> (await
+                     (.rawUpdate
+                      db
+                      (str
+                       "UPDATE waiting_for_sync SET status = ? WHERE id in ("
+                       (str/join
+                        ", "
+                        (map (fn [_] (str "?")) ids))
+                       ");")
+                      [ids])))]
+    result))
     
 
+(defn save-data [d] 
+  (let [^sqf/Database db (await (sql/initialize-db))
+        batch (.batch db)
+        {{data "data"
+          types-of "types_of"
+          table "table_id"
+          row "row_id"
+          sync-id "sync_id"} "data"} d]
+    (condp = types-of
+      0 (.insert batch table data)
+      1 (.update batch table data .where "id = ?" .whereArgs [row])
+      2 (if (nil? (get data "id"))
+          (let [x (str/split row #"|")]
+            (.delete batch table .where "tag_id = ? and note_id = ?" .whereArgs [(first x) (last x)]))
+          (.delete batch table .where "id = ?" .whereArgs [row]))
+      nil)
+    (.insert batch "waiting_for_sync"
+             (as-> d m
+               (into {} m)
+               (assoc m "id" sync-id "status" 1)
+               (select-keys m ["types_of" "table_id" "row_id" "id" "status"])))
+    (.commit batch)))
+    
+(defn get-record-data [table id]
+  (let [^sqf/Database db (await (sql/initialize-db))]
+    (await
+     (.rawQuery
+      db
+      "SELECT * FROM ? WHERE id = ?;"
+      [table id]))))
+
+(defn update-record [id content]
+  (let [^sqf/Database db (await (sql/initialize-db))
+        result (await (.rawQuery db
+                                 "select note_id
+                                  from note_infos a 
+                                  where id = ?;"
+                                 [id]))
+        note-id (-> result first (get "note_id"))
+        num (await (.rawUpdate db
+                               "UPDATE notes SET content = ? WHERE rowid = ?"
+                               [content note-id]))]
+    num))

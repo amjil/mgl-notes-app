@@ -159,7 +159,7 @@
     (some? result)))
 
 (defn put-data [conn data channel]
-  (let [result (db/find-by-keys
+  (let [result (db/find-one-by-keys
                 conn
                 (:table_id data)
                 (if (nil? (str/index-of (:row_id data) "|"))
@@ -171,6 +171,8 @@
       {:data {:data (dissoc result :user_id)
               :types_of (:types_of data)
               :table (:table_id data)
+              :row (:row_id data)
+              :created_at (:created_at data)
               :sync_id (:id data)
               :sync_ids (:sync_ids data)}
        :type "sync-data"})
