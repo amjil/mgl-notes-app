@@ -2,7 +2,7 @@
   (:require
    ["package:flutter/material.dart" :as m]
    ["package:mongol/mongol.dart" :as mgl]
-   [cljd.flutter.alpha2 :as f]
+   [cljd.flutter :as f]
    [notes-app.widgets.search-item :as search-item]
    [notes-app.widgets.tag-item :as tag-item]
    [notes-app.widgets.search-input :as search-input]

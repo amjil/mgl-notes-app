@@ -1,7 +1,7 @@
 (ns notes-app.utils.bottom-sheet
   (:require
    ["package:flutter/material.dart" :as m]
-   [cljd.flutter.alpha2 :as f]
+   [cljd.flutter :as f]
    [notes-app.widgets.text-input :as text-input]
    [notes-app.widgets.folders-tree :as folders-tree]))
    

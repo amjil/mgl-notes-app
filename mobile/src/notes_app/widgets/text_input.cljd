@@ -2,7 +2,7 @@
   (:require
    ["package:flutter/material.dart" :as m]
    ["package:mongol/mongol.dart" :as mgl]
-   [cljd.flutter.alpha2 :as f]
+   [cljd.flutter :as f]
    [virtual-keyboard.keyboard :as keyboard]
    [virtual-keyboard.options :as keyboard-options]
    [virtual-keyboard.keyboard-action :as keyboard-action]

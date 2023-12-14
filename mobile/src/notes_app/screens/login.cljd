@@ -3,7 +3,7 @@
    ["package:flutter/material.dart" :as m]
    ["package:flutter/widgets.dart" :as widgets]
    ["package:mongol/mongol.dart" :as mgl]
-   [cljd.flutter.alpha2 :as f]
+   [cljd.flutter :as f]
    [notes-app.widgets.auth :as auth-widget]
    [notes-app.services.auth :as auth-service]
    [notes-app.utils.util :as util]

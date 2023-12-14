@@ -1,9 +1,7 @@
 (ns notes-app.utils.response
   (:require
-   ["package:flutter/material.dart" :as m]
    ["dart:convert" :as convert]
    ["package:http/http.dart" :as http]
-   [notes-app.states.global :as gs]
    [notes-app.utils.util :as util]))
 
 (defn response-message [ctx ^http/Response response success-fn]

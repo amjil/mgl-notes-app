@@ -1,6 +1,5 @@
 (ns notes-app.states.folder
   (:require
-   ["package:flutter/material.dart" :as m]
    [notes-app.services.folder :as service]
    [notes-app.states.global :as gs]
    [notes-app.utils.util :as util]))

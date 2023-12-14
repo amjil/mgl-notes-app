@@ -1,7 +1,7 @@
 (ns notes-app.utils.router
   (:require
    ["package:flutter/material.dart" :as m]
-   [cljd.flutter.alpha2 :as f]))
+   [cljd.flutter :as f]))
 
 
 (defn open-screen [^m/NavigatorState navigator screen]

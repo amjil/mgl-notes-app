@@ -1,7 +1,7 @@
 (ns notes-app.screens.user
   (:require 
    ["package:flutter/material.dart" :as m]
-   [cljd.flutter.alpha2 :as f]
+   [cljd.flutter :as f]
    [notes-app.widgets.settings :as settings]
    [notes-app.services.token :as token]
    [notes-app.states.profile :as profile-state]

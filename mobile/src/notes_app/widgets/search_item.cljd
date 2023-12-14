@@ -3,7 +3,7 @@
    ["package:flutter/material.dart" :as m]
    ["package:mongol/mongol.dart" :as mgl]
    [clojure.string :as str]
-   [cljd.flutter.alpha2 :as f]))
+   [cljd.flutter :as f]))
 
 (defn list-item [item]
   (f/widget

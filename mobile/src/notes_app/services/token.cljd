@@ -2,10 +2,7 @@
   (:require
    [notes-app.services.pref :as pref]
    [notes-app.states.global :as gs]
-   [notes-app.utils.util :as util]
-   [notes-app.utils.response :as response]
-   ["package:http/http.dart" :as http]
-   ["dart:convert" :as convert]))
+   [notes-app.utils.util :as util]))
 
 (defn get-token [ctx]
   (stream

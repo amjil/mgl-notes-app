@@ -1,7 +1,6 @@
 (ns notes-app.services.note
   (:require
    ["package:sqflite/sqflite.dart" :as sqf]
-   ["package:flutter/material.dart" :as m]
    [clojure.string :as str]
    [notes-app.services.sqlite :as sql]
    [notes-app.services.tag :as tag-service]

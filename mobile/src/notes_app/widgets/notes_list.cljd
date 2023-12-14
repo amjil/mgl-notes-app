@@ -3,7 +3,7 @@
     ["package:flutter/material.dart" :as m]
     ["package:mongol/mongol.dart" :as mgl]
     [clojure.string :as str]
-    [cljd.flutter.alpha2 :as f]
+    [cljd.flutter :as f]
     [notes-app.states.global :as gs]
     [notes-app.widgets.slidable :as slidable]))
 

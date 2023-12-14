@@ -1,7 +1,7 @@
 (ns notes-app.screens.home
   (:require
    ["package:flutter/material.dart" :as m]
-   [cljd.flutter.alpha2 :as f]
+   [cljd.flutter :as f]
    [notes-app.screens.folder :as folder-screen]
    [notes-app.widgets.folders-list :as folders-list]
    [notes-app.widgets.tag-list :as tag-list]

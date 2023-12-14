@@ -1,6 +1,5 @@
 (ns notes-app.states.global
   (:require 
-   ["package:flutter/material.dart" :as m]
    [virtual-keyboard.options :as keyboard-options]))
 
 (def state

@@ -1,7 +1,7 @@
 (ns notes-app.widgets.top-bar
   (:require
    ["package:flutter/material.dart" :as m]
-   [cljd.flutter.alpha2 :as f]
+   [cljd.flutter :as f]
    [notes-app.screens.search :as search-screen]
    [notes-app.screens.profile :as profile-screen]
    [notes-app.utils.router :as router]

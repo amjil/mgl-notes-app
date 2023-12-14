@@ -3,8 +3,7 @@
    ["package:flutter/material.dart" :as m]
    ["package:mongol/mongol.dart" :as mgl]
    ["package:flutter_styled_toast/flutter_styled_toast.dart" :as styled-toast]
-   [cljd.flutter.alpha2 :as f]
-   [notes-app.states.global :as gs]))
+   [cljd.flutter :as f]))
    
 (defn show-indicator [ctx]
   (m/showDialog

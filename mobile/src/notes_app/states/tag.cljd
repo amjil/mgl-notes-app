@@ -1,7 +1,5 @@
 (ns notes-app.states.tag
   (:require
-   ["package:flutter/material.dart" :as m]
-   [clojure.string :as str]
    [notes-app.services.tag :as tag-service]
    [notes-app.services.note :as note-service]
    [notes-app.states.global :as gs]))

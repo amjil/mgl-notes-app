@@ -2,7 +2,7 @@
   (:require
    ["package:flutter/material.dart" :as m]
    ["package:mongol/mongol.dart" :as mgl]
-   [cljd.flutter.alpha2 :as f]
+   [cljd.flutter :as f]
    [notes-app.widgets.settings :as settings]
    [notes-app.states.profile :as profile-state]
    [notes-app.states.global :as gs]))

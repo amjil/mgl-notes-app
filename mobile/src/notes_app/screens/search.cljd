@@ -2,8 +2,7 @@
   (:require 
    ["package:flutter/material.dart" :as m]
    ["package:mongol/mongol.dart" :as mgl]
-   [clojure.string :as str]
-   [cljd.flutter.alpha2 :as f]
+   [cljd.flutter :as f]
    [notes-app.widgets.search-input :as search-input]
    [notes-app.widgets.search-item :as search-item]
    [notes-app.states.global :as gs]))

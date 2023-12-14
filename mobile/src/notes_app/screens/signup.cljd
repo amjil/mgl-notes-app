@@ -2,7 +2,7 @@
   (:require 
    ["package:flutter/material.dart" :as m]
    ["package:mongol/mongol.dart" :as mgl]
-   [cljd.flutter.alpha2 :as f]
+   [cljd.flutter :as f]
    [notes-app.screens.login :as login-screen]
    [notes-app.widgets.auth :as auth-widget]
    [notes-app.services.auth :as auth-service]

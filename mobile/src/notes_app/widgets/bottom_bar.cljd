@@ -1,9 +1,7 @@
 (ns notes-app.widgets.bottom-bar
   (:require
    ["package:flutter/material.dart" :as m]
-   [cljd.flutter.alpha2 :as f]
-   [notes-app.screens.note :as note-screen]
-   [notes-app.utils.router :as router]
+   [cljd.flutter :as f]
    [notes-app.utils.bottom-sheet :as bottom-sheet]
    [notes-app.states.global :as gs]))
    
