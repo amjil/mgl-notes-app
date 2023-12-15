@@ -19,7 +19,8 @@
     (db/insert! conn :user_devices
                 {:user_id (:id entity)
                  :device_id (:device_id params)})
-    {:token (token/jwt-token secret (:id (:device_id params)))}))
+    {:token (token/jwt-token secret {:id (:device_id params)
+                                     :uid (:id entity)})}))
 
 (declare check-before-signup)
 

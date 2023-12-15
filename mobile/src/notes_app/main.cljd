@@ -50,11 +50,11 @@
       .builder (fn [light dark]
                  (f/widget
                   :context ctx
-                  :let [width  (-> m/MediaQuery (.of ctx) .-size .-width)
+                  :let [w (-> m/MediaQuery (.of ctx) .-size .-width)
                         info (merge keyboard-options/keyboard-option
                                     {:keyboard/key-cap-border-radius 6
                                      :keyboard/key-container-color (-> m/Theme (.of ctx) .-colorScheme .-tertiaryContainer)}
-                                    {:keyboard/width width})]
+                                    {:keyboard/width w})]
                   :bind {:info info :state gs/state}
                   (m/MaterialApp
                    .title "Welcome to Flutter"
@@ -62,10 +62,8 @@
                    .darkTheme dark
                    .debugShowCheckedModeBanner false
                    .home home/screen
-                   .routes {
-                            ;; "/" (fn ^m/Widget [ctx] home/screen)
+                   .routes {;; "/" (fn ^m/Widget [ctx] home/screen)
                             "/user" (fn ^m/Widget [ctx] user/screen)
                             "/signup" (fn ^m/Widget [ctx] signup/screen)
                             "/login" (fn ^m/Widget [ctx] login/screen)
-                            "/tag" (fn ^m/Widget [ctx] tag/screen)
-                            })))))))
+                            "/tag" (fn ^m/Widget [ctx] tag/screen)})))))))

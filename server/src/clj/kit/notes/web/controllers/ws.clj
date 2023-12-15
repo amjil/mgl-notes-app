@@ -69,7 +69,7 @@
 (defmethod handle-message
   "sync-data"
   [opts userinfo message]
-  (jdbc/with-transaction [tx (:db-conn opts)]
+  (jdbc/with-transaction [tx (jdbc/get-connection (:db-conn opts))]
     (let [{{data :data
             types-of :types_of
             table :table
@@ -106,7 +106,7 @@
                 (send-response message c))
              other-devices))
 
-      {:type "sync-data-result" :data {:sync_id sync-id 
+      {:type "sync-data-result" :data {:sync_id sync-id
                                        :sync_ids (:sync_ids data)}})))
 
 (defmethod handle-message
@@ -154,8 +154,9 @@
 
 (defn delete-record [conn table data]
   (let [result (db/delete! conn table (if (nil? (:id data))
-                                        data
-                                        (select-keys data [:id])))]
+                                        {:tag_id (UUID/fromString (:tag_id data))
+                                         :note_id (UUID/fromString (:note_id data))}
+                                        {:id (UUID/fromString (:id data))}))]
     (some? result)))
 
 (defn put-data [conn data channel]
