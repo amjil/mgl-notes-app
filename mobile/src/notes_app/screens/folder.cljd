@@ -54,4 +54,4 @@
                           (router/open-editor navigator note-screen/screen)
                           ;; (note-state/setting-note-controller controller)
                           )))
-               (bottom-bar/sub-folder #(router/open-editor navigator note-screen/screen))])))
+               (bottom-bar/sub-folder controller #(router/open-editor navigator note-screen/screen))])))

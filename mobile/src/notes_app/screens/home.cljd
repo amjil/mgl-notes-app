@@ -15,7 +15,7 @@
    :context ctx
    :get [m/Navigator]
    :let [h (-> m/MediaQuery (.of ctx) .-size .-height)]
-   :managed [text-controller (m/TextEditingController)]
+   :managed [text-controller (m/TextEditingController .text "")]
    :watch [{:keys [user-token]} gs/state]
    (m/Scaffold
     .appBar nil

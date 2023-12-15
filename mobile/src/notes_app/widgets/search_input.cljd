@@ -12,14 +12,12 @@
 (defn ^m/Widget input-box [value]
   (f/widget
    :context ctx
-   :get [:info]
    :let [w (-> m/MediaQuery (.of ctx) .-size .-width)
          h (-> m/MediaQuery (.of ctx) .-size .-height)
          text-controller (:keyboard/text-controller @gs/state)]
    :watch [{candidates-list :keyboard/candidates-list
             keyboard-height :keyboard-height
-            {in-app-keyboard "in-app-keyboard"} :profile} gs/state
-           text-value value]
+            {in-app-keyboard "in-app-keyboard"} :profile} gs/state]
    :bg-watcher ([^m/TextEditingValue {input-text .-text} text-controller]
                 (reset! value input-text))
    (m/Column
@@ -69,7 +67,7 @@
          (menu/menu {:bar {:elavation 10
                            :background-color
                            (-> m/Theme (.of ctx) .-colorScheme .-tertiaryContainer)}
-                     :item {:on-tap (fn [x] (keyboard-action/on-candidates-clicked x gs/state info))}}
+                     :item {:on-tap (fn [x] (keyboard-action/on-candidates-clicked x gs/state))}}
                     candidates-list))]))
      (if (true? in-app-keyboard)
        (m/Container

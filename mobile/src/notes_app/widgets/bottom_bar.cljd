@@ -6,7 +6,7 @@
    [notes-app.states.global :as gs]))
    
 
-(defn sub-folder [router-fn]
+(defn sub-folder [controller router-fn]
   (f/widget
    :context ctx
    :get [m/Navigator]
@@ -18,17 +18,22 @@
                                 .color (-> m/Theme (.of ctx) .-colorScheme .-outlineVariant)))))
    (m/SafeArea
     .top false)
-   (m/Stack
-    .children [(m/Align
-                .alignment m.Alignment/centerRight
-                .child
+   (m/Row
+    .mainAxisAlignment m.MainAxisAlignment/spaceBetween
+    .children [(m/IconButton
+                .padding (m.EdgeInsets/all 12)
+                .constraints (m/BoxConstraints)
+                .icon (m/Icon m.Icons/create_new_folder)
+                .onPressed (fn []
+                             (swap! gs/state assoc :keyboard/text-controller controller)
+                             (bottom-sheet/modal-bottom-sheet ctx nil)))
                (m/IconButton
                 .padding (m.EdgeInsets/all 12)
                 .constraints (m/BoxConstraints)
                 .icon (m/Icon m.Icons/edit)
                 .onPressed (fn []
                              (swap! gs/state assoc :note nil)
-                             (router-fn))))])))
+                             (router-fn)))])))
                              
 
 (defn home [controller]

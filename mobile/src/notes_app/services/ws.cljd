@@ -12,7 +12,7 @@
    [notes-app.services.env :as env]
    [notes-app.utils.util :as util]))
 
-(def conn (atom nil))
+(defonce conn (atom nil))
 
 (declare handle-message
          sync-data-result
@@ -43,6 +43,10 @@
                    "data" msg}))))
                    
 (defn send-msg2 [type msg]
+  (dart:core/print "0000000")
+  (dart:core/print @conn)
+  (dart:core/print msg)
+  (dart:core/print "0000000")
   (.send @conn (convert/jsonEncode
                 {"type" type
                  "data" msg})))
@@ -169,10 +173,14 @@
              (util/show-toast ctx "sync data type error")) data-list))))
 
 (defn sync-data-trigger [types-of table data]
-  (let [result (sync/create-sync-record types-of table (or (get data "id")
-                                                      (str (get data "tag_id")
-                                                           "|"
-                                                           (get data "note_id"))))]
+  (let [result (await
+                (sync/create-sync-record
+                 types-of
+                 table
+                 (or (get data "id")
+                     (str (get data "tag_id")
+                          "|"
+                          (get data "note_id")))))]
     (when (true? (await (common/connectivity)))
       (send-msg2 "sync-data"
                     {"types_of" types-of

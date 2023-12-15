@@ -11,22 +11,20 @@
    [notes-app.states.global :as gs]))
    
 (defn bar-button [child on-press]
-  (f/widget
-   :context ctx
    (m/InkWell
     .customBorder (m/CircleBorder)
-    .onTap on-press)
-   (m/Padding
-    .padding (.all m/EdgeInsets 8)
-    .child child)))
+    .onTap on-press
+    .child
+    (m/Padding
+     .padding (.all m/EdgeInsets 8)
+     .child child)))
 
 (defn ^m/Widget input-box []
   (let [value (atom "")]
     (f/widget
      :context ctx
-     :get [:info m/Navigator]
-     :let [w (-> m/MediaQuery (.of ctx) .-size .-width)
-           h (-> m/MediaQuery (.of ctx) .-size .-height)
+     :get [m/Navigator]
+     :let [h (-> m/MediaQuery (.of ctx) .-size .-height)
            text-controller (:keyboard/text-controller @gs/state)]
      :watch [{candidates-list :keyboard/candidates-list
               keyboard-height :keyboard-height
@@ -88,7 +86,7 @@
                           .border (.all m/Border .width 0.1))
              .child
              (mgl/MongolTextField
-              .controller (get @gs/state :keyboard/text-controller)
+              .controller text-controller
               .style (m/TextStyle .fontSize 22)
               .decoration (m/InputDecoration
                            .isDense true
@@ -107,7 +105,7 @@
            (menu/menu {:bar {:elavation 10
                              :background-color
                              (-> m/Theme (.of ctx) .-colorScheme .-tertiaryContainer)}
-                       :item {:on-tap (fn [x] (keyboard-action/on-candidates-clicked x gs/state info))}}
+                       :item {:on-tap (fn [x] (keyboard-action/on-candidates-clicked x gs/state))}}
                       candidates-list))]))
        (if (true? in-app-keyboard)
          (m/Container
