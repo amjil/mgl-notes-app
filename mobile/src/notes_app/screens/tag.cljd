@@ -3,9 +3,11 @@
    ["package:flutter/material.dart" :as m]
    ["package:mongol/mongol.dart" :as mgl]
    [cljd.flutter :as f]
+   [notes-app.screens.note :as note-screen]
    [notes-app.widgets.search-item :as search-item]
    [notes-app.widgets.tag-item :as tag-item]
    [notes-app.widgets.search-input :as search-input]
+   [notes-app.utils.router :as router]
    [notes-app.states.global :as gs]))
    
 (def screen
@@ -67,7 +69,10 @@
                                              .color (-> m/Theme (.of ctx) .-colorScheme .-primary)))
                         .itemCount (count search-result)
                         .itemBuilder (fn [_ i]
-                                       (search-item/list-item (nth search-result i)))))]))])
+                                       (search-item/list-item
+                                        (nth search-result i)
+                                        (fn []
+                                          (router/open-editor navigator note-screen/screen))))))]))])
        (if (true? floating-input)
          (search-input/input-box text-value)
          (m/SizedBox))]))))

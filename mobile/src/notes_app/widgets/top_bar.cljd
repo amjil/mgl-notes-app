@@ -38,6 +38,7 @@
      (m/InkWell
       .customBorder (m/CircleBorder)
       .onTap (fn []
+               (set! (.-text controller) "")
                (swap! gs/state assoc :keyboard/text-controller controller)
                (swap! gs/state assoc :floating-input true)
                (swap! gs/state assoc :keyboard/return-callback

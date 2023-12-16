@@ -3,11 +3,20 @@
    ["package:flutter/material.dart" :as m]
    ["package:mongol/mongol.dart" :as mgl]
    [clojure.string :as str]
-   [cljd.flutter :as f]))
+   [cljd.flutter :as f]
+   [notes-app.states.global :as gs]))
 
-(defn list-item [item]
+(defn list-item [item router-fn]
   (f/widget
    :context ctx
+   ;; different between notes_list.cljd 's list-item =>
+   ;; this one is on onLongPress function
+   (m/GestureDetector
+    .onTap (fn []
+             (swap! gs/state assoc :note item)
+             (when-not (nil? router-fn)
+               (router-fn))
+             nil))
    (m/Container
     .width 60
     .child
