@@ -1,0 +1,26 @@
+(ns notes-app.widgets.information
+  (:require
+   ["package:flutter/material.dart" :as m]
+   ["package:mongol/mongol.dart" :as mgl]
+   [cljd.flutter :as f]
+   [notes-app.states.global :as gs]
+   [notes-app.services.ws :as ws]))
+   
+(defn info []
+  (f/widget
+   :context ctx
+   :let [h (-> m/MediaQuery (.of ctx) .-size .-height)]
+   (m/GestureDetector 
+    .onTap 
+    (fn []
+      (dart:core/print "start ....")
+      (ws/sync-batch-data)
+      (dart:core/print "end .....")
+      nil))
+   (m/Container
+    .height h
+    .width 30
+    .color (-> m/Theme (.of ctx) .-colorScheme .-onTertiaryContainer))
+   (m/Center)
+   (mgl/MongolText "ᠲᠠᠨ ᠤ ᠵᠠᠰᠠᠪᠦᠷᠢᠯᠠᠭᠰᠠᠨ ᠵᠦᠢᠯᠡᠰ ᠴᠢᠨᠢ ᠲᠤᠰᠠᠭᠠᠷᠯᠠᠭᠳᠠᠭᠰᠠᠨ ᠪᠠᠢᠨ᠎ᠠ᠂ ᠲᠠ ᠡᠨᠳᠡ ᠳᠠᠷᠤᠵᠤ ᠲᠤᠰᠢᠶᠠᠬᠤ ᠤᠤ?"
+                   .style (m/TextStyle .fontSize 14))))

@@ -160,14 +160,20 @@
           (send-msg2 "sync-data-result" (select-keys remote ["sync_id" "sync_ids"])))
         (send-msg2 "sync-data" local)))))
 
-(defn sync-batch-data [ctx]
-  (let [data-list (sync/query-needs-sync-data)]
-    (doall
-     (map #(condp = (get % "types_of")
-             0 (send-msg ctx "data_create" %)
-             1 (send-msg ctx "data_update" %)
-             2 (send-msg ctx "data_delete" %)
-             (util/show-toast ctx "sync data type error")) data-list))))
+(defn sync-batch-data []
+  (when-not (nil? @conn)
+    (let [sync-list (await (sync/query-needs-sync-data))]
+      (doall
+       (map #(let [data (->> (await (sync/get-record-data (get % "table_id")
+                                                          (get % "row_id")))
+                             first)]
+               (send-msg2 "sync-data"
+                          {"types_of" (get % "types_of")
+                           "table" (get % "table_id")
+                           "data" data
+                           "sync_id" (get % "id")
+                           "sync_ids" (get % "sync_ids")}))
+               sync-list)))))
 
 (defn sync-data-trigger [types-of table data]
   (let [result (await

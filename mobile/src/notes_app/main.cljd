@@ -17,7 +17,8 @@
    [notes-app.states.global :as gs]
    [notes-app.states.folder :as folder-state]
    [notes-app.states.tag :as tag-state]
-   [notes-app.states.profile :as profile-state]))
+   [notes-app.states.profile :as profile-state]
+   [notes-app.services.sync :as sync]))
 
 (defn main []
   (m.WidgetsFlutterBinding/ensureInitialized)
@@ -36,6 +37,13 @@
 
   (folder-state/all-folders)
   (tag-state/all-tags)
+
+  ;; check sync data
+  (let [result (-> (await (sync/check-need-sync))
+                   first
+                   (get "num"))]
+    (when (> result 0)
+      (swap! gs/state assoc :need-sync true)))
 
   (let [initial-theme (await (themes/initial-theme))
         token (await (pref/get-string "user-token"))]

@@ -8,6 +8,7 @@
    [notes-app.widgets.top-bar :as top-bar]
    [notes-app.utils.router :as router]
    [notes-app.widgets.bottom-bar :as bottom-bar]
+   [notes-app.widgets.information :as info]
    [notes-app.states.global :as gs]))
 
 (def screen
@@ -16,30 +17,38 @@
    :get [m/Navigator]
    :let [h (-> m/MediaQuery (.of ctx) .-size .-height)]
    :managed [text-controller (m/TextEditingController .text "")]
-   :watch [{:keys [user-token]} gs/state]
+   :watch [{:keys [user-token]
+            need-sync :need-sync} gs/state]
    (m/Scaffold
-    .appBar nil
-    .body
-    (m/Column
-     .mainAxisAlignment m.MainAxisAlignment/center
-     .crossAxisAlignment m.CrossAxisAlignment/start
-     .children
-     [(top-bar/home text-controller)
-      (m/Divider .color (-> m/Theme (.of ctx) .-colorScheme .-outlineVariant)
-                 .thickness 1)
-      (m/Expanded
-       .child
-       (m/SingleChildScrollView
-        .scrollDirection m.Axis/horizontal
-        .child
-        (m/Row
-         .children
-         [(folders-list/list-view #(router/open-screen navigator folder-screen/screen) nil)
-          (m/SizedBox .width 10)
-          (f/widget
-           :let [h (-> m/MediaQuery (.of ctx) .-size .-height)]
-           (m/Container
-            .height h)
-           (tag-list/list-view))])))
-      (bottom-bar/home text-controller)]))))
+    .appBar nil)
+   .body
+   (m/Column
+    .mainAxisAlignment m.MainAxisAlignment/center
+    .crossAxisAlignment m.CrossAxisAlignment/start
+    .children
+    [(top-bar/home text-controller)
+     (m/Divider .color (-> m/Theme (.of ctx) .-colorScheme .-outlineVariant)
+                .thickness 1)
+     (m/Expanded
+      .child
+      (m/Stack
+       .children
+       [(m/SingleChildScrollView
+         .scrollDirection m.Axis/horizontal
+         .child
+         (m/Row
+          .children
+          [(folders-list/list-view #(router/open-screen navigator folder-screen/screen) nil)
+           (m/SizedBox .width 10)
+           (f/widget
+            :let [h (-> m/MediaQuery (.of ctx) .-size .-height)]
+            (m/Container
+             .height h)
+            (tag-list/list-view))]))
+        (if (true? need-sync)
+          (m/Align
+           .alignment m.Alignment/centerRight
+           .child (info/info))
+          (m/Container))]))
+     (bottom-bar/home text-controller)])))
      

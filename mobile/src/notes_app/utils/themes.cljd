@@ -55,7 +55,8 @@
            .tertiary (-> m/Colors .blueGrey .-shade600)
            .primaryContainer (-> m/Colors .blueGrey .-shade50)
            .secondaryContainer (-> m/Colors .blueGrey .-shade100)
-           .tertiaryContainer (-> m/Colors .grey .-shade200))
+           .tertiaryContainer (-> m/Colors .grey .-shade200)
+           .onTertiaryContainer (-> m/Colors .blue .-shade800 (.withOpacity 0.4)))
    .cardTheme (m/CardTheme .color (-> m/Colors .white))
    .iconTheme (m/IconThemeData .color (-> m/Colors .blueGrey .-shade600))
 ;;    .textTheme (m/TextTheme
@@ -78,7 +79,8 @@
           .tertiary (-> m/Colors .black45)
           .primaryContainer (-> m/Colors .grey .-shade900)
           .secondaryContainer (-> m/Colors .grey .-shade800)
-          .tertiaryContainer (-> m/Colors .grey .-shade700))
+          .tertiaryContainer (-> m/Colors .grey .-shade700)
+          .onTertiaryContainer (-> m/Colors .blue .-shade800 (.withOpacity 0.4)))
    .cardTheme (m/CardTheme .color m.Colors/blueGrey)
    .iconTheme (m/IconThemeData .color (-> m/Colors .yellowAccent .-shade700))
 ;;    .textTheme (m/TextTheme

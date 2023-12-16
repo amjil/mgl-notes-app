@@ -17,7 +17,19 @@
                              VALUES (?, ?, ?, ?)"
                  [id table rid types_of]))
     id))
-    
+
+(defn check-need-sync []
+  (let [^sqf/Database db (await (sql/initialize-db))
+        result (await
+                (.rawQuery
+                 db
+                 "SELECT count(*) as num 
+                  FROM waiting_for_sync 
+                  WHERE status = 0 
+                  ORDER BY created_at desc
+                  ;"))]
+    result))
+
 (defn query-needs-sync-data []
   (let [^sqf/Database db (await (sql/initialize-db))
         result (->> (await
@@ -26,9 +38,10 @@
                       "SELECT id, table_id, row_id, types_of, created_at
                        FROM waiting_for_sync 
                        WHERE status = 0 
-                       ORDER BY created_at desc 
+                       ORDER BY created_at asc 
                        ;"))
-                    (group-by (fn [x] [(get x "table_id") (get x "row_id")]))
+                    ;; for multiple update into one
+                    (group-by (fn [x] [(get x "table_id") (get x "row_id") (get x "types_of")]))
                     (map (fn [[_ v]] (assoc (into {} (last v))
                                             "sync_ids"
                                             (map #(get % "id") v)))))]
@@ -47,7 +60,7 @@
     (as-> result m
       (last m)
       (assoc m "sync_ids" (map #(get % "id") m)))))
-    
+
 (defn update-data-status [ids]
   (let [^sqf/Database db (await (sql/initialize-db))
         result (->> (await
@@ -61,9 +74,9 @@
                        ");")
                       [ids])))]
     result))
-    
 
-(defn save-data [d] 
+
+(defn save-data [d]
   (let [^sqf/Database db (await (sql/initialize-db))
         batch (.batch db)
         {{data "data"
@@ -85,24 +98,53 @@
                (assoc m "id" sync-id "status" 1)
                (select-keys m ["types_of" "table_id" "row_id" "id" "status"])))
     (.commit batch)))
-    
+
 (defn get-record-data [table id]
   (let [^sqf/Database db (await (sql/initialize-db))]
-    (await
-     (.rawQuery
-      db
-      "SELECT * FROM ? WHERE id = ?;"
-      [table id]))))
+    (condp = table
+      "notes"
+      (await
+       (.rawQuery
+        db
+        "select a.id,
+                a.folder_id,
+                a.flag,
+                a.status, 
+                b.content 
+         from note_infos a 
+         left join notes b on a.note_id = b.rowid 
+         where a.id = ?
+         order by a.note_id desc 
+         limit 1
+         ;"
+        [id]))
 
-(defn update-record [id content]
-  (let [^sqf/Database db (await (sql/initialize-db))
-        result (await (.rawQuery db
-                                 "select note_id
+      "note_tags"
+      (let [x (str/split id #"|")]
+        (await
+         (.rawQuery
+          db
+          "select * from note_tags 
+           where tag_id = ? and note_id = ?"
+          [(first x) (last x)])))
+
+      ;; else
+      (await
+       (.rawQuery
+        db
+        (str
+         "SELECT * FROM " table " WHERE id = ?;")
+        [id])))))
+
+  (defn update-record [id content]
+    (let [^sqf/Database db (await (sql/initialize-db))
+          result (await (.rawQuery db
+                                   "select note_id
                                   from note_infos a 
                                   where id = ?;"
-                                 [id]))
-        note-id (-> result first (get "note_id"))
-        num (await (.rawUpdate db
-                               "UPDATE notes SET content = ? WHERE rowid = ?"
-                               [content note-id]))]
-    num))
+                                   [id]))
+          note-id (-> result first (get "note_id"))
+          num (await (.rawUpdate db
+                                 "UPDATE notes SET content = ? WHERE rowid = ?"
+                                 [content note-id]))]
+      num))
