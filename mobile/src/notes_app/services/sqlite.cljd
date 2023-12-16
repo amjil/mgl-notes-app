@@ -30,7 +30,7 @@
                                                                  id uuid primary key,
                                                                  folder_id uuid, 
                                                                  note_id integer,
-                                                                 flag boolean NOT NULL DEFAULT 0,
+                                                                 flag smallint NOT NULL DEFAULT 0,
                                                                  status smallint NOT NULL DEFAULT 0,
                                                                  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP, 
                                                                  updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP)"))
