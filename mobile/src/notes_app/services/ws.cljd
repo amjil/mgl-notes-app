@@ -33,19 +33,20 @@
 
 (defn close []
   (when-not (nil? @conn)
-    (.close @conn)))
+    (.close ^websocket/WebSocket @conn)))
 
 (defn send-msg [ctx type msg]
   (if (nil? @conn)
     (util/show-toast ctx "The Network is disconnected!")
-    (.send @conn (convert/jsonEncode
-                  {"type" type
-                   "data" msg}))))
+    (.send ^websocket/WebSocket @conn (convert/jsonEncode
+                                       {"type" type
+                                        "data" msg}))))
                    
 (defn send-msg2 [type msg]
-  (.send @conn (convert/jsonEncode
-                {"type" type
-                 "data" msg})))
+  (when-not (nil? @conn)
+    (.send ^websocket/WebSocket @conn (convert/jsonEncode
+                                       {"type" type
+                                        "data" msg}))))
 
 (defn handle-message
   [response]
