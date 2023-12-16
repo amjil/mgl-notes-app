@@ -5,7 +5,8 @@
    [cljd.flutter :as f]
    [notes-app.widgets.top-bar :as top-bar]
    [notes-app.states.global :as gs]
-   [notes-app.states.folder :as folder-state]))
+   [notes-app.states.folder :as folder-state]
+   [notes-app.states.note :as note-state]))
 
 (declare list-view list-item)
 
@@ -55,9 +56,18 @@
                                m.Icons/arrow_drop_down)))
       .trailing (m/GestureDetector
                  .onTap (fn []
-                          (folder-state/move-folders
-                           (get item "id")
-                           [(get (:folder @gs/state) "id")])
+                          (if (= (:move-entity @gs/state) "note")
+                            (when-not (= (get (:note @gs/state) "folder_id")
+                                         (get item "id"))
+                              (note-state/move-notes
+                               (get item "id")
+                               [(get (:note @gs/state) "id")]))
+                            (when-not (= (get (:folder @gs/state) "id")
+                                         (get item "id"))
+                              (folder-state/move-folders
+                               (get item "id")
+                               [(get (:folder @gs/state) "id")])))
+                          
                           (.pop navigator)
                           nil)
                  .child (m/RotatedBox
@@ -79,6 +89,10 @@
                              .softWrap true
                              .overflow m.TextOverflow/ellipsis
                              .style (m/TextStyle
+                                     .color (if (= (get (:folder @gs/state) "id")
+                                                   (get item "id"))
+                                              (-> m/Theme (.of ctx) .-colorScheme .-primary)
+                                              nil)
                                      .fontSize 20))]))))))))
 
 (defn list-view [items]

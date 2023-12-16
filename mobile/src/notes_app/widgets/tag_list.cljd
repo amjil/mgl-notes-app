@@ -19,7 +19,6 @@
              (tag-state/tag-filterd-search)
              nil)
     .onLongPress (fn []
-                   (dart:core/print "xxxx")
                    (util/show-tag-menus
                     ctx
                     (menu-buttons/tag item))))

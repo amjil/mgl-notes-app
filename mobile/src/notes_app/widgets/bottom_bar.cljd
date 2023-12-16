@@ -57,5 +57,6 @@
                   .constraints (m/BoxConstraints)
                   .icon (m/Icon m.Icons/create_new_folder)
                   .onPressed (fn []
+                               (set! (.-text controller) "")
                                (swap! gs/state assoc :keyboard/text-controller controller)
                                (bottom-sheet/modal-bottom-sheet ctx nil)))])))))

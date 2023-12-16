@@ -6,7 +6,8 @@
    [notes-app.utils.bottom-sheet :as bottom-sheet]
    [notes-app.states.global :as gs]
    [notes-app.states.folder :as folder-state]
-   [notes-app.states.tag :as tag-state]))
+   [notes-app.states.tag :as tag-state]
+   [notes-app.states.note :as note-state]))
    
 (defn menu-item [text icon on-press]
   (f/widget
@@ -59,6 +60,7 @@
                           (fn []
                             (.pop navigator)
                             (folder-state/folders-tree)
+                            (swap! gs/state assoc :move-entity "folder")
                             (swap! gs/state assoc :move-folder nil)
                             (bottom-sheet/folder-selector-bottom-sheet ctx)))
                (m/VerticalDivider
@@ -84,10 +86,37 @@
     .scrollDirection m.Axis/horizontal
     .shrinkWrap true
     .children [(m/SizedBox .width 8)
-               (menu-item "Delete"
+               (menu-item "ᠬᠠᠰᠤᠬᠤ"
                           m.Icons/tag
                           (fn []
                             (.pop navigator)
                             (tag-state/delete-tag item)))
+               (m/VerticalDivider
+                .color (-> m/Theme (.of ctx) .-colorScheme .-outlineVariant))])))
+
+(defn note [item]
+  (f/widget
+   :context ctx
+   :get [m/Navigator]
+   (m/ListView
+    .scrollDirection m.Axis/horizontal
+    .shrinkWrap true
+    .children [(m/SizedBox .width 8)
+               (menu-item "ᠨᠡᠭᠦᠯᠭᠡᠬᠦ"
+                          m.Icons/article_outlined
+                          (fn []
+                            (.pop navigator)
+                            (folder-state/folders-tree)
+                            (swap! gs/state assoc :note item)
+                            (swap! gs/state assoc :move-entity "note")
+                            (swap! gs/state assoc :move-folder nil)
+                            (bottom-sheet/folder-selector-bottom-sheet ctx)))
+               (m/VerticalDivider
+                .color (-> m/Theme (.of ctx) .-colorScheme .-outlineVariant))
+               (menu-item "ᠬᠠᠰᠤᠬᠤ"
+                          m.Icons/article_outlined
+                          (fn []
+                            (.pop navigator)
+                            (note-state/delete-note (get item "id"))))
                (m/VerticalDivider
                 .color (-> m/Theme (.of ctx) .-colorScheme .-outlineVariant))])))

@@ -43,10 +43,6 @@
                    "data" msg}))))
                    
 (defn send-msg2 [type msg]
-  (dart:core/print "0000000")
-  (dart:core/print @conn)
-  (dart:core/print msg)
-  (dart:core/print "0000000")
   (.send @conn (convert/jsonEncode
                 {"type" type
                  "data" msg})))

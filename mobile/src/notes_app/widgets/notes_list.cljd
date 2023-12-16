@@ -4,8 +4,10 @@
     ["package:mongol/mongol.dart" :as mgl]
     [clojure.string :as str]
     [cljd.flutter :as f]
+    [notes-app.widgets.slidable :as slidable]
+    [notes-app.widgets.menu-buttons :as menu-buttons]
     [notes-app.states.global :as gs]
-    [notes-app.widgets.slidable :as slidable]))
+    [notes-app.utils.util :as util]))
 
  (defn list-item [i item router-fn]
    (f/widget
@@ -17,6 +19,10 @@
               (when-not (nil? router-fn)
                 (router-fn))
               nil)
+     .onLongPress (fn []
+                    (util/show-tag-menus
+                     ctx
+                     (menu-buttons/note item)))
      .child
      (slidable/note
       i
