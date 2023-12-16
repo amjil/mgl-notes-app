@@ -142,14 +142,35 @@
 
 ;;;;;;;;;
 (defn create-record [conn table data]
-  (let [data (assoc data :id (UUID/fromString (:id data)))
+  (let [data (cond-> (assoc data :id (UUID/fromString (:id data)))
+               (:folder_id data)
+               (update :folder_id #(UUID/fromString %))
+
+               (:parent_id data)
+               (update :parent_id #(UUID/fromString %))
+
+               (:tag_id data)
+               (update :tag_id #(UUID/fromString %))
+
+               (:note_id data)
+               (update :note_id #(UUID/fromString %)))
+
         result (db/insert! conn table data)]
     (some? result)))
 
 (defn update-record [conn table data]
   (let [result (db/update! conn table
-                           (dissoc data :id)
-                           (select-keys data [:id]))]
+                           ;; No Need to update tag_id note_id ,
+                           ;; Because of this both is in tag_notes tables
+                           ;; This table No update Operation
+                           (cond-> (dissoc data :id)
+                             (:folder_id data)
+                             (update :folder_id #(UUID/fromString %))
+
+                             (:parent_id data)
+                             (update :parent_id #(UUID/fromString %)))
+                           {:user_id (:user_id data)
+                            :id (UUID/fromString (:id data))})]
     (some? result)))
 
 (defn delete-record [conn table data]

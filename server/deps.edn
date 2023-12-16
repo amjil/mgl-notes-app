@@ -5,6 +5,8 @@
 
  clojure.java-time/clojure.java-time {:mvn/version "1.2.0"}
  com.github.seancorfield/honeysql {:mvn/version "2.4.1045"}
+ 
+ cheshire/cheshire {:mvn/version "5.12.0"}
 
            ;; Buddy
  buddy/buddy-core {:mvn/version "1.11.423"}
