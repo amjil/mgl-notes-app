@@ -43,10 +43,12 @@
                                         "data" msg}))))
                    
 (defn send-msg2 [type msg]
-  (when-not (nil? @conn)
+  (if-not (nil? @conn)
     (.send ^websocket/WebSocket @conn (convert/jsonEncode
                                        {"type" type
-                                        "data" msg}))))
+                                        "data" msg}))
+    (when (= type "sync-data")
+      (swap! gs/state assoc :need-sync true))))
 
 (defn handle-message
   [response]
