@@ -69,12 +69,15 @@
 (defmethod handle-message
   "sync-data"
   [opts userinfo message]
+  (log/warn "message = " message)
   (jdbc/with-transaction [tx (jdbc/get-connection (:db-conn opts))]
     (let [{{data :data
             types-of :types_of
             table :table
-            sync-id :sync_id} :data} message
+            sync-id :sync_id
+            sync-ids :sync_ids} :data} message
           d (assoc data :user_id (UUID/fromString (:uid userinfo)))]
+      (log/warn "d = " d)
 
       (condp = types-of
         0 (create-record tx table d)
@@ -85,15 +88,15 @@
       ;; Insert waiting_for_sync
       (db/insert! tx :waiting_for_sync
                   {:id (UUID/fromString sync-id) :table_id table :types_of types-of
-                   :row_id (or (get data "id")
-                               (str (get data "tag_id")
+                   :row_id (or (:id data)
+                               (str (:tag_id data)
                                     "|"
-                                    (get data "note_id")))
+                                    (:note_id data)))
                    :user_id (UUID/fromString (:uid userinfo))})
 
       ;; Insert sync_devices
       (db/insert! tx :sync_devices
-                  {:device_id (UUID/fromString (:id userinfo))
+                  {:device_id (:id userinfo)
                    :sync_id (UUID/fromString sync-id)})
 
       ;; send notification to the others
@@ -107,7 +110,7 @@
              other-devices))
 
       {:type "sync-data-result" :data {:sync_id sync-id
-                                       :sync_ids (:sync_ids data)}})))
+                                       :sync_ids sync-ids}})))
 
 (defmethod handle-message
   "sync-data-result"
@@ -128,8 +131,8 @@
 (defmethod handle-message
   "fetch-data"
   [opts userinfo _]
-  (check-and-put-data (:query-fn opts) (:db-conn opts) userinfo)
-  nil)
+  (check-and-put-data (:query-fn opts) (:db-conn opts) (:channel opts) userinfo) 
+  {})
 
 (defmethod handle-message
   nil
@@ -185,39 +188,41 @@
                 conn
                 (:table_id data)
                 (if (nil? (str/index-of (:row_id data) "|"))
-                  {:id (:row_id data)}
+                  {:id (UUID/fromString (:row_id data))}
                   (let [x (str/split (:row_id data) #"|")]
-                    {:tag_id (first x) :note_id (last x)})))]
-    (send-response
-     (cheshire/generate-string
-      {:data {:data (dissoc result :user_id)
-              :types_of (:types_of data)
-              :table (:table_id data)
-              :row (:row_id data)
-              :created_at (:created_at data)
-              :sync_id (:id data)
-              :sync_ids (:sync_ids data)}
-       :type "sync-data"})
-     channel)))
+                    {:tag_id (UUID/fromString (first x))
+                     :note_id (UUID/fromString (last x))})))]
+    (try
+      (send-response
+       (cheshire/generate-string
+        {:data {:data (dissoc result :user_id :created_at :updated_at)
+                :types_of (:types_of data)
+                :table (:table_id data)
+                :row (:row_id data)
+                :created_at (str (:created_at data))
+                :sync_id (:id data)
+                :sync_ids (:sync_ids data)}
+         :type "sync-data"})
+       channel)
+      (catch Exception e
+        (.printStackTrace e)))))
 
 (defn check-and-put-data
-  [query-fn conn uinfo]
-  (when-let [result (as-> (query-fn :query-server-sync-data {:device_id (:id uinfo) 
-                                                             :user_id (:uid uinfo)}) m
-                      (group-by (fn [x] [(get x :table_id) (get x :row_id)]) m)
+  [query-fn conn channel uinfo]
+  (when-let [result (as-> (query-fn :query-server-sync-data {:device_id (:id uinfo)
+                                                             :user_id (UUID/fromString (:uid uinfo))}) m
+                      (group-by (fn [x] [(get x :table_id) (get x :row_id) (get x :types_of)]) m)
                       (map (fn [[_ v]] (dissoc (assoc (into {} (last v))
                                                       "sync_ids"
                                                       (map #(get % :id) v))
                                                :user_id)) m))]
-    (when-let [channel (get @channels (:id uinfo))]
-      (doall
-       (map #(put-data conn % channel) result))))) 
+    (doall
+     (map #(put-data conn % channel) result)))) 
 
 
 (defn check-data [query-fn uinfo]
-  (if-let [result (as-> (query-fn :query-server-sync-count {:device_id (:id uinfo)
-                                                            :user_id (:uid uinfo)}) m
-                      (last m)
-                      (:num m))]
-    {:type "chk-data-ok" :data result}
-    {:type "chk-data-ok" :data 0}))
+  (let [result (as-> (query-fn :query-server-sync-count {:device_id (:id uinfo)
+                                                         :user_id (UUID/fromString (:uid uinfo))}) m
+                 (last m)
+                 (:num m))]
+    {:type "chk-data-result" :data result}))
