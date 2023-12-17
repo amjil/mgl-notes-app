@@ -69,21 +69,24 @@
 (defn sync-data-result [data]
   (let [^sqf/Database db (await (sql/initialize-db))
         ids (get data "sync_ids")
-        id (get data "sync_id")
-        num (if (empty? ids)
-              (await (.rawUpdate db
-                                 "UPDATE waiting_for_sync SET status = 1 
+        id (get data "sync_id")]
+    (if (empty? ids)
+      (await (.rawUpdate db
+                         "UPDATE waiting_for_sync SET status = 1 
                                   WHERE id = ?"
-                                 [id]))
-              (await (.rawUpdate db
-                                 (str 
-                                 "UPDATE waiting_for_sync SET status = 1 
+                         [id]))
+      (await (.rawUpdate db
+                         (str
+                          "UPDATE waiting_for_sync SET status = 1 
                                   WHERE id in ("
-                                  (str/join ", "
-                                            (map (fn [_] (str "?")) ids))
-                                  ")")
-                                 [ids])))]
-    num))
+                          (str/join ", "
+                                    (map (fn [_] (str "?")) ids))
+                          ")")
+                         [ids])))
+    (let [result (await (sync/check-need-sync))]
+      (if (> result 0)
+        (swap! gs/state assoc :need-sync true)
+        (swap! gs/state assoc :need-sync false)))))
     
 (defn sync-data [d]
   (let [{table :table_id

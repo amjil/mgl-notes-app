@@ -39,9 +39,7 @@
   (tag-state/all-tags)
 
   ;; check sync data
-  (let [result (-> (await (sync/check-need-sync))
-                   first
-                   (get "num"))]
+  (let [result (await (sync/check-need-sync))]
     (when (> result 0)
       (swap! gs/state assoc :need-sync true)))
 

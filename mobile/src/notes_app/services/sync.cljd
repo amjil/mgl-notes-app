@@ -20,14 +20,16 @@
 
 (defn check-need-sync []
   (let [^sqf/Database db (await (sql/initialize-db))
-        result (await
-                (.rawQuery
-                 db
-                 "SELECT count(*) as num 
-                  FROM waiting_for_sync 
-                  WHERE status = 0 
-                  ORDER BY created_at desc
-                  ;"))]
+        result (-> (await
+                    (.rawQuery
+                     db
+                     "SELECT count(*) as num 
+                      FROM waiting_for_sync 
+                      WHERE status = 0 
+                      ORDER BY created_at desc
+                      ;"))
+                   first
+                   (get "num"))]
     result))
 
 (defn query-needs-sync-data []
