@@ -57,11 +57,11 @@
                  "SELECT id, table_id, row_id, types_of, created_at
                        FROM waiting_for_sync 
                        WHERE status = 0 and row_id = ?
-                       ORDER BY created_at desc 
+                       ORDER BY created_at asc 
                        ;" [id]))]
-    (as-> result m
-      (last m)
-      (assoc m "sync_ids" (map #(get % "id") m)))))
+    (cond-> (last result)
+      (not-empty (last result))
+      (assoc "sync_ids" (map #(get % "id") (last result))))))
 
 (defn update-data-status [ids]
   (let [^sqf/Database db (await (sql/initialize-db))
@@ -81,25 +81,45 @@
 (defn save-data [d]
   (let [^sqf/Database db (await (sql/initialize-db))
         batch (.batch db)
-        {{data "data"
-          types-of "types_of"
-          table "table_id"
-          row "row_id"
-          sync-id "sync_id"} "data"} d]
+        {data "data"
+         types-of "types_of"
+         table "table"
+         row "row"
+         sync-id "sync_id"} d]
     (condp = types-of
       0 (.insert batch table data)
-      1 (.update batch table data .where "id = ?" .whereArgs [row])
+      1
+      (if (= "notes" table)
+        (let [id (-> (await (.rawQuery
+                             db
+                             "select note_id from note_infos 
+                              where id = ?"
+                             [row]))
+                     first
+                     (get "note_id"))]
+          (.update batch table {"content" (get data "content")}
+                   .where "rowid = ?" .whereArgs [id])
+          (.update batch
+                   "note_infos"
+                   (as-> data m
+                     (into {} m)
+                     (dissoc m "content"))
+                   .where "id = ?" .whereArgs [row]))
+        (.update batch table (into {} data) .where "id = ?" .whereArgs [row]))
+
       2 (if (nil? (get data "id"))
           (let [x (str/split row #"|")]
             (.delete batch table .where "tag_id = ? and note_id = ?" .whereArgs [(first x) (last x)]))
           (.delete batch table .where "id = ?" .whereArgs [row]))
       nil)
-    (.insert batch "waiting_for_sync"
-             (as-> d m
-               (into {} m)
-               (assoc m "id" sync-id "status" 1)
-               (select-keys m ["types_of" "table_id" "row_id" "id" "status"])))
-    (.commit batch)))
+    (.insert db "waiting_for_sync"
+             {"id" sync-id
+              "status" 1
+              "table_id" table
+              "row_id" row
+              "types_of" types-of})
+    (await (.commit batch))
+    {}))
 
 (defn get-record-data [table id]
   (let [^sqf/Database db (await (sql/initialize-db))]

@@ -15,6 +15,7 @@
 (defonce conn (atom nil))
 
 (declare handle-message
+         sync-data
          sync-data-result
          sync-data-trigger
          sync-data-merge
@@ -43,12 +44,10 @@
                                         "data" msg}))))
                    
 (defn send-msg2 [type msg]
-  (if-not (nil? @conn)
+  (when-not (nil? @conn)
     (.send ^websocket/WebSocket @conn (convert/jsonEncode
                                        {"type" type
-                                        "data" msg}))
-    (when (= type "sync-data")
-      (swap! gs/state assoc :need-sync true))))
+                                        "data" msg}))))
 
 (defn handle-message
   [response]
@@ -59,7 +58,8 @@
         (check-data-result num))
 
       "sync-data"
-      nil
+      (let [{data "data"} msg]
+        (sync-data data))
       
       "sync-data-result"
       (let [{data "data"} msg]
@@ -84,17 +84,21 @@
                           (str/join ", "
                                     (map (fn [_] (str "?")) ids))
                           ")")
-                         [ids])))
+                         ids)))
     (let [result (await (sync/check-need-sync))]
       (if (> result 0)
         (swap! gs/state assoc :need-sync true)
         (swap! gs/state assoc :need-sync false)))))
     
 (defn sync-data [d]
-  (let [{table :table_id
-         row :row_id
-         types-of :types_of} d]
-    (if-let [record (sync/query-sync-data row)]
+  (let [{table :table
+         row :row
+         types-of :types_of} d
+        record (await (sync/query-sync-data row))]
+    (if (empty? record)
+      (do
+        (sync/save-data d)
+        (send-msg2 "sync-data-result" (select-keys d ["sync_id" "sync_ids"])))
       (cond
         (= 2 types-of (get record "types_of"))
         ;; 1 update sqlite  2 notify server updated
@@ -122,10 +126,7 @@
         ;; conflict handling
         :else
         (let [local (sync/get-record-data table row)]
-          (sync-data-merge d (assoc record "data" local))))
-      (do
-        (sync/save-data d)
-        (send-msg2 "sync-data-result" (select-keys d ["sync_id" "sync_ids"]))))))
+          (sync-data-merge d (assoc record "data" local)))))))
           
 (defn fetch-data []
   (send-msg2 "fetch-data" {}))
@@ -189,9 +190,13 @@
                      (str (get data "tag_id")
                           "|"
                           (get data "note_id")))))]
+    (swap! gs/state assoc :need-sync true)
     (when (true? (await (common/connectivity)))
       (send-msg2 "sync-data"
-                    {"types_of" types-of
-                     "table" table
-                     "data" data
-                     "sync_id" result}))))
+                 {"types_of" types-of
+                  "table" table
+                  "data" data
+                  "sync_id" result}))))
+
+(defn send-check-data []
+  (send-msg2 "chk-data" {}))

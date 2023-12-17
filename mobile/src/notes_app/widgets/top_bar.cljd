@@ -6,7 +6,8 @@
    [notes-app.screens.profile :as profile-screen]
    [notes-app.utils.router :as router]
    [notes-app.states.global :as gs]
-   [notes-app.states.note :as note-state]))
+   [notes-app.states.note :as note-state]
+   [notes-app.services.ws :as ws]))
    
 (defn move-view-bars []
   (f/widget
