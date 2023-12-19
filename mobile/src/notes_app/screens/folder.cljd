@@ -50,8 +50,6 @@
                (m/Expanded
                 .child (folders-list/list-view
                         #(router/open-screen navigator screen)
-                        (fn [] 
-                          (router/open-editor navigator note-screen/screen)
-                          ;; (note-state/setting-note-controller controller)
-                          )))
+                        (fn []
+                          (.pushNamed navigator "/note"))))
                (bottom-bar/sub-folder controller #(router/open-editor navigator note-screen/screen))])))

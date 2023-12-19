@@ -1,5 +1,5 @@
 (ns notes-app.screens.note
-  (:require 
+  (:require
    ["package:flutter/material.dart" :as m]
    ["package:mongol/mongol.dart" :as mgl]
    [cljd.flutter :as f]
@@ -14,7 +14,7 @@
 (def screen
   (f/widget
    :context ctx
-   :get [m/Navigator]
+   :get {navigator m/Navigator}
    :let [h (-> m/MediaQuery (.of ctx) .-size .-height)]
    :managed [controller (m/TextEditingController
                          .text (if (nil? (:note @gs/state))
