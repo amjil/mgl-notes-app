@@ -4,8 +4,9 @@
    ["package:flutter_dotenv/flutter_dotenv.dart" :as dotenv]
    ["package:adaptive_theme/adaptive_theme.dart" :as adaptive]
    ["package:keyboard_height_plugin/keyboard_height_plugin.dart" :as keyboard-plugin]
-   [cljd.flutter.alpha2 :as f]
+   [cljd.flutter :as f]
    [virtual-keyboard.options :as keyboard-options]
+   [virtual-keyboard.input-control :as control]
    [notes-app.screens.home :as home]
    [notes-app.screens.user :as user]
    [notes-app.screens.signup :as signup]
@@ -13,19 +14,21 @@
    [notes-app.screens.note :as note]
    [notes-app.screens.tag :as tag]
    [notes-app.services.pref :as pref]
-   [notes-app.services.ws :as ws]
+   [notes-app.services.db :as db]
    [notes-app.utils.themes :as themes]
    [notes-app.states.global :as gs]
    [notes-app.states.folder :as folder-state]
    [notes-app.states.tag :as tag-state]
-   [notes-app.states.profile :as profile-state]
-   [notes-app.services.sync :as sync]))
+   [notes-app.states.profile :as profile-state]))
 
 (defn main []
   (m.WidgetsFlutterBinding/ensureInitialized)
   ;; dotenv
   (await (.load dotenv/dotenv .fileName "assets/.env"))
 
+  (control/set-control)
+
+  (await (db/set-electric))
   ;;
   (profile-state/prepopulate-profile-settings)
 
@@ -39,16 +42,10 @@
   (folder-state/all-folders)
   (tag-state/all-tags)
 
-  ;; check sync data
-  (let [result (await (sync/check-need-sync))]
-    (when (> result 0)
-      (swap! gs/state assoc :need-sync true)))
-
   (let [initial-theme (await (themes/initial-theme))
         token (await (pref/get-string "user-token"))]
     (when (not-empty token)
-      (swap! gs/state assoc :user-token token)
-      (ws/connect))
+      (swap! gs/state assoc :user-token token))
     (m/runApp
      (adaptive/AdaptiveTheme
       .light themes/default-light-theme

@@ -64,9 +64,9 @@
                                [(get (:note @gs/state) "id")]))
                             (when-not (= (get (:folder @gs/state) "id")
                                          (get item "id"))
-                              (folder-state/move-folders
+                              (folder-state/move-folder
                                (get item "id")
-                               [(get (:folder @gs/state) "id")])))
+                               (get (:folder @gs/state) "id"))))
                           
                           (.pop navigator)
                           nil)

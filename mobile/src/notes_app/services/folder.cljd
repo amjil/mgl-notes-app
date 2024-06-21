@@ -1,120 +1,92 @@
 (ns notes-app.services.folder
   (:require
-   ["package:sqflite/sqflite.dart" :as sqf]
    ["package:uuid/uuid.dart" :as uuid]
-   [clojure.string :as str]
-   [notes-app.services.sqlite :as sql]
-   [notes-app.services.ws :as ws]))
+   ["package:cljd_mobile/database/drift/database.dart" :as schema]
+   ["package:cljd_mobile/generated/electric/drift_schema.dart" :as drift-schema]
+   ["package:electricsql_flutter/drivers/drift.dart" :as electric-drift]
+   ["package:drift/drift.dart" :as drift]
+   [notes-app.services.db :as electric-db]))
 
-(declare query-folder-with-name)
-
-(defn create-folder [pid v]
-  (let [^sqf/Database db (await (sql/initialize-db))
-        result (await (query-folder-with-name pid v))
-        uuid (uuid/Uuid)
-        id (.v4 uuid)
-        id1
-        (if (empty? result)
-          (await
-           (.rawInsert db
-                       "INSERT INTO folders (id, parent_id, name) values (?, ?, ?)"
-                       [id pid v]))
-          nil)]
-    (ws/sync-data-trigger
-     0 "folders" {"id" id "parent_id" pid "name" v})
-    id1))
+(defn create-folder [pid ^String v]
+  (let [^electric-drift/ElectricClient
+        client @electric-db/elec
+        ^schema/AppDatabase db (.-db client)
+        folder (schema.FoldersCompanion/insert
+                .id (.v4 (uuid/Uuid))
+                .parentId (if (nil? pid)
+                            (drift/Value nil)
+                            (drift/Value pid))
+                .electricUserId "ae1bad8a-5480-449b-bf82-9fd30bcd27b6"
+                .name (drift/Value v)
+                .orderNum (drift/Value 0)
+                .relatedNum (drift/Value 0))]
+    (await
+     (.insert (.into db (.-folders db))
+              folder))))
     
-(defn update-folder [id name]
-  (let [^sqf/Database db (await (sql/initialize-db))
-        num (await (.rawUpdate db
-                               "UPDATE folders SET name = ? WHERE id = ?"
-                               [name id]))]
-    num))
-
+(defn update-folder [id ^String name]
+  (let [^electric-drift/ElectricClient
+        client @electric-db/elec
+        ^schema/AppDatabase db (.-db client)]
+    (await
+     (.write
+      (doto (.update db (.-folders db))
+        (.where (fn [^drift-schema/Folders tbl] (.equals (.-id tbl) id))))
+      (schema/FoldersCompanion
+       .name (drift/Value name))))))
 
 (defn delete-folder [id]
-  (let [^sqf/Database db (await (sql/initialize-db))]
+  (let [^electric-drift/ElectricClient
+        client @electric-db/elec
+        ^schema/AppDatabase db (.-db client)]
     (await
-     (.rawDelete db
-                 "DELETE FROM folders WHERE id = ?"
-                 [id]))
-    (ws/sync-data-trigger
-     2 "folders" {"id" id})))
+     (.customStatement db
+                       "delete from folders where id = ?"
+                       [id]))))
 
-(defn all-folders []
-  (let [^sqf/Database db (await (sql/initialize-db))]
+(defn all-folders []  
+  (let [^electric-drift/ElectricClient
+        client @electric-db/elec
+        ^schema/AppDatabase db (.-db client)]
     (await
-     (.rawQuery
-      db
-      "SELECT id, name, order_num, related_num
-       FROM folders 
-       WHERE parent_id is null
-       ORDER BY order_num desc
-       ;"))))
-       
+     (.get
+      (.select db (.-folders db))))))
+
 (defn get-folders []
-  (let [^sqf/Database db (await (sql/initialize-db))]
+  (let [^electric-drift/ElectricClient
+        client @electric-db/elec
+        ^schema/AppDatabase db (.-db client)]
     (await
-     (.rawQuery
-      db
-      "SELECT id, parent_id, name, order_num, related_num
-       FROM folders 
-       ORDER BY order_num desc
-       ;"))))
+     (.get
+      (doto (.select db (.-folders db))
+        (.where (fn [^drift-schema/Folders tbl] (-> tbl .-parentId .isNull))))))))
+
+(defn get-folder [id]
+  (let [^electric-drift/ElectricClient
+        client @electric-db/elec
+        ^schema/AppDatabase db (.-db client)]
+    (await
+     (.getSingle
+      (doto (.select db (.-folders db))
+        (.where (fn [^drift-schema/Folders tbl] (.equals (.-id tbl) id))))))))
        
-(defn sub-folders [id]
-  (let [^sqf/Database db (await (sql/initialize-db))]
+(defn sub-folders [id] 
+  (let [^electric-drift/ElectricClient
+        client @electric-db/elec
+        ^schema/AppDatabase db (.-db client)]
     (await
-     (.rawQuery
-      db
-      "SELECT id, name, order_num, related_num
-       FROM folders 
-       WHERE parent_id = ? 
-       ORDER BY order_num desc
-       ;"
-      [id]))))
+     (.get
+      (doto (.select db (.-folders db))
+        (.where (fn [^drift-schema/Folders tbl] (.equals (.-parentId tbl) id))))))))
 
-(defn query-folder-with-name [id n]
-  (let [^sqf/Database db (await (sql/initialize-db))]
-    (await
-     (.rawQuery
-      db
-      "SELECT id, name
-       FROM folders 
-       WHERE 
-        parent_id = ?
-        AND name = ?
-       ;"
-      [id n]))))
-
-(defn move-folders [pid ids]
-  (let [^sqf/Database db (await (sql/initialize-db))
-        num (await
-             (.rawUpdate
-              db
-              (str
-               "UPDATE folders SET parent_id = ? 
-                WHERE id in ("
-               (str/join
-                ","
-                (mapv (fn [_] (str "?")) (seq ids)))
-               ")")
-              (concat [pid] (vec ids))))]
-    (doall 
-     (map #(ws/sync-data-trigger
-            2 "folders" {"id" % "parent_id" pid})
-          ids))
-    num))
+(defn move-folder [pid id] 
+  (let [^electric-drift/ElectricClient
+        client @electric-db/elec
+        ^schema/AppDatabase db (.-db client)]
+    (await 
+     (.write
+      (doto (.update db (.-folders db))
+        (.where (fn [^drift-schema/Folders tbl] (.equals (.-id tbl) id))))
+      (schema/FoldersCompanion
+       .parentId (drift/Value pid))))))
     
-(defn rename-folder [id name]
-  (let [^sqf/Database db (await (sql/initialize-db))
-        num (await
-             (.rawUpdate
-              db
-              (str
-               "UPDATE folders SET name = ? 
-                WHERE id = ?")
-              [name id]))]
-    (ws/sync-data-trigger
-     1 "folders" {"id" id "name" name})
-    num))

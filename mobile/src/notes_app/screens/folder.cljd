@@ -35,7 +35,7 @@
                            (swap! gs/state assoc :folder (last (:folder-link @gs/state)))
                            (if (nil? (:folder @gs/state))
                              (folder-state/all-folders)
-                             (folder-state/sub-folders (get (:folder @gs/state) "id"))))
+                             (folder-state/sub-folders (.-id (:folder @gs/state)))))
                   .child
                   (m/Icon m.Icons/keyboard_backspace))
                  (m/InkWell

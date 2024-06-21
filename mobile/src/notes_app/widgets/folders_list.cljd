@@ -16,7 +16,7 @@
      .onTap (fn []
               (swap! gs/state assoc :folder item)
               (swap! gs/state update :folder-link conj item)
-              (folder/sub-folders (get item "id"))
+              (folder/sub-folders (.-id item))
               (note/notes-from-folder)
               (router-fn)
               nil)
@@ -35,7 +35,7 @@
                             [(m/Icon m.Icons/folder)
                              (m/SizedBox .height 10)
                              (mgl/MongolText
-                              (str "" (get item "name"))
+                              (str "" (.-name item))
                               .maxLines 1
                               .softWrap true
                               .overflow m.TextOverflow/ellipsis
@@ -45,7 +45,7 @@
                     .padding (m.EdgeInsets/only .bottom 10)
                     .child
                     (m/Column
-                     .children [(mgl/MongolText (str "" (get item "related_num")))
+                     .children [(mgl/MongolText (str "" (.-relatedNum item)))
                                 (m/Icon m.Icons/keyboard_arrow_down_outlined)]))]))))))
 
 (defn list-view [router-fn router-fn-notes]
@@ -74,7 +74,7 @@
         (if (nil? folder)
           (m/SizedBox)
           (mgl/MongolText
-           (str (get folder "name") "")
+           (str (.-name folder) "")
            .maxLines 1
            .softWrap true
            .overflow m.TextOverflow/ellipsis

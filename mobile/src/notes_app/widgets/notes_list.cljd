@@ -2,7 +2,6 @@
    (:require
     ["package:flutter/material.dart" :as m]
     ["package:mongol/mongol.dart" :as mgl]
-    [clojure.string :as str]
     [cljd.flutter :as f]
     [notes-app.widgets.slidable :as slidable]
     [notes-app.widgets.menu-buttons :as menu-buttons]
@@ -42,9 +41,7 @@
                                          .color (-> m/Theme (.of ctx) .-colorScheme .-secondaryContainer))
                             .child
                             (mgl/MongolText
-                             (str (if (and (str/includes? (get item "content") "\n"))
-                                    (subs (get item "content") 0 (str/index-of (get item "content") "\n"))
-                                    (get item "content"))
+                             (str (.-content item)
                                   "")
                              .maxLines 1
                              .softWrap true

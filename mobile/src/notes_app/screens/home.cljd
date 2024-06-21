@@ -8,7 +8,6 @@
    [notes-app.widgets.top-bar :as top-bar]
    [notes-app.utils.router :as router]
    [notes-app.widgets.bottom-bar :as bottom-bar]
-   [notes-app.widgets.information :as info]
    [notes-app.states.global :as gs]))
 
 (def screen
@@ -17,8 +16,7 @@
    :get [m/Navigator]
    :let [h (-> m/MediaQuery (.of ctx) .-size .-height)]
    :managed [text-controller (m/TextEditingController .text "")]
-   :watch [{:keys [user-token]
-            need-sync :need-sync} gs/state]
+   :watch [{:keys [user-token]} gs/state]
    (m/Scaffold
     .appBar nil)
    .body
@@ -44,11 +42,6 @@
             :let [h (-> m/MediaQuery (.of ctx) .-size .-height)]
             (m/Container
              .height h)
-            (tag-list/list-view))]))
-        (if (true? need-sync)
-          (m/Align
-           .alignment m.Alignment/centerRight
-           .child (info/info))
-          (m/Container))]))
+            (tag-list/list-view))]))]))
      (bottom-bar/home text-controller)])))
      
