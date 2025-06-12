@@ -3,9 +3,9 @@
    ["package:flutter/material.dart" :as m]
    [cljd.flutter :as f]
    [notes-app.utils.bottom-sheet :as bottom-sheet]
-   [notes-app.states.global :as gs]
-   [notes-app.services.tag :as tag-service]))
+   [notes-app.states.global :as gs]))
    
+
 (defn sub-folder [controller router-fn]
   (f/widget
    :context ctx
@@ -25,6 +25,7 @@
                 .constraints (m/BoxConstraints)
                 .icon (m/Icon m.Icons/create_new_folder)
                 .onPressed (fn []
+                             (swap! gs/state assoc :keyboard/text-controller controller)
                              (bottom-sheet/modal-bottom-sheet ctx nil)))
                (m/IconButton
                 .padding (m.EdgeInsets/all 12)
@@ -56,8 +57,6 @@
                   .constraints (m/BoxConstraints)
                   .icon (m/Icon m.Icons/create_new_folder)
                   .onPressed (fn []
-                              ;;  (bottom-sheet/modal-bottom-sheet ctx nil)
-                               (dart:core/print "----------------------")
-                               (dart:core/print (await (tag-service/create-tag "abc")))
-                               (dart:core/print "----------------------")
-                               ))])))))
+                               (set! (.-text controller) "")
+                               (swap! gs/state assoc :keyboard/text-controller controller)
+                               (bottom-sheet/modal-bottom-sheet ctx nil)))])))))

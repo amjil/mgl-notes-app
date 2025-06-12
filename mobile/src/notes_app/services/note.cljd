@@ -1,154 +1,154 @@
 (ns notes-app.services.note
   (:require
-   ["package:uuid/uuid.dart" :as uuid]
-   ["package:cljd_mobile/database/drift/database.dart" :as schema]
-   ["package:cljd_mobile/generated/electric/drift_schema.dart" :as drift-schema]
-   ["package:electricsql_flutter/drivers/drift.dart" :as electric-drift]
-   ["package:drift/drift.dart" :as drift]
-   [notes-app.services.db :as electric-db]
-   [notes-app.services.tag :as tag-service]))
+   ["package:sqflite/sqflite.dart" :as sqf]
+   [clojure.string :as str]
+   [notes-app.services.sqlite :as sql]
+   [notes-app.services.tag :as tag-service]
+   [notes-app.services.ws :as ws]))
 
-(defn create-note [^String dir ^String v]
-  (let [^electric-drift/ElectricClient
-        client @electric-db/elec
-        ^schema/AppDatabase db (.-db client)
-        note (schema.NotesCompanion/insert
-              .id (.v4 (uuid/Uuid))
-              .folderId (drift/Value dir)
-              .electricUserId "ae1bad8a-5480-449b-bf82-9fd30bcd27b6"
-              .content (drift/Value v)
-              .flag 0
-              .status 0
-              .createdAt (drift/Value (DateTime.now))
-              .updatedAt (drift/Value (DateTime.now)))]
-    ;; (tag-service/add-or-delete-note-tags id v)
-    (await
-     (.insert (.into db (.-notes db))
-              note))))
+(defn create-note [dir id v]
+  (let [^sqf/Database db (await (sql/initialize-db))
+        id1 (await
+             (.rawInsert db
+                         "INSERT INTO notes values (?)"
+                         [v]))
+        _ (await
+           (.rawInsert db
+                       "INSERT INTO note_infos (folder_id, id, note_id) values (?, ?, ?)"
+                       [dir id id1]))]
+    (tag-service/add-or-delete-note-tags id v)
+    (ws/sync-data-trigger
+     0 "notes" {"id" id "folder_id" dir "content" v})
+    id))
 
 (defn delete-note [id]
-  (let [^electric-drift/ElectricClient
-        client @electric-db/elec
-        ^schema/AppDatabase db (.-db  client)]
+  (let [^sqf/Database db (await (sql/initialize-db))]
+    (tag-service/add-or-delete-note-tags id "")
     (await
-     (.go
-      (doto (.delete db (.-notes db))
-        (.where (fn [^drift-schema/Notes tbl] (.equals (.-id tbl) id))))))))
+     (.rawDelete db
+                 "DELETE FROM notes WHERE rowid = ?"
+                 [id]))
+    (await
+     (.rawDelete db
+                 "DELETE FROM note_infos WHERE note_id = ?"
+                 [id]))
+    (ws/sync-data-trigger
+     2 "notes" {"id" id})))
 
-(defn update-note [id ^String content]
-  (let [^electric-drift/ElectricClient
-        client @electric-db/elec
-        ^schema/AppDatabase db (.-db  client)]
-    (await
-     (.write
-      (doto (.update db (.-notes db))
-        (.where (fn [^drift-schema/Notes tbl] (.equals (.-id tbl) id))))
-      (schema/NotesCompanion
-       .content (drift/Value content)
-       .updatedAt (drift/Value (DateTime.now)))))
-    (tag-service/add-or-delete-note-tags id content)))
+
+(defn update-note [id content]
+  (let [^sqf/Database db (await (sql/initialize-db))
+        result (await (.rawQuery db
+                                 "select note_id
+                                  from note_infos a 
+                                  where id = ?;"
+                                 [id]))
+        note-id (-> result first (get "note_id"))
+        num (await (.rawUpdate db
+                               "UPDATE notes SET content = ? WHERE rowid = ?"
+                               [content note-id]))]
+    (tag-service/add-or-delete-note-tags id content)
+    (ws/sync-data-trigger
+     1 "notes" {"id" id "content" content})
+    num))
 
 (defn flag-note [id]
-  (let [^electric-drift/ElectricClient
-        client @electric-db/elec
-        ^schema/AppDatabase db (.-db  client)]
-    (await
-     (.write
-      (doto (.update db (.-notes db))
-        (.where (fn [^drift-schema/Notes tbl] (.equals (.-id tbl) id))))
-      (schema/NotesCompanion
-       .flag 1
-       .updatedAt (drift/Value (DateTime.now)))))))
+  (let [^sqf/Database db (await (sql/initialize-db))
+        num (await (.rawUpdate db
+                               "UPDATE note_infos SET flag = 1 WHERE id = ?"
+                               [id]))]
+    num))
 
 (defn unflag-note [id]
-  (let [^electric-drift/ElectricClient
-        client @electric-db/elec
-        ^schema/AppDatabase db (.-db client)]
-    (await
-     (.write
-      (doto (.update db (.-notes db))
-        (.where (fn [^drift-schema/Notes tbl] (.equals (.-id tbl) id))))
-      (schema/NotesCompanion
-       .flag 0
-       .updatedAt (drift/Value (DateTime.now)))))))
+  (let [^sqf/Database db (await (sql/initialize-db))
+        num (await (.rawUpdate db
+                               "UPDATE note_infos SET flag = 0 WHERE id = ?"
+                               [id]))]
+    num))
 
 (defn recycle-note [id]
-  (let [^electric-drift/ElectricClient
-        client @electric-db/elec
-        ^schema/AppDatabase db (.-db client)]
-    (await
-     (.write
-      (doto (.update db (.-notes db))
-        (.where (fn [^drift-schema/Notes tbl] (.equals (.-id tbl) id))))
-      (schema/NotesCompanion
-       .status -1
-       .updatedAt (drift/Value (DateTime.now)))))))
+  (let [^sqf/Database db (await (sql/initialize-db))
+        num (await (.rawUpdate db
+                               "UPDATE note_infos SET status = -1 WHERE id = ?"
+                               [id]))]
+    num))
 
 (defn archive-note [id]
-  (let [^electric-drift/ElectricClient
-        client @electric-db/elec
-        ^schema/AppDatabase db (.-db client)]
-    (await
-     (.write
-      (doto (.update db (.-notes db))
-        (.where (fn [^drift-schema/Notes tbl] (.equals (.-id tbl) id))))
-      (schema/NotesCompanion
-       .status 1
-       .updatedAt (drift/Value (DateTime.now)))))))
+  (let [^sqf/Database db (await (sql/initialize-db))
+        num (await (.rawUpdate db
+                               "UPDATE note_infos SET status = 1 WHERE id = ?"
+                               [id]))]
+    num))
 
 (defn inbox-note [id]
-  (let [^electric-drift/ElectricClient
-        client @electric-db/elec
-        ^schema/AppDatabase db (.-db client)]
+  (let [^sqf/Database db (await (sql/initialize-db))
+        num (await (.rawUpdate db
+                               "UPDATE note_infos SET status = 0 WHERE rowid = ?"
+                               [id]))]
+    num))
+  
+(defn get-note [id]
+  (let [^sqf/Database db (await (sql/initialize-db))]
     (await
-     (.write
-      (doto (.update db (.-notes db))
-        (.where (fn [^drift-schema/Notes tbl] (.equals (.-id tbl) id))))
-      (schema/NotesCompanion
-       .status 0
-       .updatedAt (drift/Value (DateTime.now)))))))
-       
+     (.rawQuery
+      db
+      "select a.*, b.content
+       from note_infos a 
+          left join notes b on a.note_id = b.rowid 
+       where a.id = ?
+       order by a.note_id desc
+       limit 1
+       ;"
+      [id]))))
+      
 (defn query-notes-from-folder [id]
-  (let [^electric-drift/ElectricClient
-        client @electric-db/elec
-        ^schema/AppDatabase db (.-db client)]
+  (let [^sqf/Database db (await (sql/initialize-db))]
     (await
-     (.get
-      (doto (.select db (.-notes db))
-        (.where (fn [^drift-schema/Notes tbl] (.equals (.-folderId tbl) id))))))))
+     (.rawQuery
+      db
+      "select a.*, b.content
+         from note_infos a 
+            left join notes b on a.note_id = b.rowid 
+         where folder_id = ?
+         order by a.note_id desc
+         ;"
+      [id]))))
 
-(defn move-notes [folder-id ids] nil)
-;; (defn move-notes [folder-id ids]
-;;   (let [^sqf/Database db (await (sql/initialize-db))]
-;;     (await
-;;      (.rawUpdate
-;;       db
-;;       (str
-;;        "UPDATE note_infos SET folder_id = ? 
-;;         WHERE id in ("
-;;        (str/join
-;;         ","
-;;         (map (fn [_] (str "?")) ids))
-;;        " )")
-;;       (concat [folder-id] (vec ids))))))
 
-(defn query-notes [word] nil)
-;; (defn query-notes [word]
-;;   (let [^sqf/Database db (await (sql/initialize-db))
-;;         ids (->> (.rawQuery db
-;;                             "select rowid from notes 
-;;                              where notes match ?"
-;;                             [word])
-;;                  await
-;;                  (map #(get % "rowid")))
-;;         ids-q (str "(" (clojure.string/join ", " (map #(str %) ids)) ")")]
-;;     (await
-;;      (.rawQuery
-;;       db
-;;       (str
-;;        "select a.*, b.content
-;;            from note_infos a 
-;;               left join notes b on a.note_id = b.rowid 
-;;            where note_id in " ids-q "
-;;            order by a.note_id desc
-;;            ;")))))
+(defn move-notes [folder-id ids]
+  (let [^sqf/Database db (await (sql/initialize-db))]
+    (await
+     (.rawUpdate
+      db
+      (str
+       "UPDATE note_infos SET folder_id = ? 
+        WHERE id in ("
+       (str/join
+        ","
+        (map (fn [_] (str "?")) ids))
+       " )")
+      (concat [folder-id] (vec ids))))
+    (doall
+     (map #(ws/sync-data-trigger
+            1 "notes" {"id" % "folder_id" folder-id})
+          ids))))
+      
+(defn query-notes [word]
+  (let [^sqf/Database db (await (sql/initialize-db))
+        ids (->> (.rawQuery db
+                            "select rowid from notes 
+                             where notes match ?"
+                            [word])
+                 await
+                 (map #(get % "rowid")))
+        ids-q (str "(" (clojure.string/join ", " (map #(str %) ids)) ")")]
+    (await
+     (.rawQuery
+      db
+      (str
+       "select a.*, b.content
+           from note_infos a 
+              left join notes b on a.note_id = b.rowid 
+           where note_id in " ids-q "
+           order by a.note_id desc
+           ;")))))

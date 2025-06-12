@@ -6,11 +6,13 @@
 
 (declare all-folders sub-folders)
 
-(defn create-folder [pid name]
-  (await (service/create-folder pid name))
-  (if (nil? (:folder @gs/state))
-    (all-folders)
-    (sub-folders (.-id (:folder @gs/state)))))
+(defn create-folder [ctx pid name]
+  (let [result (await (service/create-folder pid name))]
+    (if (nil? result)
+      (util/show-toast ctx "message!")
+      (if (nil? (:folder @gs/state))
+        (all-folders)
+        (sub-folders (get (:folder @gs/state) "id"))))))
 
 (defn delete-folder [id]
   (service/delete-folder id)
@@ -24,19 +26,21 @@
   (let [result (await (service/sub-folders id))]
     (swap! gs/state assoc :sub-folders result)))
     
-(defn move-folder [pid id]
-  (await (service/move-folder pid id))
+(defn move-folders [pid ids]
+  (await (service/move-folders pid ids))
   (if (nil? (:folder @gs/state))
     (all-folders)
-    (sub-folders (.-id (:folder @gs/state)))))
+    (sub-folders (get (:folder @gs/state) "id"))))
     
-(defn rename-folder [^String name]
-  (let [id (.-id (:folder @gs/state))]
-    (await (service/update-folder id name))
-    (swap! gs/state assoc :folder (await (service/get-folder id))))
+(defn rename-folder [name]
+  (let [id (-> (:folder @gs/state)
+               (get "id"))]
+    (await (service/rename-folder id name)))
+  (let [new-map (into {} (:folder @gs/state))]
+    (swap! gs/state assoc :folder (assoc new-map "name" name)))
   (if (nil? (:folder @gs/state))
     (all-folders)
-    (sub-folders (.-id (:folder @gs/state)))))
+    (sub-folders (get (:folder @gs/state) "id"))))
     
 (defn parent-folders []
   (let [result (await (service/all-folders))]

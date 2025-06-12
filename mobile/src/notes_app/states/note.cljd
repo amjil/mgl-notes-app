@@ -7,15 +7,26 @@
    
 (declare notes-from-folder)
    
+;; (def ^m/TextEditingController text-controller (m/TextEditingController))
+
+(defn setting-note-controller [^m/TextEditingController text-controller]
+  (set! (.-text text-controller) 
+        (if (nil? (:note @gs/state))
+          ""
+          (get (:note @gs/state) "content")))
+  (swap! gs/state assoc :keyboard/text-controller text-controller))
+
 (defn create-note [content]
-  (let [did (if (nil? (:folder @gs/state))
+  (let [uuid (uuid/Uuid)
+        id (.v4 uuid)
+        did (if (nil? (:folder @gs/state))
               nil
-              (.-id (:folder @gs/state)))]
-    (await (service/create-note did content))
+              (get (:folder @gs/state) "id"))]
+    (await (service/create-note did id content))
     (notes-from-folder)))
     
 (defn update-note [content]
-  (let [id (.-id (:note @gs/state))]
+  (let [id (get (:note @gs/state) "id")]
     (await (service/update-note id content))
     (notes-from-folder)))
     
@@ -26,7 +37,7 @@
 (defn notes-from-folder []
   (let [fid (if (nil? (:folder @gs/state))
               nil
-              (.-id (:folder @gs/state)))
+              (get (:folder @gs/state) "id"))
         result (await (service/query-notes-from-folder fid))]
     (swap! gs/state assoc :notes result)))
     

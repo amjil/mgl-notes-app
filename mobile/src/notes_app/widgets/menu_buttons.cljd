@@ -49,8 +49,9 @@
                           m.Icons/edit
                           (fn []
                             (.pop navigator)
+                            (swap! gs/state assoc :keyboard/text-controller controller)
                             (swap! gs/state assoc :rename-folder true)
-                            (set! (.-text controller) (-> @gs/state :folder .-name))
+                            (set! (.-text controller) (-> @gs/state :folder (get "name")))
                             (bottom-sheet/modal-bottom-sheet ctx nil)))
                (m/VerticalDivider
                 .color (-> m/Theme (.of ctx) .-colorScheme .-outlineVariant))
@@ -68,13 +69,13 @@
                           m.Icons/delete
                           (fn []
                             (.pop navigator)
-                            (folder-state/delete-folder (.-id (:folder @gs/state)))
+                            (folder-state/delete-folder (get (:folder @gs/state) "id"))
                             (.pop navigator)
                             (swap! gs/state update :folder-link pop)
                             (swap! gs/state assoc :folder (last (:folder-link @gs/state)))
                             (if (nil? (:folder @gs/state))
                               (folder-state/all-folders)
-                              (folder-state/sub-folders (.-id (:folder @gs/state))))))])))
+                              (folder-state/sub-folders (get (:folder @gs/state) "id")))))])))
                             
 
 (defn tag [item]
@@ -88,7 +89,8 @@
                (menu-item "ᠬᠠᠰᠤᠬᠤ"
                           m.Icons/tag
                           (fn []
-                            (.pop navigator)))
+                            (.pop navigator)
+                            (tag-state/delete-tag item)))
                (m/VerticalDivider
                 .color (-> m/Theme (.of ctx) .-colorScheme .-outlineVariant))])))
 

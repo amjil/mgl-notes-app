@@ -20,19 +20,19 @@
      .child child)))
 
 (defn ^m/Widget input-box []
-  (let [text (atom (if (true? (:rename-folder @gs/state))
-                     (.-name (:folder @gs/state))
-                     ""))] 
+  (let [value (atom "")]
     (f/widget
      :context ctx
      :get [m/Navigator]
-     :let [h (-> m/MediaQuery (.of ctx) .-size .-height)]
+     :let [h (-> m/MediaQuery (.of ctx) .-size .-height)
+           text-controller (:keyboard/text-controller @gs/state)]
      :watch [{candidates-list :keyboard/candidates-list
               keyboard-height :keyboard-height
               rename-folder :rename-folder
               folder :folder
               {in-app-keyboard "in-app-keyboard"} :profile} gs/state]
-     :managed [text-controller (m/TextEditingController .text @text)]
+     :bg-watcher ([^m/TextEditingValue {input-text .-text} text-controller]
+                  (reset! value input-text))
      (m/Column
       .mainAxisAlignment m.MainAxisAlignment/start
       .children
@@ -53,11 +53,12 @@
            (m/Icon (.check m/Icons))
            (fn []
              (if (true? rename-folder)
-               (folder-state/rename-folder @text)
-               (folder-state/create-folder (if (nil? folder)
+               (folder-state/rename-folder @value)
+               (folder-state/create-folder ctx
+                                           (if (nil? folder)
                                              nil
                                              (get folder "id"))
-                                           @text))
+                                           @value))
              (.pop navigator))))])
        (m/Divider)
        (m/Expanded
@@ -86,14 +87,16 @@
              .child
              (mgl/MongolTextField
               .controller text-controller
-              .onChanged (fn [x] (reset! text x))
               .style (m/TextStyle .fontSize 22)
               .decoration (m/InputDecoration
                            .isDense true
                            .border (m/OutlineInputBorder
                                     .borderSide (m/BorderSide
                                                  .width 0.8)
-                                    .borderRadius (.circular m/BorderRadius 10)))))])
+                                    .borderRadius (.circular m/BorderRadius 10)))
+              .showCursor true
+              .autofocus true
+              .readOnly (if (true? in-app-keyboard) true false)))])
           (m/Positioned
            .bottom 10
            .right 0

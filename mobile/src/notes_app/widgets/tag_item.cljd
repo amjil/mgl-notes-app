@@ -20,7 +20,8 @@
                (swap! gs/state assoc-in [:tag :filter (get item "id")] 2)
 
                :else
-               (swap! gs/state assoc-in [:tag :filter (get item "id")] nil))))
+               (swap! gs/state assoc-in [:tag :filter (get item "id")] nil))
+             (tag-state/tag-filterd-search)))
    (m/Container
     .padding (m.EdgeInsets/symmetric .vertical 8 .horizontal 4)
     .margin (m.EdgeInsets/only .bottom 8)

@@ -1,0 +1,202 @@
+(ns notes-app.services.ws
+  (:require
+   ["dart:convert" :as convert]
+   ["package:sqflite/sqflite.dart" :as sqf]
+   ["package:web_socket_client/web_socket_client.dart" :as websocket]
+   ["package:diff_match_patch/diff_match_patch.dart" :as diff-patch]
+   [clojure.string :as str]
+   [notes-app.states.global :as gs]
+   [notes-app.services.sqlite :as sql]
+   [notes-app.services.common :as common]
+   [notes-app.services.sync :as sync]
+   [notes-app.services.env :as env]
+   [notes-app.utils.util :as util]))
+
+(defonce conn (atom nil))
+
+(declare handle-message
+         sync-data
+         sync-data-result
+         sync-data-trigger
+         sync-data-merge
+         check-data-result)
+
+(defn connect
+  []
+  (let [uri (Uri/parse (str "ws://" (env/get "base_url") "/api/ws/" (:user-token @gs/state)))
+        socket (websocket/WebSocket uri)]
+    (reset! conn socket)
+    (.listen (.-connection socket) (fn [state] (dart:core/print (str "state = " state))))
+    (.listen (.-messages socket)
+             (fn [msg]
+               (dart:core/print (str "message = " msg))
+               (handle-message msg)))))
+
+(defn close []
+  (when-not (nil? @conn)
+    (.close ^websocket/WebSocket @conn)))
+
+(defn send-msg [ctx type msg]
+  (if (nil? @conn)
+    (util/show-toast ctx "The Network is disconnected!")
+    (.send ^websocket/WebSocket @conn (convert/jsonEncode
+                                       {"type" type
+                                        "data" msg}))))
+                   
+(defn send-msg2 [type msg]
+  (when-not (nil? @conn)
+    (.send ^websocket/WebSocket @conn (convert/jsonEncode
+                                       {"type" type
+                                        "data" msg}))))
+
+(defn handle-message
+  [response]
+  (let [msg (convert/jsonDecode response)]
+    (condp = (get msg "type")
+      "chk-data-result"
+      (let [{num "data"} msg]
+        (check-data-result num))
+
+      "sync-data"
+      (let [{data "data"} msg]
+        (sync-data data))
+      
+      "sync-data-result"
+      (let [{data "data"} msg]
+        (sync-data-result data))
+
+      ;; else
+      nil)))
+      
+(defn sync-data-result [data]
+  (let [^sqf/Database db (await (sql/initialize-db))
+        ids (get data "sync_ids")
+        id (get data "sync_id")]
+    (if (empty? ids)
+      (await (.rawUpdate db
+                         "UPDATE waiting_for_sync SET status = 1 
+                                  WHERE id = ?"
+                         [id]))
+      (await (.rawUpdate db
+                         (str
+                          "UPDATE waiting_for_sync SET status = 1 
+                                  WHERE id in ("
+                          (str/join ", "
+                                    (map (fn [_] (str "?")) ids))
+                          ")")
+                         ids)))
+    (let [result (await (sync/check-need-sync))]
+      (if (> result 0)
+        (swap! gs/state assoc :need-sync true)
+        (swap! gs/state assoc :need-sync false)))))
+    
+(defn sync-data [d]
+  (let [{table :table
+         row :row
+         types-of :types_of} d
+        record (await (sync/query-sync-data row))]
+    (if (empty? record)
+      (do
+        (sync/save-data d)
+        (send-msg2 "sync-data-result" (select-keys d ["sync_id" "sync_ids"])))
+      (cond
+        (= 2 types-of (get record "types_of"))
+        ;; 1 update sqlite  2 notify server updated
+        (do
+          (sync/update-data-status (get d "sync_ids"))
+          (send-msg2 "sync-data-result" (select-keys d ["sync_id" "sync_ids"])))
+
+        ;; server deleted
+        (= 2 types-of)
+        (do
+          (sync/update-data-status (get d "sync_ids"))
+          (send-msg2 "sync-data-result" (select-keys d ["sync_id" "sync_ids"])))
+
+        ;; client delete
+        (= 2 (get record "types_of"))
+        (do
+          (send-msg2 "sync-data-result" (select-keys d ["sync_id" "sync_ids"]))
+          (send-msg2 "sync-data"
+                     {"types_of" types-of
+                      "table" table
+                      "data" {"id" row}
+                      "sync_id" (get record "id")
+                      "sync_ids" (get record "sync_ids")}))
+
+        ;; conflict handling
+        :else
+        (let [local (sync/get-record-data table row)]
+          (sync-data-merge d (assoc record "data" local)))))))
+          
+(defn fetch-data []
+  (send-msg2 "fetch-data" {}))
+
+(defn check-data-result [data]
+  (when (> data 0)
+    (fetch-data)))
+    
+
+(defn merge-content [old-content new-content]
+  (let [dmp (diff-patch/DiffMatchPatch)
+        patch (.patch dmp old-content new-content)]
+    (first (.patch_apply dmp patch old-content))))
+
+(defn update-record [remote local]
+  (let [new-content (if (> (get remote "created_at")
+                           (get local  "created_at"))
+                      (merge-content (-> local  (get "data") (get "content"))
+                                     (-> remote (get "data") (get "content")))
+                      (merge-content (-> remote (get "data") (get "content"))
+                                     (-> local  (get "data") (get "content"))))
+        id (-> local (get "data") (get "id"))]
+    (sync/update-record id new-content)
+    (sync-data-trigger 1 "notes" {"id" id "content" new-content})))
+
+(defn sync-data-merge [remote local]
+  (let [{table "table_id"} remote]
+    (if (= table "notes")
+      (do
+        (send-msg2 "sync-data-result" (select-keys remote ["sync_id" "sync_ids"]))
+        (sync/update-data-status (get local "sync_ids"))
+        (update-record remote local))
+
+      (if (> (get remote "created_at") (get local "created_at"))
+        (do
+          (sync/save-data remote)
+          (send-msg2 "sync-data-result" (select-keys remote ["sync_id" "sync_ids"])))
+        (send-msg2 "sync-data" local)))))
+
+(defn sync-batch-data []
+  (when-not (nil? @conn)
+    (let [sync-list (await (sync/query-needs-sync-data))]
+      (doall
+       (map #(let [data (->> (await (sync/get-record-data (get % "table_id")
+                                                          (get % "row_id")))
+                             first)]
+               (send-msg2 "sync-data"
+                          {"types_of" (get % "types_of")
+                           "table" (get % "table_id")
+                           "data" data
+                           "sync_id" (get % "id")
+                           "sync_ids" (get % "sync_ids")}))
+               sync-list)))))
+
+(defn sync-data-trigger [types-of table data]
+  (let [result (await
+                (sync/create-sync-record
+                 types-of
+                 table
+                 (or (get data "id")
+                     (str (get data "tag_id")
+                          "|"
+                          (get data "note_id")))))]
+    (swap! gs/state assoc :need-sync true)
+    (when (true? (await (common/connectivity)))
+      (send-msg2 "sync-data"
+                 {"types_of" types-of
+                  "table" table
+                  "data" data
+                  "sync_id" result}))))
+
+(defn send-check-data []
+  (send-msg2 "chk-data" {}))

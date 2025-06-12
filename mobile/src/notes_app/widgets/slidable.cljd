@@ -34,7 +34,7 @@
                               .icon (.inbox_outlined m/Icons))
      (slidable/SlidableAction .onPressed
                               (fn [context]
-                                (folder-state/delete-folder (.-id item)))
+                                (folder-state/delete-folder (get item "id")))
                               .backgroundColor (.red m/Colors)
                               .foregroundColor (.white m/Colors)
                               .padding (m.EdgeInsets/all 0)
@@ -71,7 +71,7 @@
                               .icon (.inbox_outlined m/Icons))
      (slidable/SlidableAction .onPressed
                               (fn [context]
-                                (note-state/delete-note (.-noteId item)))
+                                (note-state/delete-note (get item "note_id")))
                               .backgroundColor (.red m/Colors)
                               .foregroundColor (.white m/Colors)
                               .padding (m.EdgeInsets/all 0)

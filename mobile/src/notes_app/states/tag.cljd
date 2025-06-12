@@ -1,218 +1,70 @@
-(ns notes-app.services.tag
+(ns notes-app.states.tag
   (:require
-   ["package:uuid/uuid.dart" :as uuid]
-   ["package:cljd_mobile/database/drift/database.dart" :as schema]
-   ["package:cljd_mobile/generated/electric/drift_schema.dart" :as drift-schema]
-   ["package:electricsql_flutter/drivers/drift.dart" :as electric-drift]
-   ["package:drift/drift.dart" :as drift]
-   [notes-app.services.db :as electric-db]))
+   [notes-app.services.tag :as tag-service]
+   [notes-app.services.note :as note-service]
+   [notes-app.states.global :as gs]))
 
-(defn create-tag [^String v] 
-  (let [^electric-drift/ElectricClient
-        client @electric-db/elec
-        ^schema/AppDatabase db (.-db  client)
-        result (await
-                (.get
-                 (.customSelect db
-                                "select * from tags where name = ?"
-                                .variables [(drift/Variable v)])))]
-    (if (empty? result)
-      (let [id (.v4 (uuid/Uuid))]
-        (await
-         (.insert (.into db (.-tags db))
-                  (schema.TagsCompanion/insert
-                   .id id 
-                   .electricUserId "ae1bad8a-5480-449b-bf82-9fd30bcd27b6"
-                   .name (drift/Value v)
-                   .relatedNum (drift/Value 0))))
-        id)
-      (-> result first .-data (get "id")))))
+(declare update-filtered-tags)
 
-(defn delete-tag [id]
-  (let [^electric-drift/ElectricClient
-        client @electric-db/elec
-        ^schema/AppDatabase db (.-db  client)]
-    (await
-     (.go
-      (doto (.delete db (.-tags db))
-        (.where (fn [^drift-schema/Tags tbl] (.equals (.-id tbl) id))))))))
+(defn get-note-tags [state id]
+  (let [tags (await (tag-service/query-note-tags id))] 
+    (swap! state assoc :draft-tags tags)))
 
-(defn count-tags []
-  (let [^electric-drift/ElectricClient
-        client @electric-db/elec
-        ^schema/AppDatabase db (.-db client)]
-    (->
-     (await
-      (.get
-       (.customSelect db
-                      "select count(*) as total from tags where 1 = 1")))
-     first
-     .-data
-     (get "total"))))
+(defn add-note-tag [state name]
+  (let [id  (await (tag-service/create-tag name))
+        note-id (-> @state :note (get "id"))
+        _ (await (tag-service/add-note-tag note-id id))]
+    (swap! state update :note-tags concat
+           [{"id" id "name" name "related_num" 1}])))
 
-(defn all-tags [] 
-  (let [^electric-drift/ElectricClient
-        client @electric-db/elec
-        ^schema/AppDatabase db (.-db client)]
-    (await
-     (.get
-      (doto (.select db (.-tags db))
-        (.orderBy [(fn [^drift-schema/Tags tbl]
-                     (drift/OrderingTerm
-                      .expression (.-relatedNum tbl)
-                      .mode drift.OrderingMode/desc))]))))))
+(defn delete-note-tag [state id]
+  (let [note (:note @state)
+        tags (:note-tags @state)
+        _ (await (tag-service/delete-note-tag (:note_id note) id))]
+    (swap! state assoc :note-tags 
+           (remove #(= id (get % "id")) tags))))
 
-(defn query-note-tags [id]
-  (let [^electric-drift/ElectricClient
-        client @electric-db/elec
-        ^schema/AppDatabase db (.-db client)]
-    (->
-     (await
-      (.get
-       (.customSelect db
-                      "SELECT b.tag_id as id, a.name, a.related_num
-                       FROM tags a
-                       LEFT JOIN note_tags b ON a.id = b.tag_id
-                       WHERE b.note_id = ?
-                       ORDER BY related_num desc"
-                      .variables [(drift/Variable id)]))))))
+(defn query-tags [state q]
+  (let [result (await (tag-service/query-tags q))]
+    (swap! state assoc :tags result)))
 
-(defn add-note-tag [note_id tag_id]
-  (let [^electric-drift/ElectricClient
-        client @electric-db/elec
-        ^schema/AppDatabase db (.-db client)]
-    (await 
-     (.customStatement db
-                       "INSERT INTO note_tags (id, electric_user_id, note_id, tag_id) VALUES (?, ?, ?, ?)"
-                       [(.v4 (uuid/Uuid)) "ae1bad8a-5480-449b-bf82-9fd30bcd27b6"
-                        note_id tag_id]))
-    (await 
-     (.customStatement db
-                       "UPDATE tags SET related_num = related_num + 1
-                        WHERE id = ?"
-                       [tag_id]))))
+(defn all-tags []
+  (let [result (await (tag-service/all-tags))]
+    (swap! gs/state assoc :tags result)))
 
-(defn query-tag-notes [id] 
-  nil)
-;; (defn query-tag-notes [id]
-;;   (let [^sqf/Database db (await (sql/initialize-db))]
-;;     (await
-;;      (.rawQuery
-;;       db
-;;       "SELECT note_id
-;;          FROM note_tags 
-;;          WHERE tag_id = ?
-;;          ;"
-;;       [id]))))
-
-(defn delete-note-tag [note_id tag_id]
-  (let [^electric-drift/ElectricClient
-        client @electric-db/elec
-        ^schema/AppDatabase db (.-db client)
-        num (-> (await
-                 (.get
-                  (.customSelect db
-                                 "select related_num as num from tags
-                                 where id = ?"
-                                 .variables [(drift/Variable tag_id)])))
-                first
-                .-data
-                (get "related_num"))]
-    (await 
-     (.customStatement db
-                       "DELETE FROM note_tags
-                        WHERE note_id = ? and tag_id = ?"
-                       [note_id tag_id]))
-    (if (= 1 num)
-      (await
-       (.customStatement db
-                         "DELETE FROM tags WHERE id = ?"
-                         [tag_id]))
-      (await
-       (.customStatement db
-                         "UPDATE tags SET related_num = related_num - 1
-                          WHERE id = ?"
-                         [tag_id])))))
-;; (defn delete-note-tag [note_id tag_id]
-;;   (let [^sqf/Database db (await (sql/initialize-db))
-;;         num (->
-;;              (.rawQuery db "SELECT related_num as num FROM tags
-;;                             WHERE id = ?"
-;;                         [tag_id])
-;;              await
-;;              first
-;;              (get "num"))]
-;;     (await
-;;      (.rawDelete db
-;;                  "DELETE FROM note_tags 
-;;                   WHERE note_id = ? and tag_id = ?"
-;;                  [note_id tag_id]))
-;;     (if (zero? num)
-;;       (await
-;;        (.rawDelete db
-;;                    "DELETE FROM tags WHERE id = ?"
-;;                    [tag_id]))
-;;       (await
-;;        (.rawUpdate db
-;;                    "UPDATE tags SET related_num = related_num - 1
-;;                     WHERE id = ?"
-;;                    [tag_id])))))
-                   
-(defn extract-tags-from-note [t]
-  (let [pattern (RegExp "#([\u1800-\u1881]+)" .caseSensitive false .multiLine true .unicode true)
-        matchs (await (.allMatches pattern t))
-        tags (map (fn [^Match x] (subs t (inc (.-start x)) (.-end x)))
-                  matchs)]
-    tags))
+(defn clear-filter []
+  (swap! gs/state assoc :tag nil))
+  
+(defn tag-filterd-search []
+  (let [filterd (->> (get-in @gs/state [:tag :filter])
+                     (filter (fn [[_ v]] (= 1 v)))
+                     (map first))
+        omitted (->> (get-in @gs/state [:tag :filter])
+                     (filter (fn [[_ v]] (= 2 v)))
+                     (map first))
+        result (await (tag-service/tag-filterd-search filterd omitted))]
+    (swap! gs/state assoc :search-result result)))
     
-
-(defn add-or-delete-note-tags [id content]
-  (let [tags (await (extract-tags-from-note content))
-        n-tags (await (query-note-tags id))
-        ids (await (mapv #(await (create-tag %)) tags))]
+(defn get-tag-notes [id]
+  (let [result (->> (await (tag-service/query-tag-notes id))
+                    (map #(get % "note_id")))]
+    result))
     
-    ;; add - tags
+(defn delete-tag [item]
+  (let [id (get item "id")
+        tag (get item "name")
+        result (await (get-tag-notes id))]
     (doall
-     (map #(when-not (some #{(await %)} (seq (map (fn [x] (get (.-data x) "id")) n-tags)))
-             (add-note-tag id (await %)))
-          ids))
-
-    ;; delete-tags
-    (doall
-     (map (fn [x] (delete-note-tag id (get (.-data x) "id")))
-          (remove #(some #{(get % "name")} (seq tags)) n-tags)))))
-          
-(defn tag-filterd-search [] nil)
-;; (defn tag-filterd-search [filterd omitted]
-;;   (let [^sqf/Database db (await (sql/initialize-db))]
-;;     (await
-;;      (.rawQuery
-;;       db
-;;       (str
-;;        "select a.*, b.content
-;;              from note_infos a 
-;;                 left join notes b on a.note_id = b.rowid 
-;;              where 1 = 1 "
-;;        (when-not (empty? filterd)
-;;          (str
-;;           "and a.id in 
-;;            (select note_id from note_tags
-;;            where tag_id in 
-;;            ("
-;;           (str/join
-;;            ","
-;;            (map (fn [_] (str "?")) filterd))
-;;           ")) "))
-;;        (when-not (empty? omitted)
-;;          (str
-;;           "and a.id not in 
-;;            (select note_id from note_tags 
-;;            where tag_id in 
-;;            ("
-;;           (str/join
-;;            ","
-;;            (map (fn [_] (str "?")) omitted))
-;;           ")) "))
-;;        "order by a.note_id desc
-;;        ;")
-;;       (concat filterd omitted)))))
+     (map (fn [x]
+            (let [note (->> (await (note-service/get-note x))
+                            first)
+                  ^String original-content (get note "content")
+                  new-content (.replaceAll original-content
+                                           (str "#" tag)
+                                           "")]
+              (note-service/update-note
+               (get note "id")
+               new-content)))
+          result))
+    (tag-service/delete-tag id)
+    (all-tags)))

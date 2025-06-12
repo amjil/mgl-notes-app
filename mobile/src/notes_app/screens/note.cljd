@@ -6,101 +6,106 @@
    [menu-bar.menu :as menu]
    [virtual-keyboard.keyboard :as keyboard]
    [virtual-keyboard.keyboard-action :as keyboard-action]
-   [virtual-keyboard.input-control :as control]
    [notes-app.states.note :as note-state]
    [notes-app.states.global :as gs]
    [notes-app.services.tag :as tag-service]
    [notes-app.utils.util :as util]))
    
 (def screen
-  (let [text (atom (if (nil? (:note @gs/state))
-                     ""
-                     (.-content (:note @gs/state))))]
-    (f/widget
-     :context ctx
-     :get [m/Navigator :state]
-     :let [h (-> m/MediaQuery (.of ctx) .-size .-height)]
-     :watch [{candidates-list :keyboard/candidates-list
-              show-keyboard :show-keyboard
-              keyboard-height :keyboard-height
-              {in-app-keyboard "in-app-keyboard"} :profile} state
-             visible control/visible]
-     :managed [text-controller (m/TextEditingController .text @text)]
-     (m/Scaffold
-      .appBar nil)
-     .body
-     (m/SafeArea)
-     (m/Column
-      .crossAxisAlignment m.CrossAxisAlignment/start
-      .children [(m/Row
-                  .mainAxisAlignment m.MainAxisAlignment/spaceBetween
-                  .children
-                  [(m/InkWell
-                    .customBorder (m/CircleBorder)
-                    .onTap (fn []
-                             (.pop navigator))
-                    .child
-                    (m/Icon m.Icons/keyboard_backspace))
-                   (m/InkWell
-                    .customBorder (m/CircleBorder)
-                    .onTap (fn []
-                             (-> m/Navigator (.of ctx) .pop)
-                             (if (nil? (:note @gs/state))
-                               (await (note-state/create-note @text))
-                               (await (note-state/update-note @text)))
-                             (tag-service/all-tags)
-                             (swap! gs/state assoc :note nil))
-                    .child
-                    (m/Icon m.Icons/check))])
-                 (m/SizedBox .height (* 0.02 h))
-                 (m/Expanded
+  (f/widget
+   :context ctx
+   :get {navigator m/Navigator}
+   :let [h (-> m/MediaQuery (.of ctx) .-size .-height)]
+   :managed [controller (m/TextEditingController
+                         .text (if (nil? (:note @gs/state))
+                                 ""
+                                 (get (:note @gs/state) "content")))]
+   :watch [{candidates-list :keyboard/candidates-list
+            show-keyboard :show-keyboard
+            keyboard-height :keyboard-height
+            {in-app-keyboard "in-app-keyboard"} :profile} gs/state]
+   (m/Scaffold
+    .appBar nil)
+   .body
+   (m/SafeArea)
+   (m/Column
+    .crossAxisAlignment m.CrossAxisAlignment/start
+    .children [(m/Row
+                .mainAxisAlignment m.MainAxisAlignment/spaceBetween
+                .children
+                [(m/InkWell
+                  .customBorder (m/CircleBorder)
+                  .onTap (fn []
+                           (if (or (and (empty? (.-text controller))
+                                        (nil? (:note @gs/state)))
+                                   (= (.-text controller) (get (:note @gs/state) "content")))
+                             (.pop navigator)
+                             (util/show-confirm-dialog
+                              ctx "ᠬᠡᠷᠪᠡ ᠪᠤᠴᠠᠪᠠᠯ ᠲᠠᠨ ᠊ᠤ  ᠪᠢᠴᠢᠵᠦ ᠪᠠᠶ᠋ᠢᠭ᠎ᠠ ᠲᠡᠮᠳᠡᠭᠯᠡᠯ ᠴᠢᠨᠢ ᠴᠥᠮ ᠬᠠᠶᠠᠭᠳᠠᠬᠤ ᠪᠣᠯᠤᠨ᠎ᠠ᠂ ᠦᠨᠡᠬᠡᠷ ᠪᠤᠴᠠᠨ᠎ᠠ ᠊ᠤᠤ?"
+                              (fn []
+                                (.pop navigator)
+                                (swap! gs/state assoc :show-keyboard false)
+                                (swap! gs/state assoc :note nil)))))
                   .child
-                  (m/Stack
-                   .children [(m/Column
-                               .children
-                               [(m/Expanded
-                                 .child (m/Container
-                                         .height (if (true? in-app-keyboard)
-                                                   nil
-                                                   (- h keyboard-height 60))
-                                         .padding (.all m/EdgeInsets 5)
-                                         .decoration (m/BoxDecoration
-                                                      .borderRadius
-                                                      (.all m/BorderRadius (.circular m/Radius 10))
-                                                      .border (.all m/Border .width 0.1))
-                                         .child
-                                         (mgl/MongolTextField
-                                          .controller text-controller
-                                          .onChanged (fn [x] (reset! text x))
-                                          .decoration (m/InputDecoration
-                                                       .isDense true
-                                                       .border (m/OutlineInputBorder
-                                                                .borderSide (m/BorderSide
-                                                                             .width 0.8)
-                                                                .borderRadius (.circular m/BorderRadius 10)))
-                                          .maxLines 1000
-                                          .style (m/TextStyle .fontSize 22
-                                                              .color (-> m/Theme (.of ctx) .-colorScheme .-onPrimary)))))
-                                (m/Visibility
-                                 .visible visible
-                                 .child
-                                 (m/FocusScope
-                                  .canRequestFocus false
-                                  .child
-                                  (m/TextFieldTapRegion
-                                   .child
-                                   (m/Container
-                                    .color (-> m/Theme (.of ctx) .-colorScheme .-background)
-                                    .child
-                                    (keyboard/keyboard)))))])
-
-                              (m/Positioned
-                               .bottom 10
-                               .right 0
-                               .left 0
-                               .child
-                               (menu/menu {:bar {:elavation 10
-                                                 :background-color
-                                                 (-> m/Theme (.of ctx) .-colorScheme .-tertiaryContainer)}
-                                           :item {:on-tap (fn [x] (keyboard-action/on-candidates-clicked x gs/state))}}
-                                          candidates-list))]))]))))
+                  (m/Icon m.Icons/keyboard_backspace))
+                 (m/InkWell
+                  .customBorder (m/CircleBorder)
+                  .onTap (fn []
+                           (-> m/Navigator (.of ctx) .pop)
+                           (if (nil? (:note @gs/state))
+                             (await (note-state/create-note (.-text controller)))
+                             (await (note-state/update-note (.-text controller))))
+                           (tag-service/all-tags)
+                           (swap! gs/state assoc :note nil))
+                  .child
+                  (m/Icon m.Icons/check))])
+               (m/SizedBox .height (* 0.02 h))
+               (m/Expanded
+                .child
+                (m/Stack
+                 .children [(m/Container
+                             .height (if (true? in-app-keyboard)
+                                       nil
+                                       (- h keyboard-height 60))
+                             .padding (.all m/EdgeInsets 5)
+                             .decoration (m/BoxDecoration
+                                          .borderRadius
+                                          (.all m/BorderRadius (.circular m/Radius 10))
+                                          .border (.all m/Border .width 0.1))
+                             .child
+                             (mgl/MongolTextField
+                              .controller controller
+                              .onTap (fn []
+                                       (swap! gs/state assoc :show-keyboard true)
+                                       (swap! gs/state assoc :keyboard/text-controller controller))
+                            ;;   .decoration nil
+                              .decoration (m/InputDecoration
+                                           .isDense true
+                                           .border (m/OutlineInputBorder
+                                                    .borderSide (m/BorderSide
+                                                                 .width 0.8)
+                                                    .borderRadius (.circular m/BorderRadius 10)))
+                              .maxLines 1000
+                              ;; .autofocus true
+                              .showCursor (if (true? show-keyboard) true false)
+                              .readOnly (if (true? in-app-keyboard) true false)
+                              .style (m/TextStyle .fontSize 22
+                                                  .color (-> m/Theme (.of ctx) .-colorScheme .-onPrimary))))
+                            (m/Positioned
+                             .bottom 10
+                             .right 0
+                             .left 0
+                             .child
+                             (menu/menu {:bar {:elavation 10
+                                               :background-color
+                                               (-> m/Theme (.of ctx) .-colorScheme .-tertiaryContainer)}
+                                         :item {:on-tap (fn [x] (keyboard-action/on-candidates-clicked x gs/state))}}
+                                        candidates-list))]))
+               (if (and (true? in-app-keyboard) (true? show-keyboard))
+                 (m/Container
+                  .color (-> m/Theme (.of ctx) .-colorScheme .-background)
+                  .child
+                  (m/IntrinsicHeight
+                   .child
+                   (keyboard/keyboard)))
+                 (m/Container))])))
