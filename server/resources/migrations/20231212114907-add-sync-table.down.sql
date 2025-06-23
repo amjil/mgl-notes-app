@@ -1,1 +1,0 @@
-drop table IF EXISTS waiting_for_sync;
