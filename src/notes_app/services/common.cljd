@@ -1,0 +1,24 @@
+(ns notes-app.services.common
+  (:require
+   ["package:package_info_plus/package_info_plus.dart" :as pip]
+   ["package:device_info_plus/device_info_plus.dart" :as dip]))
+   
+(defn device-info []
+  (let [plugin (dip/DeviceInfoPlugin)
+        info (await (.-deviceInfo plugin))]
+    (.-data info)))
+    
+(defn device-id []
+  (let [info (await (device-info))]
+    (condp = (get info "systemName")
+      "iOS" (get info "identifierForVendor")
+
+      :else 
+      (get info "androidId"))))
+      
+(defn package-info []
+  (let [info (await (pip.PackageInfo/fromPlatform))]
+    {:app-name (.-appName info)
+     :package-name (.-packageName info)
+     :version (.-version info)
+     :buildNumber (.-buildNumber info)}))

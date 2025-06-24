@@ -1,0 +1,19 @@
+(ns notes-app.screens.home
+  (:require
+   ["package:flutter/material.dart" :as m]
+   [cljd.flutter :as f]
+   [notes-app.widgets.mgl-popup-menu :as mgl-popup-menu]))
+
+(def screen1
+  (f/widget
+   (m/Scaffold
+    .appBar nil)
+   .body
+   (m/Center)
+   (m/Text "Hello World")))
+   
+   
+(def screen
+  (mgl-popup-menu/example-usage))
+     
+     
