@@ -1,0 +1,103 @@
+(ns notes-app.services.database
+  (:require
+   ["package:cljd_mgl_notes_app/services/database_service.dart" :as db]))
+
+(def isar-instance (atom nil))
+
+(defn init-database []
+  (await (db.DatabaseService/initDatabase)))
+
+(defn get-isar []
+  @isar-instance)
+
+(defn close-database []
+  (await (db.DatabaseService/closeDatabase)))
+
+;; Note operations
+(defn create-note [note-data]
+  (await (db.DatabaseService/createNote 
+          :title (:title note-data)
+          :content (:content note-data)
+          :tags (:tags note-data)
+          :scheduledDate (:scheduledDate note-data))))
+
+(defn get-note [id]
+  (await (db.DatabaseService/getNote id)))
+
+(defn update-note [note]
+  (await (db.DatabaseService/updateNote note)))
+
+(defn delete-note [id]
+  (await (db.DatabaseService/deleteNote id)))
+
+(defn get-all-notes []
+  (await (db.DatabaseService/getAllNotes)))
+
+(defn get-notes-by-date [date]
+  (await (db.DatabaseService/getNotesByDate date)))
+
+(defn search-notes [query]
+  (await (db.DatabaseService/searchNotes query)))
+
+;; Block operations
+(defn create-block [block-data]
+  (await (db.DatabaseService/createBlock
+          :blockId (:blockId block-data)
+          :noteId (:noteId block-data)
+          :content (:content block-data)
+          :order (:order block-data)
+          :tags (:tags block-data))))
+
+(defn get-block [block-id]
+  (await (db.DatabaseService/getBlock block-id)))
+
+(defn get-blocks-by-note [note-id]
+  (await (db.DatabaseService/getBlocksByNote note-id)))
+
+(defn update-block [block]
+  (await (db.DatabaseService/updateBlock block)))
+
+;; Tag operations
+(defn create-tag [tag-data]
+  (await (db.DatabaseService/createTag
+          :name (:name tag-data)
+          :parentTag (:parentTag tag-data)
+          :color (:color tag-data)
+          :description (:description tag-data))))
+
+(defn get-tag [name]
+  (await (db.DatabaseService/getTag name)))
+
+(defn get-all-tags []
+  (await (db.DatabaseService/getAllTags)))
+
+(defn update-tag [tag]
+  (await (db.DatabaseService/updateTag tag)))
+
+(defn get-notes-by-tag [tag-name]
+  (await (db.DatabaseService/getNotesByTag tag-name)))
+
+;; Daily stats operations
+(defn get-daily-stats [date]
+  (await (db.DatabaseService/getDailyStats date)))
+
+(defn create-or-update-daily-stats [date stats-data]
+  (await (db.DatabaseService/createOrUpdateDailyStats 
+          date
+          :noteCount (:noteCount stats-data)
+          :wordCount (:wordCount stats-data)
+          :blockCount (:blockCount stats-data)
+          :tags (:tags stats-data))))
+
+(defn get-stats-range [start-date end-date]
+  (await (db.DatabaseService/getStatsRange start-date end-date)))
+
+;; Utility functions
+(defn generate-block-id []
+  (db.DatabaseService/generateBlockId))
+
+(defn extract-tags-from-content [content]
+  (db.DatabaseService/extractTagsFromContent content))
+
+(defn extract-blocks-from-content [content]
+  (db.DatabaseService/extractBlocksFromContent content)) 

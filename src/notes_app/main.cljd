@@ -7,10 +7,14 @@
    [virtual-keyboard.input-control :as control]
    [notes-app.screens.home :as home]
    [notes-app.states.global :as gs]
-   [notes-app.states.profile :as profile-state]))
+   [notes-app.states.profile :as profile-state]
+   [notes-app.services.database :as db]))
 
 (defn main []
   (m.WidgetsFlutterBinding/ensureInitialized)
+
+  ;; Initialize database
+  (db/init-database)
 
   (control/set-control)
   ;;
@@ -24,7 +28,7 @@
                        :keyboard/key-container-color (-> m/Theme (.of ctx) .-colorScheme .-tertiaryContainer)})]
     :bind {:info info :state gs/state}
     (m/MaterialApp
-     .title "Welcome to Flutter"
+     .title "Mongol Notes App"
      .debugShowCheckedModeBanner false
      .home home/screen))))
     

@@ -1,0 +1,96 @@
+(ns notes-app.states.notes
+  (:require
+   [notes-app.services.database :as db]
+   [notes-app.states.global :as gs]))
+
+(def notes-state
+  (atom {:notes []
+         :current-note nil
+         :loading false
+         :error nil}))
+
+(defn load-notes []
+  (swap! notes-state assoc :loading true :error nil)
+  (try
+    (let [notes (await (db/get-all-notes))]
+      (swap! notes-state assoc :notes notes :loading false))
+    (catch Exception e
+      (swap! notes-state assoc :error (str e) :loading false))))
+
+(defn create-note [note-data]
+  (swap! notes-state assoc :loading true :error nil)
+  (try
+    (let [note (await (db/create-note note-data))
+          current-notes (:notes @notes-state)]
+      (swap! notes-state assoc 
+             :notes (conj current-notes note)
+             :current-note note
+             :loading false))
+    (catch Exception e
+      (swap! notes-state assoc :error (str e) :loading false))))
+
+(defn update-note [note]
+  (swap! notes-state assoc :loading true :error nil)
+  (try
+    (await (db/update-note note))
+    (let [current-notes (:notes @notes-state)
+          updated-notes (map (fn [n]
+                              (if (= (.-id n) (.-id note))
+                                note
+                                n))
+                            current-notes)]
+      (swap! notes-state assoc 
+             :notes updated-notes
+             :current-note note
+             :loading false))
+    (catch Exception e
+      (swap! notes-state assoc :error (str e) :loading false))))
+
+(defn delete-note [id]
+  (swap! notes-state assoc :loading true :error nil)
+  (try
+    (await (db/delete-note id))
+    (let [current-notes (:notes @notes-state)
+          filtered-notes (filter (fn [n]
+                                  (not= (.-id n) id))
+                                current-notes)]
+      (swap! notes-state assoc 
+             :notes filtered-notes
+             :current-note nil
+             :loading false))
+    (catch Exception e
+      (swap! notes-state assoc :error (str e) :loading false))))
+
+(defn search-notes [query]
+  (swap! notes-state assoc :loading true :error nil)
+  (try
+    (let [notes (await (db/search-notes query))]
+      (swap! notes-state assoc :notes notes :loading false))
+    (catch Exception e
+      (swap! notes-state assoc :error (str e) :loading false))))
+
+(defn get-notes-by-date [date]
+  (swap! notes-state assoc :loading true :error nil)
+  (try
+    (let [notes (await (db/get-notes-by-date date))]
+      (swap! notes-state assoc :notes notes :loading false))
+    (catch Exception e
+      (swap! notes-state assoc :error (str e) :loading false))))
+
+(defn set-current-note [note]
+  (swap! notes-state assoc :current-note note))
+
+(defn clear-current-note []
+  (swap! notes-state assoc :current-note nil))
+
+(defn get-current-note []
+  (:current-note @notes-state))
+
+(defn get-notes []
+  (:notes @notes-state))
+
+(defn get-loading []
+  (:loading @notes-state))
+
+(defn get-error []
+  (:error @notes-state)) 
