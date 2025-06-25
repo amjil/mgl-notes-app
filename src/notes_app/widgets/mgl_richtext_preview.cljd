@@ -18,6 +18,10 @@
         (let [[full-match note-name block-id] (first matches)
               start (.indexOf text full-match last-end)
               end (+ start (count full-match))
+              ;; Create display text for link (without [[ and ]])
+              display-text (if block-id
+                            (str note-name "#" block-id)
+                            note-name)
               ;; Add plain text before the link
               spans-with-text (if (> start last-end)
                                (conj spans {:type :text :content (subs text last-end start)})
@@ -25,6 +29,7 @@
               ;; Add the link
               spans-with-link (conj spans-with-text {:type :link
                                                      :content full-match
+                                                     :display-text display-text
                                                      :note-name note-name
                                                      :block-id block-id})]
           (recur (rest matches) (concat spans spans-with-link) end))))))
@@ -46,7 +51,7 @@
             (when on-link-tap
               (on-link-tap (:note-name span) (:block-id span)))))
     (m/TextSpan
-     .text (:content span)
+     .text (:display-text span)
      .style (m/TextStyle
              .color (-> theme .-colorScheme .-primary)
              .fontSize 16
