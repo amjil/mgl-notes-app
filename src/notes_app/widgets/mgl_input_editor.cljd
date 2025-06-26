@@ -9,11 +9,13 @@
             ["package:flutter/material.dart" :as m]))
 
 (defn input-editor
-  [{:keys [controller on-changed autofocus?]}]
+  [{:keys [controller on-changed autofocus? placeholder]}]
   (f/widget
    :context ctx
    :get [:info :state]
-   :let [width (-> m/MediaQuery (.of ctx) .-size .-width)]
+   :let [width (-> m/MediaQuery (.of ctx) .-size .-width)
+         theme (-> m/Theme (.of ctx))
+         color-scheme (.-colorScheme theme)]
    :watch [{candidates-list :keyboard/candidates-list} state
            visible control/visible]
    (m/SafeArea
@@ -34,8 +36,13 @@
            .onTap (fn []
                     (swap! state assoc :keyboard/candidates-list [])
                     (dart:core/print "onTap MongolTextField"))
-           .style (m/TextStyle .fontSize 20)
-           .decoration (m/InputDecoration .border (m/OutlineInputBorder))))
+           .style (m/TextStyle 
+                   .fontSize 20
+                   .color (.-onSurface color-scheme))
+           .decoration (m/InputDecoration 
+                        .border (m/OutlineInputBorder)
+                        .fillColor (.-surface color-scheme)
+                        .filled true)))
          (m/Visibility
           .visible visible
           .child
@@ -45,7 +52,7 @@
            (m/TextFieldTapRegion
             .child
             (m/Container
-             .color (-> m/Colors .grey .-shade300)
+             .color (.-surfaceVariant color-scheme)
              .child
              (keyboard/keyboard {:custom-fns {}})))))])
        (m/Positioned

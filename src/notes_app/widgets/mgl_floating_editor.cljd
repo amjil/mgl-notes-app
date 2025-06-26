@@ -1,0 +1,93 @@
+(ns notes-app.widgets.mgl-floating-editor
+  (:require
+   ["package:flutter/material.dart" :as m]
+   [cljd.flutter :as f]
+   [notes-app.states.notes :as notes-state]
+   [notes-app.widgets.mgl-input-editor :as mgl-input-editor]))
+
+(def floating-editor-state
+  (atom {:content ""
+         :tags []}))
+
+(defn get-first-block-as-title [content]
+  (if (not-empty content)
+    (let [lines (clojure.string/split-lines content)
+          first-line (first lines)]
+      (if (not-empty first-line)
+        (clojure.string/trim first-line)
+        "Шинэ тэмдэглэл"))
+    "Шинэ тэмдэглэл"))
+
+(defn save-note [context]
+  (let [content (:content @floating-editor-state)
+        tags (:tags @floating-editor-state)
+        title (get-first-block-as-title content)]
+    (when (not-empty content)
+      (notes-state/create-note
+       {:title title
+        :content content
+        :tags tags})
+      (swap! floating-editor-state assoc
+             :content ""
+             :tags [])
+      (-> m/Navigator (.of context) (.pop)))))
+
+(defn floating-editor-dialog [context]
+  (f/widget
+   :context ctx
+   :let [screen-height (-> m/MediaQuery (.of ctx) .-size .-height)
+         screen-width (-> m/MediaQuery (.of ctx) .-size .-width)
+         theme (-> m/Theme (.of ctx))
+         color-scheme (.-colorScheme theme)]
+   (m/Dialog
+    .backgroundColor m/Colors.transparent
+    .insetPadding (m/EdgeInsets.zero)
+    .child
+    (m/Container
+     .height screen-height
+     .width screen-width
+     .decoration (m/BoxDecoration
+                  .color (.-surface color-scheme))
+     .child
+     (m/Column
+      .children
+      [(m/Container
+        .padding (m/EdgeInsets.all 8)
+        .decoration (m/BoxDecoration
+                     .color (.-surfaceVariant color-scheme)
+                     .border (m/Border
+                              .bottom (m/BorderSide
+                                       .color (.-outline color-scheme)
+                                       .width 1)))
+        .child
+        (m/Row
+         .mainAxisAlignment m/MainAxisAlignment.spaceBetween
+         .children
+         [(m/IconButton
+           .icon (m/Icon m/Icons.save)
+           .color (.-primary color-scheme)
+           .onPressed (fn [] (save-note context)))
+          (m/IconButton
+           .icon (m/Icon m/Icons.close)
+           .color (.-onSurfaceVariant color-scheme)
+           .onPressed (fn [] (-> m/Navigator (.of context) (.pop))))]))
+       (m/Expanded
+        .child
+        (mgl-input-editor/input-editor
+         {:controller nil
+          :on-changed (fn [content]
+                        (swap! floating-editor-state assoc :content content))
+          :auto-focus true}))])))))
+
+(defn show-floating-editor [context]
+  (m/showDialog
+   .context context
+   .builder (fn [context]
+     (floating-editor-dialog context))))
+
+(defn floating-editor-button [context]
+  (f/widget
+   (m/FloatingActionButton
+    .onPressed (fn [] (show-floating-editor context))
+    .child (m/Icon m/Icons.add)
+    .tooltip "Шинэ тэмдэглэл"))) 
