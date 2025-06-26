@@ -77,6 +77,19 @@
 (defn get-notes-by-tag [tag-name]
   (await (db.DatabaseService/getNotesByTag tag-name)))
 
+;; Recycle bin operations
+(defn get-deleted-notes []
+  (await (db.DatabaseService/getDeletedNotes)))
+
+(defn restore-note [id]
+  (await (db.DatabaseService/restoreNote id)))
+
+(defn permanently-delete-note [id]
+  (await (db.DatabaseService/permanentlyDeleteNote id)))
+
+(defn clear-recycle-bin []
+  (await (db.DatabaseService/clearRecycleBin)))
+
 ;; Daily stats operations
 (defn get-daily-stats [date]
   (await (db.DatabaseService/getDailyStats date)))

@@ -44,7 +44,7 @@ class DatabaseService {
       scheduledDate: scheduledDate,
     );
 
-    await isar.txn(() async {
+    await isar.writeTxn(() async {
       await isar.notes.put(note);
     });
 
@@ -58,13 +58,13 @@ class DatabaseService {
   }
 
   static Future<void> updateNote(Note note) async {
-    await isar.txn(() async {
+    await isar.writeTxn(() async {
       await isar.notes.put(note);
     });
   }
 
   static Future<void> deleteNote(int id) async {
-    await isar.txn(() async {
+    await isar.writeTxn(() async {
       await isar.notes.delete(id);
     });
   }
@@ -122,7 +122,7 @@ class DatabaseService {
       tags: tags ?? [],
     );
 
-    await isar.txn(() async {
+    await isar.writeTxn(() async {
       await isar.blocks.put(block);
     });
 
@@ -151,7 +151,7 @@ class DatabaseService {
   }
 
   static Future<void> updateBlock(Block block) async {
-    await isar.txn(() async {
+    await isar.writeTxn(() async {
       await isar.blocks.put(block);
     });
   }
@@ -170,7 +170,7 @@ class DatabaseService {
       description: description ?? '',
     );
 
-    await isar.txn(() async {
+    await isar.writeTxn(() async {
       await isar.tags.put(tag);
     });
 
@@ -196,7 +196,7 @@ class DatabaseService {
   }
 
   static Future<void> updateTag(Tag tag) async {
-    await isar.txn(() async {
+    await isar.writeTxn(() async {
       await isar.tags.put(tag);
     });
   }
@@ -209,6 +209,46 @@ class DatabaseService {
           .tagsElementEqualTo(tagName)
           .sortByUpdatedAtDesc()
           .findAll();
+    });
+  }
+
+  // Recycle bin operations
+  static Future<List<Note>> getDeletedNotes() async {
+    return await isar.txn(() async {
+      return await isar.notes
+          .filter()
+          .isDeletedEqualTo(true)
+          .sortByDeletedAtDesc()
+          .findAll();
+    });
+  }
+
+  static Future<void> restoreNote(int id) async {
+    await isar.writeTxn(() async {
+      final note = await isar.notes.get(id);
+      if (note != null) {
+        note.restore();
+        await isar.notes.put(note);
+      }
+    });
+  }
+
+  static Future<void> permanentlyDeleteNote(int id) async {
+    await isar.writeTxn(() async {
+      await isar.notes.delete(id);
+    });
+  }
+
+  static Future<void> clearRecycleBin() async {
+    await isar.writeTxn(() async {
+      final deletedNotes = await isar.notes
+          .filter()
+          .isDeletedEqualTo(true)
+          .findAll();
+      
+      for (final note in deletedNotes) {
+        await isar.notes.delete(note.id);
+      }
     });
   }
 
@@ -231,22 +271,30 @@ class DatabaseService {
     int? blockCount,
     List<String>? tags,
   }) async {
-    final existingStats = await getDailyStats(date);
-    final stats = existingStats ?? DailyStats(
-      date: date,
-      tags: tags ?? [],
-    );
+    final dateOnly = DateTime(date.year, date.month, date.day, 0, 0, 0);
+    
+    return await isar.writeTxn(() async {
+      // 在写事务中读取现有统计数据
+      final existingStats = await isar.dailyStats
+          .filter()
+          .dateEqualTo(dateOnly)
+          .findFirst();
+      
+      final stats = existingStats ?? DailyStats(
+        date: dateOnly,
+        tags: tags ?? [],
+      );
 
-    if (noteCount != null) stats.noteCount = noteCount;
-    if (wordCount != null) stats.wordCount = wordCount;
-    if (blockCount != null) stats.blockCount = blockCount;
-    if (tags != null) stats.tags = tags;
+      if (noteCount != null) stats.noteCount = noteCount;
+      if (wordCount != null) stats.wordCount = wordCount;
+      if (blockCount != null) stats.blockCount = blockCount;
+      if (tags != null) stats.tags = tags;
 
-    await isar.txn(() async {
+      // 在同一个写事务中保存
       await isar.dailyStats.put(stats);
+      
+      return stats;
     });
-
-    return stats;
   }
 
   static Future<List<DailyStats>> getStatsRange(

@@ -8,6 +8,8 @@
          :current-note nil
          :loading false
          :error nil}))
+         
+(declare get-notes)
 
 (defn load-notes []
   (swap! notes-state assoc :loading true :error nil)
@@ -25,7 +27,9 @@
       (swap! notes-state assoc 
              :notes (conj current-notes note)
              :current-note note
-             :loading false))
+             :loading false)
+      (get-notes)) 
+    
     (catch Exception e
       (swap! notes-state assoc :error (str e) :loading false))))
 
