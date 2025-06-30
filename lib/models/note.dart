@@ -44,7 +44,7 @@ class Note {
     this.isDeleted = false;
     this.deletedAt = null;
     this.scheduledDate = scheduledDate;
-    this.wordCount = 0; // 需要从块中计算
+    this.wordCount = 0; // Need to calculate from blocks
     this.blockCount = blockIds.length;
   }
 
@@ -52,7 +52,7 @@ class Note {
     this.blockIds = newBlockIds;
     this.updatedAt = DateTime.now();
     this.blockCount = newBlockIds.length;
-    // 这里需要重新计算词数，但需要访问块的内容
+    // Need to recalculate word count here, but need access to block content
     // this.wordCount = _calculateWordCountFromBlocks(newBlockIds);
   }
 
@@ -111,18 +111,18 @@ class Note {
     deletedAt = null;
   }
 
-  // 更新块数量
+  // Update block count
   void updateBlockCount(int newCount) {
     this.blockCount = newCount;
     this.updatedAt = DateTime.now();
   }
 
-  // 获取下一个块的顺序号
+  // Get next block order
   int getNextBlockOrder() {
     return blockCount;
   }
 
-  // 更新词数（需要从块中计算）
+  // Update word count (need to calculate from blocks)
   void updateWordCount(int newWordCount) {
     this.wordCount = newWordCount;
     this.updatedAt = DateTime.now();

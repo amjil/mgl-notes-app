@@ -65,7 +65,7 @@
                          (reset! has-changed-atom changed)))})))))) 
 
 
-;; 使用示例
+;; Usage example
 (defn example-usage []
   (let [initial-blocks (diff-utils/text-to-blocks "This is a test\nThis is a test\nThis is a test")]
     (note-editor

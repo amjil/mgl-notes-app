@@ -20,10 +20,10 @@ class Block {
   @Index()
   late bool isDeleted;
 
-  // 链接字段 - 形式为 note#block-id
+  // Link fields - format: note#block-id
   late List<String> links;
 
-  // 反向链接字段 - 被引用记录
+  // Backlink fields - referenced records
   late List<String> backlinks;
 
   Block({
@@ -59,36 +59,36 @@ class Block {
     isDeleted = false;
   }
 
-  // 添加链接
+  // Add link
   void addLink(String link) {
     if (!links.contains(link)) {
       links.add(link);
     }
   }
 
-  // 移除链接
+  // Remove link
   void removeLink(String link) {
     links.remove(link);
   }
 
-  // 添加反向链接
+  // Add backlink
   void addBacklink(String backlink) {
     if (!backlinks.contains(backlink)) {
       backlinks.add(backlink);
     }
   }
 
-  // 移除反向链接
+  // Remove backlink
   void removeBacklink(String backlink) {
     backlinks.remove(backlink);
   }
 
-  // 获取所有链接
+  // Get all links
   List<String> getLinks() {
     return List.from(links);
   }
 
-  // 获取所有反向链接
+  // Get all backlinks
   List<String> getBacklinks() {
     return List.from(backlinks);
   }
