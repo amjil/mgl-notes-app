@@ -1,9 +1,7 @@
-(ns notes-app.widgets.mgl-richtext-preview
+(ns notes-app.utils.span
   (:require
    ["package:flutter/material.dart" :as m]
-   ["package:flutter/gestures.dart" :as g]
-   ["package:mongol/mongol.dart" :as mgl]
-   [cljd.flutter :as f]))
+   ["package:flutter/gestures.dart" :as g]))
 
 (defn parse-block-spans [text]
   (let [link-pattern #"\[\[([^#\]]+)(?:#([^\]]+))?\]\]"]
@@ -57,39 +55,4 @@
              .fontSize 16
              .decoration m/TextDecoration.overline
              .fontWeight m/FontWeight.w500)
-     .recognizer recognizer)))
-
-(defn richtext-preview
-  [text {:keys [on-link-tap]}]
-  (f/widget
-   :context ctx
-   :let [spans (parse-block-spans text)
-         theme (-> m/Theme (.of ctx))
-         ^#/(List m/TextSpan) text-spans (map (fn [span]
-                                                (if (= (:type span) :link)
-                                                  (create-link-span span theme on-link-tap)
-                                                  (create-text-span span theme)))
-                                              spans)]
-   (m/SafeArea)
-   (m/SingleChildScrollView
-    .scrollDirection m/Axis.horizontal)
-   (m/Padding
-    .padding (m/EdgeInsets.all 16))
-   (mgl/MongolRichText
-    .text (m/TextSpan
-           .children text-spans))))
-
-;; Usage example
-(defn example-usage []
-  (f/widget
-   :context ctx
-   (m/Scaffold
-    .appBar (m/AppBar
-             .title (m/Text "Rich Text Preview Example"))
-    .body
-    (richtext-preview
-     "This is a text example containing links. Click [[My Note#block-123]] to navigate to specific content. Here is some normal text, and another link [[Another Note#block-456]]."
-     {:on-link-tap (fn [note-name block-id]
-                     (dart:core/print (str "Clicked link: " note-name "#" block-id))
-                     ;; Add navigation logic here
-                     )}))))
+     .recognizer recognizer))) 

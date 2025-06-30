@@ -2,7 +2,7 @@
   (:require
    ["package:flutter/material.dart" :as m]
    [cljd.flutter :as f]
-   [notes-app.widgets.mgl-richtext-preview :refer [richtext-preview]]))
+   [notes-app.widgets.mgl-richtext-viewer :refer [richtext-viewer]]))
 
 (defn note-view [note blocks on-reorder]
   (f/widget
@@ -25,5 +25,5 @@
          .padding (m/EdgeInsets.symmetric .horizontal 8 .vertical 16)
          (m/Expanded
           .child
-          (richtext-preview (:content block) {:on-link-tap nil})))))))) 
+          (richtext-viewer/richtext-viewer (:content block) {:on-link-tap nil})))))))) 
 

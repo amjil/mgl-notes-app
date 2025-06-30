@@ -2,7 +2,7 @@
   (:require
    ["package:flutter/material.dart" :as m]
    [cljd.flutter :as f]
-   [notes-app.widgets.mgl-richtext-preview :as richtext-preview]
+   [notes-app.widgets.mgl-richtext-viewer :as richtext-viewer]
    [notes-app.widgets.mgl-input-editor :as input-editor]))
 
 (defn editor-with-preview [text {:keys [on-link-tap]}]
@@ -28,7 +28,9 @@
                  (m/Expanded
                   .child
                   (if preview
-                    (richtext-preview/richtext-preview text {:on-link-tap on-link-tap})
+                    (m/SingleChildScrollView
+                     .scrollDirection m/Axis.vertical
+                     .child (richtext-viewer/richtext-viewer text {:on-link-tap on-link-tap}))
                     (input-editor/input-editor
                      {:controller controller})))]))))
 
