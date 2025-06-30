@@ -1,0 +1,29 @@
+(ns notes-app.widgets.mgl-note-viewer
+  (:require
+   ["package:flutter/material.dart" :as m]
+   [cljd.flutter :as f]
+   [notes-app.widgets.mgl-richtext-preview :refer [richtext-preview]]))
+
+(defn note-view [note blocks on-reorder]
+  (f/widget
+   :render
+   (m/ReorderableListView.builder
+    ;; horizontal scroll
+    .scrollDirection m/Axis.horizontal
+    .itemCount (count blocks)
+    .onReorder
+    (fn [old-index new-index]
+      ;; Call callback function to handle reordering
+      (when on-reorder
+        (on-reorder note old-index new-index)))
+    .itemBuilder
+    (fn [ctx index]
+      (let [block (nth blocks index)
+            key (m/ValueKey (:id block))]
+        (m/Padding
+         .key key
+         .padding (m/EdgeInsets.symmetric .horizontal 8 .vertical 16)
+         (m/Expanded
+          .child
+          (richtext-preview (:content block) {:on-link-tap nil})))))))) 
+
