@@ -30,7 +30,7 @@
           .child
           (mgl/MongolTextField
            .controller controller
-           .maxLines 500
+           .maxLength 2000
            .autofocus (boolean autofocus?)
            .onChanged (fn [val] (when on-changed (on-changed val)))
            .onTap (fn []
