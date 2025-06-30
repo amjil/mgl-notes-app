@@ -1,0 +1,83 @@
+(ns notes-app.utils.diff-utils
+  (:require
+   ["package:diff_match_patch/diff_match_patch.dart" :as dmp]
+   ["package:uuid/uuid.dart" :as uuid]
+   [clojure.string :as str]))
+
+(def separator "\n")
+(def ^uuid/Uuid uuid-instance (uuid/Uuid.))
+(def ^dmp/DiffMatchPatch dmp-instance (dmp/DiffMatchPatch.))
+
+;; === Diff Logic: rebuild blocks from diff ===
+(defn rebuild-blocks-from-diff [old-blocks new-text]
+  (let [old-text (str/join separator (map :content old-blocks))
+        diffs (.diff dmp-instance old-text new-text)
+        _ (.diffCleanupSemantic dmp-instance diffs)
+        diff-list (mapv #(vector (aget % "operation") (aget % "text")) diffs)
+        new-chunks (->> (str/split new-text separator)
+                        (mapv str/trim)
+                        (filterv #(not (str/blank? %))))]
+
+    (loop [chunks new-chunks
+           result []
+           ^String remaining new-text
+           reused-blocks old-blocks]
+      (if (empty? chunks)
+        (let [updated-blocks result
+              old-id->content (into {} (map (juxt :block-id :content) old-blocks))
+              new-id->content (into {} (map (juxt :block-id :content) updated-blocks))
+              new-ids (set (keys new-id->content))]
+          {:added    (filterv #(nil? (get old-id->content (:block-id %))) updated-blocks)
+           :modified (filterv (fn [{:keys [block-id content]}]
+                                (let [old (get old-id->content block-id)]
+                                  (and old (not= old content))))
+                              updated-blocks)
+           :unchanged (filterv (fn [{:keys [block-id content]}]
+                                 (= content (get old-id->content block-id)))
+                               updated-blocks)
+           :deleted  (filterv #(not (contains? new-ids (:block-id %))) old-blocks)})
+
+        (let [chunk (first chunks)
+              idx (.indexOf remaining chunk)]
+          (if (= idx -1)
+            ;; new paragraph, generate new block-id
+            (recur (rest chunks)
+                   (conj result {:block-id (.v4 uuid-instance) :content chunk})
+                   remaining
+                   reused-blocks)
+            ;; reuse old block-id
+            (let [found (some #(when (str/includes? (second %) chunk)) diff-list)
+                  op (first found)
+                  old-block (first reused-blocks)
+                  new-remaining (str/replace-first remaining chunk "")]
+              (recur (rest chunks)
+                     (conj result
+                           (if (and (= op 0) old-block)
+                             {:block-id (:block-id old-block)
+                              :content chunk}
+                             {:block-id (.v4 uuid-instance)
+                              :content chunk}))
+                     new-remaining
+                     (if (and (= op 0) old-block)
+                       (rest reused-blocks)
+                       reused-blocks)))))))))
+
+;; split text into blocks
+(defn text-to-blocks [text]
+  (->> (str/split text separator)
+       (mapv str/trim)
+       (filterv #(not (str/blank? %)))
+       (mapv #(hash-map :block-id (.v4 uuid-instance) :content %))))
+
+;; merge blocks into text
+(defn blocks-to-text [blocks]
+  (str/join separator (map :content blocks)))
+
+;; generate new block-id
+(defn generate-block-id []
+  (.v4 uuid-instance))
+
+;; check if text has changed
+(defn has-text-changed? [old-blocks new-text]
+  (let [old-text (blocks-to-text old-blocks)]
+    (not= old-text new-text))) 

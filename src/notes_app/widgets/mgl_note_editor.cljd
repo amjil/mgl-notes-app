@@ -1,0 +1,76 @@
+(ns notes-app.widgets.mgl-note-editor
+  (:require [cljd.flutter :as f]
+            ["package:flutter/material.dart" :as m]
+            [notes-app.widgets.mgl-input-editor :as input-editor]
+            [notes-app.utils.diff-utils :as diff-utils]))
+
+(defn note-editor
+  [{:keys [initial-blocks on-save on-cancel]}]
+  (let [has-changed-atom (atom false)]
+    (f/widget
+     :context ctx
+     :let [theme (-> m/Theme (.of ctx))
+           color-scheme (.-colorScheme theme)
+           initial-text (diff-utils/blocks-to-text initial-blocks)
+           controller (m/TextEditingController. .text initial-text)]
+     :watch [has-changed has-changed-atom]
+     (m/Scaffold
+      .backgroundColor (.-surface color-scheme)
+      .appBar
+      (m/AppBar
+       .backgroundColor (.-surface color-scheme)
+       .elevation 0
+       .title nil
+       .actions
+       [(m/Row
+          .mainAxisAlignment m/MainAxisAlignment.spaceBetween
+          .mainAxisSize m/MainAxisSize.max
+          .children
+          [(m/IconButton
+            .onPressed (when has-changed
+                         (fn []
+                           (let [new-text (.-text controller)
+                                 diff-result (diff-utils/rebuild-blocks-from-diff initial-blocks new-text)]
+                             (reset! has-changed-atom false)
+                             (when on-save (on-save diff-result)))))
+            .icon (m/Icon
+                   m/Icons.save
+                   .color (if has-changed
+                            (.-onPrimary color-scheme)
+                            (.-onSurfaceVariant color-scheme)))
+            .style (m/ButtonStyle
+                    .backgroundColor (m/MaterialStateProperty.all
+                                     (if has-changed
+                                       (.-primary color-scheme)
+                                       (.-surfaceVariant color-scheme)))))
+           (m/IconButton
+            .onPressed (fn []
+                         (reset! has-changed-atom false)
+                         (when on-cancel (on-cancel)))
+            .icon (m/Icon
+                   m/Icons.close
+                   .color (.-onSurface color-scheme))
+            .style (m/ButtonStyle
+                    .backgroundColor (m/MaterialStateProperty.all (.-surfaceVariant color-scheme))))])])
+      .body
+      (m/Container
+       .padding (m/EdgeInsets.all 16)
+       .child
+       (input-editor/input-editor
+        {:controller controller
+         :autofocus? true
+         :placeholder "Start writing..."
+         :on-changed (fn [text]
+                       (let [changed (diff-utils/has-text-changed? initial-blocks text)]
+                         (reset! has-changed-atom changed)))})))))) 
+
+
+;; 使用示例
+(defn example-usage []
+  (let [initial-blocks (diff-utils/text-to-blocks "This is a test\nThis is a test\nThis is a test")]
+    (note-editor
+     {:initial-blocks initial-blocks
+      :on-save (fn [diff-result]
+                 (dart:core/print (str "Save result:" diff-result)))
+      :on-cancel (fn []
+                   (dart:core/print "Cancel"))}))) 
