@@ -1,0 +1,15 @@
+(ns notes-app.utils.block-reorder
+  (:require
+   [notes-app.services.database :as db]))
+
+(defn reorder-blocks [note old-index new-index]
+  (let [blocks (vec (.-blockIds note))
+        block-to-move (nth blocks old-index)
+        ;; Step 1: Remove element from old position
+        without-old (vec (concat (take old-index blocks)
+                                 (drop (inc old-index) blocks)))
+        ;; Step 2: Insert element at new position
+        new-block-ids (vec (concat (take new-index without-old)
+                                   [block-to-move]
+                                   (drop new-index without-old)))]
+    (db/update-note-block-ids note new-block-ids)))
