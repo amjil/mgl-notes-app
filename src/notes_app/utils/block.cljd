@@ -1,4 +1,4 @@
-(ns notes-app.utils.block-reorder
+(ns notes-app.utils.block
   (:require
    [notes-app.services.database :as db]))
 
@@ -13,3 +13,9 @@
                                    [block-to-move]
                                    (drop new-index without-old)))]
     (db/update-note-block-ids note new-block-ids)))
+
+(defn sort-blocks-by-note [note]
+  (let [block-ids (vec (.-blockIds note))
+        blocks (db/get-blocks-by-note (.-id note))
+        indexd-map (zipmap block-ids (range))]
+    (vec (sort-by (fn [block] (get indexd-map (.-blockId block))) blocks))))
