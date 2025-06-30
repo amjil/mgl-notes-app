@@ -15,6 +15,7 @@ class DatabaseService {
     _isar = await Isar.open(
       [NoteSchema, BlockSchema, TagSchema, DailyStatsSchema],
       directory: dir.path,
+      name: 'notes_app.db',
     );
   }
 
@@ -33,13 +34,12 @@ class DatabaseService {
   // Note operations
   static Future<Note> createNote({
     required String title,
-    required String content,
     List<String>? tags,
     DateTime? scheduledDate,
   }) async {
     final note = Note(
       title: title,
-      content: content,
+      blockIds: [],
       tags: tags ?? [],
       scheduledDate: scheduledDate,
     );
@@ -98,8 +98,6 @@ class DatabaseService {
       return await isar.notes
           .filter()
           .isDeletedEqualTo(false)
-          .contentContains(query)
-          .or()
           .titleContains(query)
           .sortByUpdatedAtDesc()
           .findAll();
@@ -111,14 +109,12 @@ class DatabaseService {
     required String blockId,
     required int noteId,
     required String content,
-    required int order,
     List<String>? tags,
   }) async {
     final block = Block(
       blockId: blockId,
       noteId: noteId,
       content: content,
-      order: order,
       tags: tags ?? [],
     );
 
@@ -139,13 +135,28 @@ class DatabaseService {
     });
   }
 
+  static Future<Block?> getBlockById(int id) async {
+    return await isar.txn(() async {
+      return await isar.blocks.get(id);
+    });
+  }
+
   static Future<List<Block>> getBlocksByNote(int noteId) async {
     return await isar.txn(() async {
       return await isar.blocks
           .filter()
           .noteIdEqualTo(noteId)
           .isDeletedEqualTo(false)
-          .sortByOrder()
+          .findAll();
+    });
+  }
+
+  static Future<List<Block>> getBlocksByIds(List<int> blockIds) async {
+    return await isar.txn(() async {
+      return await isar.blocks
+          .filter()
+          .idIsIn(blockIds)
+          .isDeletedEqualTo(false)
           .findAll();
     });
   }
@@ -156,19 +167,27 @@ class DatabaseService {
     });
   }
 
+  static Future<void> deleteBlock(int id) async {
+    await isar.writeTxn(() async {
+      await isar.blocks.delete(id);
+    });
+  }
+
+  static Future<List<Block>> searchBlocks(String query) async {
+    return await isar.txn(() async {
+      return await isar.blocks
+          .filter()
+          .isDeletedEqualTo(false)
+          .contentContains(query)
+          .findAll();
+    });
+  }
+
   // Tag operations
   static Future<Tag> createTag({
     required String name,
-    String? parentTag,
-    String? color,
-    String? description,
   }) async {
-    final tag = Tag(
-      name: name,
-      parentTag: parentTag,
-      color: color ?? '#2196F3',
-      description: description ?? '',
-    );
+    final tag = Tag(name: name);
 
     await isar.writeTxn(() async {
       await isar.tags.put(tag);
@@ -201,6 +220,12 @@ class DatabaseService {
     });
   }
 
+  static Future<void> deleteTag(int id) async {
+    await isar.writeTxn(() async {
+      await isar.tags.delete(id);
+    });
+  }
+
   static Future<List<Note>> getNotesByTag(String tagName) async {
     return await isar.txn(() async {
       return await isar.notes
@@ -208,6 +233,16 @@ class DatabaseService {
           .isDeletedEqualTo(false)
           .tagsElementEqualTo(tagName)
           .sortByUpdatedAtDesc()
+          .findAll();
+    });
+  }
+
+  static Future<List<Block>> getBlocksByTag(String tagName) async {
+    return await isar.txn(() async {
+      return await isar.blocks
+          .filter()
+          .isDeletedEqualTo(false)
+          .tagsElementEqualTo(tagName)
           .findAll();
     });
   }
@@ -223,6 +258,15 @@ class DatabaseService {
     });
   }
 
+  static Future<List<Block>> getDeletedBlocks() async {
+    return await isar.txn(() async {
+      return await isar.blocks
+          .filter()
+          .isDeletedEqualTo(true)
+          .findAll();
+    });
+  }
+
   static Future<void> restoreNote(int id) async {
     await isar.writeTxn(() async {
       final note = await isar.notes.get(id);
@@ -233,9 +277,25 @@ class DatabaseService {
     });
   }
 
+  static Future<void> restoreBlock(int id) async {
+    await isar.writeTxn(() async {
+      final block = await isar.blocks.get(id);
+      if (block != null) {
+        block.restore();
+        await isar.blocks.put(block);
+      }
+    });
+  }
+
   static Future<void> permanentlyDeleteNote(int id) async {
     await isar.writeTxn(() async {
       await isar.notes.delete(id);
+    });
+  }
+
+  static Future<void> permanentlyDeleteBlock(int id) async {
+    await isar.writeTxn(() async {
+      await isar.blocks.delete(id);
     });
   }
 
@@ -246,8 +306,17 @@ class DatabaseService {
           .isDeletedEqualTo(true)
           .findAll();
       
+      final deletedBlocks = await isar.blocks
+          .filter()
+          .isDeletedEqualTo(true)
+          .findAll();
+      
       for (final note in deletedNotes) {
         await isar.notes.delete(note.id);
+      }
+      
+      for (final block in deletedBlocks) {
+        await isar.blocks.delete(block.id);
       }
     });
   }
@@ -274,7 +343,6 @@ class DatabaseService {
     final dateOnly = DateTime(date.year, date.month, date.day, 0, 0, 0);
     
     return await isar.writeTxn(() async {
-      // 在写事务中读取现有统计数据
       final existingStats = await isar.dailyStats
           .filter()
           .dateEqualTo(dateOnly)
@@ -290,7 +358,6 @@ class DatabaseService {
       if (blockCount != null) stats.blockCount = blockCount;
       if (tags != null) stats.tags = tags;
 
-      // 在同一个写事务中保存
       await isar.dailyStats.put(stats);
       
       return stats;
@@ -313,6 +380,83 @@ class DatabaseService {
     });
   }
 
+  // Link operations
+  static Future<void> addLinkToBlock(String blockId, String link) async {
+    await isar.writeTxn(() async {
+      final block = await isar.blocks
+          .filter()
+          .blockIdEqualTo(blockId)
+          .findFirst();
+      
+      if (block != null) {
+        block.addLink(link);
+        await isar.blocks.put(block);
+      }
+    });
+  }
+
+  static Future<void> removeLinkFromBlock(String blockId, String link) async {
+    await isar.writeTxn(() async {
+      final block = await isar.blocks
+          .filter()
+          .blockIdEqualTo(blockId)
+          .findFirst();
+      
+      if (block != null) {
+        block.removeLink(link);
+        await isar.blocks.put(block);
+      }
+    });
+  }
+
+  static Future<void> addBacklinkToBlock(String blockId, String backlink) async {
+    await isar.writeTxn(() async {
+      final block = await isar.blocks
+          .filter()
+          .blockIdEqualTo(blockId)
+          .findFirst();
+      
+      if (block != null) {
+        block.addBacklink(backlink);
+        await isar.blocks.put(block);
+      }
+    });
+  }
+
+  static Future<void> removeBacklinkFromBlock(String blockId, String backlink) async {
+    await isar.writeTxn(() async {
+      final block = await isar.blocks
+          .filter()
+          .blockIdEqualTo(blockId)
+          .findFirst();
+      
+      if (block != null) {
+        block.removeBacklink(backlink);
+        await isar.blocks.put(block);
+      }
+    });
+  }
+
+  static Future<List<Block>> getBlocksWithLinks() async {
+    return await isar.txn(() async {
+      return await isar.blocks
+          .filter()
+          .isDeletedEqualTo(false)
+          .linksIsNotEmpty()
+          .findAll();
+    });
+  }
+
+  static Future<List<Block>> getBlocksWithBacklinks() async {
+    return await isar.txn(() async {
+      return await isar.blocks
+          .filter()
+          .isDeletedEqualTo(false)
+          .backlinksIsNotEmpty()
+          .findAll();
+    });
+  }
+
   // Utility functions
   static String generateBlockId() {
     return 'block-${_uuid.v4()}';
@@ -329,9 +473,9 @@ class DatabaseService {
     }).toList();
   }
 
-  static List<Map<String, String>> extractBlocksFromContent(String content) {
-    final blockPattern = RegExp(r'\[\[([^#\]]+)(?:#([^\]]+))?\]\]');
-    final matches = blockPattern.allMatches(content);
+  static List<Map<String, String>> extractLinksFromContent(String content) {
+    final linkPattern = RegExp(r'\[\[([^#\]]+)(?:#([^\]]+))?\]\]');
+    final matches = linkPattern.allMatches(content);
     
     return matches.map((match) {
       return {
@@ -339,5 +483,97 @@ class DatabaseService {
         'blockId': match.group(2) ?? '',
       };
     }).toList();
+  }
+
+  // Word count calculation
+  static int calculateWordCount(String content) {
+    if (content.trim().isEmpty) return 0;
+    return content.trim().split(RegExp(r'\s+')).length;
+  }
+
+  static Future<int> calculateNoteWordCount(int noteId) async {
+    final blocks = await getBlocksByNote(noteId);
+    int totalWords = 0;
+    
+    for (final block in blocks) {
+      totalWords += calculateWordCount(block.content);
+    }
+    
+    return totalWords;
+  }
+
+  // Update note word count
+  static Future<void> updateNoteWordCount(int noteId) async {
+    final wordCount = await calculateNoteWordCount(noteId);
+    
+    await isar.writeTxn(() async {
+      final note = await isar.notes.get(noteId);
+      if (note != null) {
+        note.updateWordCount(wordCount);
+        await isar.notes.put(note);
+      }
+    });
+  }
+
+  // Batch operations
+  static Future<void> updateNoteBlockIds(int noteId, List<int> blockIds) async {
+    await isar.writeTxn(() async {
+      final note = await isar.notes.get(noteId);
+      if (note != null) {
+        note.updateBlockIds(blockIds);
+        await isar.notes.put(note);
+      }
+    });
+  }
+
+  static Future<void> addBlockToNote(int noteId, int blockId) async {
+    await isar.writeTxn(() async {
+      final note = await isar.notes.get(noteId);
+      if (note != null) {
+        note.addBlockId(blockId);
+        await isar.notes.put(note);
+      }
+    });
+  }
+
+  static Future<void> removeBlockFromNote(int noteId, int blockId) async {
+    await isar.writeTxn(() async {
+      final note = await isar.notes.get(noteId);
+      if (note != null) {
+        note.removeBlockId(blockId);
+        await isar.notes.put(note);
+      }
+    });
+  }
+
+  // Tag usage tracking
+  static Future<void> incrementTagUsage(String tagName) async {
+    await isar.writeTxn(() async {
+      var tag = await isar.tags
+          .filter()
+          .nameEqualTo(tagName)
+          .findFirst();
+      
+      if (tag == null) {
+        tag = Tag(name: tagName);
+      }
+      
+      tag.incrementUsage();
+      await isar.tags.put(tag);
+    });
+  }
+
+  static Future<void> decrementTagUsage(String tagName) async {
+    await isar.writeTxn(() async {
+      final tag = await isar.tags
+          .filter()
+          .nameEqualTo(tagName)
+          .findFirst();
+      
+      if (tag != null) {
+        tag.decrementUsage();
+        await isar.tags.put(tag);
+      }
+    });
   }
 } 

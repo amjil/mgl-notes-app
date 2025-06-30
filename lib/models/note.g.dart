@@ -22,10 +22,10 @@ const NoteSchema = CollectionSchema(
       name: r'blockCount',
       type: IsarType.long,
     ),
-    r'content': PropertySchema(
+    r'blockIds': PropertySchema(
       id: 1,
-      name: r'content',
-      type: IsarType.string,
+      name: r'blockIds',
+      type: IsarType.longList,
     ),
     r'createdAt': PropertySchema(
       id: 2,
@@ -167,7 +167,7 @@ int _noteEstimateSize(
   Map<Type, List<int>> allOffsets,
 ) {
   var bytesCount = offsets.last;
-  bytesCount += 3 + object.content.length * 3;
+  bytesCount += 3 + object.blockIds.length * 8;
   bytesCount += 3 + object.tags.length * 3;
   {
     for (var i = 0; i < object.tags.length; i++) {
@@ -186,7 +186,7 @@ void _noteSerialize(
   Map<Type, List<int>> allOffsets,
 ) {
   writer.writeLong(offsets[0], object.blockCount);
-  writer.writeString(offsets[1], object.content);
+  writer.writeLongList(offsets[1], object.blockIds);
   writer.writeDateTime(offsets[2], object.createdAt);
   writer.writeDateTime(offsets[3], object.deletedAt);
   writer.writeBool(offsets[4], object.isDeleted);
@@ -204,7 +204,7 @@ Note _noteDeserialize(
   Map<Type, List<int>> allOffsets,
 ) {
   final object = Note(
-    content: reader.readString(offsets[1]),
+    blockIds: reader.readLongList(offsets[1]) ?? [],
     scheduledDate: reader.readDateTimeOrNull(offsets[5]),
     tags: reader.readStringList(offsets[6]) ?? [],
     title: reader.readString(offsets[7]),
@@ -229,7 +229,7 @@ P _noteDeserializeProp<P>(
     case 0:
       return (reader.readLong(offset)) as P;
     case 1:
-      return (reader.readString(offset)) as P;
+      return (reader.readLongList(offset) ?? []) as P;
     case 2:
       return (reader.readDateTime(offset)) as P;
     case 3:
@@ -919,131 +919,140 @@ extension NoteQueryFilter on QueryBuilder<Note, Note, QFilterCondition> {
     });
   }
 
-  QueryBuilder<Note, Note, QAfterFilterCondition> contentEqualTo(
-    String value, {
-    bool caseSensitive = true,
-  }) {
+  QueryBuilder<Note, Note, QAfterFilterCondition> blockIdsElementEqualTo(
+      int value) {
     return QueryBuilder.apply(this, (query) {
       return query.addFilterCondition(FilterCondition.equalTo(
-        property: r'content',
+        property: r'blockIds',
         value: value,
-        caseSensitive: caseSensitive,
       ));
     });
   }
 
-  QueryBuilder<Note, Note, QAfterFilterCondition> contentGreaterThan(
-    String value, {
+  QueryBuilder<Note, Note, QAfterFilterCondition> blockIdsElementGreaterThan(
+    int value, {
     bool include = false,
-    bool caseSensitive = true,
   }) {
     return QueryBuilder.apply(this, (query) {
       return query.addFilterCondition(FilterCondition.greaterThan(
         include: include,
-        property: r'content',
+        property: r'blockIds',
         value: value,
-        caseSensitive: caseSensitive,
       ));
     });
   }
 
-  QueryBuilder<Note, Note, QAfterFilterCondition> contentLessThan(
-    String value, {
+  QueryBuilder<Note, Note, QAfterFilterCondition> blockIdsElementLessThan(
+    int value, {
     bool include = false,
-    bool caseSensitive = true,
   }) {
     return QueryBuilder.apply(this, (query) {
       return query.addFilterCondition(FilterCondition.lessThan(
         include: include,
-        property: r'content',
+        property: r'blockIds',
         value: value,
-        caseSensitive: caseSensitive,
       ));
     });
   }
 
-  QueryBuilder<Note, Note, QAfterFilterCondition> contentBetween(
-    String lower,
-    String upper, {
+  QueryBuilder<Note, Note, QAfterFilterCondition> blockIdsElementBetween(
+    int lower,
+    int upper, {
     bool includeLower = true,
     bool includeUpper = true,
-    bool caseSensitive = true,
   }) {
     return QueryBuilder.apply(this, (query) {
       return query.addFilterCondition(FilterCondition.between(
-        property: r'content',
+        property: r'blockIds',
         lower: lower,
         includeLower: includeLower,
         upper: upper,
         includeUpper: includeUpper,
-        caseSensitive: caseSensitive,
       ));
     });
   }
 
-  QueryBuilder<Note, Note, QAfterFilterCondition> contentStartsWith(
-    String value, {
-    bool caseSensitive = true,
+  QueryBuilder<Note, Note, QAfterFilterCondition> blockIdsLengthEqualTo(
+      int length) {
+    return QueryBuilder.apply(this, (query) {
+      return query.listLength(
+        r'blockIds',
+        length,
+        true,
+        length,
+        true,
+      );
+    });
+  }
+
+  QueryBuilder<Note, Note, QAfterFilterCondition> blockIdsIsEmpty() {
+    return QueryBuilder.apply(this, (query) {
+      return query.listLength(
+        r'blockIds',
+        0,
+        true,
+        0,
+        true,
+      );
+    });
+  }
+
+  QueryBuilder<Note, Note, QAfterFilterCondition> blockIdsIsNotEmpty() {
+    return QueryBuilder.apply(this, (query) {
+      return query.listLength(
+        r'blockIds',
+        0,
+        false,
+        999999,
+        true,
+      );
+    });
+  }
+
+  QueryBuilder<Note, Note, QAfterFilterCondition> blockIdsLengthLessThan(
+    int length, {
+    bool include = false,
   }) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.startsWith(
-        property: r'content',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.listLength(
+        r'blockIds',
+        0,
+        true,
+        length,
+        include,
+      );
     });
   }
 
-  QueryBuilder<Note, Note, QAfterFilterCondition> contentEndsWith(
-    String value, {
-    bool caseSensitive = true,
+  QueryBuilder<Note, Note, QAfterFilterCondition> blockIdsLengthGreaterThan(
+    int length, {
+    bool include = false,
   }) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.endsWith(
-        property: r'content',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.listLength(
+        r'blockIds',
+        length,
+        include,
+        999999,
+        true,
+      );
     });
   }
 
-  QueryBuilder<Note, Note, QAfterFilterCondition> contentContains(String value,
-      {bool caseSensitive = true}) {
+  QueryBuilder<Note, Note, QAfterFilterCondition> blockIdsLengthBetween(
+    int lower,
+    int upper, {
+    bool includeLower = true,
+    bool includeUpper = true,
+  }) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.contains(
-        property: r'content',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
-    });
-  }
-
-  QueryBuilder<Note, Note, QAfterFilterCondition> contentMatches(String pattern,
-      {bool caseSensitive = true}) {
-    return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.matches(
-        property: r'content',
-        wildcard: pattern,
-        caseSensitive: caseSensitive,
-      ));
-    });
-  }
-
-  QueryBuilder<Note, Note, QAfterFilterCondition> contentIsEmpty() {
-    return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.equalTo(
-        property: r'content',
-        value: '',
-      ));
-    });
-  }
-
-  QueryBuilder<Note, Note, QAfterFilterCondition> contentIsNotEmpty() {
-    return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.greaterThan(
-        property: r'content',
-        value: '',
-      ));
+      return query.listLength(
+        r'blockIds',
+        lower,
+        includeLower,
+        upper,
+        includeUpper,
+      );
     });
   }
 
@@ -1764,18 +1773,6 @@ extension NoteQuerySortBy on QueryBuilder<Note, Note, QSortBy> {
     });
   }
 
-  QueryBuilder<Note, Note, QAfterSortBy> sortByContent() {
-    return QueryBuilder.apply(this, (query) {
-      return query.addSortBy(r'content', Sort.asc);
-    });
-  }
-
-  QueryBuilder<Note, Note, QAfterSortBy> sortByContentDesc() {
-    return QueryBuilder.apply(this, (query) {
-      return query.addSortBy(r'content', Sort.desc);
-    });
-  }
-
   QueryBuilder<Note, Note, QAfterSortBy> sortByCreatedAt() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'createdAt', Sort.asc);
@@ -1871,18 +1868,6 @@ extension NoteQuerySortThenBy on QueryBuilder<Note, Note, QSortThenBy> {
   QueryBuilder<Note, Note, QAfterSortBy> thenByBlockCountDesc() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'blockCount', Sort.desc);
-    });
-  }
-
-  QueryBuilder<Note, Note, QAfterSortBy> thenByContent() {
-    return QueryBuilder.apply(this, (query) {
-      return query.addSortBy(r'content', Sort.asc);
-    });
-  }
-
-  QueryBuilder<Note, Note, QAfterSortBy> thenByContentDesc() {
-    return QueryBuilder.apply(this, (query) {
-      return query.addSortBy(r'content', Sort.desc);
     });
   }
 
@@ -1990,10 +1975,9 @@ extension NoteQueryWhereDistinct on QueryBuilder<Note, Note, QDistinct> {
     });
   }
 
-  QueryBuilder<Note, Note, QDistinct> distinctByContent(
-      {bool caseSensitive = true}) {
+  QueryBuilder<Note, Note, QDistinct> distinctByBlockIds() {
     return QueryBuilder.apply(this, (query) {
-      return query.addDistinctBy(r'content', caseSensitive: caseSensitive);
+      return query.addDistinctBy(r'blockIds');
     });
   }
 
@@ -2060,9 +2044,9 @@ extension NoteQueryProperty on QueryBuilder<Note, Note, QQueryProperty> {
     });
   }
 
-  QueryBuilder<Note, String, QQueryOperations> contentProperty() {
+  QueryBuilder<Note, List<int>, QQueryOperations> blockIdsProperty() {
     return QueryBuilder.apply(this, (query) {
-      return query.addPropertyName(r'content');
+      return query.addPropertyName(r'blockIds');
     });
   }
 

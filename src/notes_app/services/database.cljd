@@ -17,7 +17,6 @@
 (defn create-note [note-data]
   (await (db.DatabaseService/createNote 
           :title (:title note-data)
-          :content (:content note-data)
           :tags (:tags note-data)
           :scheduledDate (:scheduledDate note-data))))
 
@@ -45,25 +44,33 @@
           :blockId (:blockId block-data)
           :noteId (:noteId block-data)
           :content (:content block-data)
-          :order (:order block-data)
           :tags (:tags block-data))))
 
 (defn get-block [block-id]
   (await (db.DatabaseService/getBlock block-id)))
 
+(defn get-block-by-id [id]
+  (await (db.DatabaseService/getBlockById id)))
+
 (defn get-blocks-by-note [note-id]
   (await (db.DatabaseService/getBlocksByNote note-id)))
+
+(defn get-blocks-by-ids [block-ids]
+  (await (db.DatabaseService/getBlocksByIds block-ids)))
 
 (defn update-block [block]
   (await (db.DatabaseService/updateBlock block)))
 
+(defn delete-block [id]
+  (await (db.DatabaseService/deleteBlock id)))
+
+(defn search-blocks [query]
+  (await (db.DatabaseService/searchBlocks query)))
+
 ;; Tag operations
 (defn create-tag [tag-data]
   (await (db.DatabaseService/createTag
-          :name (:name tag-data)
-          :parentTag (:parentTag tag-data)
-          :color (:color tag-data)
-          :description (:description tag-data))))
+          :name (:name tag-data))))
 
 (defn get-tag [name]
   (await (db.DatabaseService/getTag name)))
@@ -74,18 +81,33 @@
 (defn update-tag [tag]
   (await (db.DatabaseService/updateTag tag)))
 
+(defn delete-tag [id]
+  (await (db.DatabaseService/deleteTag id)))
+
 (defn get-notes-by-tag [tag-name]
   (await (db.DatabaseService/getNotesByTag tag-name)))
+
+(defn get-blocks-by-tag [tag-name]
+  (await (db.DatabaseService/getBlocksByTag tag-name)))
 
 ;; Recycle bin operations
 (defn get-deleted-notes []
   (await (db.DatabaseService/getDeletedNotes)))
 
+(defn get-deleted-blocks []
+  (await (db.DatabaseService/getDeletedBlocks)))
+
 (defn restore-note [id]
   (await (db.DatabaseService/restoreNote id)))
 
+(defn restore-block [id]
+  (await (db.DatabaseService/restoreBlock id)))
+
 (defn permanently-delete-note [id]
   (await (db.DatabaseService/permanentlyDeleteNote id)))
+
+(defn permanently-delete-block [id]
+  (await (db.DatabaseService/permanentlyDeleteBlock id)))
 
 (defn clear-recycle-bin []
   (await (db.DatabaseService/clearRecycleBin)))
@@ -105,6 +127,52 @@
 (defn get-stats-range [start-date end-date]
   (await (db.DatabaseService/getStatsRange start-date end-date)))
 
+;; Link operations
+(defn add-link-to-block [block-id link]
+  (await (db.DatabaseService/addLinkToBlock block-id link)))
+
+(defn remove-link-from-block [block-id link]
+  (await (db.DatabaseService/removeLinkFromBlock block-id link)))
+
+(defn add-backlink-to-block [block-id backlink]
+  (await (db.DatabaseService/addBacklinkToBlock block-id backlink)))
+
+(defn remove-backlink-from-block [block-id backlink]
+  (await (db.DatabaseService/removeBacklinkFromBlock block-id backlink)))
+
+(defn get-blocks-with-links []
+  (await (db.DatabaseService/getBlocksWithLinks)))
+
+(defn get-blocks-with-backlinks []
+  (await (db.DatabaseService/getBlocksWithBacklinks)))
+
+;; Word count operations
+(defn calculate-word-count [content]
+  (db.DatabaseService/calculateWordCount content))
+
+(defn calculate-note-word-count [note-id]
+  (await (db.DatabaseService/calculateNoteWordCount note-id)))
+
+(defn update-note-word-count [note-id]
+  (await (db.DatabaseService/updateNoteWordCount note-id)))
+
+;; Batch operations
+(defn update-note-block-ids [note-id block-ids]
+  (await (db.DatabaseService/updateNoteBlockIds note-id block-ids)))
+
+(defn add-block-to-note [note-id block-id]
+  (await (db.DatabaseService/addBlockToNote note-id block-id)))
+
+(defn remove-block-from-note [note-id block-id]
+  (await (db.DatabaseService/removeBlockFromNote note-id block-id)))
+
+;; Tag usage tracking
+(defn increment-tag-usage [tag-name]
+  (await (db.DatabaseService/incrementTagUsage tag-name)))
+
+(defn decrement-tag-usage [tag-name]
+  (await (db.DatabaseService/decrementTagUsage tag-name)))
+
 ;; Utility functions
 (defn generate-block-id []
   (db.DatabaseService/generateBlockId))
@@ -112,5 +180,5 @@
 (defn extract-tags-from-content [content]
   (db.DatabaseService/extractTagsFromContent content))
 
-(defn extract-blocks-from-content [content]
-  (db.DatabaseService/extractBlocksFromContent content)) 
+(defn extract-links-from-content [content]
+  (db.DatabaseService/extractLinksFromContent content)) 

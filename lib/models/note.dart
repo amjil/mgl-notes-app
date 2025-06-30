@@ -14,8 +14,6 @@ class Note {
 
   late String title;
 
-  late String content;
-
   @Index()
   late List<String> tags;
 
@@ -32,9 +30,11 @@ class Note {
 
   late int blockCount;
 
+  late List<Id> blockIds;
+
   Note({
     required this.title,
-    required this.content,
+    required this.blockIds,
     required this.tags,
     this.scheduledDate,
   }) {
@@ -44,25 +44,48 @@ class Note {
     this.isDeleted = false;
     this.deletedAt = null;
     this.scheduledDate = scheduledDate;
-    this.wordCount = _calculateWordCount(content);
-    this.blockCount = _calculateBlockCount(content);
+    this.wordCount = 0; // 需要从块中计算
+    this.blockCount = blockIds.length;
   }
 
-  int _calculateWordCount(String content) {
-    // 简单的词数计算，按空格分割
-    return content.trim().split(RegExp(r'\s+')).length;
-  }
-
-  int _calculateBlockCount(String content) {
-    // 计算块的数量，按双换行符分割
-    return content.split('\n\n').length;
-  }
-
-  void updateContent(String newContent) {
-    this.content = newContent;
+  void updateBlockIds(List<Id> newBlockIds) {
+    this.blockIds = newBlockIds;
     this.updatedAt = DateTime.now();
-    this.wordCount = _calculateWordCount(newContent);
-    this.blockCount = _calculateBlockCount(newContent);
+    this.blockCount = newBlockIds.length;
+    // 这里需要重新计算词数，但需要访问块的内容
+    // this.wordCount = _calculateWordCountFromBlocks(newBlockIds);
+  }
+
+  void addBlockId(Id blockId) {
+    if (!blockIds.contains(blockId)) {
+      blockIds.add(blockId);
+      updatedAt = DateTime.now();
+      blockCount = blockIds.length;
+    }
+  }
+
+  void removeBlockId(Id blockId) {
+    if (blockIds.remove(blockId)) {
+      updatedAt = DateTime.now();
+      blockCount = blockIds.length;
+    }
+  }
+
+  void insertBlockId(int index, Id blockId) {
+    if (!blockIds.contains(blockId)) {
+      blockIds.insert(index, blockId);
+      updatedAt = DateTime.now();
+      blockCount = blockIds.length;
+    }
+  }
+
+  void moveBlockId(int fromIndex, int toIndex) {
+    if (fromIndex >= 0 && fromIndex < blockIds.length && 
+        toIndex >= 0 && toIndex < blockIds.length) {
+      final blockId = blockIds.removeAt(fromIndex);
+      blockIds.insert(toIndex, blockId);
+      updatedAt = DateTime.now();
+    }
   }
 
   void addTag(String tag) {
@@ -86,5 +109,22 @@ class Note {
   void restore() {
     isDeleted = false;
     deletedAt = null;
+  }
+
+  // 更新块数量
+  void updateBlockCount(int newCount) {
+    this.blockCount = newCount;
+    this.updatedAt = DateTime.now();
+  }
+
+  // 获取下一个块的顺序号
+  int getNextBlockOrder() {
+    return blockCount;
+  }
+
+  // 更新词数（需要从块中计算）
+  void updateWordCount(int newWordCount) {
+    this.wordCount = newWordCount;
+    this.updatedAt = DateTime.now();
   }
 } 

@@ -15,48 +15,40 @@ class Block {
   late String content;
 
   @Index()
-  late DateTime createdAt;
-
-  @Index()
-  late DateTime updatedAt;
-
-  late int order;
-
-  @Index()
   late List<String> tags;
 
   @Index()
   late bool isDeleted;
 
+  // 链接字段 - 形式为 note#block-id
+  late List<String> links;
+
+  // 反向链接字段 - 被引用记录
+  late List<String> backlinks;
+
   Block({
     required this.blockId,
     required this.noteId,
     required this.content,
-    required this.order,
     required this.tags,
   }) {
-    final now = DateTime.now();
-    this.createdAt = now;
-    this.updatedAt = now;
     this.isDeleted = false;
+    this.links = [];
+    this.backlinks = [];
   }
 
   void updateContent(String newContent) {
     this.content = newContent;
-    this.updatedAt = DateTime.now();
   }
 
   void addTag(String tag) {
     if (!tags.contains(tag)) {
       tags.add(tag);
-      updatedAt = DateTime.now();
     }
   }
 
   void removeTag(String tag) {
-    if (tags.remove(tag)) {
-      updatedAt = DateTime.now();
-    }
+    tags.remove(tag);
   }
 
   void softDelete() {
@@ -65,5 +57,39 @@ class Block {
 
   void restore() {
     isDeleted = false;
+  }
+
+  // 添加链接
+  void addLink(String link) {
+    if (!links.contains(link)) {
+      links.add(link);
+    }
+  }
+
+  // 移除链接
+  void removeLink(String link) {
+    links.remove(link);
+  }
+
+  // 添加反向链接
+  void addBacklink(String backlink) {
+    if (!backlinks.contains(backlink)) {
+      backlinks.add(backlink);
+    }
+  }
+
+  // 移除反向链接
+  void removeBacklink(String backlink) {
+    backlinks.remove(backlink);
+  }
+
+  // 获取所有链接
+  List<String> getLinks() {
+    return List.from(links);
+  }
+
+  // 获取所有反向链接
+  List<String> getBacklinks() {
+    return List.from(backlinks);
   }
 } 
