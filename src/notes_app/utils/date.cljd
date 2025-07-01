@@ -1,0 +1,7 @@
+(ns notes-app.utils.date
+  (:require 
+   ["package:intl/intl.dart" :as intl]))
+
+(defn format-date [date]
+  (let [formatter (intl/DateFormat "yyyy.MM.dd")]
+    (.format formatter date)))

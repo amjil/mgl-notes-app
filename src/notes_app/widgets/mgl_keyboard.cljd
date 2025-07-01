@@ -1,11 +1,11 @@
 (ns notes-app.widgets.mgl-keyboard
   (:require 
    ["package:flutter/material.dart" :as m]
-   [mongol-virtual-keyboard.keyboard :as keyboard]
-   [mongol-virtual-keyboard.options :as options]
-   [mongol-virtual-keyboard.keyboard-action :as keyboard-action]
-   [mongol-virtual-keyboard.control :as control]
-   [mongol-menu-bar.menu :as menu]
+   [virtual-keyboard.keyboard :as keyboard]
+   [virtual-keyboard.options :as options]
+   [virtual-keyboard.keyboard-action :as keyboard-action]
+   [virtual-keyboard.input-control :as control]
+   [menu-bar.menu :as menu]
    [cljd.flutter :as f]))
    
 (defn keyboard []
@@ -13,7 +13,7 @@
    :context ctx
    :let [theme (-> m/Theme (.of ctx))
          color-scheme (.-colorScheme theme)]
-   :watch [{visible :visible} control/visible]
+   :watch [visible control/visible]
    (m/Visibility
     .visible visible
     .child
@@ -32,7 +32,6 @@
    :watch [{candidates-list :keyboard/candidates-list} state
            {visible :visible} control/visible]
    (m/Positioned
-    .visible visible
     .bottom (+ options/keyboard-default-height (* 4 (+ 4 (:keyboard/row-vertical-padding info))))
     .right (/ width 4)
     .child

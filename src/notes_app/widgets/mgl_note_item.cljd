@@ -1,0 +1,23 @@
+(ns notes-app.widgets.mgl-note-item
+  (:require 
+   ["package:flutter/material.dart" :as m]
+   ["package:mongol/mongol.dart" :as mgl]
+   [cljd.flutter :as f]))
+
+(defn note-item [item]
+  (f/widget
+   :context ctx
+   :let [theme (-> m/Theme (.of ctx))
+         color-scheme (.-colorScheme theme)]
+   (m/Container
+    .color (.-surfaceVariant color-scheme)
+    .child (mgl/MongolListTile
+            .title (when (.-title item)
+                     (mgl/MongolText (.-title item)
+                                     .style (m/TextStyle .fontSize 18
+                                                         .fontWeight m/FontWeight.bold)))
+
+            .subtitle (when (.-preview item)
+                        (mgl/MongolText (.-preview item)
+                                        .style (m/TextStyle .fontSize 14
+                                                            .color m/Colors.grey)))))))

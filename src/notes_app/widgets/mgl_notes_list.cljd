@@ -1,0 +1,38 @@
+(ns notes-app.widgets.mgl-notes-list
+  (:require
+   ["package:flutter/material.dart" :as m]
+   ["package:mongol/mongol.dart" :as mgl]
+   [cljd.flutter :as f]
+   [notes-app.widgets.mgl-note-item :as note-item]
+   [notes-app.states.notes :as notes-state]))
+
+
+(defn notes-list []
+  (f/widget
+   :context ctx
+   :let [theme (-> m/Theme (.of ctx))
+         color-scheme (.-colorScheme theme)]
+   :watch [{notes :notes
+            loading :loading} notes-state/notes-state]
+   (if loading
+     (m/Center
+      .child (m/CircularProgressIndicator))
+     (if (empty? notes)
+       (m/Center
+        .child (mgl/MongolText
+                "Тэмдэглэл байхгүй"
+                .style (m/TextStyle
+                        .fontSize 20
+                        .fontWeight m/FontWeight.w500
+                        .color (.-onSurface color-scheme))))
+       (m/ListView.builder
+        .scrollDirection m/Axis.horizontal
+        .padding (m/EdgeInsets.symmetric .horizontal 16)
+        .itemCount (count notes)
+        .itemBuilder (fn [_ index]
+                       (note-item/note-item (nth notes index))))))))
+
+(defn notes-list-container []
+  (f/widget
+   (m/Expanded
+    .child (notes-list))))

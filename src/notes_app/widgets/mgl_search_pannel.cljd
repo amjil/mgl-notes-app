@@ -1,0 +1,55 @@
+(ns notes-app.widgets.mgl-search-pannel
+  (:require
+   ["package:flutter/material.dart" :as m]
+   ["package:mongol/mongol.dart" :as mgl]
+   [notes-app.widgets.mgl-keyboard :as keyboard]
+   [notes-app.widgets.mgl-suggestion-panel :as suggestion-panel]
+   [notes-app.widgets.mgl-note-item :as note-item]
+   [notes-app.states.global :as gs]
+   [cljd.flutter :as f]))
+
+
+(defn search-result-panel []
+  (f/widget 
+   :watch [{search-results :search-results} gs/search-state]
+   (if (empty? search-results)
+     (suggestion-panel/suggestion-panel)
+     (m/ListView.builder 
+      .scrollDirection m/Axis.horizontal
+      .itemCount (count search-results)
+      .itemBuilder (fn [_ index]
+                     (let [result (nth search-results index)]
+                       (note-item/note-item result)))))))
+
+(defn search-pannel []
+  (f/widget
+   :managed [controller (m/TextEditingController.)]
+   :context ctx
+   :let [theme (-> m/Theme (.of ctx))
+         color-scheme (.-colorScheme theme)]
+   :watch [{search-results :search-results} gs/search-state]
+   (m/Stack
+    .children
+    [(m/Column
+      .children
+      [(m/Row
+        .children
+        [(mgl/MongolTextField
+          .controller controller
+          .maxLines 500
+          .maxLength 2000
+          ;;  .onChanged (fn [val] (when on-changed (on-changed val)))
+          .onTap (fn []
+                   (swap! gs/state assoc :keyboard/candidates-list [])
+                   (dart:core/print "onTap MongolTextField"))
+          .style (m/TextStyle
+                  .fontSize 20
+                  .color (.-onSurface color-scheme))
+          .decoration (m/InputDecoration
+                       .border (m/OutlineInputBorder)
+                       .fillColor (.-surface color-scheme)
+                       .filled true))
+         (m/Expanded
+          .child (search-result-panel))])
+       (keyboard/keyboard)])
+     (keyboard/candidates-panel)])))
