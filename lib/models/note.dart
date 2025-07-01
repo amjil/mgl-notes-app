@@ -32,6 +32,9 @@ class Note {
 
   late List<Id> blockIds;
 
+  // Preview field for caching the content of the first block
+  late String preview;
+
   Note({
     required this.title,
     required this.blockIds,
@@ -39,13 +42,14 @@ class Note {
     this.scheduledDate,
   }) {
     final now = DateTime.now();
-    this.createdAt = now;
-    this.updatedAt = now;
-    this.isDeleted = false;
-    this.deletedAt = null;
+    createdAt = now;
+    updatedAt = now;
+    isDeleted = false;
+    deletedAt = null;
     this.scheduledDate = scheduledDate;
-    this.wordCount = 0; // Need to calculate from blocks
-    this.blockCount = blockIds.length;
+    wordCount = 0; // Need to calculate from blocks
+    blockCount = blockIds.length;
+    preview = ''; // Initialize as empty string
   }
 
   void updateBlockIds(List<Id> newBlockIds) {
@@ -125,6 +129,18 @@ class Note {
   // Update word count (need to calculate from blocks)
   void updateWordCount(int newWordCount) {
     this.wordCount = newWordCount;
+    this.updatedAt = DateTime.now();
+  }
+
+  // Update preview field
+  void updatePreview(String newPreview) {
+    this.preview = newPreview;
+    this.updatedAt = DateTime.now();
+  }
+
+  // Clear preview field
+  void clearPreview() {
+    this.preview = '';
     this.updatedAt = DateTime.now();
   }
 } 

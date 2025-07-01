@@ -19,7 +19,7 @@ class Tag {
   Tag({
     required this.name,
   }) {
-    this.usageCount = 0;
+    usageCount = 0;
   }
 
   void incrementUsage() {

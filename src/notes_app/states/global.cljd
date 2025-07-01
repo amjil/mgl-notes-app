@@ -2,9 +2,12 @@
   (:require 
    [virtual-keyboard.options :as keyboard-options]))
 
+;; Global state management
+;; Use clearer grouping and comments to improve maintainability
 (def state
   (atom
    (merge keyboard-options/keyboard-state
+          ;; UI states
           {:tag-viewable false
            :show-keyboard false
            :show-stacked-keyboard false
@@ -14,8 +17,12 @@
            :show-system-keyboard false
            :tag-on-edit false
            :current-layout "mg"
-           ;; lock for bg-watcher text-controller
-           :edit-watcher/lock 2
-           :draft/tabbar-index 0
            
+           ;; Keyboard configuration
            :keyboard-height 0})))
+
+
+(def search-state (atom {:suggestions []
+                         :tags []
+                         :search-text ""
+                         :search-results []}))

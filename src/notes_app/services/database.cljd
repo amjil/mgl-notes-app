@@ -2,18 +2,23 @@
   (:require
    ["package:cljd_mgl_notes_app/services/database_service.dart" :as db]))
 
+;; Database service
+;; Provides interface for interaction with Isar database
+
 (def isar-instance (atom nil))
 
+;; Initialize database
 (defn init-database []
   (await (db.DatabaseService/initDatabase)))
 
 (defn get-isar []
   @isar-instance)
 
+;; Close database
 (defn close-database []
   (await (db.DatabaseService/closeDatabase)))
 
-;; Note operations
+;; === Note operations ===
 (defn create-note [note-data]
   (await (db.DatabaseService/createNote 
           :title (:title note-data)
@@ -38,7 +43,7 @@
 (defn search-notes [query]
   (await (db.DatabaseService/searchNotes query)))
 
-;; Block operations
+;; === Block operations ===
 (defn create-block [block-data]
   (await (db.DatabaseService/createBlock
           :blockId (:blockId block-data)
@@ -67,7 +72,7 @@
 (defn search-blocks [query]
   (await (db.DatabaseService/searchBlocks query)))
 
-;; Tag operations
+;; === Tag operations ===
 (defn create-tag [tag-data]
   (await (db.DatabaseService/createTag
           :name (:name tag-data))))
@@ -90,7 +95,7 @@
 (defn get-blocks-by-tag [tag-name]
   (await (db.DatabaseService/getBlocksByTag tag-name)))
 
-;; Recycle bin operations
+;; === Recycle bin operations ===
 (defn get-deleted-notes []
   (await (db.DatabaseService/getDeletedNotes)))
 
@@ -112,7 +117,7 @@
 (defn clear-recycle-bin []
   (await (db.DatabaseService/clearRecycleBin)))
 
-;; Daily stats operations
+;; === Daily stats operations ===
 (defn get-daily-stats [date]
   (await (db.DatabaseService/getDailyStats date)))
 
@@ -127,7 +132,7 @@
 (defn get-stats-range [start-date end-date]
   (await (db.DatabaseService/getStatsRange start-date end-date)))
 
-;; Link operations
+;; === Link operations ===
 (defn add-link-to-block [block-id link]
   (await (db.DatabaseService/addLinkToBlock block-id link)))
 
@@ -146,7 +151,7 @@
 (defn get-blocks-with-backlinks []
   (await (db.DatabaseService/getBlocksWithBacklinks)))
 
-;; Word count operations
+;; === Word count operations ===
 (defn calculate-word-count [content]
   (db.DatabaseService/calculateWordCount content))
 
@@ -156,7 +161,7 @@
 (defn update-note-word-count [note-id]
   (await (db.DatabaseService/updateNoteWordCount note-id)))
 
-;; Batch operations
+;; === Batch operations ===
 (defn update-note-block-ids [note-id block-ids]
   (await (db.DatabaseService/updateNoteBlockIds note-id block-ids)))
 
@@ -166,14 +171,14 @@
 (defn remove-block-from-note [note-id block-id]
   (await (db.DatabaseService/removeBlockFromNote note-id block-id)))
 
-;; Tag usage tracking
+;; === Tag usage tracking ===
 (defn increment-tag-usage [tag-name]
   (await (db.DatabaseService/incrementTagUsage tag-name)))
 
 (defn decrement-tag-usage [tag-name]
   (await (db.DatabaseService/decrementTagUsage tag-name)))
 
-;; Utility functions
+;; === Utility functions ===
 (defn generate-block-id []
   (db.DatabaseService/generateBlockId))
 

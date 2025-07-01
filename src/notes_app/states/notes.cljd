@@ -3,21 +3,34 @@
    [notes-app.services.database :as db]
    [notes-app.states.global :as gs]))
 
+;; Notes state management
 (def notes-state
   (atom {:notes []
          :current-note nil
          :loading false
          :error nil}))
-         
+
 (declare get-notes)
+
+;; Common error handling function
+(defn handle-error [error]
+  (swap! notes-state assoc :error (str error) :loading false)
+  (dart:core/print (str "Notes operation error: " error)))
+
+;; Common success handling function
+(defn handle-success [data]
+  (swap! notes-state assoc 
+         :notes data 
+         :loading false 
+         :error nil))
 
 (defn load-notes []
   (swap! notes-state assoc :loading true :error nil)
   (try
     (let [notes (await (db/get-all-notes))]
-      (swap! notes-state assoc :notes notes :loading false))
+      (handle-success notes))
     (catch Exception e
-      (swap! notes-state assoc :error (str e) :loading false))))
+      (handle-error e))))
 
 (defn create-note [note-data]
   (swap! notes-state assoc :loading true :error nil)
@@ -27,11 +40,11 @@
       (swap! notes-state assoc 
              :notes (conj current-notes note)
              :current-note note
-             :loading false)
+             :loading false
+             :error nil)
       (get-notes)) 
-    
     (catch Exception e
-      (swap! notes-state assoc :error (str e) :loading false))))
+      (handle-error e))))
 
 (defn update-note [note]
   (swap! notes-state assoc :loading true :error nil)
@@ -46,9 +59,10 @@
       (swap! notes-state assoc 
              :notes updated-notes
              :current-note note
-             :loading false))
+             :loading false
+             :error nil))
     (catch Exception e
-      (swap! notes-state assoc :error (str e) :loading false))))
+      (handle-error e))))
 
 (defn delete-note [id]
   (swap! notes-state assoc :loading true :error nil)
@@ -61,25 +75,26 @@
       (swap! notes-state assoc 
              :notes filtered-notes
              :current-note nil
-             :loading false))
+             :loading false
+             :error nil))
     (catch Exception e
-      (swap! notes-state assoc :error (str e) :loading false))))
+      (handle-error e))))
 
 (defn search-notes [query]
   (swap! notes-state assoc :loading true :error nil)
   (try
     (let [notes (await (db/search-notes query))]
-      (swap! notes-state assoc :notes notes :loading false))
+      (handle-success notes))
     (catch Exception e
-      (swap! notes-state assoc :error (str e) :loading false))))
+      (handle-error e))))
 
 (defn get-notes-by-date [date]
   (swap! notes-state assoc :loading true :error nil)
   (try
     (let [notes (await (db/get-notes-by-date date))]
-      (swap! notes-state assoc :notes notes :loading false))
+      (handle-success notes))
     (catch Exception e
-      (swap! notes-state assoc :error (str e) :loading false))))
+      (handle-error e))))
 
 (defn set-current-note [note]
   (swap! notes-state assoc :current-note note))

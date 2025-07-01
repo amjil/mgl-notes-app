@@ -120,6 +120,9 @@ class DatabaseService {
 
     await isar.writeTxn(() async {
       await isar.blocks.put(block);
+      
+      // If this is the first block, update the note's preview
+      await _updateNotePreviewIfFirstBlock(noteId, block);
     });
 
     return block;
@@ -153,23 +156,40 @@ class DatabaseService {
 
   static Future<List<Block>> getBlocksByIds(List<int> blockIds) async {
     return await isar.txn(() async {
-      return await isar.blocks
-          .filter()
-          .idIsIn(blockIds)
-          .isDeletedEqualTo(false)
-          .findAll();
+      final blocks = <Block>[];
+      for (final id in blockIds) {
+        final block = await isar.blocks
+            .filter()
+            .idEqualTo(id)
+            .isDeletedEqualTo(false)
+            .findFirst();
+        if (block != null) {
+          blocks.add(block);
+        }
+      }
+      return blocks;
     });
   }
 
   static Future<void> updateBlock(Block block) async {
     await isar.writeTxn(() async {
       await isar.blocks.put(block);
+      
+      // After updating block, check if we need to update the note's preview
+      await _updateNotePreviewIfFirstBlock(block.noteId, block);
     });
   }
 
   static Future<void> deleteBlock(int id) async {
     await isar.writeTxn(() async {
-      await isar.blocks.delete(id);
+      final block = await isar.blocks.get(id);
+      if (block != null) {
+        final noteId = block.noteId;
+        await isar.blocks.delete(id);
+        
+        // After deleting block, check if we need to update the note's preview
+        await _updateNotePreviewIfFirstBlock(noteId, block);
+      }
     });
   }
 
@@ -508,8 +528,8 @@ class DatabaseService {
     
     await isar.writeTxn(() async {
       final note = await isar.notes.get(noteId);
+      note?.updateWordCount(wordCount);
       if (note != null) {
-        note.updateWordCount(wordCount);
         await isar.notes.put(note);
       }
     });
@@ -530,8 +550,17 @@ class DatabaseService {
     await isar.writeTxn(() async {
       final note = await isar.notes.get(noteId);
       if (note != null) {
+        final wasEmpty = note.blockIds.isEmpty;
         note.addBlockId(blockId);
         await isar.notes.put(note);
+        
+        // If there were no blocks before, now we have the first block, update preview
+        if (wasEmpty) {
+          final block = await isar.blocks.get(blockId);
+          if (block != null) {
+            await _updateNotePreviewIfFirstBlock(noteId, block);
+          }
+        }
       }
     });
   }
@@ -542,6 +571,9 @@ class DatabaseService {
       if (note != null) {
         note.removeBlockId(blockId);
         await isar.notes.put(note);
+        
+        // After removing block, update preview
+        await updateNotePreview(noteId);
       }
     });
   }
@@ -573,6 +605,115 @@ class DatabaseService {
       if (tag != null) {
         tag.decrementUsage();
         await isar.tags.put(tag);
+      }
+    });
+  }
+
+  // Get the first block of a note
+  static Future<Block?> getFirstBlockOfNote(int noteId) async {
+    return await isar.txn(() async {
+      final note = await isar.notes.get(noteId);
+      if (note == null || note.blockIds.isEmpty) {
+        return null;
+      }
+      
+      // Use the first ID from note.blockIds to get the first block
+      final firstBlockId = note.blockIds.first;
+      return await isar.blocks
+          .filter()
+          .idEqualTo(firstBlockId)
+          .isDeletedEqualTo(false)
+          .findFirst();
+    });
+  }
+
+  // Check if the block is the first block of the note, if so update the preview
+  static Future<void> _updateNotePreviewIfFirstBlock(int noteId, Block updatedBlock) async {
+    final note = await isar.notes.get(noteId);
+    if (note == null || note.blockIds.isEmpty) {
+      return;
+    }
+    
+    // Check if the updated block is the first block of the note
+    if (note.blockIds.first == updatedBlock.id) {
+      // This is the first block, update the note's preview
+      // Limit preview length to avoid it being too long
+      final preview = updatedBlock.content.length > 200 
+          ? '${updatedBlock.content.substring(0, 200)}...' 
+          : updatedBlock.content;
+      note.updatePreview(preview);
+      await isar.notes.put(note);
+    }
+  }
+
+  // Manually update the note's preview
+  static Future<void> updateNotePreview(int noteId) async {
+    await isar.writeTxn(() async {
+      final note = await isar.notes.get(noteId);
+      if (note == null) {
+        return;
+      }
+      
+      if (note.blockIds.isNotEmpty) {
+        // Get the first block
+        final firstBlockId = note.blockIds.first;
+        final firstBlock = await isar.blocks
+            .filter()
+            .idEqualTo(firstBlockId)
+            .isDeletedEqualTo(false)
+            .findFirst();
+        
+        if (firstBlock != null) {
+          // Limit preview length to avoid it being too long
+          final preview = firstBlock.content.length > 200 
+              ? '${firstBlock.content.substring(0, 200)}...' 
+              : firstBlock.content;
+          note.updatePreview(preview);
+        } else {
+          // Block doesn't exist, clear preview
+          note.clearPreview();
+        }
+      } else {
+        // No blocks, clear preview
+        note.clearPreview();
+      }
+      
+      await isar.notes.put(note);
+    });
+  }
+
+  // Batch update previews for all notes
+  static Future<void> updateAllNotePreviews() async {
+    await isar.writeTxn(() async {
+      final notes = await isar.notes
+          .filter()
+          .isDeletedEqualTo(false)
+          .findAll();
+      
+      for (final note in notes) {
+        if (note.blockIds.isNotEmpty) {
+          // Get the first block
+          final firstBlockId = note.blockIds.first;
+          final firstBlock = await isar.blocks
+              .filter()
+              .idEqualTo(firstBlockId)
+              .isDeletedEqualTo(false)
+              .findFirst();
+          
+          if (firstBlock != null) {
+            // Limit preview length to avoid it being too long
+            final preview = firstBlock.content.length > 200 
+                ? '${firstBlock.content.substring(0, 200)}...' 
+                : firstBlock.content;
+            note.updatePreview(preview);
+          } else {
+            note.clearPreview();
+          }
+        } else {
+          note.clearPreview();
+        }
+        
+        await isar.notes.put(note);
       }
     });
   }
