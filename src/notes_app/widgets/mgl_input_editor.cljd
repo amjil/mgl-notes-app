@@ -1,23 +1,19 @@
 (ns notes-app.widgets.mgl-input-editor
-  (:require [cljd.flutter :as f]
-            [virtual-keyboard.keyboard :as keyboard]
-            [menu-bar.menu :as menu]
-            [virtual-keyboard.options :as options]
-            [virtual-keyboard.input-control :as control]
-            [virtual-keyboard.keyboard-action :as keyboard-action]
-            ["package:mongol/mongol.dart" :as mgl]
-            ["package:flutter/material.dart" :as m]))
+  (:require
+   ["package:mongol/mongol.dart" :as mgl]
+   ["package:flutter/material.dart" :as m]
+   [notes-app.widgets.mgl-keyboard :as keyboard]
+   [cljd.flutter :as f]))
 
+;; Input editor component
+;; Provides better code organization and performance optimization
 (defn input-editor
   [{:keys [controller on-changed autofocus? placeholder]}]
   (f/widget
    :context ctx
-   :get [:info :state]
-   :let [width (-> m/MediaQuery (.of ctx) .-size .-width)
-         theme (-> m/Theme (.of ctx))
+   :get [:state]
+   :let [theme (-> m/Theme (.of ctx))
          color-scheme (.-colorScheme theme)]
-   :watch [{candidates-list :keyboard/candidates-list} state
-           visible control/visible]
    (m/SafeArea
     .child
     (m/Center
@@ -30,6 +26,7 @@
           .child
           (mgl/MongolTextField
            .controller controller
+           .maxLines 500
            .maxLength 2000
            .autofocus (boolean autofocus?)
            .onChanged (fn [val] (when on-changed (on-changed val)))
@@ -43,22 +40,5 @@
                         .border (m/OutlineInputBorder)
                         .fillColor (.-surface color-scheme)
                         .filled true)))
-         (m/Visibility
-          .visible visible
-          .child
-          (m/FocusScope
-           .canRequestFocus false
-           .child
-           (m/TextFieldTapRegion
-            .child
-            (m/Container
-             .color (.-surfaceVariant color-scheme)
-             .child
-             (keyboard/keyboard {:custom-fns {}})))))])
-       (m/Positioned
-        .bottom (+ options/keyboard-default-height (* 4 (+ 4 (:keyboard/row-vertical-padding info))))
-        .right (/ width 4)
-        .child
-        (menu/menu {:bar {:elavation 10}
-                    :item {:on-tap (fn [x] (keyboard-action/on-candidates-clicked x state))}}
-                   candidates-list))])))))
+         (keyboard/keyboard)])
+       (keyboard/candidates-panel)])))))

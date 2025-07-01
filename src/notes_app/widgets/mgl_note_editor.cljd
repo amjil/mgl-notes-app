@@ -4,6 +4,8 @@
             [notes-app.widgets.mgl-input-editor :as input-editor]
             [notes-app.utils.diff-utils :as diff-utils]))
 
+;; Note editor component
+;; Provides better code organization and performance optimization
 (defn note-editor
   [{:keys [initial-blocks on-save on-cancel]}]
   (let [has-changed-atom (atom false)]
@@ -23,47 +25,43 @@
        .title nil
        .actions
        [(m/Row
-          .mainAxisAlignment m/MainAxisAlignment.spaceBetween
-          .mainAxisSize m/MainAxisSize.max
-          .children
-          [(m/IconButton
-            .onPressed (when has-changed
-                         (fn []
-                           (let [new-text (.-text controller)
-                                 diff-result (diff-utils/rebuild-blocks-from-diff initial-blocks new-text)]
-                             (reset! has-changed-atom false)
-                             (when on-save (on-save diff-result)))))
-            .icon (m/Icon
-                   m/Icons.save
-                   .color (if has-changed
-                            (.-onPrimary color-scheme)
-                            (.-onSurfaceVariant color-scheme)))
-            .style (m/ButtonStyle
-                    .backgroundColor (m/MaterialStateProperty.all
+         .mainAxisAlignment m/MainAxisAlignment.spaceBetween
+         .mainAxisSize m/MainAxisSize.max
+         .children
+         [(m/IconButton
+           .onPressed (when has-changed
+                        (fn []
+                          (let [new-text (.-text controller)
+                                diff-result (diff-utils/rebuild-blocks-from-diff initial-blocks new-text)]
+                            (reset! has-changed-atom false)
+                            (when on-save (on-save diff-result)))))
+           .icon (m/Icon
+                  m/Icons.save
+                  .color (if has-changed
+                           (.-onPrimary color-scheme)
+                           (.-onSurfaceVariant color-scheme)))
+           .style (m/ButtonStyle
+                   .backgroundColor (m/MaterialStateProperty.all
                                      (if has-changed
                                        (.-primary color-scheme)
                                        (.-surfaceVariant color-scheme)))))
-           (m/IconButton
-            .onPressed (fn []
-                         (reset! has-changed-atom false)
-                         (when on-cancel (on-cancel)))
-            .icon (m/Icon
-                   m/Icons.close
-                   .color (.-onSurface color-scheme))
-            .style (m/ButtonStyle
-                    .backgroundColor (m/MaterialStateProperty.all (.-surfaceVariant color-scheme))))])])
+          (m/IconButton
+           .onPressed (fn []
+                        (reset! has-changed-atom false)
+                        (when on-cancel (on-cancel)))
+           .icon (m/Icon
+                  m/Icons.close
+                  .color (.-onSurface color-scheme))
+           .style (m/ButtonStyle
+                   .backgroundColor (m/MaterialStateProperty.all (.-surfaceVariant color-scheme))))])])
       .body
-      (m/Container
-       .padding (m/EdgeInsets.all 16)
-       .child
-       (input-editor/input-editor
-        {:controller controller
-         :autofocus? true
-         :placeholder "Start writing..."
-         :on-changed (fn [text]
-                       (let [changed (diff-utils/has-text-changed? initial-blocks text)]
-                         (reset! has-changed-atom changed)))})))))) 
-
+      (input-editor/input-editor
+       {:controller controller
+        :autofocus? true
+        :placeholder "Start writing..."
+        :on-changed (fn [text]
+                      (let [changed (diff-utils/has-text-changed? initial-blocks text)]
+                        (reset! has-changed-atom changed)))})))))
 
 ;; Usage example
 (defn example-usage []

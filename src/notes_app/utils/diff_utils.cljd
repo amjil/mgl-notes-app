@@ -4,11 +4,12 @@
    ["package:uuid/uuid.dart" :as uuid]
    [clojure.string :as str]))
 
+;; Constant definitions
 (def separator "\n")
 (def ^uuid/Uuid uuid-instance (uuid/Uuid.))
 (def ^dmp/DiffMatchPatch dmp-instance (dmp/DiffMatchPatch.))
 
-;; === Diff Logic: rebuild blocks from diff ===
+;; === Diff logic: rebuild blocks from diff ===
 (defn rebuild-blocks-from-diff [old-blocks new-text]
   (let [old-text (str/join separator (map :content old-blocks))
         diffs (.diff dmp-instance old-text new-text)
@@ -40,12 +41,12 @@
         (let [chunk (first chunks)
               idx (.indexOf remaining chunk)]
           (if (= idx -1)
-            ;; new paragraph, generate new block-id
+            ;; New paragraph, generate new block-id
             (recur (rest chunks)
                    (conj result {:block-id (.v4 uuid-instance) :content chunk})
                    remaining
                    reused-blocks)
-            ;; reuse old block-id
+            ;; Reuse old block-id
             (let [found (some #(when (str/includes? (second %) chunk)) diff-list)
                   op (first found)
                   old-block (first reused-blocks)
@@ -62,22 +63,22 @@
                        (rest reused-blocks)
                        reused-blocks)))))))))
 
-;; split text into blocks
+;; Split text into blocks
 (defn text-to-blocks [text]
   (->> (str/split text separator)
        (mapv str/trim)
        (filterv #(not (str/blank? %)))
        (mapv #(hash-map :block-id (.v4 uuid-instance) :content %))))
 
-;; merge blocks into text
+;; Merge blocks into text
 (defn blocks-to-text [blocks]
   (str/join separator (map :content blocks)))
 
-;; generate new block-id
+;; Generate new block-id
 (defn generate-block-id []
   (.v4 uuid-instance))
 
-;; check if text has changed
+;; Check if text has changed
 (defn has-text-changed? [old-blocks new-text]
   (let [old-text (blocks-to-text old-blocks)]
     (not= old-text new-text))) 
