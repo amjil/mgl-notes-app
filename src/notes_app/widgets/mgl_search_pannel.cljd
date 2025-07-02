@@ -2,54 +2,85 @@
   (:require
    ["package:flutter/material.dart" :as m]
    ["package:mongol/mongol.dart" :as mgl]
+   [clojure.string :as str]
    [notes-app.widgets.mgl-keyboard :as keyboard]
    [notes-app.widgets.mgl-suggestion-panel :as suggestion-panel]
    [notes-app.widgets.mgl-note-item :as note-item]
+   [notes-app.widgets.mgl-infinite-scroll :as infinite-scroll]
+   [notes-app.widgets.mgl-text-input :as text-input]
    [notes-app.states.global :as gs]
+   [notes-app.states.notes :as notes-state]
    [cljd.flutter :as f]))
 
+;; ==================== Search specific functions ====================
 
+;; Check if should trigger load more for search results
+(defn should-load-more-search? []
+  (and (notes-state/has-more?)
+       (not (notes-state/loading-more?))))
+
+;; Load more search results trigger function
+(defn load-more-search-trigger []
+  (when (should-load-more-search?)
+    (let [search-query (:search-query @gs/state)]
+      (when (not (str/blank? search-query))
+        (notes-state/search-notes-infinite search-query :append? true)))))
+
+;; Search result item builder
+(defn search-result-item-builder [result]
+  (note-item/note-item result))
+
+;; Handle search input change
+(defn handle-search-change [val]
+  ;; Update search query in global state
+  (swap! gs/state assoc :search-query val)
+  ;; Perform search with pagination
+  (when (not (str/blank? val))
+    (notes-state/search-notes-paginated val :page 1 :pageSize 20))
+  ;; Clear search results if query is empty
+  (when (str/blank? val)
+    (swap! gs/search-state assoc :search-results [])))
+
+;; Handle search input tap
+(defn handle-search-tap []
+  (swap! gs/state assoc :keyboard/candidates-list [])
+  (dart:core/print "onTap MongolTextField"))
+
+;; ==================== Search result panel widget ====================
+
+;; Search result panel with infinite scroll
 (defn search-result-panel []
   (f/widget 
-   :watch [{search-results :search-results} gs/search-state]
+   :watch [{search-results :search-results} gs/search-state
+           {infinite-scroll :infinite-scroll} notes-state/notes-state]
+   :managed [scroll-controller (infinite-scroll/create-scroll-controller load-more-search-trigger)]
    (if (empty? search-results)
      (suggestion-panel/suggestion-panel)
-     (m/ListView.builder 
-      .scrollDirection m/Axis.horizontal
-      .itemCount (count search-results)
-      .itemBuilder (fn [_ index]
-                     (let [result (nth search-results index)]
-                       (note-item/note-item result)))))))
+     (infinite-scroll/infinite-scroll-list
+      {:items search-results
+       :scroll-controller scroll-controller
+       :scroll-direction m/Axis.horizontal
+       :item-builder search-result-item-builder
+       :loading-more? (:loading-more infinite-scroll)
+       :has-more? (:has-more infinite-scroll)
+       :all-loaded? (:all-loaded infinite-scroll)
+       :load-more-indicator (infinite-scroll/load-more-indicator infinite-scroll/search-loading-more-text)
+       :all-loaded-indicator (infinite-scroll/all-loaded-indicator infinite-scroll/search-all-loaded-text)}))))
 
+;; ==================== Search panel widget ====================
+
+;; Search panel with enhanced functionality
 (defn search-pannel []
   (f/widget
    :managed [controller (m/TextEditingController.)]
-   :context ctx
-   :let [theme (-> m/Theme (.of ctx))
-         color-scheme (.-colorScheme theme)]
-   :watch [{search-results :search-results} gs/search-state]
    (m/Stack
     .children
     [(m/Column
       .children
       [(m/Row
         .children
-        [(mgl/MongolTextField
-          .controller controller
-          .maxLines 500
-          .maxLength 2000
-          ;;  .onChanged (fn [val] (when on-changed (on-changed val)))
-          .onTap (fn []
-                   (swap! gs/state assoc :keyboard/candidates-list [])
-                   (dart:core/print "onTap MongolTextField"))
-          .style (m/TextStyle
-                  .fontSize 20
-                  .color (.-onSurface color-scheme))
-          .decoration (m/InputDecoration
-                       .border (m/OutlineInputBorder)
-                       .fillColor (.-surface color-scheme)
-                       .filled true))
+        [(text-input/search-text-field controller handle-search-change handle-search-tap)
          (m/Expanded
           .child (search-result-panel))])
        (keyboard/keyboard)])
-     (keyboard/candidates-panel)])))
+     (keyboard/candidates-panel)]))) 

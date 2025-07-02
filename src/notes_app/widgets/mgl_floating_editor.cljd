@@ -5,32 +5,9 @@
    [notes-app.states.notes :as notes-state]
    [notes-app.widgets.mgl-input-editor :as mgl-input-editor]))
 
-(def floating-editor-state
-  (atom {:content ""
-         :tags []}))
+(declare save-note)
 
-(defn get-first-block-as-title [content]
-  (if (not-empty content)
-    (let [lines (clojure.string/split-lines content)
-          first-line (first lines)]
-      (if (not-empty first-line)
-        (clojure.string/trim first-line)
-        "Шинэ тэмдэглэл"))
-    "Шинэ тэмдэглэл"))
-
-(defn save-note [context]
-  (let [content (:content @floating-editor-state)
-        tags (:tags @floating-editor-state)
-        title (get-first-block-as-title content)]
-    (when (not-empty content)
-      (notes-state/create-note
-       {:title title
-        :content content
-        :tags tags})
-      (swap! floating-editor-state assoc
-             :content ""
-             :tags [])
-      (-> m/Navigator (.of context) (.pop)))))
+(def has-changed-atom (atom false))
 
 (defn floating-editor-dialog [context]
   (f/widget
@@ -38,7 +15,9 @@
    :let [screen-height (-> m/MediaQuery (.of ctx) .-size .-height)
          screen-width (-> m/MediaQuery (.of ctx) .-size .-width)
          theme (-> m/Theme (.of ctx))
-         color-scheme (.-colorScheme theme)]
+         color-scheme (.-colorScheme theme)] 
+   :watch [has-changed has-changed-atom]
+   :managed [controller (m/TextEditingController.)]
    (m/Dialog
     .backgroundColor m/Colors.transparent
     .insetPadding (m/EdgeInsets.zero)
@@ -52,7 +31,7 @@
      (m/Column
       .children
       [(m/Container
-        .padding (m/EdgeInsets.all 8)
+        .padding (m/EdgeInsets.all 0)
         .decoration (m/BoxDecoration
                      .color (.-surfaceVariant color-scheme)
                      .border (m/Border
@@ -65,18 +44,28 @@
          .children
          [(m/IconButton
            .icon (m/Icon m/Icons.save)
-           .color (.-primary color-scheme)
-           .onPressed (fn [] (save-note context)))
+           .color (if has-changed
+                    (.-onPrimary color-scheme)
+                    (.-onSurfaceVariant color-scheme))
+           .style (m/ButtonStyle
+                   .backgroundColor (m/MaterialStateProperty.all
+                                     (if has-changed
+                                       (.-primary color-scheme)
+                                       (.-surfaceVariant color-scheme))))
+           .onPressed (fn [] (save-note context controller)))
           (m/IconButton
            .icon (m/Icon m/Icons.close)
-           .color (.-onSurfaceVariant color-scheme)
+           .icon .color (.-onSurface color-scheme)
+           .style (m/ButtonStyle
+                   .backgroundColor (m/MaterialStateProperty.all (.-surfaceVariant color-scheme)))
            .onPressed (fn [] (-> m/Navigator (.of context) (.pop))))]))
        (m/Expanded
         .child
         (mgl-input-editor/input-editor
-         {:controller nil
-          :on-changed (fn [content]
-                        (swap! floating-editor-state assoc :content content))
+         {:controller controller
+          :on-changed (fn [_]
+                        (when (not= @has-changed-atom true)
+                          (reset! has-changed-atom true)))
           :auto-focus true}))])))))
 
 (defn show-floating-editor [context]
@@ -91,3 +80,17 @@
     .onPressed (fn [] (show-floating-editor context))
     .child (m/Icon m/Icons.add)
     .tooltip "Шинэ тэмдэглэл"))) 
+
+(defn save-note [context controller & [old-blocks]]
+  (let [content (.-text controller)
+        result (notes-state/save-note content old-blocks)]
+    (when (:success result)
+      ;; Reset state and close dialog
+      (reset! has-changed-atom false)
+      (-> m/Navigator (.of context) (.pop))
+      ;; Optional: show success message
+      (when (:error result)
+        (dart:core/print (str "Error saving note: " (:error result)))))))
+
+(defn on-save [context old-blocks controller]
+  (save-note context controller old-blocks))

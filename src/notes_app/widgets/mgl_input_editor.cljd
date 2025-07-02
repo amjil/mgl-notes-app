@@ -3,7 +3,17 @@
    ["package:mongol/mongol.dart" :as mgl]
    ["package:flutter/material.dart" :as m]
    [notes-app.widgets.mgl-keyboard :as keyboard]
+   [notes-app.widgets.mgl-text-input :as text-input]
    [cljd.flutter :as f]))
+
+;; ==================== Input editor specific functions ====================
+
+;; Handle input tap event
+(defn handle-input-tap [state]
+  (swap! state assoc :keyboard/candidates-list [])
+  (dart:core/print "onTap MongolTextField"))
+
+;; ==================== Input editor widget ====================
 
 ;; Input editor component
 ;; Provides better code organization and performance optimization
@@ -24,21 +34,10 @@
         .children
         [(m/Expanded
           .child
-          (mgl/MongolTextField
-           .controller controller
-           .maxLines 500
-           .maxLength 2000
-           .autofocus (boolean autofocus?)
-           .onChanged (fn [val] (when on-changed (on-changed val)))
-           .onTap (fn []
-                    (swap! state assoc :keyboard/candidates-list [])
-                    (dart:core/print "onTap MongolTextField"))
-           .style (m/TextStyle 
-                   .fontSize 20
-                   .color (.-onSurface color-scheme))
-           .decoration (m/InputDecoration 
-                        .border (m/OutlineInputBorder)
-                        .fillColor (.-surface color-scheme)
-                        .filled true)))
+          (text-input/input-editor-text-field
+           controller
+           (fn [val] (when on-changed (on-changed val)))
+           (fn [] (handle-input-tap state))
+           :autofocus autofocus?))
          (keyboard/keyboard)])
        (keyboard/candidates-panel)])))))

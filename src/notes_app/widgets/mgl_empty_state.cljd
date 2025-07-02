@@ -1,0 +1,57 @@
+(ns notes-app.widgets.mgl-empty-state
+  (:require
+   ["package:flutter/material.dart" :as m]
+   ["package:mongol/mongol.dart" :as mgl]
+   [cljd.flutter :as f]))
+
+;; ==================== Empty state widget ====================
+
+;; Generic empty state widget
+(defn empty-state [{:keys [message
+                           icon
+                           icon-size
+                           text-size
+                           font-weight
+                           color]}]
+  (f/widget
+   :context ctx
+   :let [theme (-> m/Theme (.of ctx))
+         color-scheme (.-colorScheme theme)]
+   (m/Center
+    .child (m/Column
+            .mainAxisAlignment m/MainAxisAlignment.center
+            .children [(when icon
+                         (m/Icon
+                          .icon icon
+                          .size (or icon-size 48)
+                          .color (or color (.-onSurfaceVariant color-scheme))))
+                       (when icon
+                         (m/SizedBox .height 16))
+                       (mgl/MongolText
+                        message
+                        .style (m/TextStyle
+                                .fontSize (or text-size 20)
+                                .fontWeight (or font-weight m/FontWeight.w500)
+                                .color (or color (.-onSurface color-scheme))))]))))
+
+;; ==================== Common empty states ====================
+
+;; Empty notes state
+(defn empty-notes []
+  (empty-state {:message "Тэмдэглэл байхгүй"
+                :icon m/Icons.note_outlined}))
+
+;; Empty search results state
+(defn empty-search-results []
+  (empty-state {:message "Хайлтын үр дүн олдсонгүй"
+                :icon m/Icons.search_off_outlined}))
+
+;; Empty tags state
+(defn empty-tags []
+  (empty-state {:message "Тэг байхгүй"
+                :icon m/Icons.tag_outlined}))
+
+;; Empty blocks state
+(defn empty-blocks []
+  (empty-state {:message "Блок байхгүй"
+                :icon m/Icons.block_outlined}))

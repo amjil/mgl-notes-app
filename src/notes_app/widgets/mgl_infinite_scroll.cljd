@@ -1,0 +1,98 @@
+(ns notes-app.widgets.mgl-infinite-scroll
+  (:require
+   ["package:flutter/material.dart" :as m]
+   ["package:mongol/mongol.dart" :as mgl]
+   [cljd.flutter :as f]))
+
+;; ==================== Scroll controller management ====================
+
+;; Create scroll controller with listener
+(defn create-scroll-controller [on-scroll-trigger]
+  (let [scroll-controller (m/ScrollController.)]
+    (.addListener scroll-controller
+                  (fn []
+                    (let [position (.-position scroll-controller)
+                          max-scroll-extent (.-maxScrollExtent position)
+                          pixels (.-pixels position)]
+                      ;; Load more when user scrolls to 80% of the list
+                      (when (and (>= pixels (* max-scroll-extent 0.8))
+                                (on-scroll-trigger))
+                        (on-scroll-trigger)))))
+    scroll-controller))
+
+;; ==================== Loading indicators ====================
+
+;; Generic load more indicator
+(defn load-more-indicator [loading-text]
+  (f/widget
+   :context ctx
+   :let [theme (-> m/Theme (.of ctx))
+         color-scheme (.-colorScheme theme)]
+   (m/Container
+    .padding (m/EdgeInsets.all 16)
+    .child (m/Row
+            .mainAxisAlignment m/MainAxisAlignment.center
+            .children [(m/CircularProgressIndicator
+                        .strokeWidth 2
+                        .valueColor (m/AlwaysStoppedAnimation (.-primary color-scheme)))
+                       (m/SizedBox .width 16)
+                       (mgl/MongolText
+                        loading-text
+                        .style (m/TextStyle
+                                .fontSize 14
+                                .color (.-onSurface color-scheme)))]))))
+
+;; Generic all loaded indicator
+(defn all-loaded-indicator [all-loaded-text]
+  (f/widget
+   :context ctx
+   :let [theme (-> m/Theme (.of ctx))
+         color-scheme (.-colorScheme theme)]
+   (m/Container
+    .padding (m/EdgeInsets.all 16)
+    .child (m/Center
+            .child (mgl/MongolText
+                    all-loaded-text
+                    .style (m/TextStyle
+                            .fontSize 14
+                            .fontWeight m/FontWeight.w500
+                            .color (.-onSurfaceVariant color-scheme)))))))
+
+;; ==================== Infinite scroll list builder ====================
+
+;; Generic infinite scroll list builder
+(defn infinite-scroll-list [{:keys [items
+                                   scroll-controller
+                                   scroll-direction
+                                   padding
+                                   item-builder
+                                   loading-more?
+                                   has-more?
+                                   all-loaded?
+                                   load-more-indicator
+                                   all-loaded-indicator]}]
+  (m/ListView.builder
+   .controller scroll-controller
+   .scrollDirection (or scroll-direction m/Axis.horizontal)
+   .padding (or padding (m/EdgeInsets.symmetric .horizontal 16))
+   .itemCount (if all-loaded?
+                (count items)
+                (inc (count items)))
+   .itemBuilder (fn [_ index]
+                  (if (and (= index (count items))
+                           (not all-loaded?))
+                    ;; Show load more indicator or all loaded indicator
+                    (if loading-more?
+                      load-more-indicator
+                      (if has-more?
+                        load-more-indicator
+                        all-loaded-indicator))
+                    ;; Show item
+                    (item-builder (nth items index))))))
+
+;; ==================== Common text constants ====================
+
+(def loading-more-text "Илүү их ачаалж байна...")
+(def all-loaded-text "Бүх тэмдэглэл дууссан")
+(def search-loading-more-text "Хайлтын үр дүнг ачаалж байна...")
+(def search-all-loaded-text "Бүх хайлтын үр дүн дууссан")

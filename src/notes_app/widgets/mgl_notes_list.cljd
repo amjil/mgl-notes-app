@@ -4,34 +4,57 @@
    ["package:mongol/mongol.dart" :as mgl]
    [cljd.flutter :as f]
    [notes-app.widgets.mgl-note-item :as note-item]
+   [notes-app.widgets.mgl-infinite-scroll :as infinite-scroll]
+   [notes-app.widgets.mgl-empty-state :as empty-state]
+   [notes-app.widgets.mgl-loading-state :as loading-state]
    [notes-app.states.notes :as notes-state]))
 
+;; ==================== Notes list specific functions ====================
 
+;; Check if should trigger load more for notes
+(defn should-load-more-notes? []
+  (and (notes-state/has-more?)
+       (not (notes-state/loading-more?))))
+
+;; Load more notes trigger function
+(defn load-more-notes-trigger []
+  (when (should-load-more-notes?)
+    (notes-state/load-more-notes)))
+
+;; Note item builder
+(defn note-item-builder [note]
+  (note-item/note-item note))
+
+;; ==================== Notes list widget ====================
+
+;; Notes list with infinite scroll
 (defn notes-list []
   (f/widget
    :context ctx
    :let [theme (-> m/Theme (.of ctx))
          color-scheme (.-colorScheme theme)]
    :watch [{notes :notes
-            loading :loading} notes-state/notes-state]
+            loading :loading
+            infinite-scroll :infinite-scroll} notes-state/notes-state]
+   :managed [scroll-controller (infinite-scroll/create-scroll-controller load-more-notes-trigger)]
    (if loading
-     (m/Center
-      .child (m/CircularProgressIndicator))
+     (loading-state/loading-indicator-themed)
      (if (empty? notes)
-       (m/Center
-        .child (mgl/MongolText
-                "Тэмдэглэл байхгүй"
-                .style (m/TextStyle
-                        .fontSize 20
-                        .fontWeight m/FontWeight.w500
-                        .color (.-onSurface color-scheme))))
-       (m/ListView.builder
-        .scrollDirection m/Axis.horizontal
-        .padding (m/EdgeInsets.symmetric .horizontal 16)
-        .itemCount (count notes)
-        .itemBuilder (fn [_ index]
-                       (note-item/note-item (nth notes index))))))))
+       (empty-state/empty-notes)
+       (infinite-scroll/infinite-scroll-list
+        {:items notes
+         :scroll-controller scroll-controller
+         :scroll-direction m/Axis.horizontal
+         :item-builder note-item-builder
+         :loading-more? (:loading-more infinite-scroll)
+         :has-more? (:has-more infinite-scroll)
+         :all-loaded? (:all-loaded infinite-scroll)
+         :load-more-indicator (infinite-scroll/load-more-indicator infinite-scroll/loading-more-text)
+         :all-loaded-indicator (infinite-scroll/all-loaded-indicator infinite-scroll/all-loaded-text)})))))
 
+;; ==================== Container widget ====================
+
+;; Notes list container
 (defn notes-list-container []
   (f/widget
    (m/Expanded

@@ -1,0 +1,44 @@
+(ns notes-app.widgets.mgl-loading-state
+  (:require
+   ["package:flutter/material.dart" :as m]
+   [cljd.flutter :as f]))
+
+;; ==================== Loading state widgets ====================
+
+;; Simple loading indicator
+(defn loading-indicator []
+  (f/widget
+   (m/Center
+    .child (m/CircularProgressIndicator))))
+
+;; Loading indicator with custom size
+(defn loading-indicator-sized [size]
+  (f/widget
+   (m/Center
+    .child (m/CircularProgressIndicator
+            .strokeWidth size))))
+
+;; Loading indicator with custom color
+(defn loading-indicator-colored [color]
+  (f/widget
+   (m/Center
+    .child (m/CircularProgressIndicator
+            .valueColor (m/AlwaysStoppedAnimation color)))))
+
+;; Loading indicator with custom size and color
+(defn loading-indicator-custom [size color]
+  (f/widget
+   (m/Center
+    .child (m/CircularProgressIndicator
+            .strokeWidth size
+            .valueColor (m/AlwaysStoppedAnimation color)))))
+
+;; Loading indicator with theme color
+(defn loading-indicator-themed []
+  (f/widget
+   :context ctx
+   :let [theme (-> m/Theme (.of ctx))
+         color-scheme (.-colorScheme theme)]
+   (m/Center
+    .child (m/CircularProgressIndicator
+            .valueColor (m/AlwaysStoppedAnimation (.-primary color-scheme))))))

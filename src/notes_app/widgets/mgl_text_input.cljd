@@ -1,0 +1,143 @@
+(ns notes-app.widgets.mgl-text-input
+  (:require
+   ["package:flutter/material.dart" :as m]
+   ["package:mongol/mongol.dart" :as mgl]
+   [cljd.flutter :as f]))
+
+;; ==================== Text input widget ====================
+
+;; Generic Mongol text field
+(defn mongol-text-field [{:keys [controller
+                                 max-lines
+                                 max-length
+                                 on-changed
+                                 on-tap
+                                 style
+                                 decoration
+                                 enabled
+                                 read-only
+                                 autofocus]}]
+  (mgl/MongolTextField
+   .controller controller
+   .maxLines (or max-lines 1)
+   .maxLength (or max-length 1000)
+   .onChanged on-changed
+   .onTap on-tap
+   .style style
+   .decoration decoration
+   .enabled (if (some? enabled) enabled true)
+   .readOnly (if (some? read-only) read-only false)
+   .autofocus (if (some? autofocus) (boolean autofocus) false)))
+
+;; ==================== Common text field styles ====================
+
+;; Default text field style
+(defn default-text-style [color]
+  (m/TextStyle
+   .fontSize 20
+   .color color))
+
+;; Large text field style
+(defn large-text-style [color]
+  (m/TextStyle
+   .fontSize 24
+   .fontWeight m/FontWeight.w500
+   .color color))
+
+;; Small text field style
+(defn small-text-style [color]
+  (m/TextStyle
+   .fontSize 16
+   .color color))
+
+;; ==================== Common text field decorations ====================
+
+;; Default input decoration
+(defn default-input-decoration [fill-color]
+  (m/InputDecoration
+   .border (m/OutlineInputBorder)
+   .fillColor fill-color
+   .filled true))
+
+;; Rounded input decoration
+(defn rounded-input-decoration [fill-color]
+  (m/InputDecoration
+   .border (m/OutlineInputBorder
+            .borderRadius (m/BorderRadius.circular 12))
+   .fillColor fill-color
+   .filled true))
+
+;; No border input decoration
+(defn no-border-input-decoration [fill-color]
+  (m/InputDecoration
+   .border m/InputBorder.none
+   .fillColor fill-color
+   .filled true))
+
+;; ==================== Pre-configured text fields ====================
+
+;; Search text field
+(defn search-text-field [controller on-changed on-tap & {:keys [autofocus]
+                                                         :or {autofocus false}}]
+  (f/widget
+   :context ctx
+   :let [theme (-> m/Theme (.of ctx))
+         color-scheme (.-colorScheme theme)]
+   (mongol-text-field
+    {:controller controller
+     :max-lines 500
+     :max-length 2000
+     :autofocus autofocus
+     :on-changed on-changed
+     :on-tap on-tap
+     :style (default-text-style (.-onSurface color-scheme))
+     :decoration (default-input-decoration (.-surface color-scheme))})))
+
+;; Note title text field
+(defn note-title-text-field [controller on-changed & {:keys [autofocus]
+                                                      :or {autofocus false}}]
+  (f/widget
+   :context ctx
+   :let [theme (-> m/Theme (.of ctx))
+         color-scheme (.-colorScheme theme)]
+   (mongol-text-field
+    {:controller controller
+     :max-lines 1
+     :max-length 200
+     :autofocus autofocus
+     :on-changed on-changed
+     :style (large-text-style (.-onSurface color-scheme))
+     :decoration (rounded-input-decoration (.-surface color-scheme))})))
+
+;; Note content text field
+(defn note-content-text-field [controller on-changed & {:keys [autofocus]
+                                                        :or {autofocus false}}]
+  (f/widget
+   :context ctx
+   :let [theme (-> m/Theme (.of ctx))
+         color-scheme (.-colorScheme theme)]
+   (mongol-text-field
+    {:controller controller
+     :max-lines 10
+     :max-length 5000
+     :autofocus autofocus
+     :on-changed on-changed
+     :style (default-text-style (.-onSurface color-scheme))
+     :decoration (no-border-input-decoration (.-surface color-scheme))})))
+
+;; Input editor text field
+(defn input-editor-text-field [controller on-changed on-tap & {:keys [autofocus]
+                                                               :or {autofocus false}}]
+  (f/widget
+   :context ctx
+   :let [theme (-> m/Theme (.of ctx))
+         color-scheme (.-colorScheme theme)]
+   (mongol-text-field
+    {:controller controller
+     :max-lines 500
+     :max-length 2000
+     :autofocus autofocus
+     :on-changed on-changed
+     :on-tap on-tap
+     :style (default-text-style (.-onSurface color-scheme))
+     :decoration (default-input-decoration (.-surface color-scheme))})))
