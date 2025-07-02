@@ -1,0 +1,180 @@
+(ns notes-app.states.blocks
+  (:require
+   [notes-app.services.database :as db]
+   [notes-app.states.global :as gs]))
+
+;; ==================== State definition ====================
+;; Blocks state management for handling block operations and UI state
+
+(def blocks-state
+  (atom {:blocks []
+         :current-block nil
+         :loading false
+         :error nil
+         :selected-blocks #{}}))
+
+(declare get-blocks)
+
+;; ==================== Common utility functions ====================
+
+;; Handle error in block operations
+(defn handle-error [error]
+  (swap! blocks-state assoc :error (str error) :loading false)
+  (dart:core/print (str "Blocks operation error: " error)))
+
+;; Handle success in block operations
+(defn handle-success [data]
+  (swap! blocks-state assoc 
+         :blocks data 
+         :loading false 
+         :error nil))
+
+;; ==================== Block CRUD operations ====================
+
+;; Load blocks for a specific note
+(defn load-blocks [note-id]
+  (swap! blocks-state assoc :loading true :error nil)
+  (try
+    (let [blocks (await (db/get-blocks-by-note note-id))]
+      (handle-success blocks))
+    (catch Exception e
+      (handle-error e))))
+
+;; Create a new block
+(defn create-block [block-data]
+  (swap! blocks-state assoc :loading true :error nil)
+  (try
+    (let [block (await (db/create-block block-data))
+          current-blocks (:blocks @blocks-state)]
+      (swap! blocks-state assoc 
+             :blocks (conj current-blocks block)
+             :current-block block
+             :loading false
+             :error nil)
+      (get-blocks)
+      block)
+    (catch Exception e
+      (handle-error e))))
+
+;; Update an existing block
+(defn update-block [block]
+  (swap! blocks-state assoc :loading true :error nil)
+  (try
+    (await (db/update-block block))
+    (let [current-blocks (:blocks @blocks-state)
+          updated-blocks (map (fn [b]
+                               (if (= (.-id b) (.-id block))
+                                 block
+                                 b))
+                             current-blocks)]
+      (swap! blocks-state assoc 
+             :blocks updated-blocks
+             :current-block block
+             :loading false
+             :error nil))
+    (catch Exception e
+      (handle-error e))))
+
+;; Delete a block
+(defn delete-block [id]
+  (swap! blocks-state assoc :loading true :error nil)
+  (try
+    (await (db/delete-block id))
+    (let [current-blocks (:blocks @blocks-state)
+          filtered-blocks (filter (fn [b]
+                                   (not= (.-id b) id))
+                                 current-blocks)]
+      (swap! blocks-state assoc 
+             :blocks filtered-blocks
+             :current-block nil
+             :loading false
+             :error nil))
+    (catch Exception e
+      (handle-error e))))
+
+;; ==================== Block management operations ====================
+
+;; Reorder blocks (if supported by database service)
+(defn reorder-blocks [block-ids]
+  (swap! blocks-state assoc :loading true :error nil)
+  (try
+    ;; Note: This would need to be implemented in database service
+    ;; (await (db/reorder-blocks block-ids))
+    (let [current-blocks (:blocks @blocks-state)
+          reordered-blocks (sort-by (fn [block]
+                                     (.indexOf block-ids (.-id block)))
+                                   current-blocks)]
+      (swap! blocks-state assoc 
+             :blocks reordered-blocks
+             :loading false
+             :error nil))
+    (catch Exception e
+      (handle-error e))))
+
+;; Search blocks by content
+(defn search-blocks [query]
+  (swap! blocks-state assoc :loading true :error nil)
+  (try
+    (let [blocks (await (db/search-blocks query))]
+      (handle-success blocks))
+    (catch Exception e
+      (handle-error e))))
+
+;; Get blocks by tag
+(defn get-blocks-by-tag [tag-name]
+  (swap! blocks-state assoc :loading true :error nil)
+  (try
+    (let [blocks (await (db/get-blocks-by-tag tag-name))]
+      (handle-success blocks))
+    (catch Exception e
+      (handle-error e))))
+
+;; ==================== Current block management ====================
+
+;; Set the current block
+(defn set-current-block [block]
+  (swap! blocks-state assoc :current-block block))
+
+;; Clear the current block
+(defn clear-current-block []
+  (swap! blocks-state assoc :current-block nil))
+
+;; Get the current block
+(defn get-current-block []
+  (:current-block @blocks-state))
+
+;; ==================== State getters ====================
+
+;; Get all blocks
+(defn get-blocks []
+  (:blocks @blocks-state))
+
+;; Get loading state
+(defn get-loading []
+  (:loading @blocks-state))
+
+;; Get error state
+(defn get-error []
+  (:error @blocks-state))
+
+;; ==================== Block selection management ====================
+
+;; Select a block
+(defn select-block [block-id]
+  (swap! blocks-state update :selected-blocks conj block-id))
+
+;; Deselect a block
+(defn deselect-block [block-id]
+  (swap! blocks-state update :selected-blocks disj block-id))
+
+;; Clear all selected blocks
+(defn clear-selected-blocks []
+  (swap! blocks-state assoc :selected-blocks #{}))
+
+;; Get selected blocks
+(defn get-selected-blocks []
+  (:selected-blocks @blocks-state))
+
+;; Check if a block is selected
+(defn is-block-selected? [block-id]
+  (contains? (:selected-blocks @blocks-state) block-id)) 
