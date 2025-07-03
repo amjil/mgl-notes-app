@@ -1,0 +1,60 @@
+(ns notes-app.widgets.mgl-calendar-bar
+  (:require
+   ["package:flutter/material.dart" :as m]
+   [notes-app.utils.date :as date]
+   [notes-app.states.db :as db]
+   [cljd.flutter :as f]))
+
+(declare note-color generate-dates)
+
+(defn mgl-calendar-bar []
+  (f/widget
+   :let [dates (generate-dates)
+         weeks (partition-all 7 dates)
+         today-str (date/format-date (DateTime/now))]
+   :watch [{note-counts :note-counts} db/stat-state]
+   (m/Column
+    .children 
+    [(m/SingleChildScrollView
+      .scrollDirection m/Axis.horizontal
+      .child (m/Row
+              .children (map (fn [week]
+                               (m/Column
+                                .children
+                                [(map (fn [day]
+                                        (let [day-str (date/format-date day)
+                                              note-count (get note-counts day-str)
+                                              is-today (= day-str today-str)]
+                                          (m/Padding
+                                           .padding (m/EdgeInsets.all 2)
+                                           .child
+                                           (m/GestureDetector
+                                            .onTap (fn [] (dart:core/print (str "tap: " day-str)))
+                                            .child
+                                            (m/Container
+                                             .width 20
+                                             .heigth 20
+                                             .margin (m/EdgeInsets.all 2)
+                                             .decoration (m/BoxDecoration
+                                                          .color (note-color note-count is-today)
+                                                          .border (when is-today
+                                                                    (m/Border.all .color m/Colors.black :width 1))
+                                                          .borderRadius (m/BorderRadius.circular 3)))))))
+                                      week)]))
+                             weeks)))])))
+
+(defn note-color [count today?]
+  (cond
+    today? m/Colors.redAccent
+    (zero? count) (m/Color. 0xFFCCCCCC)
+    (<= count 2) (m/Color. 0xFFA8D5BA)
+    (<= count 5) (m/Color. 0xFF4CAF50)
+    :else (m/Color. 0xFF087F23)))
+
+(defn generate-dates []
+  (reverse
+   (take 84
+         (iterate #(.subtract % (Duration .days 1))
+                  (DateTime/now)))))
+                  
+

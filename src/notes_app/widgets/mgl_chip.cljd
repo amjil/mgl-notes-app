@@ -1,0 +1,13 @@
+(ns notes-app.widgets.mgl-chip
+  (:require
+   ["package:flutter/material.dart" :as m]
+   [cljd.flutter :as f]))
+
+(defn mgl-chip [label on-pressed]
+  (f/widget
+   (m/RotatedBox
+    .quarterTurns 1
+    .child
+    (m/ActionChip
+     .label (m/Text label)
+     .onPressed on-pressed))))

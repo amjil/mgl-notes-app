@@ -1,0 +1,27 @@
+(ns notes-app.widgets.mgl-filter-badge
+  (:require
+   ["package:flutter/material.dart" :as m]
+   ["package:mongol/mongol.dart" :as mgl]
+   [notes-app.db :as db]
+   [cljd.flutter :as f]))
+
+(defn filter-badge []
+  (f/widget
+   :watch [{query :query} db/search-state]
+   (m/AnimatedOpacity
+    .opacity (if (empty? query) 0 1)
+    .duration (m/Duration.milliseconds 300)
+    .child (m/Container
+            .padding (m/EdgeInsets.symmetric .vertical 8 .horizontal 12)
+            .decoration (m/BoxDecoration 
+                         :color (m/Colors.black.withOpacity 0.05)
+                         :border (m/Border.all .color (m/Colors.grey 400))
+                         :borderRadius (m/BorderRadius.circular 12))
+            .child (mgl/MongolText query .style (m/TextStyle .fontSize 12 
+                                                             .color (m/Colors.black87)))))))
+(defn positioned-filter-badge []
+  (f/widget
+   (m/Positioned
+    .top 16
+    .right 0
+    .child (filter-badge))))

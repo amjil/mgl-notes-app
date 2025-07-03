@@ -1,0 +1,21 @@
+(ns notes-app.widgets.mgl-app-bar
+  (:require
+   ["package:flutter/material.dart" :as m]
+   [cljd.flutter :as f]))
+
+(defn mgl-app-bar [{:keys [open-left-drawer-fn
+                           open-right-drawer-fn
+                           search-query-fn]}]
+  (f/widget
+   (m/AppBar
+    .leading (m/IconButton
+              .icon (m/Icon m/Icons.menu)
+              .onPressed (fn [] (when open-left-drawer-fn (open-left-drawer-fn))))
+    .title (m/Text "Minii Notes"
+                   .style (m/TextStyle .fontSize 22))
+    .actions [(m/IconButton
+               .icon (m/Icon m/Icons.view_sidebar)
+               .onPressed (fn [] (when open-right-drawer-fn (open-right-drawer-fn))))
+              (m/IconButton
+               .icon (m/Icon (m/Icons.search))
+               .onPressed (fn [] (when search-query-fn (search-query-fn))))])))

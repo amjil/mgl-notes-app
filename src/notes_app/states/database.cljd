@@ -31,6 +31,8 @@
 (def search-state
   (atom {:query ""
          :results []
+         :often-search-queries []
+         :often-used-tags []
          :searching false
          :loading-more false
          :error nil
@@ -77,6 +79,10 @@
          :syncing false
          :last-sync nil
          :error nil}))
+         
+(def stat-state
+  (atom {:note-counts {}
+         :note-counts-by-tag {}}))
 
 ;; ===== Database Initialization =====
 

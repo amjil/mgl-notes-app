@@ -1,0 +1,32 @@
+(ns notes-app.widgets.mgl-stats-widget
+  (:require
+   ["package:flutter/material.dart" :as m]
+   ["package:mongol/mongol.dart" :as mgl]
+   [cljd.flutter :as f]))
+
+(defn stats-panel [{:keys [note-count tag-count active-days]}]
+  (f/widget
+   (m/Padding
+    .padding (m/EdgeInsets.all 16))
+   (m/Row
+    .mainAxisAlignment m/MainAxisAlignment.spaceEvenly
+    .children [(m/Column
+                .children
+                [(mgl/MongolText "Notes" .style (m/TextStyle .fontSize 12))
+                 (m/Text (str note-count)
+                         .style (m/TextStyle .fontSize 16
+                                             .fontWeight m/FontWeight.bold))])
+               (m/Column
+                .children
+                [(mgl/MongolText "Tags"
+                                 .style (m/TextStyle .fontSize 12))
+                 (m/Text (str tag-count)
+                         .style (m/TextStyle .fontSize 16
+                                             .fontWeight m/FontWeight.bold))])
+               (m/Column
+                .children
+                [(mgl/MongolText "Active"
+                                 .style (m/TextStyle .fontSize 12))
+                 (m/Text (str active-days)
+                         .style (m/TextStyle .fontSize 16
+                                             .fontWeight m/FontWeight.bold))])])))

@@ -1,8 +1,7 @@
 (ns notes-app.states.notes
   (:require
    [notes-app.states.database :as db]
-   [clojure.string :as str])
-  (:import [dart:core DateTime]))
+   [clojure.string :as str]))
 
 ;; Notes operations state management
 
