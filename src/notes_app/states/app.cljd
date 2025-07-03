@@ -1,0 +1,169 @@
+(ns notes-app.states.app
+  (:require
+   [notes-app.states.database :as db]
+   [notes-app.states.notes :as notes]
+   [notes-app.states.blocks :as blocks]
+   [notes-app.states.tags :as tags]
+   [notes-app.states.search :as search]
+   [notes-app.states.sync :as sync])
+  (:import [dart:core DateTime]))
+
+;; Unified application state management
+;; Provides global state access and initialization functionality
+
+;; Application initialization state
+(def app-state
+  (atom {:initialized false
+         :initializing false
+         :error nil
+         :version "1.0.0"
+         :last-startup nil}))
+
+;; Application initialization
+(defn initialize-app! []
+  (swap! app-state assoc :initializing true :error nil)
+  (try
+    ;; Initialize database
+    (db/initialize-database!)
+    
+    ;; Wait for database initialization to complete
+    (loop []
+      (when (and (:initialized @db/db-state)
+                 (not (:loading @db/db-state)))
+        (when (:error @db/db-state)
+          (throw (Exception. (:error @db/db-state))))
+        (recur)))
+    
+    ;; Load initial data
+    (db/load-notes-paginated!)
+    (tags/load-tags)
+    (sync/load-pending-items!)
+    
+    (swap! app-state assoc
+           :initialized true
+           :initializing false
+           :last-startup (DateTime/now))
+    
+    (catch :default e
+      (swap! app-state assoc
+             :initializing false
+             :error (str "Application initialization failed: " e)))))
+
+;; Application state queries
+(defn is-app-initialized? []
+  (:initialized @app-state))
+
+(defn is-app-initializing? []
+  (:initializing @app-state))
+
+(defn get-app-error []
+  (:error @app-state))
+
+(defn get-app-version []
+  (:version @app-state))
+
+(defn get-last-startup []
+  (:last-startup @app-state))
+
+;; Global state reset
+(defn reset-app-state! []
+  (reset! app-state {:initialized false
+                     :initializing false
+                     :error nil
+                     :version "1.0.0"
+                     :last-startup nil})
+  (reset! db/db-state {:initialized false
+                       :loading false
+                       :error nil
+                       :database nil
+                       :database-service nil})
+  (reset! db/notes-state {:notes []
+                          :current-note nil
+                          :loading false
+                          :error nil
+                          :last-updated nil})
+  (reset! db/blocks-state {:blocks []
+                           :current-block nil
+                           :loading false
+                           :error nil
+                           :last-updated nil})
+  (reset! db/tags-state {:tags []
+                         :selected-tags []
+                         :loading false
+                         :error nil
+                         :last-updated nil})
+  (reset! db/search-state {:query ""
+                           :results []
+                           :searching false
+                           :error nil
+                           :last-search nil})
+  (reset! db/sync-state {:pending-notes []
+                         :pending-blocks []
+                         :syncing false
+                         :last-sync nil
+                         :error nil}))
+
+;; Global state export
+(defn export-app-state []
+  {:app @app-state
+   :database @db/database-state
+   :notes @db/notes-state
+   :blocks @db/blocks-state
+   :tags @db/tags-state
+   :search @db/search-state
+   :sync @db/sync-state})
+
+;; Global error handling
+(defn handle-global-error [error context]
+  (let [error-info {:message (str error)
+                    :context context
+                    :timestamp (DateTime/now)
+                    :stack (.-stack error)}]
+    (swap! app-state assoc :error error-info)
+    (print "Global error:" error-info)))
+
+;; Application lifecycle management
+(defn on-app-start []
+  (initialize-app!))
+
+(defn on-app-resume []
+  (when (is-app-initialized?)
+    (db/load-notes-paginated!)
+    (tags/load-tags)
+    (sync/check-sync-status!)))
+
+(defn on-app-pause []
+  ;; Save current state or perform cleanup operations
+  nil)
+
+(defn on-app-stop []
+  (try
+    (db/cleanup-database!)
+    (catch :default e
+      (handle-global-error e "Close database when app stops"))))
+
+;; State listeners
+(defn add-state-listener [state-atom callback]
+  (add-watch state-atom :app-listener
+             (fn [key atom old-state new-state]
+               (callback old-state new-state))))
+
+(defn remove-state-listener [state-atom]
+  (remove-watch state-atom :app-listener))
+
+;; Performance monitoring
+(def performance-metrics (atom {:operations []
+                               :start-time (DateTime/now)}))
+
+(defn track-operation [operation-name duration]
+  (swap! performance-metrics update :operations
+         conj {:name operation-name
+               :duration duration
+               :timestamp (DateTime/now)}))
+
+(defn get-performance-metrics []
+  @performance-metrics)
+
+(defn clear-performance-metrics []
+  (reset! performance-metrics {:operations []
+                              :start-time (DateTime/now)}))

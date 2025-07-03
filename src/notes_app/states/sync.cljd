@@ -1,0 +1,105 @@
+(ns notes-app.states.sync
+  (:require
+   [notes-app.states.database :as db])
+  (:import [dart:core DateTime]))
+
+;; Sync operations state management
+
+(defn load-pending-items! []
+  (swap! db/sync-state assoc :syncing true :error nil)
+  (try
+    (let [db-service (:database-service @db/database-state)
+          pending-notes (await (.getPendingNotes db-service))
+          pending-blocks (await (.getPendingBlocks db-service))]
+      (swap! db/sync-state assoc
+             :pending-notes pending-notes
+             :pending-blocks pending-blocks
+             :syncing false
+             :last-sync (DateTime/now)))
+    (catch :default e
+      (swap! db/sync-state assoc
+             :syncing false
+             :error (str "Failed to load pending sync items: " e)))))
+
+(defn mark-note-synced! [note-id]
+  (try
+    (let [db-service (:database-service @db/database-state)
+          success (await (.markNoteAsSynced db-service note-id))]
+      (when success
+        (load-pending-items!)) ; Reload pending sync items
+      success)
+    (catch :default e
+      false)))
+
+(defn mark-block-synced! [block-id]
+  (try
+    (let [db-service (:database-service @db/database-state)
+          success (await (.markBlockAsSynced db-service block-id))]
+      (when success
+        (load-pending-items!)) ; Reload pending sync items
+      success)
+    (catch :default e
+      false)))
+
+(defn get-pending-notes []
+  (:pending-notes @db/sync-state))
+
+(defn get-pending-blocks []
+  (:pending-blocks @db/sync-state))
+
+(defn is-syncing? []
+  (:syncing @db/sync-state))
+
+(defn get-sync-error []
+  (:error @db/sync-state))
+
+(defn get-last-sync-time []
+  (:last-sync @db/sync-state))
+
+(defn get-pending-count []
+  (+ (count (get-pending-notes))
+     (count (get-pending-blocks))))
+
+;; Batch sync operations
+(defn sync-all-pending! []
+  (swap! db/sync-state assoc :syncing true :error nil)
+  (try
+    (let [pending-notes (get-pending-notes)
+          pending-blocks (get-pending-blocks)
+          db-service (:database-service @db/database-state)]
+      
+      ;; Sync all pending notes
+      (doseq [note pending-notes]
+        (await (.markNoteAsSynced db-service (:id note))))
+      
+      ;; Sync all pending blocks
+      (doseq [block pending-blocks]
+        (await (.markBlockAsSynced db-service (:id block))))
+      
+      (load-pending-items!))
+    (catch :default e
+      (swap! db/sync-state assoc
+             :syncing false
+             :error (str "Batch sync failed: " e)))))
+
+;; Sync status check
+(defn check-sync-status! []
+  (load-pending-items!))
+
+;; Sync progress tracking
+(def sync-progress (atom {:total 0 :completed 0 :current-item nil}))
+
+(defn start-sync-progress! [total]
+  (reset! sync-progress {:total total :completed 0 :current-item nil}))
+
+(defn update-sync-progress! [completed current-item]
+  (swap! sync-progress assoc :completed completed :current-item current-item))
+
+(defn get-sync-progress []
+  @sync-progress)
+
+(defn get-sync-progress-percentage []
+  (let [progress @sync-progress]
+    (if (zero? (:total progress))
+      0
+      (int (* 100 (/ (:completed progress) (:total progress))))))) 

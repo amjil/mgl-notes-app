@@ -1,0 +1,701 @@
+(ns notes-app.states.database
+  (:require
+   [clojure.string :as str] ["package:cljd_mgl_notes_app/providers/database_provider.dart" :as db-provider]))
+
+;; Simplified database state management
+;; Unified management of all database-related states, reducing complexity
+
+;; Unified database state
+(def db-state
+  (atom {:initialized false
+         :loading false
+         :error nil
+         :database nil
+         :database-service nil}))
+
+;; Unified data state
+(def data-state
+  (atom {:notes []
+         :current-note nil
+         :blocks []
+         :current-block nil
+         :tags []
+         :selected-tags []
+         :search-results []
+         :pending-sync []
+         :loading false
+         :error nil
+         :last-updated nil}))
+
+;; Search state for paginated search functionality
+(def search-state
+  (atom {:query ""
+         :results []
+         :searching false
+         :loading-more false
+         :error nil
+         :last-search nil
+         :current-page 1
+         :page-size 20
+         :total-count 0
+         :has-more false}))
+
+(def notes-state
+  (atom {:notes []
+         :current-note nil
+         :blocks []
+         :current-block nil
+         :tags []
+         :selected-tags []
+         :search-results []
+         :pending-sync []
+         :loading false
+         :error nil
+         :last-updated nil
+         :loading-more false
+         :current-page 1
+         :page-size 20
+         :total-count 0
+         :has-more false}))
+
+(def blocks-state
+  (atom {:blocks []
+         :current-block nil
+         :tags []
+         :selected-tags []
+         :search-results []
+         :pending-sync []}))
+
+(def tags-state
+  (atom {:tags []
+         :selected-tags []
+         :search-results []
+         :pending-sync []}))
+
+(def sync-state
+  (atom {:pending-sync []
+         :syncing false
+         :last-sync nil
+         :error nil}))
+
+;; ===== Database Initialization =====
+
+(defn initialize-database! []
+  (swap! db-state assoc :loading true :error nil)
+  (try
+    (let [provider (db-provider/DatabaseProvider.)]
+      ;; Initialize database asynchronously
+      (await (.initialize provider))
+      (swap! db-state assoc
+                          :initialized true
+                          :loading false
+                          :database (.database provider)
+                          :database-service (.databaseService provider)))
+    (catch Exception e
+      (swap! db-state assoc
+             :loading false
+             :error (str "Database initialization failed: " e)))))
+
+(defn cleanup-database! []
+  (when (:database-service @db-state)
+    (.close (:database-service @db-state))))
+
+;; ===== Unified Data Operations =====
+
+(defn load-all-data! []
+  "Load all data"
+  (swap! data-state assoc :loading true :error nil)
+  (try
+    (let [db-service (:database-service @db-state)]
+      (when db-service
+        (-> (.getAllNotes db-service)
+            (.then (fn [notes]
+                     (.getAllTags db-service)
+                     (.then (fn [tags]
+                              (swap! data-state assoc
+                                     :notes notes
+                                     :tags tags
+                                     :loading false
+                                     :last-updated (DateTime/now)))))))))
+    (catch Exception e
+      (swap! data-state assoc
+             :loading false
+             :error (str "Failed to load data: " e)))))
+
+;; ===== Note Operations =====
+
+(defn create-note [title]
+  "Create note with simplified method"
+  (swap! notes-state assoc :loading true :error nil)
+  (try
+    (let [db-service (:database-service @db-state)
+          note-id (await (.createNoteSimple db-service title))]
+      (load-all-data!) ; Reload all data
+      note-id)
+    (catch Exception e
+      (swap! notes-state assoc
+             :loading false
+             :error (str "Failed to create note: " e))
+      nil)))
+
+(defn update-note-title [id title]
+  "Update note title with simplified method"
+  (swap! data-state assoc :loading true :error nil)
+  (try
+    (let [db-service (:database-service @db-state)
+          success (await (.updateNoteTitle db-service id title))]
+      (when success
+        (load-all-data!)) ; Reload data
+      success)
+    (catch Exception e
+      (swap! data-state assoc
+             :loading false
+             :error (str "Failed to update note: " e))
+      false)))
+
+(defn update-note-block-ids [id block-ids]
+  "Update note blockIds with simplified method"
+  (swap! data-state assoc :loading true :error nil)
+  (try
+    (let [db-service (:database-service @db-state)
+          success (await (.updateNoteBlockIds db-service id block-ids))]
+      (when success
+        (load-all-data!)) ; Reload data
+      success)
+    (catch Exception e
+      (swap! data-state assoc
+             :loading false
+             :error (str "Failed to update note blockIds: " e))
+      false)))
+
+(defn update-note-sync-status [id sync-status]
+  "Update note sync status with simplified method"
+  (swap! data-state assoc :loading true :error nil)
+  (try
+    (let [db-service (:database-service @db-state)
+          success (await (.updateNoteSyncStatus db-service id sync-status))]
+      (when success
+        (load-all-data!)) ; Reload data
+      success)
+    (catch Exception e
+      (swap! data-state assoc
+             :loading false
+             :error (str "Failed to update note sync status: " e))
+      false)))
+
+(defn update-note [id updates]
+  "Update note with Map data - uses simplified methods internally"
+  (swap! data-state assoc :loading true :error nil)
+  (try
+    (let [db-service (:database-service @db-state)
+          ;; Choose appropriate method based on update content
+          success (if (:title updates)
+                   (await (.updateNoteTitle db-service id (:title updates)))
+                   (if (:blockIds updates)
+                     (await (.updateNoteBlockIds db-service id (:blockIds updates)))
+                     (if (:syncStatus updates)
+                       (await (.updateNoteSyncStatus db-service id (:syncStatus updates)))
+                       false)))]
+      (when success
+        (load-all-data!)) ; Reload data
+      success)
+    (catch Exception e
+      (swap! data-state assoc
+             :loading false
+             :error (str "Failed to update note: " e))
+      false)))
+
+(defn delete-note [id]
+  "Delete note"
+  (swap! data-state assoc :loading true :error nil)
+  (try
+    (let [db-service (:database-service @db-state)
+          success (await (.deleteNote db-service id))]
+      (when success
+        (load-all-data!)) ; Reload data
+      success)
+    (catch Exception e
+      (swap! data-state assoc
+             :loading false
+             :error (str "Failed to delete note: " e))
+      false)))
+
+(defn set-current-note [note]
+  "Set current note"
+  (swap! data-state assoc :current-note note))
+
+;; ===== Block Operations =====
+
+(defn load-blocks [note-id]
+  "Load blocks for note"
+  (swap! blocks-state assoc :loading true :error nil)
+  (try
+    (let [db-service (:database-service @db-state)
+          blocks (await (.getBlocksByNoteId db-service note-id))]
+      (swap! blocks-state assoc
+             :blocks blocks
+             :loading false
+             :last-updated (DateTime/now)))
+    (catch Exception e
+      (swap! blocks-state assoc
+             :loading false
+             :error (str "Failed to load blocks: " e)))))
+
+(defn create-block [note-id content]
+  "Create block with simplified method"
+  (swap! blocks-state assoc :loading true :error nil)
+  (try
+    (let [db-service (:database-service @db-state)
+          block-id (await (.createBlockSimple db-service note-id content))]
+      (load-blocks note-id) ; Reload blocks list
+      block-id)
+    (catch Exception e
+      (swap! blocks-state assoc
+             :loading false
+             :error (str "Failed to create block: " e))
+      nil)))
+
+(defn update-block-content [id content]
+  "Update block content with simplified method"
+  (swap! blocks-state assoc :loading true :error nil)
+  (try
+    (let [db-service (:database-service @db-state)
+          success (await (.updateBlockContent db-service id content))]
+      (when success
+        (let [current-note (get-current-note)]
+          (when current-note
+            (load-blocks (:id current-note))))) ; Reload blocks list
+      success)
+    (catch Exception e
+      (swap! blocks-state assoc
+             :loading false
+             :error (str "Failed to update block: " e))
+      false)))
+
+(defn update-block-sync-status [id sync-status]
+  "Update block sync status with simplified method"
+  (swap! blocks-state assoc :loading true :error nil)
+  (try
+    (let [db-service (:database-service @db-state)
+          success (await (.updateBlockSyncStatus db-service id sync-status))]
+      (when success
+        (let [current-note (get-current-note)]
+          (when current-note
+            (load-blocks (:id current-note))))) ; Reload blocks list
+      success)
+    (catch Exception e
+      (swap! blocks-state assoc
+             :loading false
+             :error (str "Failed to update block sync status: " e))
+      false)))
+
+(defn update-block [id updates]
+  "Update block with Map data - uses simplified methods internally"
+  (swap! blocks-state assoc :loading true :error nil)
+  (try
+    (let [db-service (:database-service @db-state)
+          ;; Choose appropriate method based on update content
+          success (if (:content updates)
+                   (await (.updateBlockContent db-service id (:content updates)))
+                   (if (:syncStatus updates)
+                     (await (.updateBlockSyncStatus db-service id (:syncStatus updates)))
+                     false))]
+      (when success
+        (let [current-note (get-current-note)]
+          (when current-note
+            (load-blocks (:id current-note))))) ; Reload blocks list
+      success)
+    (catch Exception e
+      (swap! blocks-state assoc
+             :loading false
+             :error (str "Failed to update block: " e))
+      false)))
+
+(defn delete-block [id]
+  "Delete block"
+  (swap! blocks-state assoc :loading true :error nil)
+  (try
+    (let [db-service (:database-service @db-state)
+          success (await (.deleteBlock db-service id))]
+      (when success
+        (let [current-note (get-current-note)]
+          (when current-note
+            (load-blocks (:id current-note))))) ; Reload blocks list
+      success)
+    (catch Exception e
+      (swap! blocks-state assoc
+             :loading false
+             :error (str "Failed to delete block: " e))
+      false)))
+
+(defn set-current-block [block]
+  "Set current block"
+  (swap! blocks-state assoc :current-block block))
+
+;; ===== Tag Operations =====
+
+(defn load-tags []
+  "Load all tags"
+  (swap! tags-state assoc :loading true :error nil)
+  (try
+    (let [db-service (:database-service @db-state)
+          tags (await (.getAllTags db-service))]
+      (swap! tags-state assoc
+             :tags tags
+             :loading false
+             :last-updated (DateTime/now)))
+    (catch Exception e
+      (swap! tags-state assoc
+             :loading false
+             :error (str "Failed to load tags: " e)))))
+
+(defn create-tag [name]
+  "Create tag with simplified method"
+  (swap! tags-state assoc :loading true :error nil)
+  (try
+    (let [db-service (:database-service @db-state)
+          tag-id (await (.createTagSimple db-service name))]
+      ;; Reload tags list
+      (let [tags (await (.getAllTags db-service))]
+        (swap! tags-state assoc
+               :tags tags
+               :loading false
+               :last-updated (DateTime/now)))
+      tag-id)
+    (catch Exception e
+      (swap! tags-state assoc
+             :loading false
+             :error (str "Failed to create tag: " e))
+      nil)))
+
+(defn add-tag-to-note [note-id tag-id]
+  "Add tag to note"
+  (try
+    (let [db-service (:database-service @db-state)
+          success (await (.addTagToNote db-service note-id tag-id))]
+      success)
+    (catch Exception e
+      false)))
+
+(defn remove-tag-from-note [note-id tag-id]
+  "Remove tag from note"
+  (try
+    (let [db-service (:database-service @db-state)
+          success (await (.removeTagFromNote db-service note-id tag-id))]
+      success)
+    (catch Exception e
+      false)))
+
+(defn set-selected-tags [tags]
+  "Set selected tags"
+  (swap! tags-state assoc :selected-tags tags))
+
+;; ===== Search Operations =====
+
+(defn search-notes! [query]
+  "Search notes"
+  (swap! data-state assoc :loading true :error nil)
+  (try
+    (let [db-service (:database-service @db-state)
+          results (await (.searchNotes db-service query))]
+      (swap! data-state assoc
+             :search-results results
+             :loading false
+             :last-updated (DateTime/now)))
+    (catch Exception e
+      (swap! data-state assoc
+             :loading false
+             :error (str "Search failed: " e)))))
+
+(defn search-blocks! [query]
+  "Search blocks"
+  (swap! data-state assoc :loading true :error nil)
+  (try
+    (let [db-service (:database-service @db-state)
+          results (await (.searchBlocks db-service query))]
+      (swap! data-state assoc
+             :search-results results
+             :loading false
+             :last-updated (DateTime/now)))
+    (catch Exception e
+      (swap! data-state assoc
+             :loading false
+             :error (str "Search failed: " e)))))
+
+;; Paginated search operations
+(defn search-notes-paginated! [query & {:keys [page page-size append?]}]
+  "Search notes with pagination"
+  (let [page (or page 1)
+        page-size (or page-size 20)
+        append? (or append? false)]
+    (if append?
+      ;; Append to existing results
+      (swap! search-state assoc :loading-more true :error nil)
+      ;; Start new search
+      (swap! search-state assoc :searching true :error nil :query query :current-page page))
+    
+    (try
+              (let [db-service (:database-service @db-state)
+            search-params {"page" page "pageSize" page-size}
+            results (await (.searchNotesPaginated db-service query search-params))
+            total-count (await (.getSearchNotesCount db-service query))
+            has-more (> total-count (* page page-size))]
+        
+        (if append?
+          ;; Append results
+          (swap! search-state update :results concat results)
+          ;; Replace results
+          (swap! search-state assoc :results results))
+        
+        (swap! search-state assoc
+               :searching false
+               :loading-more false
+               :current-page page
+               :page-size page-size
+               :total-count total-count
+               :has-more has-more
+               :last-search (DateTime/now)))
+      (catch Exception e
+        (swap! search-state assoc
+               :searching false
+               :loading-more false
+               :error (str "Search failed: " e))))))
+
+(defn search-blocks-paginated! [query & {:keys [page page-size append?]}]
+  "Search blocks with pagination"
+  (let [page (or page 1)
+        page-size (or page-size 20)
+        append? (or append? false)]
+    (if append?
+      ;; Append to existing results
+      (swap! search-state assoc :loading-more true :error nil)
+      ;; Start new search
+      (swap! search-state assoc :searching true :error nil :query query :current-page page))
+    
+    (try
+              (let [db-service (:database-service @db-state)
+            search-params {"page" page "pageSize" page-size}
+            results (await (.searchBlocksPaginated db-service query search-params))
+            total-count (await (.getSearchBlocksCount db-service query))
+            has-more (> total-count (* page page-size))]
+        
+        (if append?
+          ;; Append results
+          (swap! search-state update :results concat results)
+          ;; Replace results
+          (swap! search-state assoc :results results))
+        
+        (swap! search-state assoc
+               :searching false
+               :loading-more false
+               :current-page page
+               :page-size page-size
+               :total-count total-count
+               :has-more has-more
+               :last-search (DateTime/now)))
+      (catch Exception e
+        (swap! search-state assoc
+               :searching false
+               :loading-more false
+               :error (str "Search failed: " e))))))
+
+(defn load-more-search-results! []
+  "Load more search results"
+  (let [current-state @search-state
+        query (:query current-state)
+        current-page (:current-page current-state)
+        page-size (:page-size current-state)]
+    (when (and (not (str/blank? query))
+               (:has-more current-state)
+               (not (:loading-more current-state)))
+      (search-notes-paginated! query :page (inc current-page) :page-size page-size :append? true))))
+
+(defn clear-search! []
+  "Clear search results"
+  (swap! search-state assoc
+         :query ""
+         :results []
+         :searching false
+         :loading-more false
+         :error nil
+         :current-page 1
+         :total-count 0
+         :has-more false)
+  (swap! data-state assoc :search-results []))
+
+;; ===== Sync Operations =====
+
+(defn load-pending-sync! []
+  "Load pending sync items"
+  (swap! data-state assoc :loading true :error nil)
+  (try
+    (let [db-service (:database-service @db-state)
+          pending-notes (await (.getPendingNotes db-service))
+          pending-blocks (await (.getPendingBlocks db-service))]
+      (swap! data-state assoc
+             :pending-sync (concat pending-notes pending-blocks)
+             :loading false
+             :last-updated (DateTime/now)))
+    (catch Exception e
+      (swap! data-state assoc
+             :loading false
+             :error (str "Failed to load pending sync items: " e)))))
+
+(defn mark-note-synced! [note-id]
+  "Mark note as synced"
+  (try
+    (let [db-service (:database-service @db-state)
+          success (await (.markNoteAsSynced db-service note-id))]
+      (when success
+        (load-pending-sync!)) ; Reload pending sync items
+      success)
+    (catch Exception e
+      false)))
+
+(defn mark-block-synced! [block-id]
+  "Mark block as synced"
+  (try
+    (let [db-service (:database-service @db-state)
+          success (await (.markBlockAsSynced db-service block-id))]
+      (when success
+        (load-pending-sync!)) ; Reload pending sync items
+      success)
+    (catch Exception e
+      false)))
+
+;; ===== Query Functions =====
+
+(defn get-notes []
+  (:notes @data-state))
+
+(defn get-current-note []
+  (:current-note @data-state))
+
+(defn get-blocks []
+  (:blocks @data-state))
+
+(defn get-current-block []
+  (:current-block @data-state))
+
+(defn get-tags []
+  (:tags @data-state))
+
+(defn get-selected-tags []
+  (:selected-tags @data-state))
+
+(defn get-search-results []
+  (:search-results @data-state))
+
+(defn get-pending-sync []
+  (:pending-sync @data-state))
+
+(defn is-loading? []
+  (:loading @data-state))
+
+(defn get-error []
+  (:error @data-state))
+
+(defn get-last-updated []
+  (:last-updated @data-state))
+
+(defn is-db-initialized? []
+  (:initialized @db-state))
+
+(defn get-db-error []
+  (:error @db-state))
+
+;; Search state query functions
+(defn get-search-query []
+  (:query @search-state))
+
+(defn get-search-results-from-state []
+  (:results @search-state))
+
+(defn is-searching? []
+  (:searching @search-state))
+
+(defn get-search-error []
+  (:error @search-state))
+
+(defn get-last-search-time []
+  (:last-search @search-state))
+
+(defn get-search-current-page []
+  (:current-page @search-state))
+
+(defn get-search-page-size []
+  (:page-size @search-state))
+
+(defn get-search-total-count []
+  (:total-count @search-state))
+
+(defn get-search-has-more []
+  (:has-more @search-state))
+
+(defn get-search-loading-more []
+  (:loading-more @search-state))
+
+;; ===== Notes Pagination Functions =====
+
+(defn load-notes-paginated! [& {:keys [page page-size append?]}]
+  "Load notes with pagination"
+  (let [page (or page 1)
+        page-size (or page-size 20)
+        append? (or append? false)]
+    (if append?
+      ;; Append to existing results
+      (swap! notes-state assoc :loading-more true :error nil)
+      ;; Start new load
+      (swap! notes-state assoc :loading true :error nil :current-page page))
+    
+    (try
+              (let [db-service (:database-service @db-state)
+            pagination-params {"page" page "pageSize" page-size}
+            notes (await (.getNotesPaginated db-service pagination-params))
+            total-count (await (.getNotesCount db-service))
+            has-more (> total-count (* page page-size))]
+        
+        (if append?
+          ;; Append results
+          (swap! notes-state update :notes concat notes)
+          ;; Replace results
+          (swap! notes-state assoc :notes notes))
+        
+        (swap! notes-state assoc
+               :loading false
+               :loading-more false
+               :current-page page
+               :page-size page-size
+               :total-count total-count
+               :has-more has-more
+               :last-updated (DateTime/now)))
+      (catch Exception e
+        (swap! notes-state assoc
+               :loading false
+               :loading-more false
+               :error (str "Failed to load notes: " e))))))
+
+(defn load-more-notes! []
+  "Load more notes"
+  (let [current-state @notes-state
+        current-page (:current-page current-state)
+        page-size (:page-size current-state)]
+    (when (and (:has-more current-state)
+               (not (:loading-more current-state)))
+      (load-notes-paginated! :page (inc current-page) :page-size page-size :append? true))))
+
+;; Notes state query functions
+(defn get-notes-has-more []
+  (:has-more @notes-state))
+
+(defn get-notes-loading-more []
+  (:loading-more @notes-state))
+
+(defn get-notes-current-page []
+  (:current-page @notes-state))
+
+(defn get-notes-page-size []
+  (:page-size @notes-state))
+
+(defn get-notes-total-count []
+  (:total-count @notes-state)) 

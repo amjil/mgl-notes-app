@@ -6,7 +6,6 @@
 
 (defn note-view [note blocks on-reorder]
   (f/widget
-   :render
    (m/ReorderableListView.builder
     ;; horizontal scroll
     .scrollDirection m/Axis.horizontal
@@ -23,6 +22,7 @@
         (m/Padding
          .key key
          .padding (m/EdgeInsets.symmetric .horizontal 8 .vertical 16)
+         .child
          (m/Expanded
           .child
           (richtext-viewer/richtext-viewer (:content block) {:on-link-tap nil})))))))) 

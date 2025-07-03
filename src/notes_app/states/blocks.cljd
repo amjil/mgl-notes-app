@@ -1,0 +1,96 @@
+(ns notes-app.states.blocks
+  (:require
+   [notes-app.states.database :as db])
+  (:import [dart:core DateTime]))
+
+;; Blocks operations state management
+
+(defn load-blocks [note-id]
+  (swap! db/blocks-state assoc :loading true :error nil)
+  (try
+    (let [db-service (:database-service @db/database-state)
+          blocks (await (.getBlocksByNoteId db-service note-id))]
+      (swap! db/blocks-state assoc
+             :blocks blocks
+             :loading false
+             :last-updated (DateTime/now)))
+    (catch :default e
+      (swap! db/blocks-state assoc
+             :loading false
+             :error (str "Failed to load blocks: " e)))))
+
+(defn create-block [note-id content]
+  (swap! db/blocks-state assoc :loading true :error nil)
+  (try
+    (let [db-service (:database-service @db/database-state)
+          block-id (await (.createBlockSimple db-service note-id content))]
+      (load-blocks note-id) ; Reload blocks list
+      block-id)
+    (catch :default e
+      (swap! db/blocks-state assoc
+             :loading false
+             :error (str "Failed to create block: " e))
+      nil)))
+
+(defn update-block [id content]
+  (swap! db/blocks-state assoc :loading true :error nil)
+  (try
+    (let [db-service (:database-service @db/database-state)
+          success (await (.updateBlockContent db-service id content))]
+      (when success
+        (let [current-note (db/get-current-note)]
+          (when current-note
+            (load-blocks (:id current-note))))) ; Reload blocks list
+      success)
+    (catch :default e
+      (swap! db/blocks-state assoc
+             :loading false
+             :error (str "Failed to update block: " e))
+      false)))
+
+(defn update-block-sync-status [id sync-status]
+  (swap! db/blocks-state assoc :loading true :error nil)
+  (try
+    (let [db-service (:database-service @db/database-state)
+          success (await (.updateBlockSyncStatus db-service id sync-status))]
+      (when success
+        (let [current-note (db/get-current-note)]
+          (when current-note
+            (load-blocks (:id current-note))))) ; Reload blocks list
+      success)
+    (catch :default e
+      (swap! db/blocks-state assoc
+             :loading false
+             :error (str "Failed to update block sync status: " e))
+      false)))
+
+(defn delete-block [id]
+  (swap! db/blocks-state assoc :loading true :error nil)
+  (try
+    (let [db-service (:database-service @db/database-state)
+          success (await (.deleteBlock db-service id))]
+      (when success
+        (let [current-note (db/get-current-note)]
+          (when current-note
+            (load-blocks (:id current-note))))) ; Reload blocks list
+      success)
+    (catch :default e
+      (swap! db/blocks-state assoc
+             :loading false
+             :error (str "Failed to delete block: " e))
+      false)))
+
+(defn set-current-block [block]
+  (swap! db/blocks-state assoc :current-block block))
+
+(defn get-block-by-id [id]
+  (first (filter (fn [block] (= (:id block) id)) (db/get-blocks))))
+
+(defn get-blocks-by-content [content]
+  (filter (fn [block] (clojure.string/includes? (:content block) content)) (db/get-blocks)))
+
+(defn get-blocks-count []
+  (count (db/get-blocks)))
+
+(defn get-blocks-by-note [note-id]
+  (filter (fn [block] (= (:noteId block) note-id)) (db/get-blocks))) 
