@@ -2,7 +2,7 @@
   (:require [cljd.flutter :as f]
             ["package:flutter/material.dart" :as m]
             [notes-app.widgets.mgl-input-editor :as input-editor]
-            [notes-app.utils.diff-utils :as diff-utils]))
+            [notes-app.utils.diff :as diff]))
 
 ;; Note editor component
 ;; Provides better code organization and performance optimization
@@ -13,7 +13,7 @@
      :context ctx
      :let [theme (-> m/Theme (.of ctx))
            color-scheme (.-colorScheme theme)
-           initial-text (diff-utils/blocks-to-text initial-blocks)
+           initial-text (diff/blocks-to-text initial-blocks)
            controller (m/TextEditingController. .text initial-text)]
      :watch [has-changed has-changed-atom]
      (m/Scaffold
@@ -32,7 +32,7 @@
            .onPressed (when has-changed
                         (fn []
                           (let [new-text (.-text controller)
-                                diff-result (diff-utils/rebuild-blocks-from-diff initial-blocks new-text)]
+                                diff-result (diff/rebuild-blocks-from-diff initial-blocks new-text)]
                             (reset! has-changed-atom false)
                             (when on-save (on-save diff-result)))))
            .icon (m/Icon
@@ -60,12 +60,12 @@
         :autofocus? true
         :placeholder "Start writing..."
         :on-changed (fn [text]
-                      (let [changed (diff-utils/has-text-changed? initial-blocks text)]
+                      (let [changed (diff/has-text-changed? initial-blocks text)]
                         (reset! has-changed-atom changed)))})))))
 
 ;; Usage example
 (defn example-usage []
-  (let [initial-blocks (diff-utils/text-to-blocks "This is a test\nThis is a test\nThis is a test")]
+  (let [initial-blocks (diff/text-to-blocks "This is a test\nThis is a test\nThis is a test")]
     (note-editor
      {:initial-blocks initial-blocks
       :on-save (fn [diff-result]

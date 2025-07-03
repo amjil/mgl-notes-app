@@ -22,7 +22,7 @@
             .mainAxisAlignment m/MainAxisAlignment.center
             .children [(when icon
                          (m/Icon
-                          .icon icon
+                          icon
                           .size (or icon-size 48)
                           .color (or color (.-onSurfaceVariant color-scheme))))
                        (when icon

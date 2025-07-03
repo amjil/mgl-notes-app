@@ -1,25 +1,24 @@
 (ns notes-app.widgets.mgl-notes-list
   (:require
    ["package:flutter/material.dart" :as m]
-   ["package:mongol/mongol.dart" :as mgl]
    [cljd.flutter :as f]
    [notes-app.widgets.mgl-note-item :as note-item]
    [notes-app.widgets.mgl-infinite-scroll :as infinite-scroll]
    [notes-app.widgets.mgl-empty-state :as empty-state]
    [notes-app.widgets.mgl-loading-state :as loading-state]
-   [notes-app.states.notes :as notes-state]))
+   [notes-app.states.database :as db]))
 
 ;; ==================== Notes list specific functions ====================
 
 ;; Check if should trigger load more for notes
 (defn should-load-more-notes? []
-  (and (notes-state/has-more?)
-       (not (notes-state/loading-more?))))
+  (and (db/get-notes-has-more)
+       (not (db/get-notes-loading-more))))
 
 ;; Load more notes trigger function
 (defn load-more-notes-trigger []
   (when (should-load-more-notes?)
-    (notes-state/load-more-notes)))
+    (db/load-more-notes!)))
 
 ;; Note item builder
 (defn note-item-builder [note]
@@ -35,7 +34,9 @@
          color-scheme (.-colorScheme theme)]
    :watch [{notes :notes
             loading :loading
-            infinite-scroll :infinite-scroll} notes-state/notes-state]
+            loading-more :loading-more
+            has-more :has-more
+            all-loaded :all-loaded} db/notes-state]
    :managed [scroll-controller (infinite-scroll/create-scroll-controller load-more-notes-trigger)]
    (if loading
      (loading-state/loading-indicator-themed)
@@ -46,9 +47,9 @@
          :scroll-controller scroll-controller
          :scroll-direction m/Axis.horizontal
          :item-builder note-item-builder
-         :loading-more? (:loading-more infinite-scroll)
-         :has-more? (:has-more infinite-scroll)
-         :all-loaded? (:all-loaded infinite-scroll)
+         :loading-more? loading-more
+         :has-more? has-more
+         :all-loaded? all-loaded
          :load-more-indicator (infinite-scroll/load-more-indicator infinite-scroll/loading-more-text)
          :all-loaded-indicator (infinite-scroll/all-loaded-indicator infinite-scroll/all-loaded-text)})))))
 

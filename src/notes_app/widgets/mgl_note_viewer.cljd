@@ -2,7 +2,7 @@
   (:require
    ["package:flutter/material.dart" :as m]
    [cljd.flutter :as f]
-   [notes-app.widgets.mgl-richtext-viewer :refer [richtext-viewer]]))
+   [notes-app.widgets.mgl-richtext-viewer :as richtext-viewer]))
 
 (defn note-view [note blocks on-reorder]
   (f/widget

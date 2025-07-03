@@ -1,30 +1,27 @@
 (ns notes-app.widgets.mgl-search-pannel
   (:require
    ["package:flutter/material.dart" :as m]
-   ["package:mongol/mongol.dart" :as mgl]
    [clojure.string :as str]
    [notes-app.widgets.mgl-keyboard :as keyboard]
    [notes-app.widgets.mgl-suggestion-panel :as suggestion-panel]
    [notes-app.widgets.mgl-note-item :as note-item]
    [notes-app.widgets.mgl-infinite-scroll :as infinite-scroll]
    [notes-app.widgets.mgl-text-input :as text-input]
+   [notes-app.widgets.mgl-empty-search-results :as empty-search-results]
    [notes-app.states.global :as gs]
-   [notes-app.states.notes :as notes-state]
+   [notes-app.states.search :as search-state]
    [cljd.flutter :as f]))
 
 ;; ==================== Search specific functions ====================
 
 ;; Check if should trigger load more for search results
 (defn should-load-more-search? []
-  (and (notes-state/has-more?)
-       (not (notes-state/loading-more?))))
+  (search-state/should-load-more?))
 
 ;; Load more search results trigger function
 (defn load-more-search-trigger []
   (when (should-load-more-search?)
-    (let [search-query (:search-query @gs/state)]
-      (when (not (str/blank? search-query))
-        (notes-state/search-notes-infinite search-query :append? true)))))
+    (search-state/load-more-search-results!)))
 
 ;; Search result item builder
 (defn search-result-item-builder [result]
@@ -36,10 +33,10 @@
   (swap! gs/state assoc :search-query val)
   ;; Perform search with pagination
   (when (not (str/blank? val))
-    (notes-state/search-notes-paginated val :page 1 :pageSize 20))
+    (search-state/search-notes-paginated! val :page 1 :page-size 20))
   ;; Clear search results if query is empty
   (when (str/blank? val)
-    (swap! gs/search-state assoc :search-results [])))
+    (search-state/clear-search!)))
 
 ;; Handle search input tap
 (defn handle-search-tap []
@@ -51,19 +48,31 @@
 ;; Search result panel with infinite scroll
 (defn search-result-panel []
   (f/widget 
-   :watch [{search-results :search-results} gs/search-state
-           {infinite-scroll :infinite-scroll} notes-state/notes-state]
+   :watch [{search-results :results} search-state/search-state
+           {search-query :query} search-state/search-state
+           {searching :searching} search-state/search-state
+           {loading-more :loading-more} search-state/search-state
+           {has-more :has-more} search-state/search-state
+           {total-count :total-count} search-state/search-state]
    :managed [scroll-controller (infinite-scroll/create-scroll-controller load-more-search-trigger)]
-   (if (empty? search-results)
+   (cond
+     (str/blank? search-query)
+     ;; Initial state, show blank area
      (suggestion-panel/suggestion-panel)
+
+     ;; Already has search content, show list regardless of whether results are empty
+     (empty? search-results)
+     (empty-search-results/empty-search-results)
+
+     :else
      (infinite-scroll/infinite-scroll-list
       {:items search-results
        :scroll-controller scroll-controller
        :scroll-direction m/Axis.horizontal
        :item-builder search-result-item-builder
-       :loading-more? (:loading-more infinite-scroll)
-       :has-more? (:has-more infinite-scroll)
-       :all-loaded? (:all-loaded infinite-scroll)
+       :loading-more? loading-more
+       :has-more? has-more
+       :all-loaded? (not has-more)
        :load-more-indicator (infinite-scroll/load-more-indicator infinite-scroll/search-loading-more-text)
        :all-loaded-indicator (infinite-scroll/all-loaded-indicator infinite-scroll/search-all-loaded-text)}))))
 
