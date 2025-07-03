@@ -1,0 +1,37 @@
+(ns notes-app.theme
+  (:require
+   ["package:flutter/material.dart" :as m]))
+
+;; Light theme
+(def light-theme
+  (m/ThemeData
+    {:brightness m/Brightness.light
+     :scaffoldBackgroundColor (m/Color. 0xFFFAFAFA)
+     :cardColor (m/Colors.white)
+     :primaryColor (m/Color. 0xFF4CAF50)
+     :dividerColor (m/Color. 0xFFDDDDDD)
+     :textTheme (.. m/ThemeData light textTheme)
+     :floatingActionButtonTheme
+     (m/FloatingActionButtonThemeData.
+      .backgroundColor (m/Color. 0xFF4CAF50)
+      .foregroundColor m/Colors.white)}))
+
+;; Dark theme
+(def dark-theme
+  (m/ThemeData
+    {:brightness m/Brightness.dark
+     :scaffoldBackgroundColor (m/Color. 0xFF121212)
+     :cardColor (m/Color. 0xFF1E1E1E)
+     :primaryColor (m/Color. 0xFF81C784)
+     :dividerColor (m/Color. 0xFF333333)
+     :textTheme (.. m/ThemeData dark textTheme)
+     :floatingActionButtonTheme
+     (m/FloatingActionButtonThemeData.
+      .backgroundColor (m/Color. 0xFF81C784)
+      .foregroundColor m/Colors.white)}))
+
+;; Get current theme (based on system settings)
+(defn get-theme [is-dark-mode]
+  (if is-dark-mode
+    dark-theme
+    light-theme)) 
