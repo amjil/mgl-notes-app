@@ -92,7 +92,10 @@
 (defn mgl-calendar-bar []
   (f/widget
    :let [weeks (partition-all 7 cached-dates)
-         month-dates (distinct (map #(DateTime. (.-year %) (.-month %) 1) cached-dates))]
+         month-dates (->> cached-dates
+                          (filter #(= (.-day %) 1))
+                          (map #(DateTime. (.-year %) (.-month %) 1))
+                          distinct)]
    :watch [{note-counts :note-counts} db/stat-state]
    (m/Column
     .children
