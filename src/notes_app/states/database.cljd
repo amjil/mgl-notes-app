@@ -1,7 +1,32 @@
 (ns notes-app.states.database
   (:require
-   [clojure.string :as str] ["package:cljd_mgl_notes_app/providers/database_provider.dart" :as db-provider]))
+   [clojure.string :as str] 
+   ["package:cljd_mgl_notes_app/providers/database_provider.dart" :as db-provider]
+   ["package:flutter/material.dart" :as m]
+   [virtual-keyboard.options :as keyboard-options]))
 
+;; ===== Global State Management =====
+;; Use clearer grouping and comments to improve maintainability
+(def state
+  (atom
+   (merge keyboard-options/keyboard-state
+          ;; UI states
+          {:tag-viewable false
+           :show-keyboard false
+           :show-stacked-keyboard false
+           :show-drawer-search false
+           :show-sub-drawer-search false
+           :show-search-diaglog false
+           :show-system-keyboard false
+           :tag-on-edit false
+           :current-layout "mg"
+           
+           ;; Keyboard configuration
+           :keyboard-height 0})))
+
+(defonce scaffold-key (m/GlobalKey.))
+
+;; ===== Database State Management =====
 ;; Simplified database state management
 ;; Unified management of all database-related states, reducing complexity
 
@@ -41,6 +66,7 @@
          :page-size 20
          :total-count 0
          :has-more false}))
+
 
 (def notes-state
   (atom {:notes []
