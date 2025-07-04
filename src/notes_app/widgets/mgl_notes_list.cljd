@@ -29,9 +29,6 @@
 ;; Notes list with infinite scroll
 (defn notes-list []
   (f/widget
-   :context ctx
-   :let [theme (-> m/Theme (.of ctx))
-         color-scheme (.-colorScheme theme)]
    :watch [{notes :notes
             loading :loading
             loading-more :loading-more
