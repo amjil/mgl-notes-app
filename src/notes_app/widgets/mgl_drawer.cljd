@@ -40,6 +40,7 @@
 (defn mgl-right-drawer []
   (f/widget
    (m/Drawer)
+   (m/SafeArea)
    (m/Padding
     .padding (m/EdgeInsets.all 16))
    (m/Column

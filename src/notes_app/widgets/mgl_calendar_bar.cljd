@@ -7,8 +7,8 @@
     [cljd.flutter :as f]))
 
  ;; Constants
- (def ^:const DAYS-TO-SHOW 84)
- (def ^:const CELL-SIZE 20)
+ (def ^:const DAYS-TO-SHOW 70)
+ (def ^:const CELL-SIZE 16)
  (def ^:const CELL-MARGIN 2)
  (def ^:const CELL-RADIUS 3)
 
