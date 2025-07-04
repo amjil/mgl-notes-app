@@ -4,214 +4,355 @@
    ["package:mongol/mongol.dart" :as mgl]
    ["package:flutter/material.dart" :as m]))
 
+;; Constants
+(def ^:const default-border-radius 12)
+(def ^:const default-icon-size 24)
+(def ^:const default-menu-width 300)
+(def ^:const default-menu-height 250)
+(def ^:const default-menu-item-padding-horizontal 12)
+(def ^:const default-menu-item-padding-vertical 8)
+(def ^:const default-group-title-padding-horizontal 8.0)
+(def ^:const default-group-title-padding-vertical 4.0)
+(def ^:const default-group-title-font-size 12)
+(def ^:const default-menu-item-font-size 14)
+(def ^:const default-shadow-blur-radius 8)
+(def ^:const default-shadow-offset-y 2)
+(def ^:const default-transition-duration 200)
+(def ^:const default-spacing-between-icon-text 4)
+(def ^:const default-spacing-between-items 20)
+(def ^:const default-spacing-before-preview 40)
+(def ^:const default-spacing-after-preview-title 10)
+(def ^:const default-color-preview-size 40)
+(def ^:const default-color-preview-spacing 8)
+(def ^:const default-color-preview-border-radius 8)
+(def ^:const default-min-menu-width 80)
+(def ^:const default-max-menu-height 300)
+(def ^:const default-screen-margin 10)
+
+;; Helper functions for performance and error handling
+(defn safe-get
+  "Safely get a value from a map with a default fallback"
+  [map key default-value]
+  (or (get map key) default-value))
+
+(defn validate-menu-items
+  "Validate menu items and filter out invalid ones"
+  [items]
+  (filter some? items))
+
+(defn calculate-menu-position
+  "Calculate optimal menu position based on button location and screen size"
+  [button-offset button-size screen-size menu-width menu-height]
+  (let [left (-> button-offset .-dx)
+        top (+ (-> button-offset .-dy) (-> button-size .-height))
+        adjusted-left (if (> (+ left menu-width) (-> screen-size .-width))
+                       (max default-screen-margin 
+                            (- (-> screen-size .-width) menu-width default-screen-margin))
+                       left)
+        adjusted-top (if (> (+ top menu-height) (-> screen-size .-height))
+                      (max default-screen-margin 
+                           (- (-> button-offset .-dy) menu-height))
+                      top)]
+    {:left adjusted-left
+     :top adjusted-top}))
+
+(defn get-theme-styles
+  "Get theme-based styles for the popup menu"
+  [theme]
+  (when theme
+    (let [color-scheme (-> theme .-colorScheme)
+          is-dark (-> theme .-brightness (= m/Brightness.dark))]
+      {:background-color (-> color-scheme .-surface)
+       :divider-color (-> color-scheme .-outline)
+       :text-color (-> color-scheme .-onSurface)
+       :group-title-color (-> color-scheme .-primary)
+       :icon-color (-> color-scheme .-onSurface)
+       :hover-color (-> color-scheme .-surfaceVariant)
+       :shadow-color (-> color-scheme .-shadow)
+       :splash-color (-> color-scheme .-primaryContainer)
+       :highlight-color (-> color-scheme .-surfaceVariant)
+       :scrim-color (-> color-scheme .-scrim)
+       :elevation (if is-dark 8 4)})))
+
 (defn mongol-menu-item
   "Create a Mongolian menu item"
   [{:keys [icon label on-selected custom-widget is-divider is-group-title]
     :or {is-divider false
          is-group-title false}}]
-  {:icon icon
-   :label label
-   :on-selected on-selected
-   :custom-widget custom-widget
-   :is-divider is-divider
-   :is-group-title is-group-title})
+  (when (or label custom-widget is-divider is-group-title)
+    {:icon icon
+     :label (or label "")
+     :on-selected on-selected
+     :custom-widget custom-widget
+     :is-divider is-divider
+     :is-group-title is-group-title}))
 
 (defn mongol-menu-item-divider
   "Create a divider menu item"
   []
-  (mongol-menu-item {:label "" :is-divider true}))
+  (mongol-menu-item {:is-divider true}))
 
 (defn mongol-menu-item-group-title
   "Create a group title menu item"
   [label]
-  (mongol-menu-item {:label label :is-group-title true}))
+  (when label
+    (mongol-menu-item {:label label :is-group-title true})))
 
 (defn popup-content
   "Popup menu content component"
   [{:keys [items on-item-selected background-color border-radius box-shadow
            divider-color menu-item-padding icon-size]
-    :or {border-radius 12
-         menu-item-padding (m/EdgeInsets.symmetric .horizontal 12 .vertical 8)
-         icon-size 24}}]
+    :or {border-radius default-border-radius
+         menu-item-padding (m/EdgeInsets.symmetric
+                            .horizontal default-menu-item-padding-horizontal
+                            .vertical default-menu-item-padding-vertical)
+         icon-size default-icon-size}}]
   (f/widget
    :context ctx
    :let [theme (-> m/Theme (.of ctx))
-         is-dark (-> theme .-brightness (= m/Brightness.dark))
-         bg-color (or background-color 
-                      (if is-dark 
-                        (-> m/Colors .grey)
-                        (-> m/Colors .white)))
-         div-color (or divider-color
-                       (if is-dark
-                         (-> m/Colors .grey)
-                         (-> m/Colors .grey)))
-         text-color (if is-dark
-                      (-> m/Colors .white)
-                      (-> m/Colors .black))
-         group-title-color (if is-dark
-                             (-> m/Colors .white)
-                             (-> m/Colors .black))
-         icon-color (if is-dark
-                      (-> m/Colors .white)
-                      (-> m/Colors .black))]
-   (m/Material
-    .color bg-color
-    .borderRadius (m/BorderRadius.circular border-radius)
-    .elevation 0
-    .child
-    (m/Container
-     .decoration (m/BoxDecoration
-                  .color bg-color
-                  .borderRadius (m/BorderRadius.circular border-radius)
-                  .boxShadow (or box-shadow []))
-     .child
-     (m/ConstrainedBox
-      .constraints (m/BoxConstraints .maxHeight 300 .minWidth 80)
+         styles (get-theme-styles theme)
+         bg-color (or background-color (safe-get styles :background-color m/Colors.white))
+         div-color (or divider-color (safe-get styles :divider-color m/Colors.grey))
+         text-color (safe-get styles :text-color m/Colors.black)
+         group-title-color (safe-get styles :group-title-color m/Colors.blue)
+         icon-color (safe-get styles :icon-color m/Colors.black)
+         shadow-color (safe-get styles :shadow-color m/Colors.black)
+         splash-color (safe-get styles :splash-color m/Colors.blue)
+         highlight-color (safe-get styles :highlight-color m/Colors.grey)
+         elevation (safe-get styles :elevation 4)
+         valid-items (validate-menu-items items)]
+   (if (and styles (seq valid-items))
+     (m/Material
+      .color bg-color
+      .borderRadius (m/BorderRadius.circular border-radius)
+      .elevation elevation
+      .shadowColor shadow-color
       .child
-      (m/SingleChildScrollView
-       .scrollDirection m/Axis.horizontal
+      (m/Container
+       .decoration (m/BoxDecoration
+                    .color bg-color
+                    .borderRadius (m/BorderRadius.circular border-radius)
+                    .boxShadow (or box-shadow
+                                   [(m/BoxShadow
+                                     .color shadow-color
+                                     .blurRadius default-shadow-blur-radius
+                                     .offset (m/Offset 0 default-shadow-offset-y))]))
        .child
-       (m/IntrinsicHeight
+       (m/ConstrainedBox
+        .constraints (m/BoxConstraints
+                      .maxHeight default-max-menu-height
+                      .minWidth default-min-menu-width)
         .child
-        (m/Row
-         .crossAxisAlignment m/CrossAxisAlignment.stretch
-         .children
-         (for [item items]
-           (if (get item :is-divider)
-             (m/VerticalDivider
-              .width 1
-              .thickness 1
-              .color div-color)
-             (if (get item :is-group-title)
-               (m/Padding
-                .padding (m/EdgeInsets.symmetric .horizontal 8.0)
-                .child
-                (m/Center
-                 .child
-                 (mgl/MongolText
-                  (get item :label)
-                  .style (m/TextStyle
-                          .fontWeight m/FontWeight.bold
-                          .color group-title-color))))
-               (m/InkWell
-                .onTap (fn []
-                         (-> m/Navigator (.of ctx) (.pop))
-                         (when on-item-selected
-                           (on-item-selected item)))
-                .child
-                (m/Container
-                 .padding menu-item-padding
-                 .child
-                 (or (get item :custom-widget)
-                     (m/Column
-                      .mainAxisSize m/MainAxisSize.min
-                      .children
-                      [(when (get item :icon)
-                         (m/Icon
-                          (get item :icon)
-                          .size icon-size
-                          .color icon-color))
-                       (m/SizedBox .height 4)
-                       (mgl/MongolText
-                        (get item :label)
-                        .style (m/TextStyle .color text-color))])))))))))))))))
+        (m/SingleChildScrollView
+         .scrollDirection m/Axis.horizontal
+         .child
+         (m/IntrinsicHeight
+          .child
+          (m/Row
+           .crossAxisAlignment m/CrossAxisAlignment.stretch
+           .children
+           (for [item valid-items]
+             (if (get item :is-divider)
+               (m/VerticalDivider
+                .width 1
+                .thickness 1
+                .color div-color)
+               (if (get item :is-group-title)
+                 (m/Padding
+                  .padding (m/EdgeInsets.symmetric
+                            .horizontal default-group-title-padding-horizontal
+                            .vertical default-group-title-padding-vertical)
+                  .child
+                  (m/Center
+                   .child
+                   (mgl/MongolText
+                    (get item :label)
+                    .style (m/TextStyle
+                            .fontWeight m/FontWeight.w600
+                            .fontSize default-group-title-font-size
+                            .color group-title-color))))
+                 (m/Material
+                  .color m/Colors.transparent
+                  .child
+                  (m/InkWell
+                   .onTap (fn []
+                            (-> m/Navigator (.of ctx) (.pop))
+                            (when on-item-selected
+                              (on-item-selected item)))
+                   .splashColor splash-color
+                   .highlightColor highlight-color
+                   .child
+                   (m/Container
+                    .padding menu-item-padding
+                    .child
+                    (or (get item :custom-widget)
+                        (m/Column
+                         .mainAxisSize m/MainAxisSize.min
+                         .mainAxisAlignment m/MainAxisAlignment.center
+                         .children
+                         [(when (get item :icon)
+                            (m/Icon
+                             (get item :icon)
+                             .size icon-size
+                             .color icon-color))
+                          (m/SizedBox .height default-spacing-between-icon-text)
+                          (mgl/MongolText
+                           (get item :label)
+                           .style (m/TextStyle
+                                   .color text-color
+                                   .fontSize default-menu-item-font-size))]))))))))))))))
+     (m/SizedBox.shrink))))
 
 (defn mongol-popup-menu-button
   "Mongolian popup menu button component"
   [{:keys [items icon on-selected menu-background-color menu-border-radius
            menu-box-shadow divider-color menu-item-padding icon-size]
-    :or {menu-border-radius 12
-         menu-item-padding (m/EdgeInsets.symmetric .horizontal 12 .vertical 8)
-         icon-size 24}}]
+    :or {menu-border-radius default-border-radius
+         menu-item-padding (m/EdgeInsets.symmetric
+                            .horizontal default-menu-item-padding-horizontal
+                            .vertical default-menu-item-padding-vertical)
+         icon-size default-icon-size}}]
   (f/widget
    :context ctx
-   :let [show-menu (fn []
+   :let [theme (-> m/Theme (.of ctx))
+         styles (get-theme-styles theme)
+         show-menu (fn []
                      (let [button (-> ctx .findRenderObject)
                            overlay (-> (-> m/Overlay (.of ctx)) .-context .findRenderObject)
                            button-offset (-> button (.localToGlobal (m/Offset 0 0) .ancestor overlay))
                            button-size (-> button .-size)
                            screen-size (-> overlay .-size)
-                           menu-width 300
-                           menu-height 250
-                           left (-> button-offset .-dx)
-                           top (+ (-> button-offset .-dy) (-> button-size .-height))
-                           adjusted-left (if (> (+ left menu-width) (-> screen-size .-width))
-                                          (max 10 (- (-> screen-size .-width) menu-width 10))
-                                          left)
-                           adjusted-top (if (> (+ top menu-height) (-> screen-size .-height))
-                                        (max 10 (- (-> button-offset .-dy) menu-height))
-                                        top)]
+                           menu-width default-menu-width
+                           menu-height default-menu-height
+                           position (calculate-menu-position button-offset button-size screen-size menu-width menu-height)]
                        (m/showGeneralDialog
                         .context ctx
                         .barrierDismissible true
                         .barrierLabel "Dismiss"
-                        .transitionDuration (Duration .milliseconds 200)
+                        .barrierColor (safe-get styles :scrim-color m/Colors.black54)
+                        .transitionDuration (Duration .milliseconds default-transition-duration)
                         .pageBuilder (fn [context anim1 anim2]
-                                     (m/Stack
-                                      .children
-                                      [(m/Positioned
-                                        .left adjusted-left
-                                        .top adjusted-top
-                                        .width menu-width
-                                        .height menu-height
-                                        .child
-                                        (popup-content
-                                         {:items items
-                                          :on-item-selected (fn [item]
-                                                             (when (get item :on-selected)
-                                                               ((get item :on-selected)))
-                                                             (when on-selected
-                                                               (on-selected item)))
-                                          :background-color menu-background-color
-                                          :border-radius menu-border-radius
-                                          :box-shadow menu-box-shadow
-                                          :divider-color divider-color
-                                          :menu-item-padding menu-item-padding
-                                          :icon-size icon-size}))]))
+                                       (m/Stack
+                                        .children
+                                        [(m/Positioned
+                                          .left (get position :left)
+                                          .top (get position :top)
+                                          .width menu-width
+                                          .height menu-height
+                                          .child
+                                          (popup-content
+                                           {:items items
+                                            :on-item-selected (fn [item]
+                                                                (when (get item :on-selected)
+                                                                  ((get item :on-selected)))
+                                                                (when on-selected
+                                                                  (on-selected item)))
+                                            :background-color menu-background-color
+                                            :border-radius menu-border-radius
+                                            :box-shadow menu-box-shadow
+                                            :divider-color divider-color
+                                            :menu-item-padding menu-item-padding
+                                            :icon-size icon-size}))]))
                         .transitionBuilder (fn [context animation secondary-animation child]
-                                            (let [curved (m/CurvedAnimation
-                                                         .parent animation
-                                                         .curve m/Curves.easeOutBack)]
-                                              (m/FadeTransition
-                                               .opacity curved
-                                               .child
-                                               (m/ScaleTransition
-                                                .scale curved
-                                                .child child)))))))]
+                                             (let [curved (m/CurvedAnimation
+                                                           .parent animation
+                                                           .curve m/Curves.easeOutBack)]
+                                               (m/FadeTransition
+                                                .opacity curved
+                                                .child
+                                                (m/ScaleTransition
+                                                 .scale curved
+                                                 .child child)))))))]
    (m/IconButton
     .icon (or icon (m/Icon m/Icons.more_vert))
-    .onPressed show-menu)))
+    .onPressed show-menu
+    .iconSize default-icon-size
+    .color (safe-get styles :text-color m/Colors.black)
+    .hoverColor (safe-get styles :hover-color m/Colors.grey)
+    .splashColor (safe-get styles :splash-color m/Colors.blue)
+    .highlightColor (safe-get styles :highlight-color m/Colors.grey))))
 
 ;; Usage example
 (defn example-usage []
   (f/widget
    :context ctx
+   :let [theme (-> m/Theme (.of ctx))
+         styles (get-theme-styles theme)
+         color-scheme (-> theme .-colorScheme)]
    (m/Scaffold
-    .appBar nil
+    .appBar (m/AppBar
+             .title (mgl/MongolText "Mongolian Popup Menu Example")
+             .backgroundColor (safe-get styles :background-color m/Colors.white)
+             .foregroundColor (safe-get styles :text-color m/Colors.black)
+             .elevation 0)
+    .backgroundColor (-> color-scheme .-background)
     .body
     (m/Center
      .child
      (m/Column
       .mainAxisAlignment m/MainAxisAlignment.center
       .children
-      [(mongol-popup-menu-button
-        {:items [(mongol-menu-item
-                  {:label "Mongolian"
-                   :icon m/Icons.flag
-                   :on-selected (fn []
-                                 (dart:core/print "Selected Mongolian"))})
-                 (mongol-menu-item-divider)
-                 (mongol-menu-item-group-title "Language Options")
-                 (mongol-menu-item
-                  {:label "English"
-                   :icon m/Icons.language
-                   :on-selected (fn []
-                                 (dart:core/print "Selected English"))})
-                 (mongol-menu-item
-                  {:label "Chinese"
-                   :icon m/Icons.translate
-                   :on-selected (fn []
-                                 (dart:core/print "Selected Chinese"))})]
+      [(mgl/MongolText
+        "Click the button below to see the popup menu"
+        .style (m/TextStyle
+                .color (-> color-scheme .-onBackground)
+                .fontSize 16))
+       (m/SizedBox .height default-spacing-between-items)
+       (mongol-popup-menu-button
+        {:items (validate-menu-items
+                 [(mongol-menu-item
+                   {:label "Mongolian"
+                    :icon m/Icons.flag
+                    :on-selected (fn []
+                                   (dart:core/print "Selected Mongolian"))})
+                  (mongol-menu-item-divider)
+                  (mongol-menu-item-group-title "Language Options")
+                  (mongol-menu-item
+                   {:label "English"
+                    :icon m/Icons.language
+                    :on-selected (fn []
+                                   (dart:core/print "Selected English"))})
+                  (mongol-menu-item
+                   {:label "Chinese"
+                    :icon m/Icons.translate
+                    :on-selected (fn []
+                                   (dart:core/print "Selected Chinese"))})
+                  (mongol-menu-item-divider)
+                  (mongol-menu-item
+                   {:label "Settings"
+                    :icon m/Icons.settings
+                    :on-selected (fn []
+                                   (dart:core/print "Opened Settings"))})])
          :on-selected (fn [item]
                         (dart:core/print (str "Menu item selected:" (get item :label))))})
-       ])))))
+       (m/SizedBox .height default-spacing-before-preview)
+       (m/Text
+        "Theme Color Preview"
+        .style (m/TextStyle
+                .color (-> color-scheme .-onBackground)
+                .fontSize 14))
+       (m/SizedBox .height default-spacing-after-preview-title)
+       (m/Row
+        .mainAxisAlignment m/MainAxisAlignment.center
+        .children
+        [(m/Container
+          .width default-color-preview-size
+          .height default-color-preview-size
+          .decoration (m/BoxDecoration
+                       .color (safe-get styles :group-title-color m/Colors.blue)
+                       .borderRadius (m/BorderRadius.circular default-color-preview-border-radius)))
+         (m/SizedBox .width default-color-preview-spacing)
+         (m/Container
+          .width default-color-preview-size
+          .height default-color-preview-size
+          .decoration (m/BoxDecoration
+                       .color (-> color-scheme .-secondary)
+                       .borderRadius (m/BorderRadius.circular default-color-preview-border-radius)))
+         (m/SizedBox .width default-color-preview-spacing)
+         (m/Container
+          .width default-color-preview-size
+          .height default-color-preview-size
+          .decoration (m/BoxDecoration
+                       .color (safe-get styles :background-color m/Colors.white)
+                       .border (m/Border.all .color (safe-get styles :divider-color m/Colors.grey))
+                       .borderRadius (m/BorderRadius.circular default-color-preview-border-radius)))])])))))
