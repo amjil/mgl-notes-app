@@ -1,60 +1,111 @@
 (ns notes-app.widgets.mgl-calendar-bar
-  (:require
-   ["package:flutter/material.dart" :as m]
-   [notes-app.utils.date :as date]
-   [notes-app.states.db :as db]
-   [cljd.flutter :as f]))
+   (:require
+    ["package:flutter/material.dart" :as m]
+    ["package:mongol/mongol.dart" :as mgl]
+    [notes-app.utils.date :as date]
+    [notes-app.states.database :as db]
+    [cljd.flutter :as f]))
 
-(declare note-color generate-dates)
+ ;; Constants
+ (def ^:const DAYS-TO-SHOW 84)
+ (def ^:const CELL-SIZE 20)
+ (def ^:const CELL-MARGIN 2)
+ (def ^:const CELL-RADIUS 3)
+
+ ;; Month names
+ (def month-names ["January" "February" "March" "April" "May" "June"
+                   "July" "August" "September" "October" "November" "December"])
+
+ (defn generate-dates []
+   (reverse
+    (take DAYS-TO-SHOW
+          (iterate #(.subtract % (Duration .days 1))
+                   (DateTime/now)))))
+
+ ;; Cache today's date string to avoid recalculation
+ (def today-str (date/format-date (DateTime/now)))
+
+ ;; Cache generated date list
+ (def cached-dates (generate-dates))
+
+ (declare note-color calendar-day-cell)
+
+ (defn get-month-name [date]
+   (nth month-names (dec (.-month date))))
+
+ (defn calendar-day-cell [day note-counts]
+   (let [day-str (date/format-date day)
+         note-count (get note-counts day-str 0)
+         is-today (= day-str today-str)
+         day-of-month (.-day day)]
+     (m/Padding
+      .padding (m/EdgeInsets.all CELL-MARGIN)
+      .child
+      (m/Tooltip
+       .message (str day-str " - " note-count " notes")
+       .child
+       (m/GestureDetector
+        .onTap (fn []
+                 ;; TODO: Implement actual date navigation
+                 (dart:core/print (str "Navigate to date: " day-str)))
+        .child
+        (m/Container
+         .width CELL-SIZE
+         .height CELL-SIZE
+         .margin (m/EdgeInsets.all CELL-MARGIN)
+         .decoration (m/BoxDecoration
+                      .color (note-color note-count is-today)
+                      .border (when is-today
+                                (m/Border.all .color m/Colors.black :width 1))
+                      .borderRadius (m/BorderRadius.circular CELL-RADIUS))
+         .child
+         (m/Center
+          .child
+          (m/Text
+           (str day-of-month)
+           .style (m/TextStyle
+                   .fontSize 10
+                   .color (if is-today m/Colors.white m/Colors.black87)
+                   .fontWeight (when is-today m/FontWeight.bold))))))))))
+
+ (defn calendar-week-row [week note-counts]
+   (m/Column
+    .children
+    (doall (map #(calendar-day-cell % note-counts) week))))
+
+ (defn month-label [dates]
+   (m/Row
+    .mainAxisAlignment m/MainAxisAlignment.spaceEvenly
+    .children
+    (doall
+     (map (fn [date]
+            (m/Container
+             .padding (m/EdgeInsets.all 8)
+             .child
+             (mgl/MongolText
+              (get-month-name date)
+              .style (m/TextStyle
+                      .fontSize 14
+                      .fontWeight m/FontWeight.bold))))
+          dates))))
 
 (defn mgl-calendar-bar []
   (f/widget
-   :let [dates (generate-dates)
-         weeks (partition-all 7 dates)
-         today-str (date/format-date (DateTime/now))]
+   :let [weeks (partition-all 7 cached-dates)
+         month-dates (distinct (map #(DateTime. (.-year %) (.-month %) 1) cached-dates))]
    :watch [{note-counts :note-counts} db/stat-state]
    (m/Column
-    .children 
-    [(m/SingleChildScrollView
-      .scrollDirection m/Axis.horizontal
-      .child (m/Row
-              .children (map (fn [week]
-                               (m/Column
-                                .children
-                                [(map (fn [day]
-                                        (let [day-str (date/format-date day)
-                                              note-count (get note-counts day-str)
-                                              is-today (= day-str today-str)]
-                                          (m/Padding
-                                           .padding (m/EdgeInsets.all 2)
-                                           .child
-                                           (m/GestureDetector
-                                            .onTap (fn [] (dart:core/print (str "tap: " day-str)))
-                                            .child
-                                            (m/Container
-                                             .width 20
-                                             .heigth 20
-                                             .margin (m/EdgeInsets.all 2)
-                                             .decoration (m/BoxDecoration
-                                                          .color (note-color note-count is-today)
-                                                          .border (when is-today
-                                                                    (m/Border.all .color m/Colors.black :width 1))
-                                                          .borderRadius (m/BorderRadius.circular 3)))))))
-                                      week)]))
-                             weeks)))])))
+    .children
+    [(m/Row
+      .children (map #(calendar-week-row % note-counts) weeks))
+     (month-label month-dates)])))
 
 (defn note-color [count today?]
   (cond
     today? m/Colors.redAccent
-    (zero? count) (m/Color. 0xFFCCCCCC)
-    (<= count 2) (m/Color. 0xFFA8D5BA)
-    (<= count 5) (m/Color. 0xFF4CAF50)
-    :else (m/Color. 0xFF087F23)))
-
-(defn generate-dates []
-  (reverse
-   (take 84
-         (iterate #(.subtract % (Duration .days 1))
-                  (DateTime/now)))))
+    (zero? count) (m/Color. 0xFFF5F5F5)  ;; Lighter gray
+    (<= count 2) (m/Color. 0xFFE8F5E8)   ;; Lighter green
+    (<= count 5) (m/Color. 0xFF4CAF50)   ;; Medium green
+    :else (m/Color. 0xFF2E7D32)))        ;; Darker green
                   
 
