@@ -4,8 +4,8 @@
    [notes-app.widgets.mgl-calendar-bar :as mgl-calendar-bar]
    [notes-app.widgets.mgl-chip :as mgl-chip]
    [notes-app.widgets.mgl-menu-bar :as mgl-menu-bar]
-   [notes-app.widgets.mgl-stat-bar :as mgl-stat-bar]
-   [notes-app.states.db :as db]
+   [notes-app.widgets.mgl-stats-widget :as mgl-stats-widget]
+   [notes-app.states.database :as db]
    [cljd.flutter :as f]))
 
 (declare often-used-tags often-search-query)
@@ -13,10 +13,11 @@
 (defn mgl-left-drawer []
   (f/widget
    (m/Drawer)
+   (m/SafeArea)
    (m/Column
     .children
     [(m/Padding
-      .padding (m/EdgeInsets.all 16)
+      .padding (m/EdgeInsets.symmetric .vertical 26 .horizontal 16)
       .child (m/Row
               .mainAxisAlignment m/MainAxisAlignment.spaceBetween
               .children
@@ -24,14 +25,17 @@
                 .radius 20
                 .backgroundColor (m/Colors.grey 400)
                 .child (m/IconButton
-                        .icon (m/Icon .menu)))
+                        .icon (m/Icon m/Icons.menu)
+                        .onPressed #(dart:core/print "Open avatar")))
                (m/IconButton
-                (m/Icon m/Icons.settings)
+                .icon (m/Icon m/Icons.settings)
                 .onPressed #(dart:core/print "Open Settings"))]))
-     (m/VerticalDivider .width 1 .color (m/Colors.grey 300))
-     (mgl-stat-bar/mgl-stat-bar)
-     (m/VerticalDivider .width 1 .color (m/Colors.grey 300))
-     (mgl-menu-bar/mgl-menu-bar)])))
+     (m/Divider .height 1)
+     (mgl-stats-widget/stats-panel)
+     (m/Divider .height 1)
+     (m/Expanded
+      .child
+      (mgl-menu-bar/mgl-menu-bar))])))
 
 (defn mgl-right-drawer []
   (f/widget
@@ -41,12 +45,12 @@
    (m/Column
     .children
     [(mgl-calendar-bar/mgl-calendar-bar)
-     (m/VerticalDivider .width 1 .color (m/Colors.grey 300))
+     (m/Divider .height 1)
      (m/Expanded
       .child (m/Padding
               .padding (m/EdgeInsets.symmetric .vertical 12)
               .child (often-used-tags)))
-     (m/VerticalDivider .width 1 .color (m/Colors.grey 300))
+     (m/Divider .height 1)
      (m/Expanded
       .child (m/Padding
               .padding (m/EdgeInsets.symmetric .vertical 12)

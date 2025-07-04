@@ -13,13 +13,14 @@
             [(m/Icon (:icon item) .size 28)
              (m/SizedBox .height 4)
              (mgl/MongolText (:label item)
-                             .style (m/TextStyle .fontSize 12))]))))
+                             .style (m/TextStyle .fontSize 16))]))))
 
 (defn mgl-menu-bar []
   (f/widget
    (m/Padding
     .padding (m/EdgeInsets.symmetric .horizontal 8)
     .child (m/ListView
+            .scrollDirection m/Axis.horizontal
             .children
             [(menu-item {:label "Home" :icon m/Icons.home})
              (menu-item {:label "Search" :icon m/Icons.search})

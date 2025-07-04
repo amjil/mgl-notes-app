@@ -2,11 +2,12 @@
   (:require
    ["package:flutter/material.dart" :as m]
    ["package:mongol/mongol.dart" :as mgl]
-   [cljd.flutter :as f]))
+   [cljd.flutter :as f]
+   [notes-app.states.database :as db]))
 
 ;; Extract common styles to avoid repeated creation
-(def label-style (m/TextStyle .fontSize 12))
-(def value-style (m/TextStyle .fontSize 16 .fontWeight m/FontWeight.bold))
+(def label-style (m/TextStyle .fontSize 16))
+(def value-style (m/TextStyle .fontSize 22 .fontWeight m/FontWeight.bold))
 
 ;; Data validation function
 (defn validate-stat-value [value]
@@ -15,21 +16,35 @@
     0))
 
 ;; Individual stat item component
-(defn stat-item [{:keys [label value]}]
-  (f/widget
-   (m/Column
-    .children
-    [(mgl/MongolText label .style label-style)
-     (m/Text (str (validate-stat-value value))
-             .style value-style)])))
+(defn- item-label [label]
+  (mgl/MongolText label .style label-style))
 
-(defn stats-panel [{:keys [note-count tag-count active-days]}]
+(defn- item-value [value]
+  (m/Text (str (validate-stat-value value))
+          .style value-style))
+
+;; Individual stat item component
+(defn- stat-item [label value]
+  (m/Expanded
+   .child
+   (m/Column
+    .mainAxisAlignment m/MainAxisAlignment.center
+    .crossAxisAlignment m/CrossAxisAlignment.center
+    .children [(item-label label)
+               (m/Align
+                .alignment m/Alignment.center
+                .child (item-value value))])))
+
+(defn stats-panel []
   (f/widget
+   :watch [{note-count :note-count 
+            tag-count :tag-count 
+            active-days :active-days} db/stat-state]
    (m/Padding
-    .padding (m/EdgeInsets.all 16)
+    .padding (m/EdgeInsets.symmetric .vertical 16 .horizontal 48)
     .child
     (m/Row
-     .mainAxisAlignment m/MainAxisAlignment.spaceEvenly
-     .children [(stat-item {:label "Notes" :value note-count})
-                (stat-item {:label "Tags" :value tag-count})
-                (stat-item {:label "Active" :value active-days})]))))
+     .mainAxisAlignment m/MainAxisAlignment.spaceBetween
+     .children [(stat-item "Notes" note-count)
+                (stat-item "Tags" tag-count)
+                (stat-item "Active" active-days)]))))

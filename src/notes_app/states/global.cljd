@@ -1,5 +1,6 @@
 (ns notes-app.states.global
-  (:require 
+  (:require
+   ["package:flutter/material.dart" :as m]
    [virtual-keyboard.options :as keyboard-options]))
 
 ;; Global state management
@@ -26,3 +27,5 @@
                          :tags []
                          :search-text ""
                          :search-results []}))
+
+(defonce scaffold-key (m/GlobalKey.))
