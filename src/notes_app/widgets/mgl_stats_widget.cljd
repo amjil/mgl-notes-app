@@ -4,29 +4,32 @@
    ["package:mongol/mongol.dart" :as mgl]
    [cljd.flutter :as f]))
 
+;; Extract common styles to avoid repeated creation
+(def label-style (m/TextStyle .fontSize 12))
+(def value-style (m/TextStyle .fontSize 16 .fontWeight m/FontWeight.bold))
+
+;; Data validation function
+(defn validate-stat-value [value]
+  (if (and (number? value) (>= value 0))
+    value
+    0))
+
+;; Individual stat item component
+(defn stat-item [{:keys [label value]}]
+  (f/widget
+   (m/Column
+    .children
+    [(mgl/MongolText label .style label-style)
+     (m/Text (str (validate-stat-value value))
+             .style value-style)])))
+
 (defn stats-panel [{:keys [note-count tag-count active-days]}]
   (f/widget
    (m/Padding
-    .padding (m/EdgeInsets.all 16))
-   (m/Row
-    .mainAxisAlignment m/MainAxisAlignment.spaceEvenly
-    .children [(m/Column
-                .children
-                [(mgl/MongolText "Notes" .style (m/TextStyle .fontSize 12))
-                 (m/Text (str note-count)
-                         .style (m/TextStyle .fontSize 16
-                                             .fontWeight m/FontWeight.bold))])
-               (m/Column
-                .children
-                [(mgl/MongolText "Tags"
-                                 .style (m/TextStyle .fontSize 12))
-                 (m/Text (str tag-count)
-                         .style (m/TextStyle .fontSize 16
-                                             .fontWeight m/FontWeight.bold))])
-               (m/Column
-                .children
-                [(mgl/MongolText "Active"
-                                 .style (m/TextStyle .fontSize 12))
-                 (m/Text (str active-days)
-                         .style (m/TextStyle .fontSize 16
-                                             .fontWeight m/FontWeight.bold))])])))
+    .padding (m/EdgeInsets.all 16)
+    .child
+    (m/Row
+     .mainAxisAlignment m/MainAxisAlignment.spaceEvenly
+     .children [(stat-item {:label "Notes" :value note-count})
+                (stat-item {:label "Tags" :value tag-count})
+                (stat-item {:label "Active" :value active-days})]))))

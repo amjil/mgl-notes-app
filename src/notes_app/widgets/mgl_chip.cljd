@@ -4,10 +4,11 @@
    [cljd.flutter :as f]))
 
 (defn mgl-chip [label on-pressed]
-  (f/widget
-   (m/RotatedBox
-    .quarterTurns 1
-    .child
-    (m/ActionChip
-     .label (m/Text label)
-     .onPressed on-pressed))))
+  (when (and label (string? label) (not= label ""))
+    (f/widget
+     (m/RotatedBox
+      .quarterTurns 1
+      .child
+      (m/ActionChip
+       .label (m/Text label)
+       .onPressed on-pressed)))))

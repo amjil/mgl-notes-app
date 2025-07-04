@@ -3,44 +3,37 @@
    ["package:flutter/material.dart" :as m]
    ["package:mongol/mongol.dart" :as mgl]
    [cljd.flutter :as f]
-   [notes-app.states.global :as gs]))
-
-(defn mgl-chip [label on-pressed]
-  (f/widget
-   (m/RotatedBox
-    .quarterTurns 1
-    .child
-    (m/ActionChip
-     .label (m/Text label)
-     .onPressed on-pressed))))
+   [notes-app.states.global :as gs]
+   [notes-app.widgets.mgl-chip :as chip]))
 
 (defn suggestion-panel []
   (f/widget
    :watch [{suggestions :suggestions
             tags :tags} gs/search-state]
    (m/SingleChildScrollView
-    .scrollDirection m/Axis.horizontal)
-   (m/Row
-    .crossAxisAlignment m/CrossAxisAlignment.start
-    .children
-    [(mgl/MongolText "ᠲᠡᠭᠦᠷᠡᠬᠡ ᠨᠠᠢᠮᠠᠳ"
-                     .style (m/TextStyle .fontSize 20
-                                         .fontWeight m/FontWeight.bold))
-     (m/SizedBox .width 8)
-     (m/Wrap
-      .direction m/Axis.vertical
-      .spacing 8
-      .children (map (fn [s]
-                       (mgl-chip s #(dart:core/print (str "suggestion: " s))))
-                     suggestions))
-     (m/SizedBox .width 16)
-     (mgl/MongolText "ᠳᠤᠷᠠᠯ ᠲᠡᠭᠦᠷ"
-                     .style (m/TextStyle .fontSize 20
+    .scrollDirection m/Axis.horizontal
+    .child
+    (m/Row
+     .crossAxisAlignment m/CrossAxisAlignment.start
+     .children
+     [(mgl/MongolText "ᠲᠡᠭᠦᠷᠡᠬᠡ ᠨᠠᠢᠮᠠᠳ"
+                      .style (m/TextStyle .fontSize 20
                                           .fontWeight m/FontWeight.bold))
-     (m/SizedBox .width 8)
-     (m/Wrap
-      .direction m/Axis.vertical
-      .spacing 8
-      .children (map (fn [tag]
-                       (mgl-chip tag #(dart:core/print (str "tag: " tag))))
-                     tags))])))
+      (m/SizedBox .width 8)
+      (m/Wrap
+       .direction m/Axis.vertical
+       .spacing 8
+       .children (map (fn [s]
+                        (chip/mgl-chip s #(dart:core/print (str "suggestion: " s))))
+                      suggestions))
+      (m/SizedBox .width 16)
+      (mgl/MongolText "ᠳᠤᠷᠠᠯ ᠲᠡᠭᠦᠷ"
+                      .style (m/TextStyle .fontSize 20
+                                           .fontWeight m/FontWeight.bold))
+      (m/SizedBox .width 8)
+      (m/Wrap
+       .direction m/Axis.vertical
+       .spacing 8
+       .children (map (fn [tag]
+                        (chip/mgl-chip tag #(dart:core/print (str "tag: " tag))))
+                      tags))]))))
