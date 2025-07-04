@@ -4,6 +4,14 @@
    ["package:mongol/mongol.dart" :as mgl]
    [cljd.flutter :as f]))
 
+;; ==================== Helper functions ====================
+
+;; Get theme and color scheme from context
+(defn get-theme-colors [ctx]
+  (let [theme (-> m/Theme (.of ctx))
+        color-scheme (.-colorScheme theme)]
+    {:theme theme :color-scheme color-scheme}))
+
 ;; ==================== Text input widget ====================
 
 ;; Generic Mongol text field
@@ -81,8 +89,7 @@
                                                          :or {autofocus false}}]
   (f/widget
    :context ctx
-   :let [theme (-> m/Theme (.of ctx))
-         color-scheme (.-colorScheme theme)]
+   :let [{:keys [color-scheme]} (get-theme-colors ctx)]
    (mongol-text-field
     {:controller controller
      :max-lines 500
@@ -98,8 +105,7 @@
                                                       :or {autofocus false}}]
   (f/widget
    :context ctx
-   :let [theme (-> m/Theme (.of ctx))
-         color-scheme (.-colorScheme theme)]
+   :let [{:keys [color-scheme]} (get-theme-colors ctx)]
    (mongol-text-field
     {:controller controller
      :max-lines 1
@@ -114,8 +120,7 @@
                                                         :or {autofocus false}}]
   (f/widget
    :context ctx
-   :let [theme (-> m/Theme (.of ctx))
-         color-scheme (.-colorScheme theme)]
+   :let [{:keys [color-scheme]} (get-theme-colors ctx)]
    (mongol-text-field
     {:controller controller
      :max-lines 10
@@ -130,8 +135,7 @@
                                                                :or {autofocus false}}]
   (f/widget
    :context ctx
-   :let [theme (-> m/Theme (.of ctx))
-         color-scheme (.-colorScheme theme)]
+   :let [{:keys [color-scheme]} (get-theme-colors ctx)]
    (mongol-text-field
     {:controller controller
      :max-lines 500
