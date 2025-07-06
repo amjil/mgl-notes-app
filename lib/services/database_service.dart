@@ -15,14 +15,15 @@ class DatabaseService {
   
   /// Get all notes - returns Map list, ClojureDart friendly
   Future<List<Map<String, dynamic>>> getAllNotes() async {
-    final notes = await _database.getAllNotes();
+    final notes = await _database.getAllNotesWithFts();
     return notes.map((note) => {
-      'id': note.id,
-      'title': note.title,
-      'blockIds': note.blockIds,
-      'createdAt': note.createdAt.toIso8601String(),
-      'updatedAt': note.updatedAt.toIso8601String(),
-      'syncStatus': note.syncStatus,
+      'id': note['id'],
+      'title': note['title'],
+      'blockIds': note['blockIds'],
+      'createdAt': note['createdAt'],
+      'updatedAt': note['updatedAt'],
+      'syncStatus': note['syncStatus'],
+      'fts_content': note['fts_content'],
     }).toList();
   }
 
@@ -31,14 +32,15 @@ class DatabaseService {
     required int page,
     required int pageSize,
   }) async {
-    final notes = await _database.getNotesPaginated(page: page, pageSize: pageSize);
+    final notes = await _database.getNotesPaginatedWithFts(page: page, pageSize: pageSize);
     return notes.map((note) => {
-      'id': note.id,
-      'title': note.title,
-      'blockIds': note.blockIds,
-      'createdAt': note.createdAt.toIso8601String(),
-      'updatedAt': note.updatedAt.toIso8601String(),
-      'syncStatus': note.syncStatus,
+      'id': note['id'],
+      'title': note['title'],
+      'blockIds': note['blockIds'],
+      'createdAt': note['createdAt'],
+      'updatedAt': note['updatedAt'],
+      'syncStatus': note['syncStatus'],
+      'fts_content': note['fts_content'],
     }).toList();
   }
 
@@ -49,16 +51,17 @@ class DatabaseService {
 
   /// Get note by ID
   Future<Map<String, dynamic>?> getNoteById(String id) async {
-    final note = await _database.getNoteById(id);
+    final note = await _database.getNoteByIdWithFts(id);
     if (note == null) return null;
     
     return {
-      'id': note.id,
-      'title': note.title,
-      'blockIds': note.blockIds,
-      'createdAt': note.createdAt.toIso8601String(),
-      'updatedAt': note.updatedAt.toIso8601String(),
-      'syncStatus': note.syncStatus,
+      'id': note['id'],
+      'title': note['title'],
+      'blockIds': note['blockIds'],
+      'createdAt': note['createdAt'],
+      'updatedAt': note['updatedAt'],
+      'syncStatus': note['syncStatus'],
+      'fts_content': note['fts_content'],
     };
   }
 
@@ -184,9 +187,6 @@ class DatabaseService {
     // Update full-text search index
     await _database.updateBlocksFts(blockId, data['content'] ?? '');
     
-    // Update note's blockIds
-    await _updateNoteBlockIds(data['noteId'], blockId, true);
-    
     return blockId;
   }
 
@@ -204,9 +204,6 @@ class DatabaseService {
     // Update full-text search index
     await _database.updateBlocksFts(blockId, content);
     
-    // Update note's blockIds
-    await _updateNoteBlockIds(noteId, blockId, true);
-    
     return blockId;
   }
 
@@ -221,11 +218,6 @@ class DatabaseService {
     
     final success = await _database.updateBlock(block);
     
-    // If content is updated, update full-text search index
-    if (success && data['content'] != null) {
-      await _database.updateBlocksFts(data['id'], data['content']);
-    }
-    
     return success;
   }
 
@@ -238,11 +230,6 @@ class DatabaseService {
     );
     
     final success = await _database.updateBlock(block);
-    
-    // Update full-text search index
-    if (success) {
-      await _database.updateBlocksFts(id, content);
-    }
     
     return success;
   }
@@ -260,16 +247,7 @@ class DatabaseService {
 
   /// Delete block
   Future<bool> deleteBlock(String id) async {
-    // Get block info to update note's blockIds
-    final block = await _database.getBlockById(id);
-    if (block != null) {
-      await _updateNoteBlockIds(block.noteId, id, false);
-    }
-    
     final deletedCount = await _database.deleteBlock(id);
-    
-    // Delete from full-text search index
-    await _database.deleteFromBlocksFts(id);
     
     return deletedCount > 0;
   }
@@ -319,6 +297,15 @@ class DatabaseService {
   Future<bool> removeTagFromNote(String noteId, String tagId) async {
     final result = await _database.removeTagFromNote(noteId, tagId);
     return result > 0;
+  }
+
+  /// Get tags by note ID
+  Future<List<Map<String, dynamic>>> getTagsByNoteId(String noteId) async {
+    final tags = await _database.getTagsByNoteId(noteId);
+    return tags.map((tag) => {
+      'id': tag.id,
+      'name': tag.name,
+    }).toList();
   }
 
   // ===== Search Operations =====
@@ -385,6 +372,28 @@ class DatabaseService {
     return await _database.getSearchBlocksCount(query);
   }
 
+  // ===== Full-Text Search Index Operations =====
+  
+  /// Update note full-text search index
+  Future<void> updateNoteFts(String id, String content) async {
+    await _database.updateNoteFts(id, content);
+  }
+
+  /// Update blocks full-text search index
+  Future<void> updateBlocksFts(String id, String content) async {
+    await _database.updateBlocksFts(id, content);
+  }
+
+  /// Delete from note full-text search index
+  Future<void> deleteFromNoteFts(String id) async {
+    await _database.deleteFromNoteFts(id);
+  }
+
+  /// Delete from blocks full-text search index
+  Future<void> deleteFromBlocksFts(String id) async {
+    await _database.deleteFromBlocksFts(id);
+  }
+
   // ===== Sync Operations =====
   
   /// Get pending notes for sync
@@ -418,32 +427,6 @@ class DatabaseService {
   }
 
   // ===== Private Helper Methods =====
-  
-  /// Update note's blockIds
-  Future<void> _updateNoteBlockIds(String noteId, String blockId, bool isAdd) async {
-    final note = await _database.getNoteById(noteId);
-    if (note == null) return;
-    
-    List<String> blockIds = [];
-    try {
-      blockIds = List<String>.from(jsonDecode(note.blockIds));
-    } catch (e) {
-      blockIds = [];
-    }
-    
-    if (isAdd && !blockIds.contains(blockId)) {
-      blockIds.add(blockId);
-    } else if (!isAdd) {
-      blockIds.remove(blockId);
-    }
-    
-    await _database.updateNote(NotesCompanion(
-      id: Value(noteId),
-      title: Value(note.title),
-      blockIds: Value(jsonEncode(blockIds)),
-      updatedAt: Value(DateTime.now()),
-    ));
-  }
 
   /// Close database connection
   Future<void> close() async {

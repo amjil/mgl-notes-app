@@ -3,139 +3,180 @@
    [notes-app.states.database :as db]
    [clojure.string :as str]))
 
-;; Notes operations state management
+;; Notes State Management
+;; Responsible for managing note-related business logic and composite operations
 
-(defn load-notes []
-  (swap! db/notes-state assoc :loading true :error nil)
-  (try
-    (let [db-service (:database-service @db/db-state)
-          notes (await (.getAllNotes db-service))]
-      (swap! db/notes-state assoc
-             :notes notes
-             :loading false
-             :last-updated (DateTime/now)))
-    (catch Exception e
-      (swap! db/notes-state assoc
-             :loading false
-             :error (str "Failed to load notes: " e)))))
+;; ===== Notes State Operations =====
 
-;; Create note using new simplified method
-(defn create-note [title]
-  (swap! db/notes-state assoc :loading true :error nil)
-  (try
-    (let [db-service (:database-service @db/db-state)
-          ;; Use new simplified method, pass parameters directly
-          note-id (await (.createNoteSimple db-service title))]
-      (load-notes) ; Reload notes list
-      note-id)
-    (catch Exception e
-      (swap! db/notes-state assoc
-             :loading false
-             :error (str "Failed to create note: " e))
-      nil)))
+;; Load all notes
+(defn load-notes! []
+  (let [db-service (db/get-database-service)]
+    (when db-service
+      (swap! db/data-state assoc :loading true)
+      (-> (.getAllNotes db-service)
+          (.then (fn [notes]
+                   (swap! db/data-state assoc 
+                          :notes notes
+                          :loading false
+                          :last-updated (Date.now))))
+          (.catchError (fn [error]
+                         (swap! db/data-state assoc 
+                                :error (str error)
+                                :loading false)))))))
 
-;; Update note title using new simplified method
-(defn update-note-title [id title]
-  (swap! db/notes-state assoc :loading true :error nil)
-  (try
-    (let [db-service (:database-service @db/db-state)
-          success (await (.updateNoteTitle db-service id title))]
-      (when success
-        (load-notes)) ; Reload notes list
-      success)
-    (catch Exception e
-      (swap! db/notes-state assoc
-             :loading false
-             :error (str "Failed to update note: " e))
-      false)))
+;; Load paginated notes
+(defn load-notes-paginated! [page page-size]
+  (let [db-service (db/get-database-service)]
+    (when db-service
+      (swap! db/data-state assoc :loading-more true)
+      (-> (.getNotesPaginated db-service page page-size)
+          (.then (fn [notes]
+                   (swap! db/data-state assoc 
+                          :notes notes
+                          :loading-more false
+                          :current-page page
+                          :last-updated (DateTime/now))))
+          (.catchError (fn [error]
+                         (swap! db/data-state assoc 
+                                :error (str error)
+                                :loading-more false)))))))
 
-;; Update note using new simplified method
-(defn update-note [id updates]
-  (swap! db/notes-state assoc :loading true :error nil)
-  (try
-    (let [db-service (:database-service @db/db-state)
-          ;; Choose appropriate method based on update content
-          success (if (:title updates)
-                   (await (.updateNoteTitle db-service id (:title updates)))
-                   (if (:blockIds updates)
-                     (await (.updateNoteBlockIds db-service id (:blockIds updates)))
-                     (if (:syncStatus updates)
-                       (await (.updateNoteSyncStatus db-service id (:syncStatus updates)))
-                       false)))]
-      (when success
-        (load-notes)) ; Reload notes list
-      success)
-    (catch Exception e
-      (swap! db/notes-state assoc
-             :loading false
-             :error (str "Failed to update note: " e))
-      false)))
+;; Create note
+(defn create-note! [title & [id]]
+  (let [db-service (db/get-database-service)]
+    (when db-service
+      (-> (.createNoteSimple db-service title id)
+          (.then (fn [note-id]
+                   ;; Reload notes list
+                   (load-notes!)
+                   {:success true :note-id note-id}))
+          (.catchError (fn [error]
+                         {:success false :error (str error)}))))))
 
-(defn delete-note [id]
-  (swap! db/notes-state assoc :loading true :error nil)
-  (try
-    (let [db-service (:database-service @db/db-state)
-          success (await (.deleteNote db-service id))]
-      (when success
-        (load-notes)) ; Reload notes list
-      success)
-    (catch Exception e
-      (swap! db/notes-state assoc
-             :loading false
-             :error (str "Failed to delete note: " e))
-      false)))
+;; Update note title
+(defn update-note-title! [id title]
+  (let [db-service (db/get-database-service)]
+    (when db-service
+      (-> (.updateNoteTitle db-service id title)
+          (.then (fn [success]
+                   (when success
+                     ;; Update local state
+                     (swap! db/data-state update :notes
+                            (fn [notes]
+                              (map (fn [note]
+                                     (if (= (:id note) id)
+                                       (assoc note :title title)
+                                       note))
+                                   notes))))
+                   {:success success}))
+          (.catchError (fn [error]
+                         {:success false :error (str error)}))))))
 
-(defn set-current-note [note]
-  (swap! db/notes-state assoc :current-note note))
+;; Delete note
+(defn delete-note! [id]
+  (let [db-service (db/get-database-service)]
+    (when db-service
+      (-> (.deleteNote db-service id)
+          (.then (fn [success]
+                   (when success
+                     ;; Remove from local state
+                     (swap! db/data-state update :notes
+                            (fn [notes]
+                              (filter #(not= (:id %) id) notes))))
+                   {:success success}))
+          (.catchError (fn [error]
+                         {:success false :error (str error)}))))))
 
-(defn get-note-by-id [id]
-  (first (filter (fn [note] (= (:id note) id)) (db/get-notes))))
+;; Get note details
+(defn get-note-detail! [id]
+  (let [db-service (db/get-database-service)]
+    (when db-service
+      (-> (.getNoteById db-service id)
+          (.then (fn [note]
+                   (when note
+                     (swap! db/data-state assoc :current-note note))
+                   note))
+          (.catchError (fn [error]
+                         (swap! db/data-state assoc :error (str error))
+                         nil))))))
 
-(defn get-notes-by-tag [tag-name]
-  (filter (fn [note] (some (fn [tag] (= (:name tag) tag-name)) (:tags note))) (db/get-notes)))
-
-(defn get-recent-notes [limit]
-  (take limit (sort-by :updatedAt > (db/get-notes))))
-
-;; Save note content
-(defn save-note [content & [old-blocks]]
-  (try
-    (let [current-note (:current-note @db/notes-state)]
-      (if current-note
-        ;; Update existing note
-        (let [success (db/update-note (:id current-note) {:content content})]
-          (if success
-            {:success true}
-            {:success false :error "Failed to update note"}))
-        ;; Create new note
-        (let [note-title (or (first (str/split-lines content)) "New Note")
-              note-id (db/create-note note-title)]
-          (if note-id
-            {:success true :note-id note-id}
-            {:success false :error "Failed to create note"}))))
-    (catch Exception e
-      {:success false :error (str "Failed to save note: " e)})))
-
-;; Create new note
-(defn create-note-data [note-data]
-  (try
-    (let [note-id (db/create-note (:title note-data))]
-      (if note-id
-        {:success true :note-id note-id}
-        {:success false :error "Failed to create note"}))
-    (catch Exception e
-      {:success false :error (str "Failed to create note: " e)})))
-
-;; Update note
-(defn update-note-data [note]
-  (try
-    (let [success (db/update-note (:id note) note)]
-      (if success
-        {:success true}
-        {:success false :error "Failed to update note"}))
-    (catch Exception e
-      {:success false :error (str "Failed to update note: " e)})))
+;; Set current note
+(defn set-current-note! [note]
+  (swap! db/data-state assoc :current-note note))
 
 ;; Clear current note
-(defn clear-current-note []
-  (db/set-current-note nil)) 
+(defn clear-current-note! []
+  (swap! db/data-state assoc :current-note nil))
+
+;; ===== Notes State Queries =====
+
+;; Get all notes
+(defn get-notes []
+  (:notes @db/data-state))
+
+;; Get current note
+(defn get-current-note []
+  (:current-note @db/data-state))
+
+;; Get note by ID
+(defn get-note-by-id [id]
+  (first (filter #(= (:id %) id) (:notes @db/data-state))))
+
+;; Check if loading
+(defn is-loading? []
+  (:loading @db/data-state))
+
+;; Check if loading more
+(defn is-loading-more? []
+  (:loading-more @db/data-state))
+
+;; Get error message
+(defn get-error []
+  (:error @db/data-state))
+
+;; Get last updated time
+(defn get-last-updated []
+  (:last-updated @db/data-state))
+
+;; ===== Notes Statistics =====
+
+;; Get notes count
+(defn get-notes-count []
+  (count (:notes @db/data-state)))
+
+;; Get notes statistics
+(defn get-notes-stats []
+  (let [notes (:notes @db/data-state)]
+    {:total-count (count notes)
+     :with-tags (count (filter #(not-empty (:tags %)) notes))
+     :recent-notes (count (filter #(> (- (Date.now) (:updated-at %)) (* 24 60 60 1000)) notes))}))
+
+;; ===== Notes Search =====
+
+;; Search notes
+(defn search-notes! [query]
+  (let [db-service (db/get-database-service)]
+    (when db-service
+      (swap! db/search-state assoc :searching true :query query)
+      (-> (.searchNotes db-service query)
+          (.then (fn [results]
+                   (swap! db/search-state assoc 
+                          :results results
+                          :searching false
+                          :last-search (Date.now))))
+          (.catchError (fn [error]
+                         (swap! db/search-state assoc 
+                                :error (str error)
+                                :searching false)))))))
+
+;; Get search results
+(defn get-search-results []
+  (:results @db/search-state))
+
+;; Check if searching
+(defn is-searching? []
+  (:searching @db/search-state))
+
+;; Get search query
+(defn get-search-query []
+  (:query @db/search-state))

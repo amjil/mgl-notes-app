@@ -62,17 +62,7 @@ class NoteTags extends Table {
   Set<Column> get primaryKey => {noteId, tagId};
 }
 
-// Block full-text search table
-class BlocksFts extends Table {
-  TextColumn get id => text()();
-  TextColumn get content => text()();
-}
 
-// Note full-text search table
-class NoteFts extends Table {
-  TextColumn get id => text()();
-  TextColumn get content => text()();
-}
 
 @DriftDatabase(
   tables: [
@@ -81,15 +71,13 @@ class NoteFts extends Table {
     Links,
     Tags,
     NoteTags,
-    BlocksFts,
-    NoteFts,
   ],
 )
 class AppDatabase extends _$AppDatabase {
   AppDatabase() : super(_openConnection());
 
   @override
-  int get schemaVersion => 1;
+  int get schemaVersion => 2;
 
   @override
   MigrationStrategy get migration {
@@ -97,7 +85,7 @@ class AppDatabase extends _$AppDatabase {
       onCreate: (Migrator m) async {
         await m.createAll();
         
-        // Create full-text search indexes
+        // Create FTS5 tables for full-text search
         await customStatement('''
           CREATE VIRTUAL TABLE blocks_fts
           USING fts5(
@@ -120,12 +108,43 @@ class AppDatabase extends _$AppDatabase {
       },
       onUpgrade: (Migrator m, int from, int to) async {
         // Handle database upgrade logic
+        if (from < 2) {
+          // Future upgrade logic can be added here
+        }
       },
     );
   }
 
   // Note-related operations
   Future<List<Note>> getAllNotes() => select(notes).get();
+  
+  Future<List<Map<String, dynamic>>> getAllNotesWithFts() async {
+    final result = await customSelect(
+      '''
+      SELECT 
+        n.id,
+        n.title,
+        n.blockIds,
+        n.createdAt,
+        n.updatedAt,
+        n.syncStatus,
+        COALESCE(nf.content, '') as fts_content
+      FROM notes n
+      LEFT JOIN note_fts nf ON n.id = nf.id
+      ORDER BY n.updatedAt DESC
+      ''',
+    ).get();
+    
+    return result.map((row) => {
+      'id': row.data['id'],
+      'title': row.data['title'],
+      'blockIds': row.data['blockIds'],
+      'createdAt': row.data['createdAt'],
+      'updatedAt': row.data['updatedAt'],
+      'syncStatus': row.data['syncStatus'],
+      'fts_content': row.data['fts_content'],
+    }).toList();
+  }
   
   Future<List<Note>> getNotesPaginated({
     required int page,
@@ -137,11 +156,79 @@ class AppDatabase extends _$AppDatabase {
           ..limit(pageSize, offset: offset))
         .get();
   }
+
+  Future<List<Map<String, dynamic>>> getNotesPaginatedWithFts({
+    required int page,
+    required int pageSize,
+  }) async {
+    final offset = (page - 1) * pageSize;
+    final result = await customSelect(
+      '''
+      SELECT 
+        n.id,
+        n.title,
+        n.blockIds,
+        n.createdAt,
+        n.updatedAt,
+        n.syncStatus,
+        COALESCE(nf.content, '') as fts_content
+      FROM notes n
+      LEFT JOIN note_fts nf ON n.id = nf.id
+      ORDER BY n.updatedAt DESC
+      LIMIT ? OFFSET ?
+      ''',
+      variables: [
+        Variable.withInt(pageSize),
+        Variable.withInt(offset),
+      ],
+    ).get();
+    
+    return result.map((row) => {
+      'id': row.data['id'],
+      'title': row.data['title'],
+      'blockIds': row.data['blockIds'],
+      'createdAt': row.data['createdAt'],
+      'updatedAt': row.data['updatedAt'],
+      'syncStatus': row.data['syncStatus'],
+      'fts_content': row.data['fts_content'],
+    }).toList();
+  }
   
   Future<int> getNotesCount() => select(notes).get().then((notes) => notes.length);
   
   Future<Note?> getNoteById(String id) => 
       (select(notes)..where((n) => n.id.equals(id))).getSingleOrNull();
+  
+  Future<Map<String, dynamic>?> getNoteByIdWithFts(String id) async {
+    final result = await customSelect(
+      '''
+      SELECT 
+        n.id,
+        n.title,
+        n.blockIds,
+        n.createdAt,
+        n.updatedAt,
+        n.syncStatus,
+        COALESCE(nf.content, '') as fts_content
+      FROM notes n
+      LEFT JOIN note_fts nf ON n.id = nf.id
+      WHERE n.id = ?
+      ''',
+      variables: [Variable.withString(id)],
+    ).getSingleOrNull();
+    
+    if (result == null) return null;
+    
+    return {
+      'id': result.data['id'],
+      'title': result.data['title'],
+      'blockIds': result.data['blockIds'],
+      'createdAt': result.data['createdAt'],
+      'updatedAt': result.data['updatedAt'],
+      'syncStatus': result.data['syncStatus'],
+      'fts_content': result.data['fts_content'],
+    };
+  }
   
   Future<int> insertNote(NotesCompanion note) => into(notes).insert(note);
   

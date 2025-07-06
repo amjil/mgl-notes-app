@@ -1,0 +1,137 @@
+(ns notes-app.states.ui
+  (:require
+   [virtual-keyboard.options :as keyboard-options]
+   ["package:flutter/material.dart" :as m]))
+
+;; UI State Management
+;; Responsible for managing all UI-related states, including keyboard, layout, display states, etc.
+
+;; UI State
+(def ui-state
+  (atom
+   (merge keyboard-options/keyboard-state
+          ;; UI Display States
+          {:tag-viewable false
+           :show-keyboard false
+           :show-stacked-keyboard false
+           :show-drawer-search false
+           :show-sub-drawer-search false
+           :show-search-diaglog false
+           :show-system-keyboard false
+           :tag-on-edit false
+           :current-layout "mg"
+           
+           ;; Keyboard Configuration
+           :keyboard-height 0})))
+
+;; Flutter Global Key
+(defonce scaffold-key (m/GlobalKey.))
+
+;; ===== UI State Operations =====
+
+;; Set tag visibility
+(defn set-tag-viewable! [viewable]
+  (swap! ui-state assoc :tag-viewable viewable))
+
+;; Set keyboard display state
+(defn set-show-keyboard! [show]
+  (swap! ui-state assoc :show-keyboard show))
+
+;; Set stacked keyboard display state
+(defn set-show-stacked-keyboard! [show]
+  (swap! ui-state assoc :show-stacked-keyboard show))
+
+;; Set drawer search display state
+(defn set-show-drawer-search! [show]
+  (swap! ui-state assoc :show-drawer-search show))
+
+;; Set sub-drawer search display state
+(defn set-show-sub-drawer-search! [show]
+  (swap! ui-state assoc :show-sub-drawer-search show))
+
+;; Set search dialog display state
+(defn set-show-search-dialog! [show]
+  (swap! ui-state assoc :show-search-diaglog show))
+
+;; Set system keyboard display state
+(defn set-show-system-keyboard! [show]
+  (swap! ui-state assoc :show-system-keyboard show))
+
+;; Set tag edit state
+(defn set-tag-on-edit! [editing]
+  (swap! ui-state assoc :tag-on-edit editing))
+
+;; Set current layout
+(defn set-current-layout! [layout]
+  (swap! ui-state assoc :current-layout layout))
+
+;; Set keyboard height
+(defn set-keyboard-height! [height]
+  (swap! ui-state assoc :keyboard-height height))
+
+;; ===== UI State Queries =====
+
+;; Get UI state
+(defn get-ui-state []
+  @ui-state)
+
+;; Check if tag is viewable
+(defn is-tag-viewable? []
+  (:tag-viewable @ui-state))
+
+;; Check if keyboard is showing
+(defn is-keyboard-showing? []
+  (:show-keyboard @ui-state))
+
+;; Check if stacked keyboard is showing
+(defn is-stacked-keyboard-showing? []
+  (:show-stacked-keyboard @ui-state))
+
+;; Check if drawer search is showing
+(defn is-drawer-search-showing? []
+  (:show-drawer-search @ui-state))
+
+;; Check if sub-drawer search is showing
+(defn is-sub-drawer-search-showing? []
+  (:show-sub-drawer-search @ui-state))
+
+;; Check if search dialog is showing
+(defn is-search-dialog-showing? []
+  (:show-search-diaglog @ui-state))
+
+;; Check if system keyboard is showing
+(defn is-system-keyboard-showing? []
+  (:show-system-keyboard @ui-state))
+
+;; Check if tag is in edit state
+(defn is-tag-editing? []
+  (:tag-on-edit @ui-state))
+
+;; Get current layout
+(defn get-current-layout []
+  (:current-layout @ui-state))
+
+;; Get keyboard height
+(defn get-keyboard-height []
+  (:keyboard-height @ui-state))
+
+;; ===== UI State Reset =====
+
+;; Reset UI state
+(defn reset-ui-state! []
+  (reset! ui-state
+          (merge keyboard-options/keyboard-state
+                 {:tag-viewable false
+                  :show-keyboard false
+                  :show-stacked-keyboard false
+                  :show-drawer-search false
+                  :show-sub-drawer-search false
+                  :show-search-diaglog false
+                  :show-system-keyboard false
+                  :tag-on-edit false
+                  :current-layout "mg"
+                  :keyboard-height 0})))
+
+;; Get scaffold key
+(defn get-scaffold-key []
+  scaffold-key) 
