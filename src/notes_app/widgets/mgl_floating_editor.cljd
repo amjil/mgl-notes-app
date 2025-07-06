@@ -2,7 +2,7 @@
   (:require
    ["package:flutter/material.dart" :as m]
    [cljd.flutter :as f]
-   [notes-app.states.notes :as notes-state]
+   [notes-app.states.notes :as note]
    [notes-app.widgets.mgl-input-editor :as mgl-input-editor]))
 
 (declare save-note)
@@ -54,8 +54,14 @@
                                        (.-surfaceVariant color-scheme))))
            .onPressed (fn [] (save-note context controller)))
           (m/IconButton
+           .icon (m/Icon m/Icons.bug_report)
+           .color (.-onSurface color-scheme)
+           .style (m/ButtonStyle
+                   .backgroundColor (m/MaterialStateProperty.all (.-surfaceVariant color-scheme)))
+           .onPressed (fn [] (note-editor/test-save-functionality)))
+          (m/IconButton
            .icon (m/Icon m/Icons.close)
-           .icon .color (.-onSurface color-scheme)
+           .color (.-onSurface color-scheme)
            .style (m/ButtonStyle
                    .backgroundColor (m/MaterialStateProperty.all (.-surfaceVariant color-scheme)))
            .onPressed (fn [] (-> m/Navigator (.of context) (.pop))))]))
@@ -72,7 +78,7 @@
   (m/showDialog
    .context context
    .builder (fn [context]
-     (floating-editor-dialog context))))
+              (floating-editor-dialog context))))
 
 (defn floating-editor-button [context]
   (f/widget
@@ -82,15 +88,41 @@
     .tooltip "Шинэ тэмдэглэл"))) 
 
 (defn save-note [context controller & [old-blocks]]
-  (let [content (.-text controller)
-        result (notes-state/save-note content old-blocks)]
-    (when (:success result)
-      ;; Reset state and close dialog
-      (reset! has-changed-atom false)
-      (-> m/Navigator (.of context) (.pop))
-      ;; Optional: show success message
-      (when (:error result)
-        (dart:core/print (str "Error saving note: " (:error result)))))))
+  (let [content (.-text controller)]
+    (dart:core/print (str "Save button clicked! Content: " content))
+    ;; For floating editor, we typically create new notes
+    ;; If old-blocks are provided, it means we're editing an existing note
+    (if old-blocks
+      ;; Async call for existing note
+      (do
+        (dart:core/print "Saving existing note with blocks...")
+        (-> (note/save-note-with-blocks! content old-blocks)
+            (.then (fn [result]
+                     (dart:core/print (str "Save result: " result))
+                     (when (:success result)
+                       ;; Reset state and close dialog
+                       (reset! has-changed-atom false)
+                       (-> m/Navigator (.of context) (.pop))
+                       ;; Optional: show success message
+                       (when (:error result)
+                         (dart:core/print (str "Error saving note: " (:error result)))))))
+            (.catchError (fn [error]
+                          (dart:core/print (str "Error in save operation: " error))))))
+      ;; Async call for new note
+      (do
+        (dart:core/print "Creating new note...")
+        (-> (note/save-note! content)
+            (.then (fn [result]
+                     (dart:core/print (str "Save result: " result))
+                     (when (:success result)
+                       ;; Reset state and close dialog
+                       (reset! has-changed-atom false)
+                       (-> m/Navigator (.of context) (.pop))
+                       ;; Optional: show success message
+                       (when (:error result)
+                         (dart:core/print (str "Error saving note: " (:error result)))))))
+            (.catchError (fn [error]
+                          (dart:core/print (str "Error in save operation: " error)))))))))
 
 (defn on-save [context old-blocks controller]
   (save-note context controller old-blocks))

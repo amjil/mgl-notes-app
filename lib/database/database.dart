@@ -62,7 +62,17 @@ class NoteTags extends Table {
   Set<Column> get primaryKey => {noteId, tagId};
 }
 
+// Notes statistics table
+class NotesStats extends Table {
+  TextColumn get noteId => text().references(Notes, #id, onDelete: KeyAction.cascade)();
+  IntColumn get blockCount => integer().withDefault(const Constant(0))();
+  IntColumn get wordCount => integer().withDefault(const Constant(0))();
+  IntColumn get characterCount => integer().withDefault(const Constant(0))();
+  DateTimeColumn get lastUpdated => dateTime().withDefault(currentDateAndTime)();
 
+  @override
+  Set<Column> get primaryKey => {noteId};
+}
 
 @DriftDatabase(
   tables: [
@@ -71,6 +81,7 @@ class NoteTags extends Table {
     Links,
     Tags,
     NoteTags,
+    NotesStats,
   ],
 )
 class AppDatabase extends _$AppDatabase {

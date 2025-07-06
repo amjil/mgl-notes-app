@@ -18,12 +18,9 @@
 ;; Input editor component
 ;; Provides better code organization and performance optimization
 (defn input-editor
-  [{:keys [controller on-changed autofocus? placeholder]}]
+  [{:keys [controller on-changed autofocus?]}]
   (f/widget
-   :context ctx
    :get [:state]
-   :let [theme (-> m/Theme (.of ctx))
-         color-scheme (.-colorScheme theme)]
    (m/SafeArea
     .child
     (m/Center

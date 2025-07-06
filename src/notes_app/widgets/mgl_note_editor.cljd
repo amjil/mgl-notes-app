@@ -1,13 +1,16 @@
 (ns notes-app.widgets.mgl-note-editor
-  (:require [cljd.flutter :as f]
-            ["package:flutter/material.dart" :as m]
-            [notes-app.widgets.mgl-input-editor :as input-editor]
-            [notes-app.utils.diff :as diff]))
+  (:require
+   [cljd.flutter :as f]
+   ["package:flutter/material.dart" :as m]
+   [notes-app.widgets.mgl-input-editor :as input-editor]
+   [notes-app.utils.diff :as diff]
+   [notes-app.states.notes :as notes]
+   [notes-app.states.blocks :as blocks]))
 
 ;; Note editor component
 ;; Provides better code organization and performance optimization
 (defn note-editor
-  [{:keys [initial-blocks on-save on-cancel]}]
+  [{:keys [initial-blocks on-save on-cancel note-id]}]
   (let [has-changed-atom (atom false)]
     (f/widget
      :context ctx
@@ -34,7 +37,19 @@
                           (let [new-text (.-text controller)
                                 diff-result (diff/rebuild-blocks-from-diff initial-blocks new-text)]
                             (reset! has-changed-atom false)
-                            (when on-save (on-save diff-result)))))
+                            ;; Use new state management methods with content-based title
+                            (-> (notes/save-note-with-blocks-and-content! new-text diff-result note-id)
+                                (.then (fn [result]
+                                         (when (:success result)
+                                           ;; Reload blocks if editing existing note
+                                           (when note-id
+                                             (blocks/load-blocks! note-id))
+                                           ;; Call on-save callback
+                                           (when on-save (on-save result)))))
+                                (.catchError (fn [error]
+                                               (dart:core/print (str "Error saving note: " error))
+                                               ;; Call on-save callback with error
+                                               (when on-save (on-save {:success false :error (str error)}))))))))
            .icon (m/Icon
                   m/Icons.save
                   .color (if has-changed
@@ -68,7 +83,9 @@
   (let [initial-blocks (diff/text-to-blocks "This is a test\nThis is a test\nThis is a test")]
     (note-editor
      {:initial-blocks initial-blocks
-      :on-save (fn [diff-result]
-                 (dart:core/print (str "Save result:" diff-result)))
+      :on-save (fn [result]
+                 (if (:success result)
+                   (dart:core/print (str "Save successful, note ID: " (:note-id result)))
+                   (dart:core/print (str "Save failed: " (:error result)))))
       :on-cancel (fn []
                    (dart:core/print "Cancel"))}))) 

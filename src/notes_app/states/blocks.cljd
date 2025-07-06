@@ -19,7 +19,7 @@
                    (swap! db/data-state assoc 
                           :blocks blocks
                           :loading false
-                          :last-updated (Date.now))))
+                          :last-updated (DateTime/now))))
           (.catchError (fn [error]
                          (swap! db/data-state assoc 
                                 :error (str error)
@@ -31,6 +31,8 @@
     (when db-service
       (-> (.createBlockSimple db-service note-id content id)
           (.then (fn [block-id]
+                   ;; Update full-text search index
+                   (.updateBlocksFts db-service block-id content)
                    ;; Reload blocks list
                    (load-blocks! note-id)
                    ;; Update note's blockIds
@@ -46,6 +48,8 @@
       (-> (.updateBlockContent db-service id content)
           (.then (fn [success]
                    (when success
+                     ;; Update full-text search index
+                     (.updateBlocksFts db-service id content)
                      ;; Update local state
                      (swap! db/data-state update :blocks
                             (fn [blocks]
@@ -65,6 +69,8 @@
       (-> (.deleteBlock db-service id)
           (.then (fn [success]
                    (when success
+                     ;; Delete from full-text search index
+                     (.deleteFromBlocksFts db-service id)
                      ;; Remove from local state
                      (swap! db/data-state update :blocks
                             (fn [blocks]
@@ -82,23 +88,14 @@
       (-> (.getNoteById db-service note-id)
           (.then (fn [note]
                    (when note
-                     (let [current-block-ids (js->clj (convert/jsonDecode (:blockIds note)))
+                     (let [current-block-ids (convert/jsonDecode (:blockIds note))
                            new-block-ids (case operation
                                           :remove (filter #(not= % block-id) current-block-ids)
                                           (conj current-block-ids block-id))
-                           block-ids-json (convert/jsonEncode (clj->js new-block-ids))]
+                           block-ids-json (convert/jsonEncode new-block-ids)]
                        (.updateNoteBlockIds db-service note-id block-ids-json))))))
           (.catchError (fn [error]
-                         (println "Error updating note blockIds:" error))))))))
-
-;; Batch update blocks full-text search index
-(defn update-blocks-fts-batch! [blocks]
-  (let [db-service (db/get-database-service)]
-    (when db-service
-      (doseq [block blocks]
-        (-> (.updateBlocksFts db-service (:id block) (:content block))
-            (.catchError (fn [error]
-                           (println "Error updating block FTS:" error))))))))
+                         (println "Error updating note blockIds:" error))))))
 
 ;; Set current block
 (defn set-current-block! [block]
@@ -149,7 +146,7 @@
   (let [blocks (:blocks @db/data-state)]
     {:total-count (count blocks)
      :avg-content-length (/ (reduce + (map #(count (:content %)) blocks)) (max 1 (count blocks)))
-     :recent-blocks (count (filter #(> (- (Date.now) (:updated-at %)) (* 24 60 60 1000)) blocks))}))
+     :recent-blocks (count (filter #(> (- (DateTime/now) (:updated-at %)) (* 24 60 60 1000)) blocks))}))
 
 ;; ===== Blocks Search =====
 
@@ -163,7 +160,7 @@
                    (swap! db/search-state assoc 
                           :results results
                           :searching false
-                          :last-search (Date.now))))
+                          :last-search (DateTime/now))))
           (.catchError (fn [error]
                          (swap! db/search-state assoc 
                                 :error (str error)
@@ -180,7 +177,7 @@
                           :results results
                           :loading-more false
                           :current-page page
-                          :last-search (Date.now))))
+                          :last-search (DateTime/now))))
           (.catchError (fn [error]
                          (swap! db/search-state assoc 
                                 :error (str error)
@@ -201,3 +198,26 @@
 ;; Get search query
 (defn get-search-query []
   (:query @db/search-state))
+
+;; ===== Full-Text Search Operations =====
+
+;; Update block full-text search index
+(defn update-block-fts! [id content]
+  (let [db-service (db/get-database-service)]
+    (when db-service
+      (.updateBlocksFts db-service id content))))
+
+;; Delete from block full-text search index
+(defn delete-block-fts! [id]
+  (let [db-service (db/get-database-service)]
+    (when db-service
+      (.deleteFromBlocksFts db-service id))))
+
+;; Batch update blocks full-text search index
+(defn update-blocks-fts-batch! [blocks]
+  (let [db-service (db/get-database-service)]
+    (when db-service
+      (doseq [block blocks]
+        (-> (.updateBlocksFts db-service (:id block) (:content block))
+            (.catchError (fn [error]
+                           (println "Error updating block FTS:" error))))))))

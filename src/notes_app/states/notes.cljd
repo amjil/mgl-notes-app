@@ -8,7 +8,7 @@
 
 ;; ===== Notes State Operations =====
 
-;; Load all notes
+;; Load all notes with full-text search content
 (defn load-notes! []
   (let [db-service (db/get-database-service)]
     (when db-service
@@ -18,13 +18,13 @@
                    (swap! db/data-state assoc 
                           :notes notes
                           :loading false
-                          :last-updated (Date.now))))
+                          :last-updated (DateTime/now))))
           (.catchError (fn [error]
                          (swap! db/data-state assoc 
                                 :error (str error)
                                 :loading false)))))))
 
-;; Load paginated notes
+;; Load paginated notes with full-text search content
 (defn load-notes-paginated! [page page-size]
   (let [db-service (db/get-database-service)]
     (when db-service
@@ -47,6 +47,8 @@
     (when db-service
       (-> (.createNoteSimple db-service title id)
           (.then (fn [note-id]
+                   ;; Update full-text search index
+                   (.updateNoteFts db-service note-id title)
                    ;; Reload notes list
                    (load-notes!)
                    {:success true :note-id note-id}))
@@ -54,18 +56,21 @@
                          {:success false :error (str error)}))))))
 
 ;; Update note title
-(defn update-note-title! [id title]
-  (let [db-service (db/get-database-service)]
+(defn update-note-title! [id content]
+  (let [db-service (db/get-database-service)
+        title (first (str/split content #"\n"))]
     (when db-service
       (-> (.updateNoteTitle db-service id title)
           (.then (fn [success]
                    (when success
+                     ;; Update full-text search index
+                     (.updateNoteFts db-service id content)
                      ;; Update local state
                      (swap! db/data-state update :notes
                             (fn [notes]
                               (map (fn [note]
                                      (if (= (:id note) id)
-                                       (assoc note :title title)
+                                       (assoc note :title title :content content)
                                        note))
                                    notes))))
                    {:success success}))
@@ -79,6 +84,8 @@
       (-> (.deleteNote db-service id)
           (.then (fn [success]
                    (when success
+                     ;; Delete from full-text search index
+                     (.deleteFromNoteFts db-service id)
                      ;; Remove from local state
                      (swap! db/data-state update :notes
                             (fn [notes]
@@ -87,7 +94,7 @@
           (.catchError (fn [error]
                          {:success false :error (str error)}))))))
 
-;; Get note details
+;; Get note details with full-text search content
 (defn get-note-detail! [id]
   (let [db-service (db/get-database-service)]
     (when db-service
@@ -149,7 +156,7 @@
   (let [notes (:notes @db/data-state)]
     {:total-count (count notes)
      :with-tags (count (filter #(not-empty (:tags %)) notes))
-     :recent-notes (count (filter #(> (- (Date.now) (:updated-at %)) (* 24 60 60 1000)) notes))}))
+     :recent-notes (count (filter #(> (- (DateTime/now) (:updated-at %)) (* 24 60 60 1000)) notes))}))
 
 ;; ===== Notes Search =====
 
@@ -163,7 +170,7 @@
                    (swap! db/search-state assoc 
                           :results results
                           :searching false
-                          :last-search (Date.now))))
+                          :last-search (DateTime/now))))
           (.catchError (fn [error]
                          (swap! db/search-state assoc 
                                 :error (str error)
@@ -180,3 +187,243 @@
 ;; Get search query
 (defn get-search-query []
   (:query @db/search-state))
+
+;; ===== Notes Content Operations =====
+
+;; Extract title from content (first line)
+(defn extract-title-from-content [content]
+  (let [lines (str/split-lines content)]
+    (if (empty? lines)
+      ""
+      (str/trim (first lines)))))
+
+;; Save note with content only (title extracted from first line)
+(defn save-note-with-content! [content & [note-id]]
+  (let [db-service (db/get-database-service)
+        title (extract-title-from-content content)]
+    (when db-service
+      (if note-id
+        ;; Update existing note
+        (-> (.updateNoteTitle db-service note-id title)
+            (.then (fn [success]
+                     (when success
+                       ;; Update full-text search index with content
+                       (.updateNoteFts db-service note-id content)
+                       ;; Update local state
+                       (swap! db/data-state update :notes
+                              (fn [notes]
+                                (map (fn [note]
+                                       (if (= (:id note) note-id)
+                                         (assoc note :title title :fts_content content)
+                                         note))
+                                     notes))))
+                     {:success success}))
+            (.catchError (fn [error]
+                           {:success false :error (str error)})))
+        ;; Create new note
+        (-> (.createNoteSimple db-service title)
+            (.then (fn [new-note-id]
+                     ;; Update full-text search index with content
+                     (.updateNoteFts db-service new-note-id content)
+                     ;; Reload notes list
+                     (load-notes!)
+                     {:success true :note-id new-note-id}))
+            (.catchError (fn [error]
+                           {:success false :error (str error)})))))))
+
+;; Update note content only (title will be updated from first line)
+(defn update-note-content! [id content]
+  (let [db-service (db/get-database-service)
+        title (extract-title-from-content content)]
+    (when db-service
+      (-> (.updateNoteTitle db-service id title)
+          (.then (fn [success]
+                   (when success
+                     ;; Update full-text search index with content
+                     (.updateNoteFts db-service id content)
+                     ;; Update local state
+                     (swap! db/data-state update :notes
+                            (fn [notes]
+                              (map (fn [note]
+                                     (if (= (:id note) id)
+                                       (assoc note :title title :fts_content content)
+                                       note))
+                                   notes)))
+                     {:success true}))
+                   {:success success}))
+          (.catchError (fn [error]
+                         {:success false :error (str error)}))))))
+
+;; Save note with blocks (legacy method for floating editor)
+(defn save-note-with-blocks! [content old-blocks & [note-id]]
+  (let [db-service (db/get-database-service)
+        title (extract-title-from-content content)]
+    (when db-service
+      (if note-id
+        ;; Update existing note with blocks
+        (-> (.updateNoteTitle db-service note-id title)
+            (.then (fn [success]
+                     (when success
+                       ;; Update full-text search index with content
+                       (.updateNoteFts db-service note-id content)
+                       ;; Update blocks for the note (legacy approach)
+                       (doseq [block old-blocks]
+                         (if (:id block)
+                           ;; Update existing block
+                           (-> (.updateBlockContent db-service (:id block) (:content block))
+                               (.then (fn [_]
+                                       ;; Update full-text search index for block
+                                       (.updateBlocksFts db-service (:id block) (:content block)))))
+                           ;; Create new block
+                           (-> (.createBlockSimple db-service note-id (:content block))
+                               (.then (fn [block-id]
+                                       ;; Update full-text search index for new block
+                                       (.updateBlocksFts db-service block-id (:content block)))))))
+                       ;; Update local state
+                       (swap! db/data-state update :notes
+                              (fn [notes]
+                                (map (fn [note]
+                                       (if (= (:id note) note-id)
+                                         (assoc note :title title :fts_content content)
+                                         note))
+                                     notes))))
+                     {:success success}))
+            (.catchError (fn [error]
+                           {:success false :error (str error)})))
+        ;; Create new note with blocks
+        (-> (.createNoteSimple db-service title)
+            (.then (fn [new-note-id]
+                     ;; Update full-text search index with content
+                     (.updateNoteFts db-service new-note-id content)
+                     ;; Create blocks for the new note
+                     (doseq [block old-blocks]
+                       (-> (.createBlockSimple db-service new-note-id (:content block))
+                           (.then (fn [block-id]
+                                   ;; Update full-text search index for new block
+                                   (.updateBlocksFts db-service block-id (:content block)))))))
+                     ;; Reload notes list
+                     (load-notes!)
+                     {:success true :note-id new-note-id}))
+            (.catchError (fn [error]
+                           {:success false :error (str error)})))))))
+
+;; Save note with blocks and content (title extracted from content)
+(defn save-note-with-blocks-and-content! [content diff-result & [note-id]]
+  (let [db-service (db/get-database-service)
+        title (extract-title-from-content content)]
+    (when db-service
+      (if note-id
+        ;; Update existing note with blocks and content
+        (-> (.updateNoteTitle db-service note-id title)
+            (.then (fn [success]
+                     (when success
+                       ;; Update full-text search index with content
+                       (.updateNoteFts db-service note-id content)
+                       ;; Process blocks based on diff result
+                       (let [added-blocks (:added diff-result)
+                             modified-blocks (:modified diff-result)
+                             deleted-blocks (:deleted diff-result)]
+                         ;; Handle added blocks
+                         (doseq [block added-blocks]
+                           (-> (.createBlockSimple db-service note-id (:content block))
+                               (.then (fn [block-id]
+                                       ;; Update full-text search index for new block
+                                       (.updateBlocksFts db-service block-id (:content block))))))
+                         ;; Handle modified blocks
+                         (doseq [block modified-blocks]
+                           (-> (.updateBlockContent db-service (:block-id block) (:content block))
+                               (.then (fn [_]
+                                       ;; Update full-text search index for modified block
+                                       (.updateBlocksFts db-service (:block-id block) (:content block))))))
+                         ;; Handle deleted blocks
+                         (doseq [block deleted-blocks]
+                           (-> (.deleteBlock db-service (:block-id block))
+                               (.then (fn [_]
+                                       ;; Delete from full-text search index
+                                       (.deleteFromBlocksFts db-service (:block-id block)))))))
+                       ;; Update local state
+                       (swap! db/data-state update :notes
+                              (fn [notes]
+                                (map (fn [note]
+                                       (if (= (:id note) note-id)
+                                         (assoc note :title title :fts_content content)
+                                         note))
+                                     notes))))
+                     {:success success}))
+            (.catchError (fn [error]
+                           {:success false :error (str error)})))
+        ;; Create new note with blocks and content
+        (-> (.createNoteSimple db-service title)
+            (.then (fn [new-note-id]
+                     ;; Update full-text search index with content
+                     (.updateNoteFts db-service new-note-id content)
+                     ;; Create blocks for the new note (only added blocks for new notes)
+                     (let [added-blocks (:added diff-result)]
+                       (doseq [block added-blocks]
+                         (-> (.createBlockSimple db-service new-note-id (:content block))
+                             (.then (fn [block-id]
+                                     ;; Update full-text search index for new block
+                                     (.updateBlocksFts db-service block-id (:content block)))))))
+                     ;; Reload notes list
+                     (load-notes!)
+                     {:success true :note-id new-note-id}))
+            (.catchError (fn [error]
+                           {:success false :error (str error)})))))))
+
+;; ===== Full-Text Search Operations =====
+
+;; Update note full-text search index
+(defn update-note-fts! [id content]
+  (let [db-service (db/get-database-service)]
+    (when db-service
+      (.updateNoteFts db-service id content))))
+
+;; Update block full-text search index
+(defn update-block-fts! [id content]
+  (let [db-service (db/get-database-service)]
+    (when db-service
+      (.updateBlocksFts db-service id content))))
+
+;; Delete from note full-text search index
+(defn delete-note-fts! [id]
+  (let [db-service (db/get-database-service)]
+    (when db-service
+      (.deleteFromNoteFts db-service id))))
+
+;; Delete from block full-text search index
+(defn delete-block-fts! [id]
+  (let [db-service (db/get-database-service)]
+    (when db-service
+      (.deleteFromBlocksFts db-service id))))
+
+;; ===== Notes with Full-Text Search Content =====
+
+;; Get notes with full-text search content
+(defn get-notes-with-fts []
+  (:notes @db/data-state))
+
+;; Get note with full-text search content by ID
+(defn get-note-with-fts-by-id [id]
+  (first (filter #(= (:id %) id) (:notes @db/data-state))))
+
+;; Get full-text search content for a note
+(defn get-note-fts-content [note-id]
+  (let [note (get-note-with-fts-by-id note-id)]
+    (:fts_content note "")))
+
+;; ===== Test Functions =====
+
+;; Test extracting title from content
+(defn test-extract-title []
+  (let [test-cases [["First line\nSecond line\nThird line" "First line"]
+                    ["Single line" "Single line"]
+                    ["\nOnly second line" ""]
+                    ["" ""]
+                    ["   Trimmed title   \nContent" "Trimmed title"]]]
+    (doseq [[content expected] test-cases]
+      (let [result (extract-title-from-content content)]
+        (println (str "Content: '" content "'"))
+        (println (str "Expected: '" expected "'"))
+        (println (str "Result: '" result "'"))
+        (println (str "Match: " (= result expected)))
+        (println "---")))))

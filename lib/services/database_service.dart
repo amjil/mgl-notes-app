@@ -374,7 +374,7 @@ class DatabaseService {
 
   // ===== Full-Text Search Index Operations =====
   
-  /// Update note full-text search index
+  /// Update note full-text search index with content
   Future<void> updateNoteFts(String id, String content) async {
     await _database.updateNoteFts(id, content);
   }
