@@ -76,17 +76,19 @@
 ;; Initialize database
 (defn initialize-database! []
   (swap! db-state assoc :loading true :error nil)
-  (-> (db-provider/initialize-database)
-      (.then (fn [result]
-               (swap! db-state assoc 
-                      :initialized true
-                      :loading false
-                      :database (:database result)
-                      :database-service (:database-service result))))
-      (.catchError (fn [error]
-                     (swap! db-state assoc 
-                            :loading false
-                            :error (str error))))))
+  (try
+    (let [provider (db-provider/DatabaseProvider.)]
+      ;; Initialize database asynchronously
+      (await (.initialize provider))
+      (swap! db-state assoc
+             :initialized true
+             :loading false
+             :database (.database provider)
+             :database-service (.databaseService provider)))
+    (catch Exception e
+      (swap! db-state assoc
+             :loading false
+             :error (str "Database initialization failed: " e)))))
 
 ;; Get database service
 (defn get-database-service []

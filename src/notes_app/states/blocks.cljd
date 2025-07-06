@@ -2,7 +2,7 @@
   (:require
    [notes-app.states.database :as db]
    [clojure.string :as str]
-   [dart:convert :as convert]))
+   ["dart:convert" :as convert]))
 
 ;; Blocks State Management
 ;; Responsible for managing block-related business logic and composite operations

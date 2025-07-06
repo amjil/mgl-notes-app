@@ -35,7 +35,7 @@
             loading-more :loading-more
             has-more :has-more
             current-page :current-page
-            page-size :page-size} @db/data-state]
+            page-size :page-size} db/data-state]
    :managed [scroll-controller (infinite-scroll/create-scroll-controller load-more-notes-trigger)]
    (if loading
      (loading-state/loading-indicator-themed)

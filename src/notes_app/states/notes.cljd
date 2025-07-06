@@ -250,9 +250,9 @@
                                        note))
                                    notes)))
                      {:success true}))
-                   {:success success}))
+                   {:success true}))
           (.catchError (fn [error]
-                         {:success false :error (str error)}))))))
+                         {:success false :error (str error)})))))
 
 ;; Save note with blocks (legacy method for floating editor)
 (defn save-note-with-blocks! [content old-blocks & [note-id]]
@@ -300,7 +300,7 @@
                        (-> (.createBlockSimple db-service new-note-id (:content block))
                            (.then (fn [block-id]
                                    ;; Update full-text search index for new block
-                                   (.updateBlocksFts db-service block-id (:content block)))))))
+                                   (.updateBlocksFts db-service block-id (:content block))))))
                      ;; Reload notes list
                      (load-notes!)
                      {:success true :note-id new-note-id}))
