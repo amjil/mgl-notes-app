@@ -1598,6 +1598,379 @@ class NoteTagsCompanion extends UpdateCompanion<NoteTag> {
   }
 }
 
+class $NotesStatsTable extends NotesStats
+    with TableInfo<$NotesStatsTable, NotesStat> {
+  @override
+  final GeneratedDatabase attachedDatabase;
+  final String? _alias;
+  $NotesStatsTable(this.attachedDatabase, [this._alias]);
+  static const VerificationMeta _noteIdMeta = const VerificationMeta('noteId');
+  @override
+  late final GeneratedColumn<String> noteId = GeneratedColumn<String>(
+    'note_id',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+    defaultConstraints: GeneratedColumn.constraintIsAlways(
+      'REFERENCES notes (id) ON DELETE CASCADE',
+    ),
+  );
+  static const VerificationMeta _blockCountMeta = const VerificationMeta(
+    'blockCount',
+  );
+  @override
+  late final GeneratedColumn<int> blockCount = GeneratedColumn<int>(
+    'block_count',
+    aliasedName,
+    false,
+    type: DriftSqlType.int,
+    requiredDuringInsert: false,
+    defaultValue: const Constant(0),
+  );
+  static const VerificationMeta _wordCountMeta = const VerificationMeta(
+    'wordCount',
+  );
+  @override
+  late final GeneratedColumn<int> wordCount = GeneratedColumn<int>(
+    'word_count',
+    aliasedName,
+    false,
+    type: DriftSqlType.int,
+    requiredDuringInsert: false,
+    defaultValue: const Constant(0),
+  );
+  static const VerificationMeta _characterCountMeta = const VerificationMeta(
+    'characterCount',
+  );
+  @override
+  late final GeneratedColumn<int> characterCount = GeneratedColumn<int>(
+    'character_count',
+    aliasedName,
+    false,
+    type: DriftSqlType.int,
+    requiredDuringInsert: false,
+    defaultValue: const Constant(0),
+  );
+  static const VerificationMeta _lastUpdatedMeta = const VerificationMeta(
+    'lastUpdated',
+  );
+  @override
+  late final GeneratedColumn<DateTime> lastUpdated = GeneratedColumn<DateTime>(
+    'last_updated',
+    aliasedName,
+    false,
+    type: DriftSqlType.dateTime,
+    requiredDuringInsert: false,
+    defaultValue: currentDateAndTime,
+  );
+  @override
+  List<GeneratedColumn> get $columns => [
+    noteId,
+    blockCount,
+    wordCount,
+    characterCount,
+    lastUpdated,
+  ];
+  @override
+  String get aliasedName => _alias ?? actualTableName;
+  @override
+  String get actualTableName => $name;
+  static const String $name = 'notes_stats';
+  @override
+  VerificationContext validateIntegrity(
+    Insertable<NotesStat> instance, {
+    bool isInserting = false,
+  }) {
+    final context = VerificationContext();
+    final data = instance.toColumns(true);
+    if (data.containsKey('note_id')) {
+      context.handle(
+        _noteIdMeta,
+        noteId.isAcceptableOrUnknown(data['note_id']!, _noteIdMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_noteIdMeta);
+    }
+    if (data.containsKey('block_count')) {
+      context.handle(
+        _blockCountMeta,
+        blockCount.isAcceptableOrUnknown(data['block_count']!, _blockCountMeta),
+      );
+    }
+    if (data.containsKey('word_count')) {
+      context.handle(
+        _wordCountMeta,
+        wordCount.isAcceptableOrUnknown(data['word_count']!, _wordCountMeta),
+      );
+    }
+    if (data.containsKey('character_count')) {
+      context.handle(
+        _characterCountMeta,
+        characterCount.isAcceptableOrUnknown(
+          data['character_count']!,
+          _characterCountMeta,
+        ),
+      );
+    }
+    if (data.containsKey('last_updated')) {
+      context.handle(
+        _lastUpdatedMeta,
+        lastUpdated.isAcceptableOrUnknown(
+          data['last_updated']!,
+          _lastUpdatedMeta,
+        ),
+      );
+    }
+    return context;
+  }
+
+  @override
+  Set<GeneratedColumn> get $primaryKey => {noteId};
+  @override
+  NotesStat map(Map<String, dynamic> data, {String? tablePrefix}) {
+    final effectivePrefix = tablePrefix != null ? '$tablePrefix.' : '';
+    return NotesStat(
+      noteId: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}note_id'],
+      )!,
+      blockCount: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}block_count'],
+      )!,
+      wordCount: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}word_count'],
+      )!,
+      characterCount: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}character_count'],
+      )!,
+      lastUpdated: attachedDatabase.typeMapping.read(
+        DriftSqlType.dateTime,
+        data['${effectivePrefix}last_updated'],
+      )!,
+    );
+  }
+
+  @override
+  $NotesStatsTable createAlias(String alias) {
+    return $NotesStatsTable(attachedDatabase, alias);
+  }
+}
+
+class NotesStat extends DataClass implements Insertable<NotesStat> {
+  final String noteId;
+  final int blockCount;
+  final int wordCount;
+  final int characterCount;
+  final DateTime lastUpdated;
+  const NotesStat({
+    required this.noteId,
+    required this.blockCount,
+    required this.wordCount,
+    required this.characterCount,
+    required this.lastUpdated,
+  });
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    map['note_id'] = Variable<String>(noteId);
+    map['block_count'] = Variable<int>(blockCount);
+    map['word_count'] = Variable<int>(wordCount);
+    map['character_count'] = Variable<int>(characterCount);
+    map['last_updated'] = Variable<DateTime>(lastUpdated);
+    return map;
+  }
+
+  NotesStatsCompanion toCompanion(bool nullToAbsent) {
+    return NotesStatsCompanion(
+      noteId: Value(noteId),
+      blockCount: Value(blockCount),
+      wordCount: Value(wordCount),
+      characterCount: Value(characterCount),
+      lastUpdated: Value(lastUpdated),
+    );
+  }
+
+  factory NotesStat.fromJson(
+    Map<String, dynamic> json, {
+    ValueSerializer? serializer,
+  }) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return NotesStat(
+      noteId: serializer.fromJson<String>(json['noteId']),
+      blockCount: serializer.fromJson<int>(json['blockCount']),
+      wordCount: serializer.fromJson<int>(json['wordCount']),
+      characterCount: serializer.fromJson<int>(json['characterCount']),
+      lastUpdated: serializer.fromJson<DateTime>(json['lastUpdated']),
+    );
+  }
+  @override
+  Map<String, dynamic> toJson({ValueSerializer? serializer}) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return <String, dynamic>{
+      'noteId': serializer.toJson<String>(noteId),
+      'blockCount': serializer.toJson<int>(blockCount),
+      'wordCount': serializer.toJson<int>(wordCount),
+      'characterCount': serializer.toJson<int>(characterCount),
+      'lastUpdated': serializer.toJson<DateTime>(lastUpdated),
+    };
+  }
+
+  NotesStat copyWith({
+    String? noteId,
+    int? blockCount,
+    int? wordCount,
+    int? characterCount,
+    DateTime? lastUpdated,
+  }) => NotesStat(
+    noteId: noteId ?? this.noteId,
+    blockCount: blockCount ?? this.blockCount,
+    wordCount: wordCount ?? this.wordCount,
+    characterCount: characterCount ?? this.characterCount,
+    lastUpdated: lastUpdated ?? this.lastUpdated,
+  );
+  NotesStat copyWithCompanion(NotesStatsCompanion data) {
+    return NotesStat(
+      noteId: data.noteId.present ? data.noteId.value : this.noteId,
+      blockCount: data.blockCount.present
+          ? data.blockCount.value
+          : this.blockCount,
+      wordCount: data.wordCount.present ? data.wordCount.value : this.wordCount,
+      characterCount: data.characterCount.present
+          ? data.characterCount.value
+          : this.characterCount,
+      lastUpdated: data.lastUpdated.present
+          ? data.lastUpdated.value
+          : this.lastUpdated,
+    );
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('NotesStat(')
+          ..write('noteId: $noteId, ')
+          ..write('blockCount: $blockCount, ')
+          ..write('wordCount: $wordCount, ')
+          ..write('characterCount: $characterCount, ')
+          ..write('lastUpdated: $lastUpdated')
+          ..write(')'))
+        .toString();
+  }
+
+  @override
+  int get hashCode =>
+      Object.hash(noteId, blockCount, wordCount, characterCount, lastUpdated);
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      (other is NotesStat &&
+          other.noteId == this.noteId &&
+          other.blockCount == this.blockCount &&
+          other.wordCount == this.wordCount &&
+          other.characterCount == this.characterCount &&
+          other.lastUpdated == this.lastUpdated);
+}
+
+class NotesStatsCompanion extends UpdateCompanion<NotesStat> {
+  final Value<String> noteId;
+  final Value<int> blockCount;
+  final Value<int> wordCount;
+  final Value<int> characterCount;
+  final Value<DateTime> lastUpdated;
+  final Value<int> rowid;
+  const NotesStatsCompanion({
+    this.noteId = const Value.absent(),
+    this.blockCount = const Value.absent(),
+    this.wordCount = const Value.absent(),
+    this.characterCount = const Value.absent(),
+    this.lastUpdated = const Value.absent(),
+    this.rowid = const Value.absent(),
+  });
+  NotesStatsCompanion.insert({
+    required String noteId,
+    this.blockCount = const Value.absent(),
+    this.wordCount = const Value.absent(),
+    this.characterCount = const Value.absent(),
+    this.lastUpdated = const Value.absent(),
+    this.rowid = const Value.absent(),
+  }) : noteId = Value(noteId);
+  static Insertable<NotesStat> custom({
+    Expression<String>? noteId,
+    Expression<int>? blockCount,
+    Expression<int>? wordCount,
+    Expression<int>? characterCount,
+    Expression<DateTime>? lastUpdated,
+    Expression<int>? rowid,
+  }) {
+    return RawValuesInsertable({
+      if (noteId != null) 'note_id': noteId,
+      if (blockCount != null) 'block_count': blockCount,
+      if (wordCount != null) 'word_count': wordCount,
+      if (characterCount != null) 'character_count': characterCount,
+      if (lastUpdated != null) 'last_updated': lastUpdated,
+      if (rowid != null) 'rowid': rowid,
+    });
+  }
+
+  NotesStatsCompanion copyWith({
+    Value<String>? noteId,
+    Value<int>? blockCount,
+    Value<int>? wordCount,
+    Value<int>? characterCount,
+    Value<DateTime>? lastUpdated,
+    Value<int>? rowid,
+  }) {
+    return NotesStatsCompanion(
+      noteId: noteId ?? this.noteId,
+      blockCount: blockCount ?? this.blockCount,
+      wordCount: wordCount ?? this.wordCount,
+      characterCount: characterCount ?? this.characterCount,
+      lastUpdated: lastUpdated ?? this.lastUpdated,
+      rowid: rowid ?? this.rowid,
+    );
+  }
+
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    if (noteId.present) {
+      map['note_id'] = Variable<String>(noteId.value);
+    }
+    if (blockCount.present) {
+      map['block_count'] = Variable<int>(blockCount.value);
+    }
+    if (wordCount.present) {
+      map['word_count'] = Variable<int>(wordCount.value);
+    }
+    if (characterCount.present) {
+      map['character_count'] = Variable<int>(characterCount.value);
+    }
+    if (lastUpdated.present) {
+      map['last_updated'] = Variable<DateTime>(lastUpdated.value);
+    }
+    if (rowid.present) {
+      map['rowid'] = Variable<int>(rowid.value);
+    }
+    return map;
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('NotesStatsCompanion(')
+          ..write('noteId: $noteId, ')
+          ..write('blockCount: $blockCount, ')
+          ..write('wordCount: $wordCount, ')
+          ..write('characterCount: $characterCount, ')
+          ..write('lastUpdated: $lastUpdated, ')
+          ..write('rowid: $rowid')
+          ..write(')'))
+        .toString();
+  }
+}
+
 abstract class _$AppDatabase extends GeneratedDatabase {
   _$AppDatabase(QueryExecutor e) : super(e);
   $AppDatabaseManager get managers => $AppDatabaseManager(this);
@@ -1606,6 +1979,7 @@ abstract class _$AppDatabase extends GeneratedDatabase {
   late final $LinksTable links = $LinksTable(this);
   late final $TagsTable tags = $TagsTable(this);
   late final $NoteTagsTable noteTags = $NoteTagsTable(this);
+  late final $NotesStatsTable notesStats = $NotesStatsTable(this);
   @override
   Iterable<TableInfo<Table, Object?>> get allTables =>
       allSchemaEntities.whereType<TableInfo<Table, Object?>>();
@@ -1616,6 +1990,7 @@ abstract class _$AppDatabase extends GeneratedDatabase {
     links,
     tags,
     noteTags,
+    notesStats,
   ];
   @override
   StreamQueryUpdateRules get streamUpdateRules => const StreamQueryUpdateRules([
@@ -1653,6 +2028,13 @@ abstract class _$AppDatabase extends GeneratedDatabase {
         limitUpdateKind: UpdateKind.delete,
       ),
       result: [TableUpdate('note_tags', kind: UpdateKind.delete)],
+    ),
+    WritePropagation(
+      on: TableUpdateQuery.onTableName(
+        'notes',
+        limitUpdateKind: UpdateKind.delete,
+      ),
+      result: [TableUpdate('notes_stats', kind: UpdateKind.delete)],
     ),
   ]);
 }
@@ -1734,6 +2116,24 @@ final class $$NotesTableReferences
     ).filter((f) => f.noteId.id.sqlEquals($_itemColumn<String>('id')!));
 
     final cache = $_typedResult.readTableOrNull(_noteTagsRefsTable($_db));
+    return ProcessedTableManager(
+      manager.$state.copyWith(prefetchedData: cache),
+    );
+  }
+
+  static MultiTypedResultKey<$NotesStatsTable, List<NotesStat>>
+  _notesStatsRefsTable(_$AppDatabase db) => MultiTypedResultKey.fromTable(
+    db.notesStats,
+    aliasName: $_aliasNameGenerator(db.notes.id, db.notesStats.noteId),
+  );
+
+  $$NotesStatsTableProcessedTableManager get notesStatsRefs {
+    final manager = $$NotesStatsTableTableManager(
+      $_db,
+      $_db.notesStats,
+    ).filter((f) => f.noteId.id.sqlEquals($_itemColumn<String>('id')!));
+
+    final cache = $_typedResult.readTableOrNull(_notesStatsRefsTable($_db));
     return ProcessedTableManager(
       manager.$state.copyWith(prefetchedData: cache),
     );
@@ -1844,6 +2244,31 @@ class $$NotesTableFilterComposer extends Composer<_$AppDatabase, $NotesTable> {
           }) => $$NoteTagsTableFilterComposer(
             $db: $db,
             $table: $db.noteTags,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return f(composer);
+  }
+
+  Expression<bool> notesStatsRefs(
+    Expression<bool> Function($$NotesStatsTableFilterComposer f) f,
+  ) {
+    final $$NotesStatsTableFilterComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.id,
+      referencedTable: $db.notesStats,
+      getReferencedColumn: (t) => t.noteId,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$NotesStatsTableFilterComposer(
+            $db: $db,
+            $table: $db.notesStats,
             $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
             joinBuilder: joinBuilder,
             $removeJoinBuilderFromRootComposer:
@@ -1997,6 +2422,31 @@ class $$NotesTableAnnotationComposer
     );
     return f(composer);
   }
+
+  Expression<T> notesStatsRefs<T extends Object>(
+    Expression<T> Function($$NotesStatsTableAnnotationComposer a) f,
+  ) {
+    final $$NotesStatsTableAnnotationComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.id,
+      referencedTable: $db.notesStats,
+      getReferencedColumn: (t) => t.noteId,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$NotesStatsTableAnnotationComposer(
+            $db: $db,
+            $table: $db.notesStats,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return f(composer);
+  }
 }
 
 class $$NotesTableTableManager
@@ -2016,6 +2466,7 @@ class $$NotesTableTableManager
             bool blocksRefs,
             bool linksRefs,
             bool noteTagsRefs,
+            bool notesStatsRefs,
           })
         > {
   $$NotesTableTableManager(_$AppDatabase db, $NotesTable table)
@@ -2072,13 +2523,19 @@ class $$NotesTableTableManager
               )
               .toList(),
           prefetchHooksCallback:
-              ({blocksRefs = false, linksRefs = false, noteTagsRefs = false}) {
+              ({
+                blocksRefs = false,
+                linksRefs = false,
+                noteTagsRefs = false,
+                notesStatsRefs = false,
+              }) {
                 return PrefetchHooks(
                   db: db,
                   explicitlyWatchedTables: [
                     if (blocksRefs) db.blocks,
                     if (linksRefs) db.links,
                     if (noteTagsRefs) db.noteTags,
+                    if (notesStatsRefs) db.notesStats,
                   ],
                   addJoins: null,
                   getPrefetchedDataCallback: (items) async {
@@ -2126,6 +2583,23 @@ class $$NotesTableTableManager
                               ),
                           typedResults: items,
                         ),
+                      if (notesStatsRefs)
+                        await $_getPrefetchedData<Note, $NotesTable, NotesStat>(
+                          currentTable: table,
+                          referencedTable: $$NotesTableReferences
+                              ._notesStatsRefsTable(db),
+                          managerFromTypedResult: (p0) =>
+                              $$NotesTableReferences(
+                                db,
+                                table,
+                                p0,
+                              ).notesStatsRefs,
+                          referencedItemsForCurrentItem:
+                              (item, referencedItems) => referencedItems.where(
+                                (e) => e.noteId == item.id,
+                              ),
+                          typedResults: items,
+                        ),
                     ];
                   },
                 );
@@ -2150,6 +2624,7 @@ typedef $$NotesTableProcessedTableManager =
         bool blocksRefs,
         bool linksRefs,
         bool noteTagsRefs,
+        bool notesStatsRefs,
       })
     >;
 typedef $$BlocksTableCreateCompanionBuilder =
@@ -3543,6 +4018,330 @@ typedef $$NoteTagsTableProcessedTableManager =
       NoteTag,
       PrefetchHooks Function({bool noteId, bool tagId})
     >;
+typedef $$NotesStatsTableCreateCompanionBuilder =
+    NotesStatsCompanion Function({
+      required String noteId,
+      Value<int> blockCount,
+      Value<int> wordCount,
+      Value<int> characterCount,
+      Value<DateTime> lastUpdated,
+      Value<int> rowid,
+    });
+typedef $$NotesStatsTableUpdateCompanionBuilder =
+    NotesStatsCompanion Function({
+      Value<String> noteId,
+      Value<int> blockCount,
+      Value<int> wordCount,
+      Value<int> characterCount,
+      Value<DateTime> lastUpdated,
+      Value<int> rowid,
+    });
+
+final class $$NotesStatsTableReferences
+    extends BaseReferences<_$AppDatabase, $NotesStatsTable, NotesStat> {
+  $$NotesStatsTableReferences(super.$_db, super.$_table, super.$_typedResult);
+
+  static $NotesTable _noteIdTable(_$AppDatabase db) => db.notes.createAlias(
+    $_aliasNameGenerator(db.notesStats.noteId, db.notes.id),
+  );
+
+  $$NotesTableProcessedTableManager get noteId {
+    final $_column = $_itemColumn<String>('note_id')!;
+
+    final manager = $$NotesTableTableManager(
+      $_db,
+      $_db.notes,
+    ).filter((f) => f.id.sqlEquals($_column));
+    final item = $_typedResult.readTableOrNull(_noteIdTable($_db));
+    if (item == null) return manager;
+    return ProcessedTableManager(
+      manager.$state.copyWith(prefetchedData: [item]),
+    );
+  }
+}
+
+class $$NotesStatsTableFilterComposer
+    extends Composer<_$AppDatabase, $NotesStatsTable> {
+  $$NotesStatsTableFilterComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnFilters<int> get blockCount => $composableBuilder(
+    column: $table.blockCount,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get wordCount => $composableBuilder(
+    column: $table.wordCount,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get characterCount => $composableBuilder(
+    column: $table.characterCount,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<DateTime> get lastUpdated => $composableBuilder(
+    column: $table.lastUpdated,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  $$NotesTableFilterComposer get noteId {
+    final $$NotesTableFilterComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.noteId,
+      referencedTable: $db.notes,
+      getReferencedColumn: (t) => t.id,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$NotesTableFilterComposer(
+            $db: $db,
+            $table: $db.notes,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return composer;
+  }
+}
+
+class $$NotesStatsTableOrderingComposer
+    extends Composer<_$AppDatabase, $NotesStatsTable> {
+  $$NotesStatsTableOrderingComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnOrderings<int> get blockCount => $composableBuilder(
+    column: $table.blockCount,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<int> get wordCount => $composableBuilder(
+    column: $table.wordCount,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<int> get characterCount => $composableBuilder(
+    column: $table.characterCount,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<DateTime> get lastUpdated => $composableBuilder(
+    column: $table.lastUpdated,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  $$NotesTableOrderingComposer get noteId {
+    final $$NotesTableOrderingComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.noteId,
+      referencedTable: $db.notes,
+      getReferencedColumn: (t) => t.id,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$NotesTableOrderingComposer(
+            $db: $db,
+            $table: $db.notes,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return composer;
+  }
+}
+
+class $$NotesStatsTableAnnotationComposer
+    extends Composer<_$AppDatabase, $NotesStatsTable> {
+  $$NotesStatsTableAnnotationComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  GeneratedColumn<int> get blockCount => $composableBuilder(
+    column: $table.blockCount,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<int> get wordCount =>
+      $composableBuilder(column: $table.wordCount, builder: (column) => column);
+
+  GeneratedColumn<int> get characterCount => $composableBuilder(
+    column: $table.characterCount,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<DateTime> get lastUpdated => $composableBuilder(
+    column: $table.lastUpdated,
+    builder: (column) => column,
+  );
+
+  $$NotesTableAnnotationComposer get noteId {
+    final $$NotesTableAnnotationComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.noteId,
+      referencedTable: $db.notes,
+      getReferencedColumn: (t) => t.id,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$NotesTableAnnotationComposer(
+            $db: $db,
+            $table: $db.notes,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return composer;
+  }
+}
+
+class $$NotesStatsTableTableManager
+    extends
+        RootTableManager<
+          _$AppDatabase,
+          $NotesStatsTable,
+          NotesStat,
+          $$NotesStatsTableFilterComposer,
+          $$NotesStatsTableOrderingComposer,
+          $$NotesStatsTableAnnotationComposer,
+          $$NotesStatsTableCreateCompanionBuilder,
+          $$NotesStatsTableUpdateCompanionBuilder,
+          (NotesStat, $$NotesStatsTableReferences),
+          NotesStat,
+          PrefetchHooks Function({bool noteId})
+        > {
+  $$NotesStatsTableTableManager(_$AppDatabase db, $NotesStatsTable table)
+    : super(
+        TableManagerState(
+          db: db,
+          table: table,
+          createFilteringComposer: () =>
+              $$NotesStatsTableFilterComposer($db: db, $table: table),
+          createOrderingComposer: () =>
+              $$NotesStatsTableOrderingComposer($db: db, $table: table),
+          createComputedFieldComposer: () =>
+              $$NotesStatsTableAnnotationComposer($db: db, $table: table),
+          updateCompanionCallback:
+              ({
+                Value<String> noteId = const Value.absent(),
+                Value<int> blockCount = const Value.absent(),
+                Value<int> wordCount = const Value.absent(),
+                Value<int> characterCount = const Value.absent(),
+                Value<DateTime> lastUpdated = const Value.absent(),
+                Value<int> rowid = const Value.absent(),
+              }) => NotesStatsCompanion(
+                noteId: noteId,
+                blockCount: blockCount,
+                wordCount: wordCount,
+                characterCount: characterCount,
+                lastUpdated: lastUpdated,
+                rowid: rowid,
+              ),
+          createCompanionCallback:
+              ({
+                required String noteId,
+                Value<int> blockCount = const Value.absent(),
+                Value<int> wordCount = const Value.absent(),
+                Value<int> characterCount = const Value.absent(),
+                Value<DateTime> lastUpdated = const Value.absent(),
+                Value<int> rowid = const Value.absent(),
+              }) => NotesStatsCompanion.insert(
+                noteId: noteId,
+                blockCount: blockCount,
+                wordCount: wordCount,
+                characterCount: characterCount,
+                lastUpdated: lastUpdated,
+                rowid: rowid,
+              ),
+          withReferenceMapper: (p0) => p0
+              .map(
+                (e) => (
+                  e.readTable(table),
+                  $$NotesStatsTableReferences(db, table, e),
+                ),
+              )
+              .toList(),
+          prefetchHooksCallback: ({noteId = false}) {
+            return PrefetchHooks(
+              db: db,
+              explicitlyWatchedTables: [],
+              addJoins:
+                  <
+                    T extends TableManagerState<
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic
+                    >
+                  >(state) {
+                    if (noteId) {
+                      state =
+                          state.withJoin(
+                                currentTable: table,
+                                currentColumn: table.noteId,
+                                referencedTable: $$NotesStatsTableReferences
+                                    ._noteIdTable(db),
+                                referencedColumn: $$NotesStatsTableReferences
+                                    ._noteIdTable(db)
+                                    .id,
+                              )
+                              as T;
+                    }
+
+                    return state;
+                  },
+              getPrefetchedDataCallback: (items) async {
+                return [];
+              },
+            );
+          },
+        ),
+      );
+}
+
+typedef $$NotesStatsTableProcessedTableManager =
+    ProcessedTableManager<
+      _$AppDatabase,
+      $NotesStatsTable,
+      NotesStat,
+      $$NotesStatsTableFilterComposer,
+      $$NotesStatsTableOrderingComposer,
+      $$NotesStatsTableAnnotationComposer,
+      $$NotesStatsTableCreateCompanionBuilder,
+      $$NotesStatsTableUpdateCompanionBuilder,
+      (NotesStat, $$NotesStatsTableReferences),
+      NotesStat,
+      PrefetchHooks Function({bool noteId})
+    >;
 
 class $AppDatabaseManager {
   final _$AppDatabase _db;
@@ -3556,4 +4355,6 @@ class $AppDatabaseManager {
   $$TagsTableTableManager get tags => $$TagsTableTableManager(_db, _db.tags);
   $$NoteTagsTableTableManager get noteTags =>
       $$NoteTagsTableTableManager(_db, _db.noteTags);
+  $$NotesStatsTableTableManager get notesStats =>
+      $$NotesStatsTableTableManager(_db, _db.notesStats);
 }

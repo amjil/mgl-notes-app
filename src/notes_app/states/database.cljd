@@ -1,7 +1,4 @@
-(ns notes-app.states.database
-  (:require
-   [clojure.string :as str] 
-   ["package:cljd_mgl_notes_app/providers/database_provider.dart" :as db-provider]))
+(ns notes-app.states.database)
 
 ;; ===== Database State Management =====
 ;; Focused on database-related state management
@@ -11,12 +8,7 @@
 ;; Avoid state duplication, unified management of all business data states
 
 ;; Database connection state
-(def db-state
-  (atom {:initialized false
-         :loading false
-         :error nil
-         :database nil
-         :database-service nil}))
+
 
 ;; Unified data state - contains all business data
 (def data-state
@@ -73,22 +65,6 @@
 
 ;; ===== Database Initialization =====
 
-;; Initialize database
-(defn initialize-database! []
-  (swap! db-state assoc :loading true :error nil)
-  (try
-    (let [provider (db-provider/DatabaseProvider.)]
-      ;; Initialize database asynchronously
-      (await (.initialize provider))
-      (swap! db-state assoc
-             :initialized true
-             :loading false
-             :database (.database provider)
-             :database-service (.databaseService provider)))
-    (catch Exception e
-      (swap! db-state assoc
-             :loading false
-             :error (str "Database initialization failed: " e)))))
 
 ;; Get database service
 (defn get-database-service []
