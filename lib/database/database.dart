@@ -63,16 +63,14 @@ class NoteTags extends Table {
   Set<Column> get primaryKey => {noteId, tagId};
 }
 
-// Notes statistics table
-class NotesStats extends Table {
-  TextColumn get noteId => text().references(Notes, #id, onDelete: KeyAction.cascade)();
-  IntColumn get blockCount => integer().withDefault(const Constant(0))();
-  IntColumn get wordCount => integer().withDefault(const Constant(0))();
-  IntColumn get characterCount => integer().withDefault(const Constant(0))();
+// Daily notes count table for calendar visualization
+class DailyNotesCount extends Table {
+  TextColumn get date => text()(); // Format: YYYY.MM.DD
+  IntColumn get noteCount => integer().withDefault(const Constant(0))();
   DateTimeColumn get lastUpdated => dateTime().withDefault(currentDateAndTime)();
 
   @override
-  Set<Column> get primaryKey => {noteId};
+  Set<Column> get primaryKey => {date};
 }
 
 @DriftDatabase(
@@ -82,14 +80,14 @@ class NotesStats extends Table {
     Links,
     Tags,
     NoteTags,
-    NotesStats,
+    DailyNotesCount,
   ],
 )
 class AppDatabase extends _$AppDatabase {
   AppDatabase(super.e);
 
   @override
-  int get schemaVersion => 2;
+  int get schemaVersion => 4;
 
   @override
   MigrationStrategy get migration {

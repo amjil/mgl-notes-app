@@ -1,0 +1,240 @@
+(ns notes-app.states.stats
+  (:require
+   ["package:shared_preferences/shared_preferences.dart" :as prefs]
+   ["package:cljd_mgl_notes_app/database/database.dart" :as drift]
+   [notes-app.services.db :as db]
+   [notes-app.utils.state-helpers :as helpers]
+   [notes-app.utils.date :as date]))
+
+;; Stats State Management
+;; Responsible for managing user statistics and storing them in SharedPreferences
+
+;; Stats State
+(def stats-state
+  (atom
+   (helpers/create-base-state
+    {:note-count 0
+     :tag-count 0
+     :active-days 0
+     :total-blocks 0
+     :total-links 0
+     :last-updated nil
+     :loading false
+     :error nil})))
+
+;; SharedPreferences keys
+(def ^:const STATS_KEYS
+  {:note-count "stats_note_count"
+   :tag-count "stats_tag_count"
+   :active-days "stats_active_days"
+   :total-blocks "stats_total_blocks"
+   :total-links "stats_total_links"
+   :last-updated "stats_last_updated"})
+
+;; ===== SharedPreferences Operations =====
+
+;; Get SharedPreferences instance
+(defn get-prefs []
+  (await (prefs/SharedPreferences.getInstance)))
+
+;; Save stats to SharedPreferences
+(defn save-stats-to-prefs! [stats]
+  (let [prefs (await (get-prefs))]
+    (doseq [[key value] stats]
+      (when-let [pref-key (get STATS_KEYS key)]
+        (cond
+          (number? value) (.setInt prefs pref-key value)
+          (string? value) (.setString prefs pref-key value)
+          :else (.setString prefs pref-key (str value)))))))
+
+;; Load stats from SharedPreferences
+(defn load-stats-from-prefs! []
+  (let [prefs (await (get-prefs))]
+    {:note-count (.getInt prefs (:note-count STATS_KEYS) 0)
+     :tag-count (.getInt prefs (:tag-count STATS_KEYS) 0)
+     :active-days (.getInt prefs (:active-days STATS_KEYS) 0)
+     :total-blocks (.getInt prefs (:total-blocks STATS_KEYS) 0)
+     :total-links (.getInt prefs (:total-links STATS_KEYS) 0)
+     :last-updated (.getString prefs (:last-updated STATS_KEYS) nil)}))
+
+;; ===== Statistics Calculation =====
+
+;; Calculate note count
+(defn calculate-note-count! []
+  (let [result (await (db/get-notes-count))]
+    (.-count result)))
+
+;; Calculate tag count
+(defn calculate-tag-count! []
+  (let [result (await (db/get-tags-count))]
+    (.-count result)))
+
+;; Calculate total blocks count
+(defn calculate-total-blocks! []
+  (let [result (await (db/get-blocks-count))]
+    (.-count result)))
+
+;; Calculate total links count
+(defn calculate-total-links! []
+  (let [result (await (db/get-links-count))]
+    (.-count result)))
+
+;; Calculate active days (days with notes)
+(defn calculate-active-days! []
+  (let [^drift/AppDatabase db @db/db
+        result (await
+                (.getSingle
+                 (.customSelect
+                  db
+                  "SELECT COUNT(DISTINCT DATE(created_at)) as count FROM notes"
+                  .variables [])))]
+    (.-count result)))
+
+;; Calculate all statistics
+(defn calculate-all-stats! []
+  (let [note-count (await (calculate-note-count!))
+        tag-count (await (calculate-tag-count!))
+        total-blocks (await (calculate-total-blocks!))
+        total-links (await (calculate-total-links!))
+        active-days (await (calculate-active-days!))
+        last-updated (date/format-date (DateTime/now))]
+    {:note-count note-count
+     :tag-count tag-count
+     :total-blocks total-blocks
+     :total-links total-links
+     :active-days active-days
+     :last-updated last-updated}))
+
+;; ===== Stats State Operations =====
+
+;; Load stats from SharedPreferences
+(defn load-stats! []
+  (helpers/with-loading-state! stats-state
+    (load-stats-from-prefs!)
+    (fn [stats]
+      (swap! stats-state merge stats :loading false))))
+
+;; Refresh stats by recalculating and saving
+(defn refresh-stats! []
+  (helpers/with-loading-state! stats-state
+    (-> (calculate-all-stats!)
+        (.then (fn [stats]
+                 (save-stats-to-prefs! stats)
+                 stats)))
+    (fn [stats]
+      (swap! stats-state merge stats :loading false))))
+
+;; Update specific stat
+(defn update-stat! [key value]
+  (swap! stats-state assoc key value)
+  (save-stats-to-prefs! {key value}))
+
+;; Increment specific stat
+(defn increment-stat! [key]
+  (let [current-value (get @stats-state key 0)
+        new-value (inc current-value)]
+    (update-stat! key new-value)))
+
+;; Decrement specific stat
+(defn decrement-stat! [key]
+  (let [current-value (get @stats-state key 0)
+        new-value (max 0 (dec current-value))]
+    (update-stat! key new-value)))
+
+;; ===== Stats State Queries =====
+
+;; Get stats state
+(defn get-stats-state []
+  (helpers/get-state stats-state))
+
+;; Get note count
+(defn get-note-count []
+  (:note-count @stats-state))
+
+;; Get tag count
+(defn get-tag-count []
+  (:tag-count @stats-state))
+
+;; Get active days
+(defn get-active-days []
+  (:active-days @stats-state))
+
+;; Get total blocks
+(defn get-total-blocks []
+  (:total-blocks @stats-state))
+
+;; Get total links
+(defn get-total-links []
+  (:total-links @stats-state))
+
+;; Get last updated
+(defn get-last-updated []
+  (:last-updated @stats-state))
+
+;; Check if loading
+(defn is-loading? []
+  (helpers/is-loading? stats-state))
+
+;; Get error
+(defn get-error []
+  (helpers/get-error stats-state))
+
+;; ===== Stats State Reset =====
+
+;; Reset stats state
+(defn reset-stats-state! []
+  (helpers/reset-state! stats-state
+    {:note-count 0
+     :tag-count 0
+     :active-days 0
+     :total-blocks 0
+     :total-links 0
+     :last-updated nil
+     :loading false
+     :error nil}))
+
+;; Clear stats from SharedPreferences
+(defn clear-stats-from-prefs! []
+  (let [prefs (await (get-prefs))]
+    (doseq [key (vals STATS_KEYS)]
+      (.remove prefs key))))
+
+;; ===== Auto-update Triggers =====
+
+;; Called when a note is created
+(defn on-note-created! []
+  (increment-stat! :note-count)
+  (refresh-stats!))
+
+;; Called when a note is deleted
+(defn on-note-deleted! []
+  (decrement-stat! :note-count)
+  (refresh-stats!))
+
+;; Called when a tag is created
+(defn on-tag-created! []
+  (increment-stat! :tag-count))
+
+;; Called when a tag is deleted
+(defn on-tag-deleted! []
+  (decrement-stat! :tag-count))
+
+;; Called when a block is created
+(defn on-block-created! []
+  (increment-stat! :total-blocks))
+
+;; Called when a block is deleted
+(defn on-block-deleted! []
+  (decrement-stat! :total-blocks))
+
+;; Called when a link is created
+(defn on-link-created! []
+  (increment-stat! :total-links))
+
+;; Called when a link is deleted
+(defn on-link-deleted! []
+  (decrement-stat! :total-links))
+
+;; Initialize stats on app startup
+(defn initialize-stats! []
+  (load-stats!)) 

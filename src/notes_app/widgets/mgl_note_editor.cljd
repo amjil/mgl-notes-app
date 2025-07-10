@@ -34,22 +34,7 @@
          [(m/IconButton
            .onPressed (when has-changed
                         (fn []
-                          (let [new-text (.-text controller)
-                                diff-result (diff/rebuild-blocks-from-diff initial-blocks new-text)]
-                            (reset! has-changed-atom false)
-                            ;; Use new state management methods with content-based title
-                            (-> (notes/save-note-with-blocks-and-content! new-text diff-result note-id)
-                                (.then (fn [result]
-                                         (when (:success result)
-                                           ;; Reload blocks if editing existing note
-                                           (when note-id
-                                             (blocks/load-blocks! note-id))
-                                           ;; Call on-save callback
-                                           (when on-save (on-save result)))))
-                                (.catchError (fn [error]
-                                               (dart:core/print (str "Error saving note: " error))
-                                               ;; Call on-save callback with error
-                                               (when on-save (on-save {:success false :error (str error)}))))))))
+                          (dart:core/print "Save")))
            .icon (m/Icon
                   m/Icons.save
                   .color (if has-changed

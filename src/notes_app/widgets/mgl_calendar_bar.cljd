@@ -3,7 +3,7 @@
     ["package:flutter/material.dart" :as m]
     ["package:mongol/mongol.dart" :as mgl]
     [notes-app.utils.date :as date]
-    [notes-app.states.database :as db]
+    [notes-app.states.calendar :as calendar]
     [cljd.flutter :as f]))
 
  ;; Constants
@@ -32,6 +32,16 @@
 
  (defn get-month-name [date]
    (nth month-names (dec (.-month date))))
+
+ ;; Initialize daily notes counts when component is first created
+ (defn initialize-calendar-data! []
+   (calendar/initialize-daily-notes-counts!))
+
+ ;; Refresh calendar data
+ (defn refresh-calendar-data! []
+   (let [end-date (date/format-date (DateTime/now))
+         start-date (date/format-date (.subtract (DateTime/now) (Duration .days DAYS-TO-SHOW)))]
+     (calendar/refresh-daily-notes-counts! start-date end-date)))
 
  (defn calendar-day-cell [day note-counts]
    (let [day-str (date/format-date day)
@@ -96,7 +106,7 @@
                           (filter #(= (.-day %) 1))
                           (map #(DateTime. (.-year %) (.-month %) 1))
                           distinct)]
-   :watch [{note-counts :note-counts} db/stat-state]
+   :watch [{note-counts :note-counts} calendar/calendar-state]
    (m/Column
     .children
     [(m/Row

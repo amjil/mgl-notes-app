@@ -1,0 +1,30 @@
+(ns notes-app.utils.string
+  (:require [clojure.string :as str]))
+
+;; Extract first line from content as title
+(defn extract-title-from-content [content]
+  (if (str/blank? content)
+    "Шинэ тэмдэглэл"
+    (let [first-line (-> content
+                         (str/split #"\n")
+                         first
+                         str/trim)]
+      (if (str/blank? first-line)
+        "Шинэ тэмдэглэл"
+        first-line))))
+
+;; Join content from blocks
+(defn blocks-to-content [blocks]
+  (str/join "\n" (map :content blocks)))
+
+;; Split content into lines
+(defn content-to-lines [content]
+  (str/split content #"\n"))
+
+;; Get first non-empty line from content
+(defn get-first-non-empty-line [content]
+  (->> (content-to-lines content)
+       (map str/trim)
+       (filter #(not (str/blank? %)))
+       first
+       (or "Шинэ тэмдэглэл"))) 

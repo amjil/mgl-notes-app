@@ -5,7 +5,7 @@
    [clojure.string :as str]))
 
 ;; Constant definitions
-(def separator "\n")
+(def separator "\n\n")
 (def ^uuid/Uuid uuid-instance (uuid/Uuid.))
 (def ^dmp/DiffMatchPatch dmp-instance (dmp/DiffMatchPatch.))
 
@@ -47,7 +47,7 @@
                    remaining
                    reused-blocks)
             ;; Reuse old block-id
-            (let [found (some #(when (str/includes? (second %) chunk)) diff-list)
+            (let [found (some (fn [[op text]] (when (str/includes? text chunk) [op text])) diff-list)
                   op (first found)
                   old-block (first reused-blocks)
                   new-remaining (str/replace-first remaining chunk "")]

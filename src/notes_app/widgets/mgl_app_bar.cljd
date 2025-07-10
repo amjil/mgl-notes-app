@@ -4,15 +4,16 @@
    [notes-app.states.ui :as db]))
 
 (defn mgl-app-bar [{:keys [search-query-fn]}]
-   (m/AppBar
-    .leading (m/IconButton
-              .icon (m/Icon m/Icons.menu)
-              .onPressed (fn [] (.openDrawer (.-currentState db/scaffold-key))))
-    .title (m/Text "Minii Notes"
-                   .style (m/TextStyle .fontSize 22))
-    .actions [(m/IconButton
-               .icon (m/Icon m/Icons.view_sidebar)
-               .onPressed (fn [] (.openEndDrawer (.-currentState db/scaffold-key))))
-              (m/IconButton
-               .icon (m/Icon (m/Icons.search))
-               .onPressed (fn [] (when search-query-fn (search-query-fn))))]))
+  (m/AppBar
+   .backgroundColor m/Colors.transparent
+   .leading (m/IconButton
+             .icon (m/Icon m/Icons.menu)
+             .onPressed (fn [] (.openDrawer (.-currentState db/scaffold-key))))
+   .title (m/Text "Minii Notes"
+                  .style (m/TextStyle .fontSize 22))
+   .actions [(m/IconButton
+              .icon (m/Icon m/Icons.view_sidebar)
+              .onPressed (fn [] (.openEndDrawer (.-currentState db/scaffold-key))))
+             (m/IconButton
+              .icon (m/Icon (m/Icons.search))
+              .onPressed (fn [] (when search-query-fn (search-query-fn))))]))

@@ -2,18 +2,32 @@
   (:require
    ["package:flutter/material.dart" :as m]
    [cljd.flutter :as f]
-   [notes-app.widgets.mgl-popup-menu :as mgl-popup-menu]))
+   [notes-app.widgets.mgl-notes-list :as notes-list]
+   [notes-app.widgets.mgl-app-bar :as mgl-app-bar]
+   [notes-app.widgets.mgl-drawer :as mgl-drawer]
+   [notes-app.states.ui :as ui]
+   [notes-app.states.notes :as notes]))
 
-(def screen1
-  (f/widget
-   (m/Scaffold
-    .appBar nil)
-   .body
-   (m/Center)
-   (m/Text "Hello World")))
-   
-   
+;; Main screen component
+;; Provides the main interface of the application with notes list and FAB
+
 (def screen
-  (mgl-popup-menu/example-usage))
-     
-     
+  (f/widget
+   :context ctx
+   :let [theme (-> m/Theme (.of ctx))
+         color-scheme (.-colorScheme theme)]
+   (m/Scaffold
+    .key ui/scaffold-key
+    .backgroundColor (.-surface color-scheme)
+    .appBar (mgl-app-bar/mgl-app-bar {})
+    .drawer (mgl-drawer/mgl-left-drawer)
+    .endDrawer (mgl-drawer/mgl-right-drawer)
+    .body (notes-list/notes-list)
+    .floatingActionButton (m/FloatingActionButton
+                           .onPressed (fn []
+                                        ;; Create a new empty note with context
+                                        (notes/create-note! "Шинэ тэмдэглэл" ctx))
+                           .backgroundColor (.-primary color-scheme)
+                           .foregroundColor (.-onPrimary color-scheme)
+                           .child (m/Icon m/Icons.add))
+    .floatingActionButtonLocation m/FloatingActionButtonLocation.endFloat)))

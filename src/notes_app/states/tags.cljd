@@ -1,0 +1,147 @@
+(ns notes-app.states.tags
+  (:require
+   [notes-app.services.db :as db]
+   [notes-app.utils.toast :as toast]
+   [notes-app.utils.state-helpers :as helpers]
+   [notes-app.states.stats :as stats]))
+
+;; Tags State Management
+;; Responsible for managing tags-related states, including tags list, current tag, etc.
+
+;; Tags State
+(def tags-state
+  (atom
+   (helpers/create-base-state
+    {:tags []
+     :current-tag nil})))
+
+;; ===== Tags State Operations =====
+
+;; Load all tags
+(defn load-all-tags! [ctx]
+  (helpers/with-loading-state! ctx tags-state
+    (-> (db/get-all-tags)
+        (.then (fn [tags]
+                 (swap! tags-state assoc :tags tags :loading false))))))
+
+;; Create tag
+(defn create-tag! [ctx name]
+  (helpers/with-success-toast! ctx tags-state
+    (-> (db/create-tag name)
+        (.then (fn [tag]
+                 (swap! tags-state assoc
+                        :tags (conj (:tags @tags-state) tag)
+                        :loading false)
+                 (stats/on-tag-created!)
+                 tag)))
+    "Тэг амжилттай үүслээ"))
+
+;; Update tag
+(defn update-tag! [ctx id name]
+  (helpers/with-success-toast! ctx tags-state
+    (-> (db/update-tag id name)
+        (.then (fn [success]
+                 (when success
+                   (let [updated-tags (map (fn [tag]
+                                            (if (= (:id tag) id)
+                                              (assoc tag :name name)
+                                              tag))
+                                          (:tags @tags-state))]
+                     (swap! tags-state assoc :tags updated-tags)))
+                 success)))
+    "Тэг амжилттай шинэчлэгдлээ"))
+
+;; Delete tag
+(defn delete-tag! [ctx id]
+  (helpers/with-success-toast! ctx tags-state
+    (-> (db/delete-tag id)
+        (.then (fn [success]
+                 (when success
+                   (swap! tags-state assoc
+                          :tags (filter #(not= (:id %) id) (:tags @tags-state)))
+                   (stats/on-tag-deleted!))
+                 success)))
+    "Тэг амжилттай устгагдлаа"))
+
+;; Get tag by id
+(defn get-tag-by-id! [ctx id]
+  (helpers/with-loading-state! ctx tags-state
+    (-> (db/get-tag-by-id id)
+        (.then (fn [tag]
+                 (swap! tags-state assoc :current-tag tag :loading false))))))
+
+;; Set current tag
+(defn set-current-tag! [tag]
+  (swap! tags-state assoc :current-tag tag))
+
+;; Clear current tag
+(defn clear-current-tag! []
+  (swap! tags-state assoc :current-tag nil))
+
+;; Search tags
+(defn search-tags! [ctx query page & [page-size]]
+  (let [limit (or page-size 20)]
+    (helpers/with-loading-state! ctx tags-state
+      (-> (db/search-tags query page limit)
+          (.then (fn [tags]
+                   (helpers/handle-pagination-result! tags-state page tags limit)))))))
+
+;; Load more tags
+(defn load-more-tags! [ctx]
+  (helpers/load-more-helper! ctx tags-state
+    (fn [page page-size]
+      (db/get-tags-paginated page page-size))))
+
+;; ===== Tags State Queries =====
+
+;; Get tags state
+(defn get-tags-state []
+  (helpers/get-state tags-state))
+
+;; Get tags list
+(defn get-tags []
+  (:tags @tags-state))
+
+;; Get current tag
+(defn get-current-tag []
+  (:current-tag @tags-state))
+
+;; Check if loading
+(defn is-loading? []
+  (helpers/is-loading? tags-state))
+
+;; Check if loading more
+(defn is-loading-more? []
+  (helpers/is-loading-more? tags-state))
+
+;; Check if has more
+(defn has-more? []
+  (helpers/has-more? tags-state))
+
+;; Get error
+(defn get-error []
+  (helpers/get-error tags-state))
+
+;; Get current page
+(defn get-current-page []
+  (helpers/get-current-page tags-state))
+
+;; Get total count
+(defn get-total-count []
+  (helpers/get-total-count tags-state))
+
+;; Get tag by name
+(defn get-tag-by-name [name]
+  (first (filter #(= (:name %) name) (:tags @tags-state))))
+
+;; Get tags by note id
+(defn get-tags-by-note-id [note-id]
+  (filter #(= (:noteId %) note-id) (:tags @tags-state)))
+
+;; ===== Tags State Reset =====
+
+;; Reset tags state
+(defn reset-tags-state! []
+  (helpers/reset-state! tags-state
+    {:tags []
+     :current-tag nil}))

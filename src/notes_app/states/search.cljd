@@ -1,0 +1,163 @@
+(ns notes-app.states.search
+  (:require
+   [notes-app.services.db :as db]
+   [notes-app.utils.toast :as toast]
+   [notes-app.utils.state-helpers :as helpers]))
+
+;; Search State Management
+;; Responsible for managing search-related states, including search results, query, etc.
+
+;; Search State
+(def search-state
+  (atom
+   (helpers/create-base-state
+    {:query ""
+     :results []
+     :search-type :notes
+     :search-history []
+     :suggestions []})))
+
+;; ===== Search State Operations =====
+
+;; Set search query
+(defn set-search-query! [query]
+  (swap! search-state assoc :query query))
+
+;; Set search type
+(defn set-search-type! [search-type]
+  (swap! search-state assoc :search-type search-type))
+
+;; Search notes
+(defn search-notes! [ctx query page & [page-size]]
+  (let [limit (or page-size 20)]
+    (helpers/with-loading-state! ctx search-state
+      (-> (db/search-notes query page limit)
+          (.then (fn [results]
+                   (helpers/handle-pagination-result! search-state page results limit)))))))
+
+;; Search blocks
+(defn search-blocks! [ctx query page & [page-size]]
+  (let [limit (or page-size 20)]
+    (helpers/with-loading-state! ctx search-state
+      (-> (db/search-blocks query page limit)
+          (.then (fn [results]
+                   (helpers/handle-pagination-result! search-state page results limit)))))))
+
+;; Search tags
+(defn search-tags! [ctx query page & [page-size]]
+  (let [limit (or page-size 20)]
+    (helpers/with-loading-state! ctx search-state
+      (-> (db/search-tags query page limit)
+          (.then (fn [results]
+                   (helpers/handle-pagination-result! search-state page results limit)))))))
+
+;; Perform search based on current type
+(defn perform-search! [ctx query page & [page-size]]
+  (case (:search-type @search-state)
+    :notes (search-notes! ctx query page page-size)
+    :blocks (search-blocks! ctx query page page-size)
+    :tags (search-tags! ctx query page page-size)
+    (search-notes! ctx query page page-size)))
+
+;; Load more search results
+(defn load-more-search-results! [ctx]
+  (helpers/load-more-helper! ctx search-state
+    (fn [page page-size]
+      (perform-search! ctx (:query @search-state) page page-size))))
+
+;; Add to search history
+(defn add-to-search-history! [query]
+  (when (and query (not (empty? (clojure.string/trim query))))
+    (let [current-history (:search-history @search-state)
+          new-history (take 10 (distinct (conj current-history query)))]
+      (swap! search-state assoc :search-history new-history))))
+
+;; Clear search history
+(defn clear-search-history! []
+  (swap! search-state assoc :search-history []))
+
+;; Set suggestions
+(defn set-suggestions! [suggestions]
+  (swap! search-state assoc :suggestions suggestions))
+
+;; Clear suggestions
+(defn clear-suggestions! []
+  (swap! search-state assoc :suggestions []))
+
+;; ===== Search State Queries =====
+
+;; Get search state
+(defn get-search-state []
+  (helpers/get-state search-state))
+
+;; Get search query
+(defn get-search-query []
+  (:query @search-state))
+
+;; Get search results
+(defn get-search-results []
+  (:results @search-state))
+
+;; Get search type
+(defn get-search-type []
+  (:search-type @search-state))
+
+;; Check if loading
+(defn is-loading? []
+  (helpers/is-loading? search-state))
+
+;; Check if loading more
+(defn is-loading-more? []
+  (helpers/is-loading-more? search-state))
+
+;; Check if has more
+(defn has-more? []
+  (helpers/has-more? search-state))
+
+;; Get error
+(defn get-error []
+  (helpers/get-error search-state))
+
+;; Get current page
+(defn get-current-page []
+  (helpers/get-current-page search-state))
+
+;; Get total count
+(defn get-total-count []
+  (helpers/get-total-count search-state))
+
+;; Get search history
+(defn get-search-history []
+  (:search-history @search-state))
+
+;; Get suggestions
+(defn get-suggestions []
+  (:suggestions @search-state))
+
+;; Check if has query
+(defn has-query? []
+  (not-empty (:query @search-state)))
+
+;; Check if has results
+(defn has-results? []
+  (not-empty (:results @search-state)))
+
+;; ===== Search State Reset =====
+
+;; Reset search state
+(defn reset-search-state! []
+  (helpers/reset-state! search-state
+    {:query ""
+     :results []
+     :search-type :notes
+     :search-history []
+     :suggestions []}))
+
+;; Clear search results
+(defn clear-search-results! []
+  (swap! search-state assoc
+         :results []
+         :current-page 0
+         :has-more true
+         :loading-more false
+         :total-count 0))

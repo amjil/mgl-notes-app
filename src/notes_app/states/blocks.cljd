@@ -1,223 +1,137 @@
 (ns notes-app.states.blocks
   (:require
-   [notes-app.states.database :as db]
-   [clojure.string :as str]
-   ["dart:convert" :as convert]))
+   [notes-app.services.db :as db]
+   [notes-app.utils.toast :as toast]
+   [notes-app.utils.state-helpers :as helpers]
+   [notes-app.states.stats :as stats]))
 
 ;; Blocks State Management
-;; Responsible for managing block-related business logic and composite operations
+;; Responsible for managing blocks-related states, including blocks list, current block, etc.
+
+;; Blocks State
+(def blocks-state
+  (atom
+   (helpers/create-base-state
+    {:blocks []
+     :current-block nil})))
 
 ;; ===== Blocks State Operations =====
 
-;; Load all blocks for a note
-(defn load-blocks! [note-id]
-  (let [db-service (db/get-database-service)]
-    (when db-service
-      (swap! db/data-state assoc :loading true)
-      (-> (.getBlocksByNoteId db-service note-id)
-          (.then (fn [blocks]
-                   (swap! db/data-state assoc 
-                          :blocks blocks
-                          :loading false
-                          :last-updated (DateTime/now))))
-          (.catchError (fn [error]
-                         (swap! db/data-state assoc 
-                                :error (str error)
-                                :loading false)))))))
+;; Load blocks by note id
+(defn load-blocks-by-note-id! [ctx note-id]
+  (helpers/with-loading-state! ctx blocks-state
+    (-> (db/get-blocks-by-note-id note-id)
+        (.then (fn [blocks]
+                 (swap! blocks-state assoc :blocks blocks :loading false))))))
 
 ;; Create block
-(defn create-block! [note-id content & [id]]
-  (let [db-service (db/get-database-service)]
-    (when db-service
-      (-> (.createBlockSimple db-service note-id content id)
-          (.then (fn [block-id]
-                   ;; Update full-text search index
-                   (.updateBlocksFts db-service block-id content)
-                   ;; Reload blocks list
-                   (load-blocks! note-id)
-                   ;; Update note's blockIds
-                   (update-note-block-ids! note-id block-id)
-                   {:success true :block-id block-id}))
-          (.catchError (fn [error]
-                         {:success false :error (str error)}))))))
+(defn create-block! [ctx note-id content]
+  (helpers/with-success-toast! ctx blocks-state
+    (-> (db/create-block note-id content)
+        (.then (fn [block]
+                 (swap! blocks-state assoc
+                        :blocks (conj (:blocks @blocks-state) block)
+                        :loading false)
+                 (stats/on-block-created!)
+                 block)))
+    "Блок амжилттай үүслээ"))
 
-;; Update block content
-(defn update-block! [id content]
-  (let [db-service (db/get-database-service)]
-    (when db-service
-      (-> (.updateBlockContent db-service id content)
-          (.then (fn [success]
-                   (when success
-                     ;; Update full-text search index
-                     (.updateBlocksFts db-service id content)
-                     ;; Update local state
-                     (swap! db/data-state update :blocks
-                            (fn [blocks]
-                              (map (fn [block]
-                                     (if (= (:id block) id)
-                                       (assoc block :content content)
-                                       block))
-                                   blocks))))
-                   {:success success}))
-          (.catchError (fn [error]
-                         {:success false :error (str error)}))))))
+;; Update block
+(defn update-block! [ctx id content]
+  (helpers/with-success-toast! ctx blocks-state
+    (-> (db/update-block id content)
+        (.then (fn [success]
+                 (when success
+                   (let [updated-blocks (map (fn [block]
+                                              (if (= (:id block) id)
+                                                (assoc block :content content)
+                                                block))
+                                            (:blocks @blocks-state))]
+                     (swap! blocks-state assoc :blocks updated-blocks)))
+                 success)))
+    "Блок амжилттай шинэчлэгдлээ"))
 
 ;; Delete block
-(defn delete-block! [id note-id]
-  (let [db-service (db/get-database-service)]
-    (when db-service
-      (-> (.deleteBlock db-service id)
-          (.then (fn [success]
-                   (when success
-                     ;; Delete from full-text search index
-                     (.deleteFromBlocksFts db-service id)
-                     ;; Remove from local state
-                     (swap! db/data-state update :blocks
-                            (fn [blocks]
-                              (filter #(not= (:id %) id) blocks)))
-                     ;; Update note's blockIds
-                     (update-note-block-ids! note-id id :remove))
-                   {:success success}))
-          (.catchError (fn [error]
-                         {:success false :error (str error)}))))))
+(defn delete-block! [ctx id]
+  (helpers/with-success-toast! ctx blocks-state
+    (-> (db/delete-block id)
+        (.then (fn [success]
+                 (when success
+                   (swap! blocks-state assoc
+                          :blocks (filter #(not= (:id %) id) (:blocks @blocks-state)))
+                   (stats/on-block-deleted!))
+                 success)))
+    "Блок амжилттай устгагдлаа"))
 
-;; Update note's blockIds (composite operation)
-(defn update-note-block-ids! [note-id block-id & [operation]]
-  (let [db-service (db/get-database-service)]
-    (when db-service
-      (-> (.getNoteById db-service note-id)
-          (.then (fn [note]
-                   (when note
-                     (let [current-block-ids (convert/jsonDecode (:blockIds note))
-                           new-block-ids (case operation
-                                          :remove (filter #(not= % block-id) current-block-ids)
-                                          (conj current-block-ids block-id))
-                           block-ids-json (convert/jsonEncode new-block-ids)]
-                       (.updateNoteBlockIds db-service note-id block-ids-json))))))
-          (.catchError (fn [error]
-                         (println "Error updating note blockIds:" error))))))
+;; Get block by id
+(defn get-block-by-id! [ctx id]
+  (helpers/with-loading-state! ctx blocks-state
+    (-> (db/get-block-by-id id)
+        (.then (fn [block]
+                 (swap! blocks-state assoc :current-block block :loading false))))))
 
 ;; Set current block
 (defn set-current-block! [block]
-  (swap! db/data-state assoc :current-block block))
+  (swap! blocks-state assoc :current-block block))
 
 ;; Clear current block
 (defn clear-current-block! []
-  (swap! db/data-state assoc :current-block nil))
+  (swap! blocks-state assoc :current-block nil))
+
+;; Search blocks
+(defn search-blocks! [ctx query page & [page-size]]
+  (let [limit (or page-size 20)]
+    (helpers/with-loading-state! ctx blocks-state
+      (-> (db/search-blocks query page limit)
+          (.then (fn [blocks]
+                   (helpers/handle-pagination-result! blocks-state page blocks limit)))))))
 
 ;; ===== Blocks State Queries =====
 
-;; Get all blocks
+;; Get blocks state
+(defn get-blocks-state []
+  (helpers/get-state blocks-state))
+
+;; Get blocks list
 (defn get-blocks []
-  (:blocks @db/data-state))
+  (:blocks @blocks-state))
 
 ;; Get current block
 (defn get-current-block []
-  (:current-block @db/data-state))
-
-;; Get block by ID
-(defn get-block-by-id [id]
-  (first (filter #(= (:id %) id) (:blocks @db/data-state))))
-
-;; Get blocks by note ID
-(defn get-blocks-by-note-id [note-id]
-  (filter #(= (:noteId %) note-id) (:blocks @db/data-state)))
+  (:current-block @blocks-state))
 
 ;; Check if loading
 (defn is-loading? []
-  (:loading @db/data-state))
-
-;; Get error message
-(defn get-error []
-  (:error @db/data-state))
-
-;; Get last updated time
-(defn get-last-updated []
-  (:last-updated @db/data-state))
-
-;; ===== Blocks Statistics =====
-
-;; Get blocks count
-(defn get-blocks-count []
-  (count (:blocks @db/data-state)))
-
-;; Get blocks statistics
-(defn get-blocks-stats []
-  (let [blocks (:blocks @db/data-state)]
-    {:total-count (count blocks)
-     :avg-content-length (/ (reduce + (map #(count (:content %)) blocks)) (max 1 (count blocks)))
-     :recent-blocks (count (filter #(> (- (DateTime/now) (:updated-at %)) (* 24 60 60 1000)) blocks))}))
-
-;; ===== Blocks Search =====
-
-;; Search blocks
-(defn search-blocks! [query]
-  (let [db-service (db/get-database-service)]
-    (when db-service
-      (swap! db/search-state assoc :searching true :query query)
-      (-> (.searchBlocks db-service query)
-          (.then (fn [results]
-                   (swap! db/search-state assoc 
-                          :results results
-                          :searching false
-                          :last-search (DateTime/now))))
-          (.catchError (fn [error]
-                         (swap! db/search-state assoc 
-                                :error (str error)
-                                :searching false)))))))
-
-;; Search blocks with pagination
-(defn search-blocks-paginated! [query page page-size]
-  (let [db-service (db/get-database-service)]
-    (when db-service
-      (swap! db/search-state assoc :loading-more true)
-      (-> (.searchBlocksPaginated db-service query page page-size)
-          (.then (fn [results]
-                   (swap! db/search-state assoc 
-                          :results results
-                          :loading-more false
-                          :current-page page
-                          :last-search (DateTime/now))))
-          (.catchError (fn [error]
-                         (swap! db/search-state assoc 
-                                :error (str error)
-                                :loading-more false)))))))
-
-;; Get search results
-(defn get-search-results []
-  (:results @db/search-state))
-
-;; Check if searching
-(defn is-searching? []
-  (:searching @db/search-state))
+  (helpers/is-loading? blocks-state))
 
 ;; Check if loading more
 (defn is-loading-more? []
-  (:loading-more @db/search-state))
+  (helpers/is-loading-more? blocks-state))
 
-;; Get search query
-(defn get-search-query []
-  (:query @db/search-state))
+;; Check if has more
+(defn has-more? []
+  (helpers/has-more? blocks-state))
 
-;; ===== Full-Text Search Operations =====
+;; Get error
+(defn get-error []
+  (helpers/get-error blocks-state))
 
-;; Update block full-text search index
-(defn update-block-fts! [id content]
-  (let [db-service (db/get-database-service)]
-    (when db-service
-      (.updateBlocksFts db-service id content))))
+;; Get current page
+(defn get-current-page []
+  (helpers/get-current-page blocks-state))
 
-;; Delete from block full-text search index
-(defn delete-block-fts! [id]
-  (let [db-service (db/get-database-service)]
-    (when db-service
-      (.deleteFromBlocksFts db-service id))))
+;; Get total count
+(defn get-total-count []
+  (helpers/get-total-count blocks-state))
 
-;; Batch update blocks full-text search index
-(defn update-blocks-fts-batch! [blocks]
-  (let [db-service (db/get-database-service)]
-    (when db-service
-      (doseq [block blocks]
-        (-> (.updateBlocksFts db-service (:id block) (:content block))
-            (.catchError (fn [error]
-                           (println "Error updating block FTS:" error))))))))
+;; Get blocks by note id
+(defn get-blocks-by-note-id [note-id]
+  (filter #(= (:noteId %) note-id) (:blocks @blocks-state)))
+
+;; ===== Blocks State Reset =====
+
+;; Reset blocks state
+(defn reset-blocks-state! []
+  (helpers/reset-state! blocks-state
+    {:blocks []
+     :current-block nil}))

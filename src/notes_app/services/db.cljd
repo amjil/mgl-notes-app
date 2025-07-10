@@ -2,7 +2,12 @@
   (:require
    ["package:cljd_mgl_notes_app/database/database.dart" :as drift]
    ["package:drift/drift.dart" :as d]
-   ["package:uuid/uuid.dart" :as uuid]))
+   ["package:uuid/uuid.dart" :as uuid]
+   [clojure.string :as str]
+   [notes-app.utils.string :as string-utils]
+   [notes-app.utils.diff :as diff-utils]))
+
+(declare get-blocks-by-note-id)
 
 (def db (atom nil))
 
@@ -12,16 +17,15 @@
   (reset! db (await (drift/initDriftDatabase))))
 
 ;; Notes db functions
-(defn create-note [title]
-  (let [id (.v4 uuid-instance)
-        ^drift/AppDatabase db @db]
+(defn create-note [id title]
+  (let [^drift/AppDatabase db @db]
     (await
      (.insertReturning
       (.into db (.-notes db))
       (drift/NotesCompanion.insert
        .id id
-       .title title)))
-    true))
+       .title title)))))
+
 
 (defn get-note-by-id [id]
   (let [^drift/AppDatabase db @db]
@@ -54,6 +58,7 @@
                    .title title)]
     (await (.write query companion)))
   true)
+
 
 (defn update-note-content [id content]
   (let [^drift/AppDatabase db @db]
@@ -231,172 +236,181 @@
       (doto (.select db (.-links db))
         (.limit limit .offset offset))))))
 
-(defn update-link [id to-note-id & [to-block-id]]
-  (let [^drift/AppDatabase db @db
-        query (doto (.update db (.-links db))
-                (.where (fn [^drift/Links tbl] (.equals (.-id tbl) id))))
-        companion (drift/LinksCompanion.
-                   .toNoteId to-note-id
-                   .toBlockId to-block-id)]
-    (await (.write query companion)))
-  true)
-
-(defn delete-link [id]
+(defn delete-links-by-note-id [note-id]
   (let [^drift/AppDatabase db @db]
     (await
      (.go
       (doto
        (.delete db (.-links db))
         (.where (fn [^drift/Links tbl]
-                  (.equals (.-id tbl) id)))))))
-  true)
+                  (.equals (.-toNoteId tbl) note-id))))))))
 
-(defn get-links-count []
-  (let [^drift/AppDatabase db @db]
-    (await
-     (.getSingle
-      (.customSelect db
-                     "SELECT COUNT(*) as count FROM links"
-                     .variables [])))))
+  (defn update-link [id to-note-id & [to-block-id]]
+    (let [^drift/AppDatabase db @db
+          query (doto (.update db (.-links db))
+                  (.where (fn [^drift/Links tbl] (.equals (.-id tbl) id))))
+          companion (drift/LinksCompanion.
+                     .toNoteId to-note-id
+                     .toBlockId to-block-id)]
+      (await (.write query companion)))
+    true)
 
-;; ===== Tags db functions =====
+  (defn delete-link [id]
+    (let [^drift/AppDatabase db @db]
+      (await
+       (.go
+        (doto
+         (.delete db (.-links db))
+          (.where (fn [^drift/Links tbl]
+                    (.equals (.-id tbl) id)))))))
+    true)
 
-(defn create-tag [name]
-  (let [id (.v4 uuid-instance)
-        ^drift/AppDatabase db @db]
-    (await
-     (.insertReturning
-      (.into db (.-tags db))
-      (drift/TagsCompanion.insert
-       .id id
-       .name name)))))
+  (defn get-links-count []
+    (let [^drift/AppDatabase db @db]
+      (await
+       (.getSingle
+        (.customSelect db
+                       "SELECT COUNT(*) as count FROM links"
+                       .variables [])))))
 
-(defn get-tag-by-id [id]
-  (let [^drift/AppDatabase db @db]
-    (await
-     (.getSingleOrNull
-      (doto (.select db (.-tags db))
-        (.where (fn [^drift/Tags tbl] (.equals (.-id tbl) id))))))))
+  ;; ===== Tags db functions =====
 
-(defn get-tag-by-name [name]
-  (let [^drift/AppDatabase db @db]
-    (await
-     (.getSingleOrNull
-      (doto (.select db (.-tags db))
-        (.where (fn [^drift/Tags tbl] (.equals (.-name tbl) name))))))))
+  (defn create-tag [name]
+    (let [id (.v4 uuid-instance)
+          ^drift/AppDatabase db @db]
+      (await
+       (.insertReturning
+        (.into db (.-tags db))
+        (drift/TagsCompanion.insert
+         .id id
+         .name name)))))
 
-(defn get-all-tags []
-  (let [^drift/AppDatabase db @db]
-    (await
-     (.get
-      (doto (.select db (.-tags db))
-        (.orderBy [(fn [^drift/Tags tbl] (d/OrderingTerm. .expression (.-name tbl) .mode d/OrderingMode.asc))]))))))
+  (defn get-tag-by-id [id]
+    (let [^drift/AppDatabase db @db]
+      (await
+       (.getSingleOrNull
+        (doto (.select db (.-tags db))
+          (.where (fn [^drift/Tags tbl] (.equals (.-id tbl) id))))))))
 
-(defn get-tags-paginated [page limit]
-  (let [offset (* page limit)
-        ^drift/AppDatabase db @db]
-    (await
-     (.get
-      (doto (.select db (.-tags db))
-        (.orderBy [(fn [^drift/Tags tbl] (d/OrderingTerm. .expression (.-name tbl) .mode d/OrderingMode.asc))])
-        (.limit limit .offset offset))))))
+  (defn get-tag-by-name [name]
+    (let [^drift/AppDatabase db @db]
+      (await
+       (.getSingleOrNull
+        (doto (.select db (.-tags db))
+          (.where (fn [^drift/Tags tbl] (.equals (.-name tbl) name))))))))
 
-(defn update-tag [id name]
-  (let [^drift/AppDatabase db @db
-        query (doto (.update db (.-tags db))
-                (.where (fn [^drift/Tags tbl] (.equals (.-id tbl) id))))
-        companion (drift/TagsCompanion.
-                   .name name)]
-    (.write query companion)))
+  (defn get-all-tags []
+    (let [^drift/AppDatabase db @db]
+      (await
+       (.get
+        (doto (.select db (.-tags db))
+          (.orderBy [(fn [^drift/Tags tbl] (d/OrderingTerm. .expression (.-name tbl) .mode d/OrderingMode.asc))]))))))
 
-(defn delete-tag [id]
-  (let [^drift/AppDatabase db @db]
-    (await
-     (.go
-      (doto
-       (.delete db (.-tags db))
-        (.where (fn [^drift/Tags tbl]
-                  (.equals (.-id tbl) id)))))))
-  true)
+  (defn get-tags-paginated [page limit]
+    (let [offset (* page limit)
+          ^drift/AppDatabase db @db]
+      (await
+       (.get
+        (doto (.select db (.-tags db))
+          (.orderBy [(fn [^drift/Tags tbl] (d/OrderingTerm. .expression (.-name tbl) .mode d/OrderingMode.asc))])
+          (.limit limit .offset offset))))))
 
-(defn search-tags [query page limit]
-  (let [offset (* page limit)
-        ^drift/AppDatabase db @db]
-    (await
-     (.get
-      (doto (.select db (.-tags db))
-        (.where (fn [^drift/Tags tbl] (.like (.-name tbl) (str "%" query "%"))))
-        (.orderBy [(fn [^drift/Tags tbl] (d/OrderingTerm. .expression (.-name tbl) .mode d/OrderingMode.asc))])
-        (.limit limit .offset offset))))))
+  (defn update-tag [id name]
+    (let [^drift/AppDatabase db @db
+          query (doto (.update db (.-tags db))
+                  (.where (fn [^drift/Tags tbl] (.equals (.-id tbl) id))))
+          companion (drift/TagsCompanion.
+                     .name name)]
+      (.write query companion)))
 
-(defn get-tags-count []
-  (let [^drift/AppDatabase db @db]
-    (await
-     (.getSingle
-      (.customSelect db
-                     " SELECT COUNT (*) as count FROM tags "
-                     .variables [])))))
+  (defn delete-tag [id]
+    (let [^drift/AppDatabase db @db]
+      (await
+       (.go
+        (doto
+         (.delete db (.-tags db))
+          (.where (fn [^drift/Tags tbl]
+                    (.equals (.-id tbl) id)))))))
+    true)
 
-;; ===== NoteTags db functions =====
+  (defn search-tags [query page limit]
+    (let [offset (* page limit)
+          ^drift/AppDatabase db @db]
+      (await
+       (.get
+        (doto (.select db (.-tags db))
+          (.where (fn [^drift/Tags tbl] (.like (.-name tbl) (str "%" query "%"))))
+          (.orderBy [(fn [^drift/Tags tbl] (d/OrderingTerm. .expression (.-name tbl) .mode d/OrderingMode.asc))])
+          (.limit limit .offset offset))))))
 
-(defn add-tag-to-note [note-id tag-id]
-  (let [^drift/AppDatabase db @db]
-    (await
-     (.insertReturning
-      (.into db (.-noteTags db))
-      (drift/NoteTagsCompanion.insert
-       .noteId note-id
-       .tagId tag-id))))
-  true)
+  (defn get-tags-count []
+    (let [^drift/AppDatabase db @db]
+      (await
+       (.getSingle
+        (.customSelect db
+                       " SELECT COUNT (*) as count FROM tags "
+                       .variables [])))))
 
-(defn remove-tag-from-note [note-id tag-id]
-  (let [^drift/AppDatabase db @db]
-    (await
-     (.go
-      (doto
-       (.delete db (.-noteTags db))
-        (.where (fn [^drift/NoteTags tbl]
-                  (and
-                   (.equals (.-noteId tbl) note-id)
-                   (.equals (.-tagId tbl) tag-id))))))))
-  true)
+  ;; ===== NoteTags db functions =====
 
-(defn get-note-tags [note-id]
-  (let [^drift/AppDatabase db @db]
-    (await
-     (.get
-      (.customSelect
-       db
-       " SELECT t.* FROM tags t
+  (defn add-tag-to-note [note-id tag-id]
+    (let [^drift/AppDatabase db @db]
+      (await
+       (.insertReturning
+        (.into db (.-noteTags db))
+        (drift/NoteTagsCompanion.insert
+         .noteId note-id
+         .tagId tag-id))))
+    true)
+
+  (defn remove-tag-from-note [note-id tag-id]
+    (let [^drift/AppDatabase db @db]
+      (await
+       (.go
+        (doto
+         (.delete db (.-noteTags db))
+          (.where (fn [^drift/NoteTags tbl]
+                    (and
+                     (.equals (.-noteId tbl) note-id)
+                     (.equals (.-tagId tbl) tag-id))))))))
+    true)
+
+  (defn get-note-tags [note-id]
+    (let [^drift/AppDatabase db @db]
+      (await
+       (.get
+        (.customSelect
+         db
+         " SELECT t.* FROM tags t
                                                    INNER JOIN note_tags nt ON t.id = nt.tag_id
                                                    WHERE nt.note_id = ?
                                                    ORDER BY t.name ASC "
-       .variables
-       [note-id])))))
+         .variables
+         [note-id])))))
 
-(defn get-tagged-notes [tag-id page limit]
-  (let [offset (* page limit)
-        ^drift/AppDatabase db @db]
-    (await
-     (.get
-      (.customSelect db
-                     " SELECT n.*, nfts.content as fts_content FROM notes n
+  (defn get-tagged-notes [tag-id page limit]
+    (let [offset (* page limit)
+          ^drift/AppDatabase db @db]
+      (await
+       (.get
+        (.customSelect db
+                       " SELECT n.*, nfts.content as fts_content FROM notes n
                                                    LEFT JOIN note_fts nfts ON n.id = nfts.id
                                                    INNER JOIN note_tags nt ON n.id = nt.note_id
                                                    WHERE nt.tag_id = ?
                                                    ORDER BY n.updated_at DESC
                                                    LIMIT ? OFFSET ? "
-                     .variables
-                     [tag-id limit offset])))))
+                       .variables
+                       [tag-id limit offset])))))
 
-(defn get-notes-by-tags [tag-ids page limit]
-  (let [offset (* page limit)
-        placeholders (clojure.string/join "," (repeat (count tag-ids) " ? "))
-        ^drift/AppDatabase db @db]
-    (await
-     (.get
-      (.customSelect db
-                     (str " SELECT n.*, nfts.content as fts_content FROM notes n
+  (defn get-notes-by-tags [tag-ids page limit]
+    (let [offset (* page limit)
+          placeholders (clojure.string/join "," (repeat (count tag-ids) " ? "))
+          ^drift/AppDatabase db @db]
+      (await
+       (.get
+        (.customSelect db
+                       (str " SELECT n.*, nfts.content as fts_content FROM notes n
                                                    LEFT JOIN note_fts nfts ON n.id = nfts.id
                                                    INNER JOIN note_tags nt ON n.id = nt.note_id
                                                    WHERE nt.tag_id IN (" placeholders ")
@@ -404,13 +418,108 @@
                                                    HAVING COUNT (DISTINCT nt.tag_id) = ?
                                                    ORDER BY n.updated_at DESC
                                                    LIMIT ? OFFSET ? ")
-                     .variables
-                     (concat tag-ids [(count tag-ids) limit offset]))))))
+                       .variables
+                       (concat tag-ids [(count tag-ids) limit offset]))))))
 
-(defn get-tagged-notes-count [tag-id]
+  (defn get-tagged-notes-count [tag-id]
+    (let [^drift/AppDatabase db @db]
+      (await
+       (.getSingle
+        (.customSelect db
+                       " SELECT COUNT (*) as count FROM note_tags WHERE tag_id = ? "
+                       .variables [tag-id])))))
+
+  (defn delete-note-with-blocks [id]
+    (-> (get-blocks-by-note-id id)
+        (.then (fn [blocks]
+                 ;; Step 1: Delete all blocks
+                 (-> (doseq [block blocks]
+                       (delete-block (:id block)))
+                     (.then (fn [_]
+                              ;; Step 2: Delete links
+                              (delete-links-by-note-id id)))
+                     (.then (fn [_]
+                              ;; Step 3: Delete note_fts and note
+                              (delete-note id))))))))
+
+;; Create note with content (4 steps: note, note_fts, blocks, block_ids)
+(defn create-note-with-content [content]
+  (let [id (.v4 uuid-instance)
+        ^drift/AppDatabase db @db
+        title (string-utils/extract-title-from-content content)]
+    (.transaction
+     db
+     (fn []
+       (await (create-note id title))
+       (await (update-note-content id content))))))
+
+;; Update note with content (4 steps: note, note_fts, blocks, block_ids)
+(defn update-note-with-content [id content]
+  (let [^drift/AppDatabase db @db
+        title (string-utils/extract-title-from-content content)]
+    (.transaction
+     db
+     (fn []
+       (await (update-note id title))
+       (await (update-note-content id content))))))
+
+;; ===== Daily Notes Count db functions =====
+
+(defn get-daily-notes-count [date]
   (let [^drift/AppDatabase db @db]
     (await
+     (.getSingleOrNull
+      (doto (.select db (.-dailyNotesCount db))
+        (.where (fn [^drift/DailyNotesCount tbl] (.equals (.-date tbl) date))))))))
+
+(defn update-daily-notes-count [date count]
+  (let [^drift/AppDatabase db @db]
+    (await
+     (.insertOnConflictUpdate
+      (.into db (.-dailyNotesCount db))
+      (drift/DailyNotesCountCompanion.insert
+       .date date
+       .noteCount count)))))
+
+(defn get-daily-notes-counts [start-date end-date]
+  (let [^drift/AppDatabase db @db]
+    (await
+     (.get
+      (doto (.select db (.-dailyNotesCount db))
+        (.where (fn [^drift/DailyNotesCount tbl]
+                  (and
+                   (.greaterOrEqual (.-date tbl) start-date)
+                   (.lessOrEqual (.-date tbl) end-date))))
+        (.orderBy [(fn [^drift/DailyNotesCount tbl] (d/OrderingTerm. .expression (.-date tbl) .mode d/OrderingMode.asc))]))))))
+
+(defn calculate-daily-notes-count [date]
+  (let [^drift/AppDatabase db @db
+        date-str (str date)]
+    (await
      (.getSingle
-      (.customSelect db
-                     " SELECT COUNT (*) as count FROM note_tags WHERE tag_id = ? "
-                     .variables [tag-id])))))
+      (.customSelect
+       db
+       "SELECT COUNT(*) as count FROM notes 
+        WHERE DATE(created_at) = DATE(?)"
+       .variables [date-str])))))
+
+(defn refresh-daily-notes-count [date]
+  (let [count-result (await (calculate-daily-notes-count date))
+        count (.-count count-result)]
+    (await (update-daily-notes-count date count))
+    count))
+
+(defn refresh-daily-notes-counts [start-date end-date]
+  (let [^drift/AppDatabase db @db]
+    (.transaction
+     db
+     (fn []
+       (doseq [date (range start-date end-date)]
+         (await (refresh-daily-notes-count date)))))))
+
+(defn get-notes-count-by-date-range [start-date end-date]
+  (let [counts (await (get-daily-notes-counts start-date end-date))]
+    (reduce (fn [acc record]
+              (assoc acc (.-date record) (.-noteCount record)))
+            {}
+            counts)))

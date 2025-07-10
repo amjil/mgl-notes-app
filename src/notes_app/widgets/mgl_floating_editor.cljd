@@ -2,8 +2,7 @@
   (:require
    ["package:flutter/material.dart" :as m]
    [cljd.flutter :as f]
-   [notes-app.states.notes :as note]
-   [notes-app.states.database :as db]
+   [notes-app.states.notes :as notes]
    [notes-app.widgets.mgl-input-editor :as mgl-input-editor]))
 
 (declare save-note)
@@ -85,45 +84,16 @@
 (defn save-note [context controller & [old-blocks]]
   (let [content (.-text controller)]
     (dart:core/print (str "Save button clicked! Content: " content))
-
-    ;; Database is ready, proceed with save
-    (if old-blocks
-      ;; Async call for existing note
-      (do
-        (dart:core/print "Saving existing note with blocks...")
-        (let [save-result (note/save-note-with-blocks! content old-blocks)]
-          (if save-result
-            (-> save-result
-                (.then (fn [result]
-                         (dart:core/print (str "Save result: " result))
-                         (when (:success result)
-                           ;; Reset state and close dialog
-                           (reset! has-changed-atom false)
-                           (-> m/Navigator (.of context) (.pop))
-                           ;; Optional: show success message
-                           (when (:error result)
-                             (dart:core/print (str "Error saving note: " (:error result)))))))
-                (.catchError (fn [error]
-                               (dart:core/print (str "Error in save operation: " error)))))
-            (dart:core/print "Database service not available"))))
-      ;; Async call for new note
-      (do
-        (dart:core/print "Creating new note...")
-        (let [save-result (note/save-note-with-blocks! content [])]
-          (if save-result
-            (-> save-result
-                (.then (fn [result]
-                         (dart:core/print (str "Save result: " result))
-                         (when (:success result)
-                           ;; Reset state and close dialog
-                           (reset! has-changed-atom false)
-                           (-> m/Navigator (.of context) (.pop))
-                           ;; Optional: show success message
-                           (when (:error result)
-                             (dart:core/print (str "Error saving note: " (:error result)))))))
-                (.catchError (fn [error]
-                               (dart:core/print (str "Error in save operation: " error)))))
-            (dart:core/print "Database service not available")))))))
-
-(defn on-save [context old-blocks controller]
-  (save-note context controller old-blocks))
+    
+    ;; 检查内容是否为空
+    (if (or (nil? content) (empty? (clojure.string/trim content)))
+      (dart:core/print "Content is empty, not saving")
+      ;; 有内容，执行保存
+      (-> (notes/create-note-with-content! content context)
+          (.then (fn [result]
+                   (when result
+                     (reset! has-changed-atom false)
+                     (-> m/Navigator (.of context) (.pop)))
+                   result))
+          (.catchError (fn [error]
+                         (dart:core/print (str "Error saving note: " error))))))))

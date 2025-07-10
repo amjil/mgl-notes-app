@@ -3,7 +3,7 @@
    ["package:flutter/material.dart" :as m]
    ["package:mongol/mongol.dart" :as mgl]
    [cljd.flutter :as f]
-   [notes-app.states.database :as db]))
+   [notes-app.states.stats :as stats]))
 
 ;; Extract common styles to avoid repeated creation
 (def label-style (m/TextStyle .fontSize 16))
@@ -39,12 +39,21 @@
   (f/widget
    :watch [{note-count :note-count 
             tag-count :tag-count 
-            active-days :active-days} db/stat-state]
+            active-days :active-days
+            total-blocks :total-blocks
+            total-links :total-links} stats/stats-state]
    (m/Padding
     .padding (m/EdgeInsets.symmetric .vertical 16 .horizontal 48)
     .child
-    (m/Row
-     .mainAxisAlignment m/MainAxisAlignment.spaceBetween
-     .children [(stat-item "Notes" note-count)
-                (stat-item "Tags" tag-count)
-                (stat-item "Active" active-days)]))))
+    (m/Column
+     .children
+     [(m/Row
+       .mainAxisAlignment m/MainAxisAlignment.spaceBetween
+       .children [(stat-item "Notes" note-count)
+                  (stat-item "Tags" tag-count)
+                  (stat-item "Active" active-days)])
+      (m/SizedBox .height 16)
+      (m/Row
+       .mainAxisAlignment m/MainAxisAlignment.spaceBetween
+       .children [(stat-item "Blocks" total-blocks)
+                  (stat-item "Links" total-links)])]))))

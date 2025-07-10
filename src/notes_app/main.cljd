@@ -1,34 +1,43 @@
 (ns notes-app.main
   (:require
    ["package:flutter/material.dart" :as m]
-   ["package:flutter_dotenv/flutter_dotenv.dart" :as dotenv]
    [cljd.flutter :as f]
    [virtual-keyboard.options :as keyboard-options]
    [virtual-keyboard.input-control :as control]
    [notes-app.screens.home :as home]
-   [notes-app.states.global :as gs]
-   [notes-app.states.profile :as profile-state]
-   [notes-app.services.database :as db]))
+   [notes-app.services.db :as db]
+   [notes-app.states.ui :as ui]
+   [notes-app.states.stats :as stats]
+   [notes-app.theme :as theme]))
+
+;; Simplified main application entry point
+;; Uses unified state management, reducing complexity
 
 (defn main []
+  ;; Ensure Flutter binding is initialized
   (m.WidgetsFlutterBinding/ensureInitialized)
 
   ;; Initialize database
-  (db/init-database)
+  (db/initialize-database!)
 
+  ;; Initialize stats
+  (stats/initialize-stats!)
+
+  ;; Set up input control
   (control/set-control)
-  ;;
-  (profile-state/prepopulate-profile-settings)
 
+  ;; Start Flutter application
   (f/run
    (f/widget
     :context ctx
     :let [info (merge keyboard-options/keyboard-option
                       {:keyboard/key-cap-border-radius 6
                        :keyboard/key-container-color (-> m/Theme (.of ctx) .-colorScheme .-tertiaryContainer)})]
-    :bind {:info info :state gs/state}
+    :bind {:info info :state ui/ui-state}
     (m/MaterialApp
      .title "Mongol Notes App"
      .debugShowCheckedModeBanner false
+     .theme theme/light-theme
+     .darkTheme theme/dark-theme
      .home home/screen))))
     

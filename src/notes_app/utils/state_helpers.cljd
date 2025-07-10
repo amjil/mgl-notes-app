@@ -1,0 +1,123 @@
+(ns notes-app.utils.state-helpers
+  (:require
+   [notes-app.utils.toast :as toast]))
+
+;; Common State Management Helpers
+;; Provides reusable functions for state management patterns
+
+;; Common state structure
+(defn create-base-state [& [initial-data]]
+  (merge {:loading false
+          :error nil
+          :current-page 0
+          :page-size 20
+          :has-more true
+          :loading-more false
+          :total-count 0}
+         initial-data))
+
+;; Generic async operation with loading state
+(defn with-loading-state! [ctx state-atom operation]
+  (swap! state-atom assoc :loading true :error nil)
+  (-> operation
+      (.then (fn [result]
+               (swap! state-atom assoc :loading false)
+               result))
+      (.catchError (fn [error]
+                     (let [error-msg (str error)]
+                       (swap! state-atom assoc
+                              :error error-msg
+                              :loading false)
+                       (when ctx
+                         (toast/handle-error-with-toast ctx error-msg))
+                       (throw error))))))
+
+;; Generic async operation with success toast
+(defn with-success-toast! [ctx state-atom operation success-msg]
+  (swap! state-atom assoc :loading true :error nil)
+  (-> operation
+      (.then (fn [result]
+               (swap! state-atom assoc :loading false)
+               (when ctx
+                 (toast/handle-success-with-toast ctx success-msg))
+               result))
+      (.catchError (fn [error]
+                     (let [error-msg (str error)]
+                       (swap! state-atom assoc
+                              :error error-msg
+                              :loading false)
+                       (when ctx
+                         (toast/handle-error-with-toast ctx error-msg))
+                       (throw error))))))
+
+;; Generic pagination helper
+(defn handle-pagination-result! [state-atom page results page-size]
+  (swap! state-atom assoc
+         :results (if (= page 0)
+                    results
+                    (concat (:results @state-atom) results))
+         :current-page page
+         :loading false
+         :has-more (>= (count results) page-size)))
+
+;; Generic load more helper
+(defn load-more-helper! [ctx state-atom load-fn]
+  (when (and (:has-more @state-atom)
+             (not (:loading-more @state-atom)))
+    (swap! state-atom assoc :loading-more true)
+    (-> (load-fn (inc (:current-page @state-atom)) (:page-size @state-atom))
+        (.then (fn [results]
+                 (swap! state-atom assoc
+                        :results (concat (:results @state-atom) results)
+                        :current-page (inc (:current-page @state-atom))
+                        :loading-more false
+                        :has-more (>= (count results) (:page-size @state-atom)))))
+        (.catchError (fn [error]
+                       (swap! state-atom assoc
+                              :error (str error)
+                              :loading-more false))))))
+
+;; Generic CRUD operations
+(defn create-entity! [ctx state-atom create-fn entity-name]
+  (with-success-toast! ctx state-atom
+                       (create-fn)
+                       (str entity-name " амжилттай үүслээ")))
+
+(defn update-entity! [ctx state-atom update-fn entity-name]
+  (with-success-toast! ctx state-atom
+                       (update-fn)
+                       (str entity-name " амжилттай шинэчлэгдлээ")))
+
+(defn delete-entity! [ctx state-atom delete-fn entity-name]
+  (with-success-toast! ctx state-atom
+                       (delete-fn)
+                       (str entity-name " амжилттай устгагдлаа")))
+
+;; Generic state queries
+(defn get-state [state-atom]
+  @state-atom)
+
+(defn is-loading? [state-atom]
+  (:loading @state-atom))
+
+(defn is-loading-more? [state-atom]
+  (:loading-more @state-atom))
+
+(defn has-more? [state-atom]
+  (:has-more @state-atom))
+
+(defn get-error [state-atom]
+  (:error @state-atom))
+
+(defn get-current-page [state-atom]
+  (:current-page @state-atom))
+
+(defn get-total-count [state-atom]
+  (:total-count @state-atom))
+
+(defn get-page-size [state-atom]
+  (:page-size @state-atom))
+
+;; Generic state reset
+(defn reset-state! [state-atom & [initial-data]]
+  (reset! state-atom (create-base-state initial-data))) 

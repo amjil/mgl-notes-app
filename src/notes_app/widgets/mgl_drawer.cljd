@@ -5,7 +5,7 @@
    [notes-app.widgets.mgl-chip :as mgl-chip]
    [notes-app.widgets.mgl-menu-bar :as mgl-menu-bar]
    [notes-app.widgets.mgl-stats-widget :as mgl-stats-widget]
-   [notes-app.states.database :as db]
+   [notes-app.states.search :as search]
    [cljd.flutter :as f]))
 
 (declare often-used-tags often-search-query)
@@ -59,7 +59,7 @@
               
 (defn often-used-tags []
   (f/widget
-   :watch [{often-used-tags :often-used-tags} db/search-state]
+   :watch [{often-used-tags :often-used-tags} search/search-state]
    (m/Wrap
     .direction m/Axis.vertical
     .spacing 8
@@ -69,7 +69,7 @@
               
 (defn often-search-query []
   (f/widget
-   :watch [{often-search-queries :often-search-queries} db/search-state]
+   :watch [{often-search-queries :often-search-queries} search/search-state]
    (m/Wrap
     .direction m/Axis.vertical
     .spacing 8
