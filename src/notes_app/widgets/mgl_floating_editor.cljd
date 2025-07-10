@@ -85,10 +85,10 @@
   (let [content (.-text controller)]
     (dart:core/print (str "Save button clicked! Content: " content))
     
-    ;; 检查内容是否为空
+    ;; Check if content is empty
     (if (or (nil? content) (empty? (clojure.string/trim content)))
       (dart:core/print "Content is empty, not saving")
-      ;; 有内容，执行保存
+      ;; Has content, proceed with saving
       (-> (notes/create-note-with-content! content context)
           (.then (fn [result]
                    (when result

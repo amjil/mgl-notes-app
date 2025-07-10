@@ -9,6 +9,38 @@
 (def ^uuid/Uuid uuid-instance (uuid/Uuid.))
 (def ^dmp/DiffMatchPatch dmp-instance (dmp/DiffMatchPatch.))
 
+(defn consume-diffs-for-chunk [diffs chunk]
+  (loop [remaining diffs
+         accumulated-op nil
+         accumulated-text ""]
+    (if (empty? remaining)
+      [nil []]
+      (let [curr-diff (first remaining)
+            curr-op (aget curr-diff "operation")
+            curr-text (aget curr-diff "text")]
+
+        (if (= curr-op "DELETE")
+          (recur (rest remaining) accumulated-op accumulated-text)
+          (let [combined-text (str accumulated-text curr-text)]
+            (cond
+              (= combined-text chunk)
+              [(dmp/Diff. curr-op combined-text)
+               (rest remaining)]
+
+              (str/starts-with? combined-text chunk)
+              (let [used-text chunk
+                    remaining-text (subs combined-text (count chunk))
+                    used-diff (dmp/Diff. curr-op used-text)
+                    new-remaining (if (str/blank? remaining-text)
+                                    (rest remaining)
+                                    (into [] (concat [(dmp/Diff. curr-op remaining-text)]
+                                                     (rest remaining))))]
+                [used-diff new-remaining])
+
+              :else
+              (recur (rest remaining) curr-op combined-text))))))))
+
+
 ;; === Diff logic: rebuild blocks from diff ===
 (defn rebuild-blocks-from-diff [old-blocks new-text]
   (let [old-text (str/join separator (map :content old-blocks))
@@ -21,9 +53,10 @@
 
     (loop [chunks new-chunks
            result []
-           ^String remaining new-text
-           reused-blocks old-blocks]
+           old-blocks-remaining old-blocks
+           diff-list-remaining diff-list]
       (if (empty? chunks)
+        ;; Processing complete, return classification results
         (let [updated-blocks result
               old-id->content (into {} (map (juxt :block-id :content) old-blocks))
               new-id->content (into {} (map (juxt :block-id :content) updated-blocks))
@@ -38,30 +71,50 @@
                                updated-blocks)
            :deleted  (filterv #(not (contains? new-ids (:block-id %))) old-blocks)})
 
+        ;; Process current chunk
         (let [chunk (first chunks)
-              idx (.indexOf remaining chunk)]
-          (if (= idx -1)
-            ;; New paragraph, generate new block-id
+              current-old-block (first old-blocks-remaining)
+              current-diff (first diff-list-remaining)
+              ;; Check if there's a deleted block
+              deleted-block (if (and (= (aget current-diff "operation") "DELETE")
+                                     (= (aget current-diff "text") (:content current-old-block)))
+                              current-old-block
+                              nil)
+              ;; Check if there's a matching block
+              matching-block (if (and (= (aget current-old-block "text") chunk)
+                                      (= (aget current-old-block "operation") "EQUAL"))
+                               current-old-block nil)]
+          (cond
+            ;; Case 1: New block (in INSERT operation)
+            (and (= (aget current-diff "operation") "INSERT")
+                 (= (aget current-diff "text") chunk))
             (recur (rest chunks)
                    (conj result {:block-id (.v4 uuid-instance) :content chunk})
-                   remaining
-                   reused-blocks)
-            ;; Reuse old block-id
-            (let [found (some (fn [[op text]] (when (str/includes? text chunk) [op text])) diff-list)
-                  op (first found)
-                  old-block (first reused-blocks)
-                  new-remaining (str/replace-first remaining chunk "")]
+                   (rest old-blocks-remaining)
+                   (rest diff-list-remaining))
+
+            ;; Case 2: Block deleted (in DELETE operation)
+            deleted-block
+            (recur chunks
+                   result
+                   (rest old-blocks-remaining)
+                   (rest diff-list-remaining))
+
+            ;; Case 3: Match existing block
+            matching-block
+            (recur (rest chunks)
+                   (conj result {:block-id (:block-id matching-block) :content chunk})
+                   (rest old-blocks-remaining)
+                   (rest diff-list-remaining))
+
+            ;; Case 4: Modified block (reuse current old-block id)
+            :else
+            (let [current-old-block (first old-blocks-remaining)
+                  [_ remaining-diffs] (consume-diffs-for-chunk diff-list-remaining chunk)]
               (recur (rest chunks)
-                     (conj result
-                           (if (and (= op 0) old-block)
-                             {:block-id (:block-id old-block)
-                              :content chunk}
-                             {:block-id (.v4 uuid-instance)
-                              :content chunk}))
-                     new-remaining
-                     (if (and (= op 0) old-block)
-                       (rest reused-blocks)
-                       reused-blocks)))))))))
+                     (conj result {:block-id (:block-id current-old-block) :content chunk})
+                     (rest old-blocks-remaining)
+                     remaining-diffs))))))))
 
 ;; Split text into blocks
 (defn text-to-blocks [text]
