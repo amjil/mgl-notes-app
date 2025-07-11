@@ -1,8 +1,8 @@
 (ns notes-app.states.stats
   (:require
-   ["package:shared_preferences/shared_preferences.dart" :as prefs]
    ["package:cljd_mgl_notes_app/database/database.dart" :as drift]
    [notes-app.services.db :as db]
+   [notes-app.services.pref :as pref]
    [notes-app.utils.state-helpers :as helpers]
    [notes-app.utils.date :as date]))
 
@@ -32,30 +32,25 @@
    :last-updated "stats_last_updated"})
 
 ;; ===== SharedPreferences Operations =====
-
-;; Get SharedPreferences instance
-(defn get-prefs []
-  (await (prefs/SharedPreferences.getInstance)))
-
 ;; Save stats to SharedPreferences
 (defn save-stats-to-prefs! [stats]
-  (let [prefs (await (get-prefs))]
-    (doseq [[key value] stats]
-      (when-let [pref-key (get STATS_KEYS key)]
-        (cond
-          (number? value) (.setInt prefs pref-key value)
-          (string? value) (.setString prefs pref-key value)
-          :else (.setString prefs pref-key (str value)))))))
+  (doseq [[key value] stats]
+    (when-let [pref-key (get STATS_KEYS key)]
+      (cond
+        (number? value) (pref/set-int pref-key value)
+        (string? value) (pref/set-string pref-key value)
+        :else (pref/set-string pref-key (str value))))))
 
 ;; Load stats from SharedPreferences
 (defn load-stats-from-prefs! []
-  (let [prefs (await (get-prefs))]
-    {:note-count (.getInt prefs (:note-count STATS_KEYS) 0)
-     :tag-count (.getInt prefs (:tag-count STATS_KEYS) 0)
-     :active-days (.getInt prefs (:active-days STATS_KEYS) 0)
-     :total-blocks (.getInt prefs (:total-blocks STATS_KEYS) 0)
-     :total-links (.getInt prefs (:total-links STATS_KEYS) 0)
-     :last-updated (.getString prefs (:last-updated STATS_KEYS) nil)}))
+  nil)
+;; (defn load-stats-from-prefs! []
+;;   {:note-count (or (await (pref/get-int (:note-count STATS_KEYS))) 0)
+;;    :tag-count (or (await (pref/get-int (:tag-count STATS_KEYS))) 0)
+;;    :active-days (or (await (pref/get-int (:active-days STATS_KEYS))) 0)
+;;    :total-blocks (or (await (pref/get-int (:total-blocks STATS_KEYS))) 0)
+;;    :total-links (or (await (pref/get-int (:total-links STATS_KEYS))) 0)
+;;    :last-updated (or (await (pref/get-string (:last-updated STATS_KEYS))) nil)})
 
 ;; ===== Statistics Calculation =====
 
@@ -109,10 +104,7 @@
 
 ;; Load stats from SharedPreferences
 (defn load-stats! []
-  (helpers/with-loading-state! stats-state
-    (load-stats-from-prefs!)
-    (fn [stats]
-      (swap! stats-state merge stats :loading false))))
+  (load-stats-from-prefs!))
 
 ;; Refresh stats by recalculating and saving
 (defn refresh-stats! []
@@ -195,9 +187,8 @@
 
 ;; Clear stats from SharedPreferences
 (defn clear-stats-from-prefs! []
-  (let [prefs (await (get-prefs))]
-    (doseq [key (vals STATS_KEYS)]
-      (.remove prefs key))))
+  (doseq [key (vals STATS_KEYS)]
+    (pref/remove-value key)))
 
 ;; ===== Auto-update Triggers =====
 
