@@ -62,15 +62,15 @@
 
 ;; Generic infinite scroll list builder
 (defn infinite-scroll-list [{:keys [items
-                                   scroll-controller
-                                   scroll-direction
-                                   padding
-                                   item-builder
-                                   loading-more?
-                                   has-more?
-                                   all-loaded?
-                                   load-more-indicator
-                                   all-loaded-indicator]}]
+                                    scroll-controller
+                                    scroll-direction
+                                    padding
+                                    item-builder
+                                    loading-more?
+                                    has-more?
+                                    all-loaded?
+                                    load-more-indicator
+                                    all-loaded-indicator]}]
   (m/ListView.builder
    .controller scroll-controller
    .scrollDirection (or scroll-direction m/Axis.horizontal)

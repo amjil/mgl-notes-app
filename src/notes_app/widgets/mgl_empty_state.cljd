@@ -41,6 +41,10 @@
   (empty-state {:message "Тэмдэглэл байхгүй"
                 :icon m/Icons.note_outlined}))
 
+(defn empty-notes-with-errors []
+  (empty-state {:message "Error When Fetching Notes"
+                :icon m/Icons.note_outlined}))
+
 ;; Empty search results state
 (defn empty-search-results []
   (empty-state {:message "Хайлтын үр дүн олдсонгүй"

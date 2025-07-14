@@ -37,11 +37,14 @@
 (defn get-notes-paginated [page limit]
   (let [offset (* page limit)
         ^drift/AppDatabase db @db]
-    (await
-     (.get
-      (doto (.select db (.-notes db))
-        (.orderBy [(fn [^drift/Notes tbl] (d/OrderingTerm. .expression (.-updatedAt tbl) .mode d/OrderingMode.desc))])
-        (.limit limit .offset offset))))))
+    (.get
+     (.customSelect
+      db
+      "SELECT n.*, nfts.content as content FROM notes n 
+        LEFT JOIN note_fts nfts ON n.id = nfts.id 
+        ORDER BY n.updated_at DESC 
+        LIMIT ? OFFSET ?"
+      .variables [(d/Variable limit) (d/Variable offset)]))))
 
 (defn get-all-notes []
   (let [^drift/AppDatabase db @db]
@@ -87,7 +90,7 @@
      (.get
       (.customSelect
        db
-       "SELECT n.*, nfts.content as fts_content FROM notes n 
+       "SELECT n.*, nfts.content as content FROM notes n 
         LEFT JOIN note_fts nfts ON n.id = nfts.id 
         WHERE nfts.content MATCH ? OR n.title LIKE ? 
         ORDER BY n.updated_at DESC 
@@ -107,8 +110,8 @@
      (.getSingle
       (.customSelect db
                      "SELECT COUNT(*) as count FROM notes n 
-        LEFT JOIN note_fts nfts ON n.id = nfts.id 
-        WHERE nfts.content MATCH ? OR n.title LIKE ?"
+                      LEFT JOIN note_fts nfts ON n.id = nfts.id 
+                      WHERE nfts.content MATCH ? OR n.title LIKE ?"
                      .variables [query (str "%" query "%")])))))
 
 ;; ===== Blocks db functions =====
@@ -177,7 +180,7 @@
      (.get
       (.customSelect
        db
-       "SELECT b.*, bfts.content as fts_content FROM blocks b 
+       "SELECT b.*, bfts.content as content FROM blocks b 
         LEFT JOIN blocks_fts bfts ON b.id = bfts.id 
         WHERE bfts.content MATCH ? OR b.content LIKE ? 
         ORDER BY b.updated_at DESC 
@@ -390,7 +393,7 @@
       (await
        (.get
         (.customSelect db
-                       " SELECT n.*, nfts.content as fts_content FROM notes n
+                       " SELECT n.*, nfts.content as content FROM notes n
                                                    LEFT JOIN note_fts nfts ON n.id = nfts.id
                                                    INNER JOIN note_tags nt ON n.id = nt.note_id
                                                    WHERE nt.tag_id = ?
@@ -406,7 +409,7 @@
       (await
        (.get
         (.customSelect db
-                       (str " SELECT n.*, nfts.content as fts_content FROM notes n
+                       (str " SELECT n.*, nfts.content as content FROM notes n
                                                    LEFT JOIN note_fts nfts ON n.id = nfts.id
                                                    INNER JOIN note_tags nt ON n.id = nt.note_id
                                                    WHERE nt.tag_id IN (" placeholders ")

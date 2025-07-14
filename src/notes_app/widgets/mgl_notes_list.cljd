@@ -31,7 +31,7 @@
 (defn notes-list []
   (f/widget
    :context ctx
-   :watch [{notes :notes
+   :watch [{notes :results
             loading :loading
             loading-more :loading-more
             has-more :has-more
@@ -60,3 +60,21 @@
   (f/widget
    (m/Expanded
     .child (notes-list))))
+
+(defn notes-list-stream []
+  (f/widget
+   :context ctx
+   :watch [widget-type
+           (stream
+            (map (fn [notes]
+                   (notes/handle-notes-result-for-stream notes)
+                   :list-widget))
+            (map (fn [[er st]]
+                   (toast/handle-error-with-toast ctx "Error while fetching notes")
+                   :error-widget))
+            :as-values (notes/get-notes-for-stream))
+           :default :progress-widget]
+   (case widget-type
+     :list-widget (notes-list)
+     :error-widget (empty-state/empty-notes-with-errors)
+     :progress-widget (loading-state/loading-indicator-themed))))

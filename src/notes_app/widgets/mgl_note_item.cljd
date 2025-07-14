@@ -11,7 +11,8 @@
          is-dark? (= (.-brightness (.-colorScheme theme)) m/Brightness.dark)
          bg-color (if is-dark? (m/Color. 0xFF1E1E1E) m/Colors.white)
          title-color (if is-dark? m/Colors.white m/Colors.black87)
-         preview-color (if is-dark? (m/Colors.grey 400) (m/Colors.grey 600))]
+         preview-color (if is-dark? (m/Colors.grey 400) (m/Colors.grey 600))
+         item (.-data item)]
    (m/Card
     .color bg-color
     .margin (m/EdgeInsets.all 12)
@@ -21,12 +22,12 @@
    (m/Padding
     .padding (m/EdgeInsets.all 16))
    (mgl/MongolListTile
-    .title (when (.-title item)
-             (mgl/MongolText (.-title item)
+    .title (when (get item "title")
+             (mgl/MongolText (get item "title")
                              .style (m/TextStyle .fontSize 18
                                                  .fontWeight m/FontWeight.bold
                                                  .color title-color)))
-    .subtitle (when (.-preview item)
-                (mgl/MongolText (.-preview item)
+    .subtitle (when (get item "content")
+                (mgl/MongolText (get item "content")
                                 .style (m/TextStyle .fontSize 14
                                                     .color preview-color))))))

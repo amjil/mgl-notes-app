@@ -137,7 +137,7 @@
 
 ;; Get notes list
 (defn get-notes []
-  (:notes @notes-state))
+  (:results @notes-state))
 
 ;; Get current note
 (defn get-current-note []
@@ -178,3 +178,10 @@
   (helpers/reset-state! notes-state
     {:notes []
      :current-note nil}))
+
+(defn get-notes-for-stream []
+  (let [limit 20]
+    (db/get-notes-paginated 0 limit)))
+
+(defn handle-notes-result-for-stream [notes]
+  (helpers/handle-pagination-result! notes-state 0 notes 20))
