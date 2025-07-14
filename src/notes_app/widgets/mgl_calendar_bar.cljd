@@ -38,10 +38,10 @@
    (calendar/initialize-daily-notes-counts!))
 
  ;; Refresh calendar data
- (defn refresh-calendar-data! []
+ (defn refresh-calendar-data! [ctx]
    (let [end-date (date/format-date (DateTime/now))
          start-date (date/format-date (.subtract (DateTime/now) (Duration .days DAYS-TO-SHOW)))]
-     (calendar/refresh-daily-notes-counts! start-date end-date)))
+     (calendar/refresh-daily-notes-counts! ctx start-date end-date)))
 
  (defn calendar-day-cell [day note-counts]
    (let [day-str (date/format-date day)

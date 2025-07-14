@@ -44,7 +44,7 @@
                  (when success
                    (load-notes-paginated! ctx 0)
                    ;; Refresh today's count
-                   (calendar/refresh-today-count!)
+                   (calendar/refresh-today-count! ctx)
                    (stats/refresh-stats!))
                  success)))
     "Тэмдэглэл амжилттай үүслээ"))
@@ -57,7 +57,7 @@
                  (when result
                    (load-notes-paginated! ctx 0)
                    ;; Refresh today's count
-                   (calendar/refresh-today-count!)
+                   (calendar/refresh-today-count! ctx)
                    (stats/refresh-stats!))
                  result)))
     "Тэмдэглэл амжилттай үүслээ"))
@@ -90,7 +90,7 @@
                  (when success
                    (load-notes-paginated! ctx (:current-page @notes-state))
                    ;; Refresh today's count
-                   (calendar/refresh-today-count!)
+                   (calendar/refresh-today-count! ctx)
                    (stats/refresh-stats!))
                  success)))
     "Тэмдэглэл амжилттай устгагдлаа"))
@@ -103,7 +103,7 @@
                  (when success
                    (load-notes-paginated! ctx (:current-page @notes-state))
                    ;; Refresh today's count
-                   (calendar/refresh-today-count!)
+                   (calendar/refresh-today-count! ctx)
                    (stats/refresh-stats!))
                  success)))
     "Тэмдэглэл амжилттай устгагдлаа"))

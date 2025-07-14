@@ -1,6 +1,7 @@
 (ns notes-app.states.stats
   (:require
    ["package:cljd_mgl_notes_app/database/database.dart" :as drift]
+   ["package:flutter/material.dart" :as m]
    [notes-app.services.db :as db]
    [notes-app.services.pref :as pref]
    [notes-app.utils.state-helpers :as helpers]
@@ -34,45 +35,51 @@
 ;; ===== SharedPreferences Operations =====
 ;; Save stats to SharedPreferences
 (defn save-stats-to-prefs! [stats]
+  (dart:core/print (str "Saving stats to prefs:" stats))
   (doseq [[key value] stats]
     (when-let [pref-key (get STATS_KEYS key)]
       (cond
         (number? value) (pref/set-int pref-key value)
+        (int? value) (pref/set-int pref-key value)
         (string? value) (pref/set-string pref-key value)
         :else (pref/set-string pref-key (str value))))))
 
 ;; Load stats from SharedPreferences
 (defn load-stats-from-prefs! []
-  nil)
-;; (defn load-stats-from-prefs! []
-;;   {:note-count (or (await (pref/get-int (:note-count STATS_KEYS))) 0)
-;;    :tag-count (or (await (pref/get-int (:tag-count STATS_KEYS))) 0)
-;;    :active-days (or (await (pref/get-int (:active-days STATS_KEYS))) 0)
-;;    :total-blocks (or (await (pref/get-int (:total-blocks STATS_KEYS))) 0)
-;;    :total-links (or (await (pref/get-int (:total-links STATS_KEYS))) 0)
-;;    :last-updated (or (await (pref/get-string (:last-updated STATS_KEYS))) nil)})
+  (let [note-count (or (await (pref/get-int (:note-count STATS_KEYS))) 0)
+        tag-count (or (await (pref/get-int (:tag-count STATS_KEYS))) 0)
+        active-days (or (await (pref/get-int (:active-days STATS_KEYS))) 0)
+        total-blocks (or (await (pref/get-int (:total-blocks STATS_KEYS))) 0)
+        total-links (or (await (pref/get-int (:total-links STATS_KEYS))) 0)
+        last-updated (or (await (pref/get-string (:last-updated STATS_KEYS))) nil)]
+    {:note-count note-count
+     :tag-count tag-count
+     :active-days active-days
+     :total-blocks total-blocks
+     :total-links total-links
+     :last-updated last-updated}))
 
 ;; ===== Statistics Calculation =====
 
 ;; Calculate note count
 (defn calculate-note-count! []
   (let [result (await (db/get-notes-count))]
-    (.-count result)))
+    (-> result .-data (get "count"))))
 
 ;; Calculate tag count
 (defn calculate-tag-count! []
   (let [result (await (db/get-tags-count))]
-    (.-count result)))
+    (-> result .-data (get "count"))))
 
 ;; Calculate total blocks count
 (defn calculate-total-blocks! []
   (let [result (await (db/get-blocks-count))]
-    (.-count result)))
+    (-> result .-data (get "count"))))
 
 ;; Calculate total links count
 (defn calculate-total-links! []
   (let [result (await (db/get-links-count))]
-    (.-count result)))
+    (-> result .-data (get "count"))))
 
 ;; Calculate active days (days with notes)
 (defn calculate-active-days! []
@@ -81,9 +88,8 @@
                 (.getSingle
                  (.customSelect
                   db
-                  "SELECT COUNT(DISTINCT DATE(created_at)) as count FROM notes"
-                  .variables [])))]
-    (.-count result)))
+                  "SELECT COUNT(DISTINCT DATE(created_at)) as count FROM notes")))]
+    (-> result .-data (get "count"))))
 
 ;; Calculate all statistics
 (defn calculate-all-stats! []
@@ -108,13 +114,10 @@
 
 ;; Refresh stats by recalculating and saving
 (defn refresh-stats! []
-  (helpers/with-loading-state! stats-state
-    (-> (calculate-all-stats!)
-        (.then (fn [stats]
-                 (save-stats-to-prefs! stats)
-                 stats)))
-    (fn [stats]
-      (swap! stats-state merge stats :loading false))))
+  (let [stats (await (calculate-all-stats!))]
+    (save-stats-to-prefs! stats)
+    (swap! stats-state merge stats {:loading false})
+    stats))
 
 ;; Update specific stat
 (defn update-stat! [key value]

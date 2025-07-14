@@ -22,21 +22,24 @@
 
 ;; Load daily notes counts for calendar
 (defn load-daily-notes-counts! [start-date end-date]
-  (helpers/with-loading-state! calendar-state
-    (db/get-notes-count-by-date-range start-date end-date)
-    (fn [counts]
-      (swap! calendar-state assoc :note-counts counts :loading false))))
+  (let [data (await (db/get-notes-count-by-date-range start-date end-date))]
+    (swap! calendar-state assoc :note-counts data :loading false)))
 
 ;; Refresh daily notes count for a specific date
-(defn refresh-daily-notes-count! [date]
-  (db/refresh-daily-notes-count date))
+(defn refresh-daily-notes-count! [ctx date]
+  (helpers/with-loading-state! ctx calendar-state
+    (-> (db/refresh-daily-notes-count date)
+        (.then (fn [_]
+                 (let [start-date (date/format-date (.subtract (DateTime/now) (Duration .days 70)))
+                       end-date (date/format-date (DateTime/now))]
+                   (load-daily-notes-counts! start-date end-date)))))))
 
 ;; Refresh daily notes counts for a date range
-(defn refresh-daily-notes-counts! [start-date end-date]
-  (helpers/with-loading-state! calendar-state
-    (db/refresh-daily-notes-counts start-date end-date)
-    (fn [_]
-      (load-daily-notes-counts! start-date end-date))))
+(defn refresh-daily-notes-counts! [ctx start-date end-date]
+  (helpers/with-loading-state! ctx calendar-state
+    (-> (db/refresh-daily-notes-counts start-date end-date)
+        (.then (fn [_]
+                 (load-daily-notes-counts! start-date end-date))))))
 
 ;; Get daily notes counts
 (defn get-daily-notes-counts []
@@ -49,8 +52,8 @@
     (load-daily-notes-counts! start-date end-date)))
 
 ;; Refresh today's count when note is created/deleted
-(defn refresh-today-count! []
-  (refresh-daily-notes-count! (date/format-date (DateTime/now))))
+(defn refresh-today-count! [ctx]
+  (refresh-daily-notes-count! ctx (date/format-date (DateTime/now))))
 
 ;; ===== Calendar State Queries =====
 

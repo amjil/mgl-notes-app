@@ -99,8 +99,7 @@
     (await
      (.getSingle
       (.customSelect db
-                     "SELECT COUNT(*) as count FROM notes"
-                     .variables [])))))
+                     "SELECT COUNT(*) as count FROM notes")))))
 
 (defn get-notes-count-by-search [query]
   (let [^drift/AppDatabase db @db]
@@ -190,8 +189,7 @@
     (await
      (.getSingle
       (.customSelect db
-                     "SELECT COUNT(*) as count FROM blocks"
-                     .variables [])))))
+                     "SELECT COUNT(*) as count FROM blocks")))))
 
 ;; ===== Links db functions =====
 
@@ -270,8 +268,7 @@
       (await
        (.getSingle
         (.customSelect db
-                       "SELECT COUNT(*) as count FROM links"
-                       .variables [])))))
+                       "SELECT COUNT(*) as count FROM links")))))
 
   ;; ===== Tags db functions =====
 
@@ -348,8 +345,7 @@
       (await
        (.getSingle
         (.customSelect db
-                       " SELECT COUNT (*) as count FROM tags "
-                       .variables [])))))
+                       " SELECT COUNT (*) as count FROM tags ")))))
 
   ;; ===== NoteTags db functions =====
 
@@ -472,25 +468,25 @@
       (doto (.select db (.-dailyNotesCount db))
         (.where (fn [^drift/DailyNotesCount tbl] (.equals (.-date tbl) date))))))))
 
-(defn update-daily-notes-count [date count]
+(defn update-daily-notes-count [date ^int count]
   (let [^drift/AppDatabase db @db]
     (await
      (.insertOnConflictUpdate
       (.into db (.-dailyNotesCount db))
       (drift/DailyNotesCountCompanion.insert
        .date date
-       .noteCount count)))))
+       .noteCount (d/Value count))))))
 
-(defn get-daily-notes-counts [start-date end-date]
+(defn get-daily-notes-counts [^Object start-date ^Object end-date]
   (let [^drift/AppDatabase db @db]
     (await
      (.get
-      (doto (.select db (.-dailyNotesCount db))
-        (.where (fn [^drift/DailyNotesCount tbl]
-                  (and
-                   (.greaterOrEqual (.-date tbl) start-date)
-                   (.lessOrEqual (.-date tbl) end-date))))
-        (.orderBy [(fn [^drift/DailyNotesCount tbl] (d/OrderingTerm. .expression (.-date tbl) .mode d/OrderingMode.asc))]))))))
+      (.customSelect db
+                     "SELECT COUNT(*) as count, date as date
+                      FROM daily_notes_count 
+                      WHERE date >= ? AND date <= ?
+                      order by date asc" 
+                     .variables [(d/Variable start-date) (d/Variable end-date)])))))
 
 (defn calculate-daily-notes-count [date]
   (let [^drift/AppDatabase db @db
@@ -501,11 +497,11 @@
        db
        "SELECT COUNT(*) as count FROM notes 
         WHERE DATE(created_at) = DATE(?)"
-       .variables [date-str])))))
+       .variables [(d/Variable date-str)])))))
 
 (defn refresh-daily-notes-count [date]
   (let [count-result (await (calculate-daily-notes-count date))
-        count (.-count count-result)]
+        count (get (.-data count-result) "count")]
     (await (update-daily-notes-count date count))
     count))
 
@@ -519,7 +515,7 @@
 
 (defn get-notes-count-by-date-range [start-date end-date]
   (let [counts (await (get-daily-notes-counts start-date end-date))]
-    (reduce (fn [acc record]
-              (assoc acc (.-date record) (.-noteCount record)))
-            {}
-            counts)))
+    (map (fn [record]
+           (let [data (get record "data")]
+             (assoc data "date" (get data "date"))))
+           counts)))
