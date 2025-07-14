@@ -149,7 +149,7 @@
          (m/IntrinsicHeight
           .child
           (m/Row
-           .crossAxisAlignment m/CrossAxisAlignment.stretch
+           .crossAxisAlignment m/CrossAxisAlignment.start
            .children
            (for [item valid-items]
              (if (get item :is-divider)
@@ -237,7 +237,7 @@
                                         [(m/Positioned
                                           .left (get position :left)
                                           .top (get position :top)
-                                          .width menu-width
+                                          ;; .width menu-width
                                           .height menu-height
                                           .child
                                           (popup-content

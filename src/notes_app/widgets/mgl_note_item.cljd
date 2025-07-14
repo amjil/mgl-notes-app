@@ -2,7 +2,8 @@
   (:require 
    ["package:flutter/material.dart" :as m]
    ["package:mongol/mongol.dart" :as mgl]
-   [cljd.flutter :as f]))
+   [cljd.flutter :as f]
+   [notes-app.widgets.mgl-popup-menu :as popup-menu]))
 
 (defn note-item [item]
   (f/widget
@@ -12,7 +13,9 @@
          bg-color (if is-dark? (m/Color. 0xFF1E1E1E) m/Colors.white)
          title-color (if is-dark? m/Colors.white m/Colors.black87)
          preview-color (if is-dark? (m/Colors.grey 400) (m/Colors.grey 600))
-         item (.-data item)]
+         item (.-data item)
+         note-id (get item "id")
+         note-title (get item "title")]
    (m/Card
     .color bg-color
     .margin (m/EdgeInsets.all 12)
@@ -21,13 +24,44 @@
     .shadowColor (m/Colors.black.withOpacity 0.1))
    (m/Padding
     .padding (m/EdgeInsets.all 16))
-   (mgl/MongolListTile
-    .title (when (get item "title")
-             (mgl/MongolText (get item "title")
-                             .style (m/TextStyle .fontSize 18
-                                                 .fontWeight m/FontWeight.bold
-                                                 .color title-color)))
-    .subtitle (when (get item "content")
-                (mgl/MongolText (get item "content")
-                                .style (m/TextStyle .fontSize 14
-                                                    .color preview-color))))))
+   (m/Column
+    .children
+    [(popup-menu/mongol-popup-menu-button
+      {:items [(popup-menu/mongol-menu-item
+                {:label "Засах"
+                 :icon m/Icons.edit
+                 :on-selected (fn []
+                                (dart:core/print (str "Edit note: " note-id))
+                                ;; TODO: Navigate to edit screen
+                                )})
+               (popup-menu/mongol-menu-item
+                {:label "Хуулах"
+                 :icon m/Icons.copy
+                 :on-selected (fn []
+                                (dart:core/print (str "Copy note: " note-id))
+                                ;; TODO: Copy note functionality
+                                )})
+               (popup-menu/mongol-menu-item-divider)
+               (popup-menu/mongol-menu-item
+                {:label "Устгах"
+                 :icon m/Icons.delete
+                 :on-selected (fn []
+                                (dart:core/print (str "Delete note: " note-id))
+                                ;; TODO: Delete note functionality
+                                )})]
+       :on-selected (fn [menu-item]
+                      (dart:core/print (str "Menu item selected: " (get menu-item :label))))})
+
+     (m/SizedBox .width 8)
+     (m/Expanded
+      .child
+      (mgl/MongolListTile
+       .title (when note-title
+                (mgl/MongolText note-title
+                                .style (m/TextStyle .fontSize 18
+                                                    .fontWeight m/FontWeight.bold
+                                                    .color title-color)))
+       .subtitle (when (get item "content")
+                   (mgl/MongolText (get item "content")
+                                   .style (m/TextStyle .fontSize 14
+                                                       .color preview-color)))))])))
