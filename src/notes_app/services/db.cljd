@@ -17,14 +17,15 @@
   (reset! db (await (drift/initDriftDatabase))))
 
 ;; Notes db functions
-(defn create-note [id title]
+(defn create-note [id title & {:keys [is-blocks-synced] :or {is-blocks-synced false}}]
   (let [^drift/AppDatabase db @db]
     (await
      (.insertReturning
       (.into db (.-notes db))
       (drift/NotesCompanion.insert
        .id id
-       .title title)))))
+       .title title
+       .isBlocksSynced is-blocks-synced)))))
 
 
 (defn get-note-by-id [id]
@@ -33,6 +34,16 @@
      (.getSingleOrNull
       (doto (.select db (.-notes db))
         (.where (fn [^drift/Notes tbl] (.equals (.-id tbl) id))))))))
+
+(defn get-note-with-content-by-id [id]
+  (let [^drift/AppDatabase db @db]
+    (await
+     (.getSingleOrNull
+      (.customSelect db
+                     "SELECT n.*, nfts.content as content FROM notes n 
+                      LEFT JOIN note_fts nfts ON n.id = nfts.id 
+                      WHERE n.id = ?"
+                     .variables [id])))))
 
 (defn get-notes-paginated [page limit]
   (let [offset (* page limit)
@@ -58,9 +69,18 @@
         query (doto (.update db (.-notes db))
                 (.where (fn [^drift/Notes tbl] (.equals (.-id tbl) id))))
         companion (drift/NotesCompanion.
-                   .title title)]
-    (await (.write query companion)))
-  true)
+                   .title title
+                   .isBlocksSynced false)]
+    (.write query companion)))
+
+(defn update-note-blocks-synced [id block-ids]
+  (let [^drift/AppDatabase db @db
+        query (doto (.update db (.-notes db))
+                (.where (fn [^drift/Notes tbl] (.equals (.-id tbl) id))))
+        companion (drift/NotesCompanion.
+                   .isBlocksSynced true
+                   .blockIds (d/Value block-ids))]
+    (.write query companion)))
 
 
 (defn update-note-content [id content]
@@ -92,7 +112,7 @@
        db
        "SELECT n.*, nfts.content as content FROM notes n 
         LEFT JOIN note_fts nfts ON n.id = nfts.id 
-        WHERE nfts.content MATCH ? OR n.title LIKE ? 
+        WHERE nfts.content MATCH ? 
         ORDER BY n.updated_at DESC 
         LIMIT ? OFFSET ?"
        .variables [query (str "%" query "%") limit offset])))))
@@ -109,10 +129,17 @@
     (await
      (.getSingle
       (.customSelect db
-                     "SELECT COUNT(*) as count FROM notes n 
-                      LEFT JOIN note_fts nfts ON n.id = nfts.id 
-                      WHERE nfts.content MATCH ? OR n.title LIKE ?"
+                     "SELECT COUNT(*) as count FROM note_fts nfts 
+                      WHERE nfts.content MATCH ? "
                      .variables [query (str "%" query "%")])))))
+
+(defn get-notes-blocks-not-synced []
+  (let [^drift/AppDatabase db @db]
+    (.get
+     (.customSelect db
+                    "SELECT n.*, nfts.content as content FROM notes n 
+                     LEFT JOIN note_fts nfts ON n.id = nfts.id 
+                     WHERE n.is_blocks_synced = false"))))
 
 ;; ===== Blocks db functions =====
 

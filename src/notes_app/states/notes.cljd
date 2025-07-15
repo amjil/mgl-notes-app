@@ -1,9 +1,11 @@
 (ns notes-app.states.notes
   (:require
    ["package:uuid/uuid.dart" :as uuid]
+   [clojure.string :as str]
    [notes-app.services.db :as db]
    [notes-app.utils.state-helpers :as helpers]
    [notes-app.utils.date :as date]
+   [notes-app.utils.diff :as diff]
    [notes-app.states.calendar :as calendar]
    [notes-app.states.stats :as stats]))
 
@@ -128,6 +130,42 @@
   (helpers/load-more-helper! ctx notes-state
     (fn [page page-size]
       (db/get-notes-paginated page page-size))))
+
+(defn save-or-update-blocks [diff-result]
+  (let [blocks (:added diff-result)
+        modified-blocks (:modified diff-result)
+        ;; unchanged-blocks (:unchanged diff-result)
+        deleted-blocks (:deleted diff-result)]
+    (dart:core/print (str "Diff result: " diff-result))
+    ;; (dart:core/print (str "Unchanged blocks: " unchanged-blocks))
+    (dart:core/print (str "Blocks: " blocks))
+    (doseq [block blocks]
+      (db/create-block (.-id block) (.-content block)))
+    (dart:core/print (str "Modified blocks: " modified-blocks))
+    (doseq [block modified-blocks]
+      (db/update-block (.-id block) (.-content block)))
+    (dart:core/print (str "Deleted blocks: " deleted-blocks))
+    (doseq [block deleted-blocks]
+      (db/delete-block (.-id block)))))
+
+(defn sync-note-blocks! [note]
+  (let [content (get (get note "data") "content")
+        note-id (.-id note)]
+    (-> (db/get-blocks-by-note-id note-id)
+        (.then (fn [blocks]
+                 (let [blocks (map #(get % "data") blocks)
+                       diff (diff/rebuild-blocks-from-diff blocks content)
+                       block-ids (str "[" (str/join "," (map #(str "\"" % "\"") (:block-ids diff)))
+                                      "]")]
+                   (save-or-update-blocks diff)
+                   (db/update-note-blocks-synced note-id block-ids)
+                   (dart:core/print (str "Note blocks synced: " note-id))))))))
+
+(defn sync-notes-blocks! []
+  (-> (db/get-notes-blocks-not-synced)
+      (.then (fn [notes]
+               (doseq [note notes]
+                 (sync-note-blocks! note))))))
 
 ;; ===== Notes State Queries =====
 

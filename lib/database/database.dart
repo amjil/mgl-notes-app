@@ -15,6 +15,7 @@ class Notes extends Table {
   DateTimeColumn get createdAt => dateTime().withDefault(currentDateAndTime)();
   DateTimeColumn get updatedAt => dateTime().withDefault(currentDateAndTime)();
   TextColumn get syncStatus => text().withDefault(const Constant('pending'))();
+  BoolColumn get isBlocksSynced => boolean().withDefault(const Constant(false))();
 
   @override
   Set<Column> get primaryKey => {id};
@@ -120,6 +121,9 @@ class AppDatabase extends _$AppDatabase {
         // Handle database upgrade logic
         if (from < 2) {
           // Future upgrade logic can be added here
+        }
+        if (from < 5) {
+          await m.addColumn(notes, notes.isBlocksSynced);
         }
       },
     );

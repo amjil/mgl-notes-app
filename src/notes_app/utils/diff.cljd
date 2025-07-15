@@ -69,7 +69,8 @@
            :unchanged (filterv (fn [{:keys [block-id content]}]
                                  (= content (get old-id->content block-id)))
                                updated-blocks)
-           :deleted  (filterv #(not (contains? new-ids (:block-id %))) old-blocks)})
+           :deleted  (filterv #(not (contains? new-ids (:block-id %))) old-blocks)
+           :block-ids (set (map :block-id updated-blocks))})
 
         ;; Process current chunk
         (let [chunk (first chunks)
