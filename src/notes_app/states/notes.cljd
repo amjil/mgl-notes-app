@@ -6,6 +6,7 @@
    [notes-app.utils.state-helpers :as helpers]
    [notes-app.utils.date :as date]
    [notes-app.utils.diff :as diff]
+   [notes-app.utils.string :as string-utils]
    [notes-app.states.calendar :as calendar]
    [notes-app.states.stats :as stats]))
 
@@ -52,7 +53,7 @@
     "Тэмдэглэл амжилттай үүслээ"))
 
 ;; Create note with content (4 steps)
-(defn create-note-with-content! [ctx content]
+(defn create-note-with-content! [ctx content & [operation]]
   (helpers/with-success-toast! ctx notes-state
     (-> (db/create-note-with-content content)
         (.then (fn [result]
@@ -61,7 +62,8 @@
                    ;; Refresh today's count
                    (calendar/refresh-today-count! ctx)
                    (stats/refresh-stats!))
-                 result)))
+                 (when operation
+                   (operation)))))
     "Тэмдэглэл амжилттай үүслээ"))
 
 ;; Update note
@@ -75,14 +77,16 @@
     "Тэмдэглэл амжилттай шинэчлэгдлээ"))
 
 ;; Update note with content (4 steps)
-(defn update-note-with-content! [ctx id content]
-  (helpers/with-success-toast! ctx notes-state
-    (-> (db/update-note-with-content id content)
-        (.then (fn [result]
-                 (when result
-                   (load-notes-paginated! ctx (:current-page @notes-state)))
-                 result)))
-    "Тэмдэглэл амжилттай шинэчлэгдлээ"))
+(defn update-note-with-content! [ctx id content & [operation]]
+  (let [title (string-utils/extract-title-from-content content)]
+    (helpers/with-success-toast! ctx notes-state
+      (-> (db/update-note-with-content id title content)
+          (.then (fn [result]
+                   (when result
+                     (load-notes-paginated! ctx (:current-page @notes-state)))
+                   (when operation
+                     (operation)))))
+      "Тэмдэглэл амжилттай шинэчлэгдлээ")))
 
 ;; Delete note
 (defn delete-note! [ctx id]

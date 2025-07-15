@@ -3,7 +3,9 @@
    ["package:flutter/material.dart" :as m]
    ["package:mongol/mongol.dart" :as mgl]
    [cljd.flutter :as f]
-   [notes-app.widgets.mgl-popup-menu :as popup-menu]))
+   [notes-app.widgets.mgl-popup-menu :as popup-menu]
+   [notes-app.widgets.mgl-floating-editor :as floating-editor]
+   [notes-app.states.notes :as notes]))
 
 ;; Create generic menu item function
 (defn create-note-menu-items [note-id]
@@ -71,6 +73,10 @@
       .child
       (m/GestureDetector
        .onLongPressStart (fn [details] (show-note-popup-menu ctx details note-id))
+       .onTap (fn [] 
+                (dart:core/print (str "Note item tapped: " note-id))
+                (notes/set-current-note! item)
+                (floating-editor/show-floating-editor ctx))
        .child
        (mgl/MongolListTile
         .title (when note-title

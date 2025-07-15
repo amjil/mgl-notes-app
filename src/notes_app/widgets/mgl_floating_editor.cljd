@@ -2,6 +2,7 @@
   (:require
    ["package:flutter/material.dart" :as m]
    [cljd.flutter :as f]
+   [clojure.string :as str]
    [notes-app.states.notes :as notes]
    [notes-app.widgets.mgl-input-editor :as mgl-input-editor]))
 
@@ -17,7 +18,7 @@
          theme (-> m/Theme (.of ctx))
          color-scheme (.-colorScheme theme)] 
    :watch [has-changed has-changed-atom]
-   :managed [controller (m/TextEditingController.)]
+   :managed [controller (m/TextEditingController. .text (if (notes/get-current-note) (get (notes/get-current-note) "content") ""))]
    (m/Dialog
     .backgroundColor m/Colors.transparent
     .insetPadding (m/EdgeInsets.zero)
@@ -86,14 +87,21 @@
     (dart:core/print (str "Save button clicked! Content: " content))
     
     ;; Check if content is empty
-    (if (or (nil? content) (empty? (clojure.string/trim content)))
+    (if (or (nil? content) (empty? (str/trim content)))
       (dart:core/print "Content is empty, not saving")
       ;; Has content, proceed with saving
-      (-> (notes/create-note-with-content! content context)
-          (.then (fn [result]
-                   (when result
-                     (reset! has-changed-atom false)
-                     (-> m/Navigator (.of context) (.pop)))
-                   result))
-          (.catchError (fn [error]
-                         (dart:core/print (str "Error saving note: " error))))))))
+      (if (nil? (notes/get-current-note))
+        (notes/create-note-with-content!
+         context content
+         (fn []
+           (-> m/Navigator (.of context) (.pop))
+           (dart:core/print "Note created")
+           (reset! has-changed-atom false)))
+
+        (let [note-id (-> (notes/get-current-note) (get "id"))]
+          (notes/update-note-with-content!
+           context note-id content
+           (fn []
+             (-> m/Navigator (.of context) (.pop))
+             (dart:core/print "Note updated")
+             (reset! has-changed-atom false))))))))

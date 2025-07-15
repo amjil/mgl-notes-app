@@ -101,9 +101,7 @@ class AppDatabase extends _$AppDatabase {
           CREATE VIRTUAL TABLE blocks_fts
           USING fts5(
             id UNINDEXED,
-            content,
-            content='',
-            tokenize='unicode61'
+            content
           )
         ''');
         
@@ -111,9 +109,7 @@ class AppDatabase extends _$AppDatabase {
           CREATE VIRTUAL TABLE note_fts
           USING fts5(
             id UNINDEXED,
-            content,
-            content='',
-            tokenize='unicode61'
+            content
           )
         ''');
       },
