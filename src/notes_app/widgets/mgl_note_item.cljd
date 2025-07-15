@@ -5,6 +5,41 @@
    [cljd.flutter :as f]
    [notes-app.widgets.mgl-popup-menu :as popup-menu]))
 
+;; Create generic menu item function
+(defn create-note-menu-items [note-id]
+  [(popup-menu/mongol-menu-item
+    {:label "Засах"
+     :icon m/Icons.edit
+     :on-selected (fn []
+                    (dart:core/print (str "Edit note: " note-id))
+                    ;; TODO: Navigate to edit screen
+                    )})
+   (popup-menu/mongol-menu-item
+    {:label "Хуулах"
+     :icon m/Icons.copy
+     :on-selected (fn []
+                    (dart:core/print (str "Copy note: " note-id))
+                    ;; TODO: Copy note functionality
+                    )})
+   (popup-menu/mongol-menu-item-divider)
+   (popup-menu/mongol-menu-item
+    {:label "Устгах"
+     :icon m/Icons.delete
+     :on-selected (fn []
+                    (dart:core/print (str "Delete note: " note-id))
+                    ;; TODO: Delete note functionality
+                    )})])
+
+;; Function to show popup menu
+(defn show-note-popup-menu [ctx details note-id]
+  (let [menu-items (create-note-menu-items note-id)]
+    (popup-menu/show-menu
+     {:context ctx
+      :items menu-items
+      :detail details
+      :on-item-selected (fn [menu-item]
+                          (dart:core/print (str "Menu item selected: " (get menu-item :label))))})))
+
 (defn note-item [item]
   (f/widget
    :context ctx
@@ -27,41 +62,23 @@
    (m/Column
     .children
     [(popup-menu/mongol-popup-menu-button
-      {:items [(popup-menu/mongol-menu-item
-                {:label "Засах"
-                 :icon m/Icons.edit
-                 :on-selected (fn []
-                                (dart:core/print (str "Edit note: " note-id))
-                                ;; TODO: Navigate to edit screen
-                                )})
-               (popup-menu/mongol-menu-item
-                {:label "Хуулах"
-                 :icon m/Icons.copy
-                 :on-selected (fn []
-                                (dart:core/print (str "Copy note: " note-id))
-                                ;; TODO: Copy note functionality
-                                )})
-               (popup-menu/mongol-menu-item-divider)
-               (popup-menu/mongol-menu-item
-                {:label "Устгах"
-                 :icon m/Icons.delete
-                 :on-selected (fn []
-                                (dart:core/print (str "Delete note: " note-id))
-                                ;; TODO: Delete note functionality
-                                )})]
+      {:items (create-note-menu-items note-id)
        :on-selected (fn [menu-item]
                       (dart:core/print (str "Menu item selected: " (get menu-item :label))))})
 
      (m/SizedBox .width 8)
      (m/Expanded
       .child
-      (mgl/MongolListTile
-       .title (when note-title
-                (mgl/MongolText note-title
-                                .style (m/TextStyle .fontSize 18
-                                                    .fontWeight m/FontWeight.bold
-                                                    .color title-color)))
-       .subtitle (when (get item "content")
-                   (mgl/MongolText (get item "content")
-                                   .style (m/TextStyle .fontSize 14
-                                                       .color preview-color)))))])))
+      (m/GestureDetector
+       .onLongPressStart (fn [details] (show-note-popup-menu ctx details note-id))
+       .child
+       (mgl/MongolListTile
+        .title (when note-title
+                 (mgl/MongolText note-title
+                                 .style (m/TextStyle .fontSize 18
+                                                     .fontWeight m/FontWeight.bold
+                                                     .color title-color)))
+        .subtitle (when (get item "content")
+                    (mgl/MongolText (get item "content")
+                                    .style (m/TextStyle .fontSize 14
+                                                        .color preview-color))))))])))

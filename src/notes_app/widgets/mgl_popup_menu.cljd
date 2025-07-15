@@ -28,6 +28,8 @@
 (def ^:const default-min-menu-width 80)
 (def ^:const default-max-menu-height 300)
 (def ^:const default-screen-margin 10)
+(def ^:const default-menu-offset 8)
+(def ^:const default-touch-area-size 44)
 
 ;; Helper functions for performance and error handling
 (defn safe-get
@@ -41,20 +43,24 @@
   (filter some? items))
 
 (defn calculate-menu-position
-  "Calculate optimal menu position based on button location and screen size"
-  [button-offset button-size screen-size menu-width menu-height]
-  (let [left (-> button-offset .-dx)
-        top (+ (-> button-offset .-dy) (-> button-size .-height))
-        adjusted-left (if (> (+ left menu-width) (-> screen-size .-width))
-                       (max default-screen-margin 
-                            (- (-> screen-size .-width) menu-width default-screen-margin))
-                       left)
-        adjusted-top (if (> (+ top menu-height) (-> screen-size .-height))
-                      (max default-screen-margin 
-                           (- (-> button-offset .-dy) menu-height))
-                      top)]
-    {:left adjusted-left
-     :top adjusted-top}))
+  "Calculate optimal menu position based on touch location and screen size"
+  [touch-position screen-size menu-width menu-height]
+  (let [touch-x (-> touch-position .-dx)
+        touch-y (-> touch-position .-dy)
+        screen-width (-> screen-size .-width)
+        screen-height (-> screen-size .-height)
+        
+        ;; Horizontal position calculation: prefer right side of touch point, fallback to left if not enough space
+        left (if (> (+ touch-x menu-width default-menu-offset) screen-width)
+               (max default-screen-margin (- touch-x menu-width))
+               (max default-screen-margin (+ touch-x default-menu-offset)))
+        
+        ;; Vertical position calculation: prefer below touch point, fallback to above if not enough space
+        top (if (> (+ touch-y menu-height default-menu-offset) screen-height)
+              (max default-screen-margin (- touch-y menu-height))
+              (max default-screen-margin (+ touch-y default-menu-offset)))]
+    {:left left
+     :top top}))
 
 (defn get-theme-styles
   "Get theme-based styles for the popup menu"
@@ -203,6 +209,96 @@
                                    .fontSize default-menu-item-font-size))]))))))))))))))
      (m/SizedBox.shrink))))
 
+;; Show menu function for external use
+(defn show-menu
+  "Show popup menu at specified position
+  
+  Options:
+  - context: BuildContext
+  - items: Vector of menu items
+  - on-item-selected: Callback when item is selected
+  - position: Manual position {:left x :top y} (optional)
+  - detail: Touch detail from long press event (optional)
+  - background-color: Menu background color (optional)
+  - border-radius: Menu border radius (optional)
+  - box-shadow: Custom box shadow (optional)
+  - divider-color: Divider color (optional)
+  - menu-item-padding: Menu item padding (optional)
+  - icon-size: Icon size (optional)"
+  [{:keys [context items on-item-selected position detail background-color border-radius
+           box-shadow divider-color menu-item-padding icon-size]
+    :or {border-radius default-border-radius
+         menu-item-padding (m/EdgeInsets.symmetric
+                            .horizontal default-menu-item-padding-horizontal
+                            .vertical default-menu-item-padding-vertical)
+         icon-size default-icon-size}}]
+  (let [theme (-> m/Theme (.of context))
+        styles (get-theme-styles theme)
+        overlay (-> (-> m/Overlay (.of context)) .-context .findRenderObject)
+        screen-size (-> overlay .-size)
+        menu-width default-menu-width
+        menu-height default-menu-height
+        menu-position (or position
+                          (if detail
+                            (let [detail-position (-> detail .-globalPosition)]
+                              (calculate-menu-position detail-position screen-size menu-width menu-height))
+                            ;; Default center display
+                            {:left (/ (-> screen-size .-width) 2)
+                             :top (/ (-> screen-size .-height) 2)}))]
+    (m/showGeneralDialog
+     .context context
+     .barrierDismissible true
+     .barrierLabel "Dismiss"
+     .barrierColor (safe-get styles :scrim-color m/Colors.black54)
+     .transitionDuration (Duration .milliseconds default-transition-duration)
+     .pageBuilder (fn [ctx anim1 anim2]
+                    (m/Stack
+                     .children
+                     [(m/Positioned
+                       .left (get menu-position :left)
+                       .top (get menu-position :top)
+                       .height menu-height
+                       .child
+                       (popup-content
+                        {:items items
+                         :on-item-selected (fn [item]
+                                             (when (get item :on-selected)
+                                               ((get item :on-selected)))
+                                             (when on-item-selected
+                                               (on-item-selected item)))
+                         :background-color background-color
+                         :border-radius border-radius
+                         :box-shadow box-shadow
+                         :divider-color divider-color
+                         :menu-item-padding menu-item-padding
+                         :icon-size icon-size}))]))
+     .transitionBuilder (fn [ctx animation secondary-animation child]
+                          (let [curved (m/CurvedAnimation
+                                        .parent animation
+                                        .curve m/Curves.easeOutBack)]
+                            (m/FadeTransition
+                             .opacity curved
+                             .child
+                             (m/ScaleTransition
+                              .scale curved
+                              .child child)))))))
+
+;; Convenience functions for different menu display scenarios
+(defn show-menu-at-touch
+  "Show popup menu at touch position (convenience function for long press events)"
+  [{:keys [context items on-item-selected detail] :as options}]
+  (show-menu (assoc options :detail detail)))
+
+(defn show-menu-at-button
+  "Show popup menu at button position (convenience function for button clicks)"
+  [{:keys [context items on-item-selected] :as options}]
+  (let [button (-> context .findRenderObject)
+        overlay (-> (-> m/Overlay (.of context)) .-context .findRenderObject)
+        button-position (-> button (.localToGlobal (m/Offset 0 0) .ancestor overlay))
+        screen-size (-> overlay .-size)
+        position (calculate-menu-position button-position screen-size default-menu-width default-menu-height)]
+    (show-menu (assoc options :position position))))
+
 (defn mongol-popup-menu-button
   "Mongolian popup menu button component"
   [{:keys [items icon on-selected menu-background-color menu-border-radius
@@ -217,52 +313,16 @@
    :let [theme (-> m/Theme (.of ctx))
          styles (get-theme-styles theme)
          show-menu (fn []
-                     (let [button (-> ctx .findRenderObject)
-                           overlay (-> (-> m/Overlay (.of ctx)) .-context .findRenderObject)
-                           button-offset (-> button (.localToGlobal (m/Offset 0 0) .ancestor overlay))
-                           button-size (-> button .-size)
-                           screen-size (-> overlay .-size)
-                           menu-width default-menu-width
-                           menu-height default-menu-height
-                           position (calculate-menu-position button-offset button-size screen-size menu-width menu-height)]
-                       (m/showGeneralDialog
-                        .context ctx
-                        .barrierDismissible true
-                        .barrierLabel "Dismiss"
-                        .barrierColor (safe-get styles :scrim-color m/Colors.black54)
-                        .transitionDuration (Duration .milliseconds default-transition-duration)
-                        .pageBuilder (fn [context anim1 anim2]
-                                       (m/Stack
-                                        .children
-                                        [(m/Positioned
-                                          .left (get position :left)
-                                          .top (get position :top)
-                                          ;; .width menu-width
-                                          .height menu-height
-                                          .child
-                                          (popup-content
-                                           {:items items
-                                            :on-item-selected (fn [item]
-                                                                (when (get item :on-selected)
-                                                                  ((get item :on-selected)))
-                                                                (when on-selected
-                                                                  (on-selected item)))
-                                            :background-color menu-background-color
-                                            :border-radius menu-border-radius
-                                            :box-shadow menu-box-shadow
-                                            :divider-color divider-color
-                                            :menu-item-padding menu-item-padding
-                                            :icon-size icon-size}))]))
-                        .transitionBuilder (fn [context animation secondary-animation child]
-                                             (let [curved (m/CurvedAnimation
-                                                           .parent animation
-                                                           .curve m/Curves.easeOutBack)]
-                                               (m/FadeTransition
-                                                .opacity curved
-                                                .child
-                                                (m/ScaleTransition
-                                                 .scale curved
-                                                 .child child)))))))]
+                     (show-menu-at-button
+                      {:context ctx
+                       :items items
+                       :on-item-selected on-selected
+                       :background-color menu-background-color
+                       :border-radius menu-border-radius
+                       :box-shadow menu-box-shadow
+                       :divider-color divider-color
+                       :menu-item-padding menu-item-padding
+                       :icon-size icon-size}))]
    (m/IconButton
     .icon (or icon (m/Icon m/Icons.more_vert))
     .onPressed show-menu
@@ -271,6 +331,35 @@
     .hoverColor (safe-get styles :hover-color m/Colors.grey)
     .splashColor (safe-get styles :splash-color m/Colors.blue)
     .highlightColor (safe-get styles :highlight-color m/Colors.grey))))
+
+;; Usage examples
+;; 
+;; 1. Using show-menu-at-touch for long press events:
+;; (onLongPress (fn [detail]
+;;                (show-menu-at-touch
+;;                 {:context context
+;;                  :items menu-items
+;;                  :detail detail
+;;                  :on-item-selected on-selected})))
+;;
+;; 2. Using show-menu-at-button for button clicks:
+;; (onPressed (fn []
+;;              (show-menu-at-button
+;;               {:context context
+;;                :items menu-items
+;;                :on-item-selected on-selected})))
+;;
+;; 3. Manual position specification:
+;; (show-menu
+;;  {:context context
+;;   :items menu-items
+;;   :position {:left 100 :top 200}
+;;   :on-item-selected on-selected})
+;;
+;; 4. Using mongol-popup-menu-button component:
+;; (mongol-popup-menu-button
+;;  {:items menu-items
+;;   :on-selected on-selected})
 
 ;; Usage example
 (defn example-usage []
