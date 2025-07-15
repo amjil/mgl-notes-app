@@ -51,16 +51,20 @@
         screen-height (-> screen-size .-height)
         
         ;; Horizontal position calculation: prefer right side of touch point, fallback to left if not enough space
-        left (if (> (+ touch-x menu-width default-menu-offset) screen-width)
+        left (if (< (+ touch-x menu-width default-menu-offset) screen-width)
                (max default-screen-margin (- touch-x menu-width))
-               (max default-screen-margin (+ touch-x default-menu-offset)))
+               nil)
+        right (if (> (+ touch-x menu-width default-menu-offset) screen-width)
+                (max default-screen-margin (- touch-x menu-width))
+                nil)
         
         ;; Vertical position calculation: prefer below touch point, fallback to above if not enough space
         top (if (> (+ touch-y menu-height default-menu-offset) screen-height)
               (max default-screen-margin (- touch-y menu-height))
               (max default-screen-margin (+ touch-y default-menu-offset)))]
     {:left left
-     :top top}))
+     :top top
+     :right right}))
 
 (defn get-theme-styles
   "Get theme-based styles for the popup menu"
@@ -244,7 +248,8 @@
                               (calculate-menu-position detail-position screen-size menu-width menu-height))
                             ;; Default center display
                             {:left (/ (-> screen-size .-width) 2)
-                             :top (/ (-> screen-size .-height) 2)}))]
+                             :top (/ (-> screen-size .-height) 2)
+                             :right nil}))]
     (m/showGeneralDialog
      .context context
      .barrierDismissible true
@@ -256,6 +261,7 @@
                      .children
                      [(m/Positioned
                        .left (get menu-position :left)
+                       .right (get menu-position :right)
                        .top (get menu-position :top)
                        .height menu-height
                        .child
