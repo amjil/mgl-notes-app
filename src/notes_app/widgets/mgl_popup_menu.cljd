@@ -43,7 +43,7 @@
   (filter some? items))
 
 (defn calculate-menu-position
-  "Calculate optimal menu position based on touch location and screen size"
+  "Optimize popup menu position to prevent overflow from the screen"
   [touch-position screen-size menu-width menu-height]
   (let [touch-x (-> touch-position .-dx)
         touch-y (-> touch-position .-dy)
