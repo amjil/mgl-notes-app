@@ -52,7 +52,14 @@
          preview-color (if is-dark? (m/Colors.grey 400) (m/Colors.grey 600))
          item (.-data item)
          note-id (get item "id")
-         note-title (get item "title")]
+         note-title (get item "title")
+         note-content (get item "content")
+         title-index (if (nil? note-content)
+                       -1
+                       (.indexOf note-content "\n"))
+         note-content (if (> title-index 0)
+                        (subs note-content title-index)
+                        nil)]
    (m/Card
     .color bg-color
     .margin (m/EdgeInsets.all 12)
@@ -84,7 +91,7 @@
                                  .style (m/TextStyle .fontSize 18
                                                      .fontWeight m/FontWeight.bold
                                                      .color title-color)))
-        .subtitle (when (get item "content")
-                    (mgl/MongolText (get item "content")
+        .subtitle (when note-content
+                    (mgl/MongolText note-content
                                     .style (m/TextStyle .fontSize 14
                                                         .color preview-color))))))])))
