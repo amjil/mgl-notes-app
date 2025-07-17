@@ -1,6 +1,12 @@
 (ns notes-app.utils.clipboard
   (:require 
-   ["package:flutter/services.dart" :as services]))
+   ["package:flutter/services.dart" :as services]
+   [notes-app.utils.toast :as toast]
+   [notes-app.states.ui :as ui]))
    
 (defn set-data [text]
-  (services/Clipboard.setData (services/ClipboardData. .text text)))
+  (let [ctx (.-currentContext (ui/get-scaffold-key))]
+    (->
+     (services/Clipboard.setData (services/ClipboardData. .text text))
+     (.then (fn [x]
+              (toast/handle-success-with-toast ctx "Note copied to clipboard"))))))
