@@ -118,11 +118,15 @@
                      remaining-diffs))))))))
 
 ;; Split text into blocks
-(defn text-to-blocks [text]
-  (->> (str/split text separator)
-       (mapv str/trim)
-       (filterv #(not (str/blank? %)))
-       (mapv #(hash-map :block-id (.v4 uuid-instance) :content %))))
+(defn text-to-blocks [text & [block-ids]]
+  (let [blocks (->> (str/split text separator)
+                    (mapv str/trim)
+                    (filterv #(not (str/blank? %))))]
+    (if (empty? block-ids)
+      (mapv #(hash-map :block-id (.v4 uuid-instance) :content %) blocks)
+      (mapv (fn [x] {:block-id (first x) :content (second x)})
+            (interpose block-ids blocks)))))
+  
 
 ;; Merge blocks into text
 (defn blocks-to-text [blocks]

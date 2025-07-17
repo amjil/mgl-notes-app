@@ -2,10 +2,15 @@
   (:require
    ["package:flutter/material.dart" :as m]
    [cljd.flutter :as f]
-   [notes-app.widgets.mgl-richtext-viewer :as richtext-viewer]))
+   [notes-app.widgets.mgl-richtext-viewer :as richtext-viewer]
+   [notes-app.states.notes :as notes]
+   [notes-app.utils.block :as block-utils]))
 
-(defn note-view [note blocks on-reorder]
+
+(defn note-view [on-reorder]
   (f/widget
+   :let [note (notes/get-current-note)
+         blocks (block-utils/extract-blocks-from-note note)]
    (m/ReorderableListView.builder
     ;; horizontal scroll
     .scrollDirection m/Axis.horizontal
@@ -18,12 +23,30 @@
     .itemBuilder
     (fn [ctx index]
       (let [block (nth blocks index)
-            key (m/ValueKey (:id block))]
+            key (m/ValueKey (:block-id block))]
         (m/Padding
          .key key
          .padding (m/EdgeInsets.symmetric .horizontal 8 .vertical 16)
          .child
-         (m/Expanded
-          .child
-          (richtext-viewer/richtext-viewer (:content block) {:on-link-tap nil})))))))) 
+         (richtext-viewer/richtext-viewer (:content block) {:on-link-tap nil})))))))
 
+(defn note-viewer-dialog []
+  (f/widget
+   :context ctx
+   :let [screen-height (* (-> m/MediaQuery (.of ctx) .-size .-height) 0.8)
+         screen-width (-> m/MediaQuery (.of ctx) .-size .-width)]
+   (m/Dialog
+    .alignment m/Alignment.bottomCenter
+    .insetPadding (m/EdgeInsets.zero)
+    .child (m/Row
+            .mainAxisAlignment m/MainAxisAlignment.end
+            .children [(m/Container
+                        .height screen-height
+                        .width screen-width
+                        .child (note-view block-utils/reorder-blocks))]))))
+
+(defn show-diaglog [context]
+  (m/showDialog
+   .context context
+   .builder (fn [_]
+              (note-viewer-dialog))))

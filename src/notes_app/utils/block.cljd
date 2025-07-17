@@ -1,4 +1,7 @@
-(ns notes-app.utils.block)
+(ns notes-app.utils.block 
+  (:require
+    [notes-app.utils.diff :as diff]
+    [clojure.string :as str]))
 
 (defn reorder-blocks [note old-index new-index]
   (let [blocks (vec (.-blockIds note))
@@ -12,7 +15,24 @@
                                    (drop new-index without-old)))]
     new-block-ids))
 
+(defn extract-block-ids-from-note [note]
+  (let [block-ids (get note "blockIds")]
+    (if (nil? block-ids)
+      []
+      (as-> block-ids m
+            (subs m 1 (dec (count m)))
+            (str/split m #",")
+            vec))))
+
 (defn sort-blocks-by-note [note blocks]
-  (let [block-ids (vec (.-blockIds note))
+  (let [block-ids (extract-block-ids-from-note note)
         indexd-map (zipmap block-ids (range))]
     (vec (sort-by (fn [block] (get indexd-map (.-blockId block))) blocks))))
+
+(defn extract-blocks-from-note [note]
+  (if (or (nil? note) (nil? (get note "content"))
+          (empty? (get note "content")))
+    []
+    (let [ids (extract-block-ids-from-note note)
+          blocks (diff/text-to-blocks (get note "content") ids)]
+      blocks)))
