@@ -42,7 +42,7 @@
      (.customSelect db
                     "SELECT n.*, nfts.content as content FROM notes n 
                       LEFT JOIN note_fts nfts ON n.id = nfts.id 
-                      WHERE n.id = ?"
+                      WHERE n.id = ? AND n.is_deleted = false"
                     .variables [id]))))
 
 (defn get-notes-paginated [page limit]
@@ -53,6 +53,7 @@
       db
       "SELECT n.*, nfts.content as content FROM notes n 
         LEFT JOIN note_fts nfts ON n.id = nfts.id 
+        WHERE n.is_deleted = false
         ORDER BY n.updated_at DESC 
         LIMIT ? OFFSET ?"
       .variables [(d/Variable limit) (d/Variable offset)]))))
@@ -61,6 +62,7 @@
   (let [^drift/AppDatabase db @db]
     (.get
      (doto (.select db (.-notes db))
+       (.where (fn [^drift/Notes tbl] (.equals (.-isDeleted tbl) false)))
        (.orderBy [(fn [^drift/Notes tbl] (d/OrderingTerm. .expression (.-updatedAt tbl) .mode d/OrderingMode.desc))])))))
 
 (defn update-note [id ^String title]
@@ -90,6 +92,15 @@
                       [id content])))
 
 (defn delete-note [id]
+  (let [^drift/AppDatabase db @db
+        query (doto (.update db (.-notes db))
+                (.where (fn [^drift/Notes tbl] (.equals (.-id tbl) id))))
+        companion (drift/NotesCompanion.
+                   .isDeleted (d/Value true))]
+    (.write query companion)))
+
+;; Hard delete note (permanently remove from database)
+(defn hard-delete-note [id]
   (let [^drift/AppDatabase db @db]
     (.go
      (doto
@@ -100,6 +111,29 @@
                       "DELETE FROM note_fts WHERE id = ?"
                       [id])))
 
+;; Restore deleted note
+(defn restore-note [id]
+  (let [^drift/AppDatabase db @db
+        query (doto (.update db (.-notes db))
+                (.where (fn [^drift/Notes tbl] (.equals (.-id tbl) id))))
+        companion (drift/NotesCompanion.
+                   .isDeleted (d/Value false))]
+    (.write query companion)))
+
+;; Get deleted notes
+(defn get-deleted-notes [page limit]
+  (let [offset (* page limit)
+        ^drift/AppDatabase db @db]
+    (.get
+     (.customSelect
+      db
+      "SELECT n.*, nfts.content as content FROM notes n 
+        LEFT JOIN note_fts nfts ON n.id = nfts.id 
+        WHERE n.is_deleted = true
+        ORDER BY n.updated_at DESC 
+        LIMIT ? OFFSET ?"
+      .variables [(d/Variable limit) (d/Variable offset)]))))
+
 (defn search-notes [query page limit]
   (let [offset (* page limit)
         ^drift/AppDatabase db @db]
@@ -108,7 +142,7 @@
       db
       "SELECT n.*, nfts.content as content FROM notes n 
         LEFT JOIN note_fts nfts ON n.id = nfts.id 
-        WHERE nfts.content MATCH ? 
+        WHERE nfts.content MATCH ? AND n.is_deleted = false
         ORDER BY n.updated_at DESC 
         LIMIT ? OFFSET ?"
       .variables [query (str "%" query "%") limit offset]))))
@@ -117,14 +151,15 @@
   (let [^drift/AppDatabase db @db]
     (.getSingle
      (.customSelect db
-                    "SELECT COUNT(*) as count FROM notes"))))
+                    "SELECT COUNT(*) as count FROM notes WHERE is_deleted = false"))))
 
 (defn get-notes-count-by-search [query]
   (let [^drift/AppDatabase db @db]
     (.getSingle
      (.customSelect db
-                    "SELECT COUNT(*) as count FROM note_fts nfts 
-                      WHERE nfts.content MATCH ? "
+                    "SELECT COUNT(*) as count FROM notes n
+                      INNER JOIN note_fts nfts ON n.id = nfts.id 
+                      WHERE nfts.content MATCH ? AND n.is_deleted = false"
                     .variables [query (str "%" query "%")]))))
 
 (defn get-notes-blocks-not-synced []
@@ -133,7 +168,7 @@
      (.customSelect db
                     "SELECT n.*, nfts.content as content FROM notes n 
                      LEFT JOIN note_fts nfts ON n.id = nfts.id 
-                     WHERE n.is_blocks_synced = false"))))
+                     WHERE n.is_blocks_synced = false AND n.is_deleted = false"))))
 
 ;; ===== Blocks db functions =====
 
@@ -383,7 +418,7 @@
                     " SELECT n.*, nfts.content as content FROM notes n
                       LEFT JOIN note_fts nfts ON n.id = nfts.id
                       INNER JOIN note_tags nt ON n.id = nt.note_id
-                      WHERE nt.tag_id = ?
+                      WHERE nt.tag_id = ? AND n.is_deleted = false
                       ORDER BY n.updated_at DESC
                       LIMIT ? OFFSET ? "
                     .variables
@@ -398,7 +433,7 @@
                     (str " SELECT n.*, nfts.content as content FROM notes n
                            LEFT JOIN note_fts nfts ON n.id = nfts.id
                            INNER JOIN note_tags nt ON n.id = nt.note_id
-                           WHERE nt.tag_id IN (" placeholders ")
+                           WHERE nt.tag_id IN (" placeholders ") AND n.is_deleted = false
                            GROUP BY n.id
                            HAVING COUNT (DISTINCT nt.tag_id) = ?
                            ORDER BY n.updated_at DESC
@@ -410,7 +445,9 @@
   (let [^drift/AppDatabase db @db]
     (.getSingle
      (.customSelect db
-                    " SELECT COUNT (*) as count FROM note_tags WHERE tag_id = ? "
+                    " SELECT COUNT (*) as count FROM note_tags nt
+                      INNER JOIN notes n ON nt.note_id = n.id
+                      WHERE nt.tag_id = ? AND n.is_deleted = false "
                     .variables [tag-id]))))
 
 (defn delete-note-with-blocks [id]
@@ -480,7 +517,7 @@
      (.customSelect
       db
       "SELECT COUNT(*) as count FROM notes 
-       WHERE DATE(created_at) = DATE(?)"
+       WHERE DATE(created_at) = DATE(?) AND is_deleted = false"
       .variables [(d/Variable date-str)]))))
 
 (defn refresh-daily-notes-count [date]

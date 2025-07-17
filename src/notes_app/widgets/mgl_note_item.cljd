@@ -5,10 +5,11 @@
    [cljd.flutter :as f]
    [notes-app.widgets.mgl-popup-menu :as popup-menu]
    [notes-app.widgets.mgl-note-viewer :as note-viewer]
-   [notes-app.states.notes :as notes]))
+   [notes-app.states.notes :as notes]
+   [notes-app.states.ui :as ui]))
 
 ;; Create generic menu item function
-(defn create-note-menu-items [note-id]
+(defn create-note-menu-items [ctx note-id]
   [(popup-menu/mongol-menu-item
     {:label "Засах"
      :icon m/Icons.edit
@@ -29,12 +30,12 @@
      :icon m/Icons.delete
      :on-selected (fn []
                     (dart:core/print (str "Delete note: " note-id))
-                    ;; TODO: Delete note functionality
-                    )})])
+                    (let [global-context (.-currentContext (ui/get-scaffold-key))]
+                      (notes/delete-note! global-context note-id)))})])
 
 ;; Function to show popup menu
 (defn show-note-popup-menu [ctx details note-id]
-  (let [menu-items (create-note-menu-items note-id)]
+  (let [menu-items (create-note-menu-items ctx note-id)]
     (popup-menu/show-menu
      {:context ctx
       :items menu-items
@@ -71,7 +72,7 @@
    (m/Column
     .children
     [(popup-menu/mongol-popup-menu-button
-      {:items (create-note-menu-items note-id)
+      {:items (create-note-menu-items ctx note-id)
        :on-selected (fn [menu-item]
                       (dart:core/print (str "Menu item selected: " (get menu-item :label))))})
 
@@ -93,5 +94,6 @@
                                                      .color title-color)))
         .subtitle (when note-content
                     (mgl/MongolText note-content
+                                    .maxLines 3
                                     .style (m/TextStyle .fontSize 14
                                                         .color preview-color))))))])))

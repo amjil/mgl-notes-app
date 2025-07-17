@@ -114,6 +114,40 @@
                  success)))
     "Тэмдэглэл амжилттай устгагдлаа"))
 
+;; Restore deleted note
+(defn restore-note! [ctx id]
+  (helpers/with-success-toast! ctx notes-state
+    (-> (db/restore-note id)
+        (.then (fn [success]
+                 (when success
+                   (load-notes-paginated! ctx (:current-page @notes-state))
+                   ;; Refresh today's count
+                   (calendar/refresh-today-count! ctx)
+                   (stats/refresh-stats!))
+                 success)))
+    "Тэмдэглэл амжилттай сэргээгдлээ"))
+
+;; Hard delete note (permanently remove)
+(defn hard-delete-note! [ctx id]
+  (helpers/with-success-toast! ctx notes-state
+    (-> (db/hard-delete-note id)
+        (.then (fn [success]
+                 (when success
+                   (load-notes-paginated! ctx (:current-page @notes-state))
+                   ;; Refresh today's count
+                   (calendar/refresh-today-count! ctx)
+                   (stats/refresh-stats!))
+                 success)))
+    "Тэмдэглэл бүрмөсөн устгагдлаа"))
+
+;; Load deleted notes
+(defn load-deleted-notes! [ctx page & [page-size]]
+  (let [limit (or page-size 20)]
+    (helpers/with-loading-state! ctx notes-state
+      (-> (db/get-deleted-notes page limit)
+          (.then (fn [notes]
+                   (helpers/handle-pagination-result! notes-state page notes limit)))))))
+
 ;; Get note by id
 (defn get-note-by-id! [ctx id]
   (helpers/with-loading-state! ctx notes-state
