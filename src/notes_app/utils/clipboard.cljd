@@ -1,0 +1,6 @@
+(ns notes-app.utils.clipboard
+  (:require 
+   ["package:flutter/services.dart" :as services]))
+   
+(defn set-data [text]
+  (services/Clipboard.setData (services/ClipboardData. .text text)))
