@@ -1,6 +1,7 @@
 (ns notes-app.main
   (:require
    ["package:flutter/material.dart" :as m]
+   ["package:lifecycle/lifecycle.dart" :as lifecycle]
    [cljd.flutter :as f]
    [virtual-keyboard.options :as keyboard-options]
    [virtual-keyboard.input-control :as control]
@@ -35,6 +36,7 @@
                        :keyboard/key-container-color (-> m/Theme (.of ctx) .-colorScheme .-tertiaryContainer)})]
     :bind {:info info :state ui/ui-state}
     (m/MaterialApp
+     .navigatorObservers [lifecycle/defaultLifecycleObserver]
      .title "Mongol Notes App"
      .debugShowCheckedModeBanner false
      .theme theme/light-theme
