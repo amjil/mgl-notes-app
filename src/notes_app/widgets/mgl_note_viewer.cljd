@@ -3,6 +3,7 @@
    ["package:flutter/material.dart" :as m]
    [cljd.flutter :as f]
    [notes-app.widgets.mgl-richtext-viewer :as richtext-viewer]
+   [notes-app.widgets.mgl-floating-editor :as floating-editor]
    [notes-app.states.notes :as notes]
    [notes-app.utils.block :as block-utils]))
 
@@ -33,7 +34,7 @@
 (defn note-viewer-dialog []
   (f/widget
    :context ctx
-   :let [screen-height (* (-> m/MediaQuery (.of ctx) .-size .-height) 0.8)
+   :let [screen-height (* (-> m/MediaQuery (.of ctx) .-size .-height) 0.85)
          screen-width (-> m/MediaQuery (.of ctx) .-size .-width)]
    (m/Dialog
     .alignment m/Alignment.bottomCenter
@@ -43,7 +44,23 @@
             .children [(m/Container
                         .height screen-height
                         .width screen-width
-                        .child (note-view block-utils/reorder-blocks))]))))
+                        .child
+                        (m/Column
+                         .mainAxisSize m/MainAxisSize.min
+                         .children [;; Top button row
+                                    (m/Row
+                                     .mainAxisAlignment m/MainAxisAlignment.spaceBetween
+                                     .children [;; Close button
+                                                (m/IconButton
+                                                 .icon (m/Icon m/Icons.arrow_downward)
+                                                 .onPressed (fn [] (m/Navigator.pop ctx)))
+                                                ;; Edit button
+                                                (m/IconButton
+                                                 .icon (m/Icon m/Icons.edit)
+                                                 .onPressed (fn [] (dart:core/print "Edit button clicked")
+                                                              (floating-editor/show-floating-editor ctx)))])
+                                    ;; Main content
+                                    (m/Expanded .child (note-view block-utils/reorder-blocks))]))]))))
 
 (defn show-diaglog [context]
   (m/showDialog

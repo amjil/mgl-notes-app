@@ -4,7 +4,7 @@
    ["package:mongol/mongol.dart" :as mgl]
    [cljd.flutter :as f]
    [notes-app.widgets.mgl-popup-menu :as popup-menu]
-   [notes-app.widgets.mgl-floating-editor :as floating-editor]
+   [notes-app.widgets.mgl-note-viewer :as note-viewer]
    [notes-app.states.notes :as notes]))
 
 ;; Create generic menu item function
@@ -83,7 +83,7 @@
        .onTap (fn [] 
                 (dart:core/print (str "Note item tapped: " note-id))
                 (notes/set-current-note! item)
-                (floating-editor/show-floating-editor ctx))
+                (note-viewer/show-diaglog ctx))
        .child
        (mgl/MongolListTile
         .title (when note-title

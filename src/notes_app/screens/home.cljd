@@ -5,8 +5,8 @@
    [notes-app.widgets.mgl-notes-list :as notes-list]
    [notes-app.widgets.mgl-app-bar :as mgl-app-bar]
    [notes-app.widgets.mgl-drawer :as mgl-drawer]
-   [notes-app.states.ui :as ui]
-   [notes-app.states.notes :as notes]))
+   [notes-app.widgets.mgl-floating-editor :as floating-editor]
+   [notes-app.states.ui :as ui]))
 
 ;; Main screen component
 ;; Provides the main interface of the application with notes list and FAB
@@ -22,11 +22,11 @@
     .appBar (mgl-app-bar/mgl-app-bar {})
     .drawer (mgl-drawer/mgl-left-drawer)
     .endDrawer (mgl-drawer/mgl-right-drawer)
-    .body (notes-list/notes-list)
+    .body (notes-list/notes-list-stream)
     .floatingActionButton (m/FloatingActionButton
                            .onPressed (fn []
-                                        ;; Create a new empty note with context
-                                        (notes/create-note! "Шинэ тэмдэглэл" ctx))
+                                        (dart:core/print "Floating action button pressed")
+                                        (floating-editor/show-floating-editor ctx))
                            .backgroundColor (.-primary color-scheme)
                            .foregroundColor (.-onPrimary color-scheme)
                            .child (m/Icon m/Icons.add))
