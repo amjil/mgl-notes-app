@@ -6,7 +6,8 @@
    [notes-app.widgets.mgl-app-bar :as mgl-app-bar]
    [notes-app.widgets.mgl-drawer :as mgl-drawer]
    [notes-app.widgets.mgl-floating-editor :as floating-editor]
-   [notes-app.states.ui :as ui]))
+   [notes-app.states.ui :as ui]
+   [notes-app.states.notes :as notes]))
 
 ;; Main screen component
 ;; Provides the main interface of the application with notes list and FAB
@@ -26,6 +27,7 @@
     .floatingActionButton (m/FloatingActionButton
                            .onPressed (fn []
                                         (dart:core/print "Floating action button pressed")
+                                        (notes/set-current-note! nil)
                                         (floating-editor/show-floating-editor ctx))
                            .backgroundColor (.-primary color-scheme)
                            .foregroundColor (.-onPrimary color-scheme)

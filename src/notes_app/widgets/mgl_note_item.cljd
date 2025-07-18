@@ -11,28 +11,29 @@
    [notes-app.states.ui :as ui]))
 
 ;; Create generic menu item function
-(defn create-note-menu-items [ctx note-id note-content]
+(defn create-note-menu-items [ctx note]
   [(popup-menu/mongol-menu-item
     {:label "Засах"
      :icon m/Icons.edit
      :on-selected (fn []
+                    (notes/set-current-note! note)
                     (floating-editor/show-floating-editor ctx))})
    (popup-menu/mongol-menu-item
     {:label "Хуулах"
      :icon m/Icons.copy
      :on-selected (fn []
-                    (clipboard-utils/set-data note-content))})
+                    (clipboard-utils/set-data (get note "content")))})
    (popup-menu/mongol-menu-item-divider)
    (popup-menu/mongol-menu-item
     {:label "Устгах"
      :icon m/Icons.delete
      :on-selected (fn []
                     (let [global-context (.-currentContext (ui/get-scaffold-key))]
-                      (notes/delete-note! global-context note-id)))})])
+                      (notes/delete-note! global-context (get note "id"))))})])
 
 ;; Function to show popup menu
-(defn show-note-popup-menu [ctx details note-id note-content]
-  (let [menu-items (create-note-menu-items ctx note-id note-content)]
+(defn show-note-popup-menu [ctx details note]
+  (let [menu-items (create-note-menu-items ctx note)]
     (popup-menu/show-menu
      {:context ctx
       :items menu-items
@@ -69,7 +70,7 @@
    (m/Column
     .children
     [(popup-menu/mongol-popup-menu-button
-      {:items (create-note-menu-items ctx note-id (get item "content"))
+      {:items (create-note-menu-items ctx item)
        :on-selected (fn [menu-item]
                       (dart:core/print (str "Menu item selected: " (get menu-item :label))))})
 
@@ -77,7 +78,7 @@
      (m/Expanded
       .child
       (m/GestureDetector
-       .onLongPressStart (fn [details] (show-note-popup-menu ctx details note-id (get item "content")))
+       .onLongPressStart (fn [details] (show-note-popup-menu ctx details item))
        .onTap (fn [] 
                 (dart:core/print (str "Note item tapped: " note-id))
                 (notes/set-current-note! item)

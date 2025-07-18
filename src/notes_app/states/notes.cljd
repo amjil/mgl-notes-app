@@ -8,7 +8,8 @@
    [notes-app.utils.diff :as diff]
    [notes-app.utils.string :as string-utils]
    [notes-app.states.calendar :as calendar]
-   [notes-app.states.stats :as stats]))
+   [notes-app.states.stats :as stats]
+   [notes-app.states.notes :as notes]))
 
 ;; Notes State Management
 ;; Responsible for managing notes-related states, including notes list, current note, etc.
@@ -56,12 +57,11 @@
 (defn create-note-with-content! [ctx content & [operation]]
   (helpers/with-success-toast! ctx notes-state
     (-> (db/create-note-with-content content)
-        (.then (fn [result]
-                 (when result
-                   (load-notes-paginated! ctx 0)
-                   ;; Refresh today's count
-                   (calendar/refresh-today-count! ctx)
-                   (stats/refresh-stats!))
+        (.then (fn []
+                 (load-notes-paginated! ctx 0)
+                 ;; Refresh today's count
+                 (calendar/refresh-today-count! ctx)
+                 (stats/refresh-stats!)
                  (when operation
                    (operation)))))
     "Тэмдэглэл амжилттай үүслээ"))
@@ -81,9 +81,10 @@
   (let [title (string-utils/extract-title-from-content content)]
     (helpers/with-success-toast! ctx notes-state
       (-> (db/update-note-with-content id title content)
-          (.then (fn [result]
-                   (when result
-                     (load-notes-paginated! ctx (:current-page @notes-state)))
+          (.then (fn [_]
+                   (load-notes-paginated! ctx (:current-page @notes-state))
+                   (let [note (notes/get-current-note)]
+                     (notes/set-current-note! note))
                    (when operation
                      (operation)))))
       "Тэмдэглэл амжилттай шинэчлэгдлээ")))

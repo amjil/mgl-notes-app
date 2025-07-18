@@ -3,13 +3,13 @@
    ["package:flutter/material.dart" :as m]
    ["package:mongol/mongol.dart" :as mgl]
    [cljd.flutter :as f]
-   [notes-app.states.global :as gs]
+   [notes-app.states.search :as search-state]
    [notes-app.widgets.mgl-chip :as chip]))
 
 (defn suggestion-panel []
   (f/widget
    :watch [{suggestions :suggestions
-            tags :tags} gs/search-state]
+            tags :tags} search-state/search-state]
    (m/SingleChildScrollView
     .scrollDirection m/Axis.horizontal
     .child

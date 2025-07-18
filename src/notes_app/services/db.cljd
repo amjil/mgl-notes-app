@@ -19,14 +19,14 @@
   (reset! db (await (drift/initDriftDatabase))))
 
 ;; Notes db functions
-(defn create-note [id title & {:keys [is-blocks-synced] :or {is-blocks-synced false}}]
+(defn create-note [^String id ^String title & {:keys [is-blocks-synced] :or {is-blocks-synced false}}]
   (let [^drift/AppDatabase db @db]
     (.insert
      (.into db (.-notes db))
      (drift/NotesCompanion.insert
       .id id
       .title title
-      .isBlocksSynced is-blocks-synced))))
+      .isBlocksSynced (d/Value ^bool is-blocks-synced)))))
 
 
 (defn get-note-by-id [id]
@@ -84,12 +84,19 @@
     (.write query companion)))
 
 
+(defn create-note-content [^String id ^String content]
+  (dart:core/print (str "insert-note-content id = " id " content = " content))
+  (let [^drift/AppDatabase db @db]
+    (.customStatement db
+                      "INSERT INTO note_fts (id, content) VALUES (?, ?)"
+                      [id content])))
+
 (defn update-note-content [^String id ^String content]
   (dart:core/print (str "update-note-content id = " id " content = " content))
   (let [^drift/AppDatabase db @db]
     (.customStatement db
-                      "INSERT OR REPLACE INTO note_fts (id, content) VALUES (?, ?)"
-                      [id content])))
+                      "update note_fts SET content = ? where id = ?"
+                      [content id])))
 
 (defn delete-note [id]
   (let [^drift/AppDatabase db @db
@@ -464,15 +471,16 @@
                             (delete-note id))))))))
 
 ;; Create note with content (4 steps: note, note_fts, blocks, block_ids)
-(defn create-note-with-content [content]
-  (let [id (.v4 uuid-instance)
+(defn create-note-with-content [^String content]
+  (let [^String id (.v4 uuid-instance)
         ^drift/AppDatabase db @db
+        ^String
         title (string-utils/extract-title-from-content content)]
     (.transaction
      db
      (fn []
        (create-note id title)
-       (update-note-content id content)))))
+       (create-note-content id content)))))
 
 ;; Update note with content (4 steps: note, note_fts, blocks, block_ids)
 (defn update-note-with-content [^String id ^String title ^String content]
