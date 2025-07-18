@@ -6,6 +6,7 @@
    [notes-app.widgets.mgl-infinite-scroll :as infinite-scroll]
    [notes-app.widgets.mgl-empty-state :as empty-state]
    [notes-app.widgets.mgl-loading-state :as loading-state]
+   [notes-app.widgets.mgl-filter-badge :as filter-badge]
    [notes-app.states.notes :as notes]
    [notes-app.utils.toast :as toast]))
 
@@ -38,20 +39,23 @@
             current-page :current-page
             page-size :page-size} notes/notes-state]
    :managed [scroll-controller (infinite-scroll/create-scroll-controller (fn [] (load-more-notes-trigger ctx)))]
-   (if loading
-     (loading-state/loading-indicator-themed)
-     (if (empty? notes)
-       (empty-state/empty-notes)
-       (infinite-scroll/infinite-scroll-list
-        {:items notes
-         :scroll-controller scroll-controller
-         :scroll-direction m/Axis.horizontal
-         :item-builder note-item-builder
-         :loading-more? loading-more
-         :has-more? has-more
-         :all-loaded? (not has-more)
-         :load-more-indicator (infinite-scroll/load-more-indicator infinite-scroll/loading-more-text)
-         :all-loaded-indicator (infinite-scroll/all-loaded-indicator infinite-scroll/all-loaded-text)})))))
+   (m/Stack
+    .children
+    [(if loading
+       (loading-state/loading-indicator-themed)
+       (if (empty? notes)
+         (empty-state/empty-notes)
+         (infinite-scroll/infinite-scroll-list
+          {:items notes
+           :scroll-controller scroll-controller
+           :scroll-direction m/Axis.horizontal
+           :item-builder note-item-builder
+           :loading-more? loading-more
+           :has-more? has-more
+           :all-loaded? (not has-more)
+           :load-more-indicator (infinite-scroll/load-more-indicator infinite-scroll/loading-more-text)
+           :all-loaded-indicator (infinite-scroll/all-loaded-indicator infinite-scroll/all-loaded-text)})))
+     (filter-badge/positioned-filter-badge)])))
 
 ;; ==================== Container widget ====================
 

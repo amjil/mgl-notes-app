@@ -2,26 +2,40 @@
   (:require
    ["package:flutter/material.dart" :as m]
    ["package:mongol/mongol.dart" :as mgl]
-   [notes-app.db :as db]
-   [cljd.flutter :as f]))
+   [cljd.flutter :as f]
+   [notes-app.states.search :as search-state]))
 
 (defn filter-badge []
   (f/widget
-   :watch [{query :query} db/search-state]
-   (m/AnimatedOpacity
-    .opacity (if (empty? query) 0 1)
-    .duration (m/Duration.milliseconds 300)
-    .child (m/Container
-            .padding (m/EdgeInsets.symmetric .vertical 8 .horizontal 12)
-            .decoration (m/BoxDecoration 
-                         :color (m/Colors.black.withOpacity 0.05)
-                         :border (m/Border.all .color (m/Colors.grey 400))
-                         :borderRadius (m/BorderRadius.circular 12))
-            .child (mgl/MongolText query .style (m/TextStyle .fontSize 12 
-                                                             .color (m/Colors.black87)))))))
+   :watch [{filter-badge-tag :filter-badge-tag
+            filter-badge-date :filter-badge-date} search-state/search-state]
+   (let [has-tag? (not-empty filter-badge-tag)
+         has-date? (not-empty filter-badge-date)
+         is-default (not (or has-tag? has-date?))
+         bg-color (if is-default
+                    (m/Colors.grey.withOpacity 0.12)
+                    (m/Colors.blue.withOpacity 0.15))
+         border-color (if is-default
+                        (m/Colors.grey 400)
+                        (m/Colors.blue 400))
+         text-color (if is-default
+                      (m/Colors.grey 800)
+                      (m/Colors.blue 900))]
+     (m/Container
+      .padding (m/EdgeInsets.symmetric .vertical 16 .horizontal 8)
+      .decoration (m/BoxDecoration
+                   .color bg-color
+                   .border (m/Border.all .color border-color)
+                   .borderRadius (m/BorderRadius.circular 12))
+      .child (mgl/MongolText  (cond
+                                has-tag? filter-badge-tag
+                                has-date? filter-badge-date
+                                :else "Minii Notes")
+                              .style (m/TextStyle .fontSize 12
+                                                  .fontWeight (m/FontWeight.w500)
+                                                  .color text-color))))))
 (defn positioned-filter-badge []
-  (f/widget
-   (m/Positioned
-    .top 16
-    .right 0
-    .child (filter-badge))))
+  (m/Positioned
+   .top 16
+   .right 12
+   .child (filter-badge)))

@@ -15,6 +15,11 @@
      :results []
      :search-type :notes
      :search-history []
+     :filter-badge-tag nil
+     :filter-badge-date nil
+     :tags []
+     :tag-filter-type :include
+     :date-range []
      :suggestions []})))
 
 ;; ===== Search State Operations =====
