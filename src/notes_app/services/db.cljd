@@ -43,7 +43,7 @@
                     "SELECT n.*, nfts.content as content FROM notes n 
                       LEFT JOIN note_fts nfts ON n.id = nfts.id 
                       WHERE n.id = ? AND n.is_deleted = false"
-                    .variables [id]))))
+                    .variables [(d/Variable id)]))))
 
 (defn get-notes-paginated [page limit]
   (let [offset (* page limit)
@@ -148,11 +148,12 @@
      (.customSelect
       db
       "SELECT n.*, nfts.content as content FROM notes n 
-        LEFT JOIN note_fts nfts ON n.id = nfts.id 
-        WHERE nfts.content MATCH ? AND n.is_deleted = false
+        LEFT JOIN (SELECT id, content FROM note_fts WHERE content MATCH ?) 
+                  nfts ON n.id = nfts.id 
+        WHERE n.is_deleted = false
         ORDER BY n.updated_at DESC 
         LIMIT ? OFFSET ?"
-      .variables [query (str "%" query "%") limit offset]))))
+      .variables [(d/Variable query) (d/Variable limit) (d/Variable offset)]))))
 
 (defn get-notes-count []
   (let [^drift/AppDatabase db @db]
@@ -167,7 +168,7 @@
                     "SELECT COUNT(*) as count FROM notes n
                       INNER JOIN note_fts nfts ON n.id = nfts.id 
                       WHERE nfts.content MATCH ? AND n.is_deleted = false"
-                    .variables [query (str "%" query "%")]))))
+                    .variables [(d/Variable query)]))))
 
 (defn get-notes-blocks-not-synced []
   (let [^drift/AppDatabase db @db]
@@ -236,10 +237,10 @@
       db
       "SELECT b.*, bfts.content as content FROM blocks b 
         LEFT JOIN blocks_fts bfts ON b.id = bfts.id 
-        WHERE bfts.content MATCH ? OR b.content LIKE ? 
+        WHERE bfts.content MATCH ?
         ORDER BY b.updated_at DESC 
         LIMIT ? OFFSET ?"
-      .variables [query (str "%" query "%") limit offset]))))
+      .variables [(d/Variable query) (d/Variable limit) (d/Variable offset)]))))
 
 (defn get-blocks-count []
   (let [^drift/AppDatabase db @db]
@@ -415,7 +416,7 @@
          WHERE nt.note_id = ?
          ORDER BY t.name ASC "
        .variables
-       [note-id]))))
+       [(d/Variable note-id)]))))
 
 (defn get-tagged-notes [tag-id page limit]
   (let [offset (* page limit)
@@ -429,7 +430,7 @@
                       ORDER BY n.updated_at DESC
                       LIMIT ? OFFSET ? "
                     .variables
-                    [tag-id limit offset]))))
+                    [(d/Variable tag-id) (d/Variable limit) (d/Variable offset)]))))
 
 (defn get-notes-by-tags [tag-ids page limit]
   (let [offset (* page limit)
@@ -446,7 +447,7 @@
                            ORDER BY n.updated_at DESC
                            LIMIT ? OFFSET ? ")
                     .variables
-                    (concat tag-ids [(count tag-ids) limit offset])))))
+                    (concat (map d/Variable tag-ids) [(d/Variable (count tag-ids)) (d/Variable limit) (d/Variable offset)])))))
 
 (defn get-tagged-notes-count [tag-id]
   (let [^drift/AppDatabase db @db]
@@ -455,7 +456,7 @@
                     " SELECT COUNT (*) as count FROM note_tags nt
                       INNER JOIN notes n ON nt.note_id = n.id
                       WHERE nt.tag_id = ? AND n.is_deleted = false "
-                    .variables [tag-id]))))
+                    .variables [(d/Variable tag-id)]))))
 
 (defn delete-note-with-blocks [id]
   (-> (get-blocks-by-note-id id)

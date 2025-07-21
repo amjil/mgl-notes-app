@@ -93,9 +93,7 @@
     .margin (m/EdgeInsets.only .right 12 .bottom 12)
     .padding (m/EdgeInsets.all 12)
     .decoration (m/BoxDecoration
-                 .border (m/Border.all
-                          .color (m/Colors.grey 400)
-                          .width 1)
+                 .border (m/Border.all)
                  .borderRadius (m/BorderRadius.circular 12)))
    (mongol-text-field
     {:controller controller

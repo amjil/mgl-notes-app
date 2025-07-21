@@ -12,14 +12,18 @@
   (atom
    (helpers/create-base-state
     {:query ""
-     :results []
+     :results nil
      :search-type :notes
      :search-history []
      :filter-badge-tag nil
      :filter-badge-date nil
+     ;; search results of tags
+     :results-of-tags []
+     ;; recent search
      :tags []
      :tag-filter-type :include
      :date-range []
+     ;; recent search words
      :suggestions []})))
 
 ;; ===== Search State Operations =====
@@ -49,12 +53,11 @@
                    (helpers/handle-pagination-result! search-state page results limit)))))))
 
 ;; Search tags
-(defn search-tags! [ctx query page & [page-size]]
+(defn search-tags! [query page & [page-size]]
   (let [limit (or page-size 20)]
-    (helpers/with-loading-state! ctx search-state
-      (-> (db/search-tags query page limit)
-          (.then (fn [results]
-                   (helpers/handle-pagination-result! search-state page results limit)))))))
+    (-> (db/search-tags query page limit)
+        (.then (fn [results]
+                 (swap! search-state assoc :results-of-tags results))))))
 
 ;; Perform search based on current type
 (defn perform-search! [ctx query page & [page-size]]
@@ -88,6 +91,10 @@
 ;; Clear suggestions
 (defn clear-suggestions! []
   (swap! search-state assoc :suggestions []))
+  
+;; Clear search results
+(defn clear-search-results! []
+  (swap! search-state assoc :results []))
 
 ;; ===== Search State Queries =====
 
@@ -162,6 +169,7 @@
 (defn clear-search-results! []
   (swap! search-state assoc
          :results []
+         :results-of-tags []
          :current-page 0
          :has-more true
          :loading-more false

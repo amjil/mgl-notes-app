@@ -31,10 +31,15 @@
 ;; Handle search input change
 (defn handle-search-change [ctx val]
   ;; Update search query in global state
-  (swap! search-state/search-state assoc :search-query val)
+  (swap! search-state/search-state assoc :query val)
   ;; Perform search with pagination
   (when (not (str/blank? val))
-    (search-state/search-notes! ctx val 1 20))
+    (search-state/search-notes! ctx val 0 20))
+
+  ;; Search tags
+  (when (not (str/blank? val))
+    (search-state/search-tags! val 0 20))
+
   ;; Clear search results if query is empty
   (when (str/blank? val)
     (search-state/clear-search-results!)))
@@ -49,12 +54,10 @@
 ;; Search result panel with infinite scroll
 (defn search-result-panel []
   (f/widget
-   :watch [{search-results :results} search-state/search-state
-           {search-query :query} search-state/search-state
-           {searching :searching} search-state/search-state
-           {loading-more :loading-more} search-state/search-state
-           {has-more :has-more} search-state/search-state
-           {total-count :total-count} search-state/search-state]
+   :watch [{search-results :results
+            search-query :query
+            loading-more :loading-more
+            has-more :has-more} search-state/search-state]
    :managed [scroll-controller (infinite-scroll/create-scroll-controller load-more-search-trigger)]
    (cond
      (str/blank? search-query)
