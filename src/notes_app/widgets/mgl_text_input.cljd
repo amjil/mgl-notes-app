@@ -85,19 +85,27 @@
 
 ;; Search text field
 (defn search-text-field [controller on-changed on-tap & {:keys [autofocus]
-                                                         :or {autofocus false}}]
+                                                         :or {autofocus true}}]
   (f/widget
    :context ctx
    :let [{:keys [color-scheme]} (get-theme-colors ctx)]
+   (m/Container
+    .margin (m/EdgeInsets.only .right 12 .bottom 12)
+    .padding (m/EdgeInsets.all 12)
+    .decoration (m/BoxDecoration
+                 .border (m/Border.all
+                          .color (m/Colors.grey 400)
+                          .width 1)
+                 .borderRadius (m/BorderRadius.circular 12)))
    (mongol-text-field
     {:controller controller
-     :max-lines 500
-     :max-length 2000
+     :max-lines 1
      :autofocus autofocus
      :on-changed on-changed
      :on-tap on-tap
      :style (default-text-style (.-onSurface color-scheme))
-     :decoration (default-input-decoration (.-surface color-scheme))})))
+     :decoration nil;(default-input-decoration (.-surface color-scheme))
+     })))
 
 ;; Note title text field
 (defn note-title-text-field [controller on-changed & {:keys [autofocus]

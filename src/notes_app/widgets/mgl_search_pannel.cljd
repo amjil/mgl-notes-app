@@ -1,14 +1,15 @@
 (ns notes-app.widgets.mgl-search-pannel
   (:require
    ["package:flutter/material.dart" :as m]
+   ["package:mongol/mongol.dart" :as mgl]
    [clojure.string :as str]
    [notes-app.widgets.mgl-keyboard :as keyboard]
    [notes-app.widgets.mgl-suggestion-panel :as suggestion-panel]
    [notes-app.widgets.mgl-note-item :as note-item]
    [notes-app.widgets.mgl-infinite-scroll :as infinite-scroll]
    [notes-app.widgets.mgl-text-input :as text-input]
-   [notes-app.widgets.mgl-empty-search-results :as empty-search-results]
-   [notes-app.states.global :as gs]
+   [notes-app.widgets.mgl-empty-state :as empty-state]
+   [notes-app.states.ui :as ui]
    [notes-app.states.search :as search-state]
    [cljd.flutter :as f]))
 
@@ -16,38 +17,38 @@
 
 ;; Check if should trigger load more for search results
 (defn should-load-more-search? []
-  (search-state/should-load-more?))
+  (search-state/has-more?))
 
 ;; Load more search results trigger function
-(defn load-more-search-trigger []
+(defn load-more-search-trigger [ctx]
   (when (should-load-more-search?)
-    (search-state/load-more-search-results!)))
+    (search-state/load-more-search-results! ctx)))
 
 ;; Search result item builder
 (defn search-result-item-builder [result]
   (note-item/note-item result))
 
 ;; Handle search input change
-(defn handle-search-change [val]
+(defn handle-search-change [ctx val]
   ;; Update search query in global state
-  (swap! gs/state assoc :search-query val)
+  (swap! search-state/search-state assoc :search-query val)
   ;; Perform search with pagination
   (when (not (str/blank? val))
-    (search-state/search-notes-paginated! val :page 1 :page-size 20))
+    (search-state/search-notes! ctx val 1 20))
   ;; Clear search results if query is empty
   (when (str/blank? val)
-    (search-state/clear-search!)))
+    (search-state/clear-search-results!)))
 
 ;; Handle search input tap
 (defn handle-search-tap []
-  (swap! gs/state assoc :keyboard/candidates-list [])
+  (swap! ui/ui-state assoc :keyboard/candidates-list [])
   (dart:core/print "onTap MongolTextField"))
 
 ;; ==================== Search result panel widget ====================
 
 ;; Search result panel with infinite scroll
 (defn search-result-panel []
-  (f/widget 
+  (f/widget
    :watch [{search-results :results} search-state/search-state
            {search-query :query} search-state/search-state
            {searching :searching} search-state/search-state
@@ -62,7 +63,7 @@
 
      ;; Already has search content, show list regardless of whether results are empty
      (empty? search-results)
-     (empty-search-results/empty-search-results)
+     (empty-state/empty-search-results)
 
      :else
      (infinite-scroll/infinite-scroll-list
@@ -79,17 +80,22 @@
 ;; ==================== Search panel widget ====================
 
 ;; Search panel with enhanced functionality
-(defn search-pannel []
+(defn search-panel []
   (f/widget
+   :context ctx
    :managed [controller (m/TextEditingController.)]
+   (m/SafeArea)
    (m/Stack
     .children
     [(m/Column
       .children
-      [(m/Row
-        .children
-        [(text-input/search-text-field controller handle-search-change handle-search-tap)
-         (m/Expanded
-          .child (search-result-panel))])
+      [(m/Expanded
+        .child
+        (m/Row
+         .crossAxisAlignment m/CrossAxisAlignment.stretch
+         .children
+         [(text-input/search-text-field controller (partial handle-search-change ctx) handle-search-tap)
+          (m/Expanded
+           .child (search-result-panel))]))
        (keyboard/keyboard)])
      (keyboard/candidates-panel)]))) 

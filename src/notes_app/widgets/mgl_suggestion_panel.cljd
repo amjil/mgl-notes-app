@@ -16,24 +16,30 @@
     (m/Row
      .crossAxisAlignment m/CrossAxisAlignment.start
      .children
-     [(mgl/MongolText "ᠲᠡᠭᠦᠷᠡᠬᠡ ᠨᠠᠢᠮᠠᠳ"
+     [(mgl/MongolText "Tags"
                       .style (m/TextStyle .fontSize 20
                                           .fontWeight m/FontWeight.bold))
       (m/SizedBox .width 8)
-      (m/Wrap
-       .direction m/Axis.vertical
-       .spacing 8
-       .children (map (fn [s]
-                        (chip/mgl-chip s #(dart:core/print (str "suggestion: " s))))
-                      suggestions))
+      (if (empty? tags)
+        (mgl/MongolText "No tags"
+                        .style (m/TextStyle .fontSize 16))
+        (m/Wrap
+         .direction m/Axis.vertical
+         .spacing 8
+         .children (map (fn [s]
+                          (chip/mgl-chip s #(dart:core/print (str "tag: " s))))
+                        tags)))
       (m/SizedBox .width 16)
-      (mgl/MongolText "ᠳᠤᠷᠠᠯ ᠲᠡᠭᠦᠷ"
+      (mgl/MongolText "Suggestions"
                       .style (m/TextStyle .fontSize 20
-                                           .fontWeight m/FontWeight.bold))
+                                          .fontWeight m/FontWeight.bold))
       (m/SizedBox .width 8)
-      (m/Wrap
-       .direction m/Axis.vertical
-       .spacing 8
-       .children (map (fn [tag]
-                        (chip/mgl-chip tag #(dart:core/print (str "tag: " tag))))
-                      tags))]))))
+      (if (empty? suggestions)
+        (mgl/MongolText "No suggestions"
+                        .style (m/TextStyle .fontSize 16))
+        (m/Wrap
+         .direction m/Axis.vertical
+         .spacing 8
+         .children (map (fn [s]
+                          (chip/mgl-chip s #(dart:core/print (str "suggestion: " s))))
+                        suggestions)))]))))
