@@ -68,19 +68,15 @@
                                     item-builder
                                     loading-more?
                                     has-more?
-                                    all-loaded?
                                     load-more-indicator
                                     all-loaded-indicator]}]
   (m/ListView.builder
    .controller scroll-controller
    .scrollDirection (or scroll-direction m/Axis.horizontal)
    .padding (or padding (m/EdgeInsets.symmetric .horizontal 16))
-   .itemCount (if all-loaded?
-                (count items)
-                (inc (count items)))
+   .itemCount (inc (count items))
    .itemBuilder (fn [_ index]
-                  (if (and (= index (count items))
-                           (not all-loaded?))
+                  (if (= index (count items))
                     ;; Show load more indicator or all loaded indicator
                     (if loading-more?
                       load-more-indicator

@@ -76,7 +76,6 @@
        :item-builder search-result-item-builder
        :loading-more? loading-more
        :has-more? has-more
-       :all-loaded? (not has-more)
        :load-more-indicator (infinite-scroll/load-more-indicator infinite-scroll/search-loading-more-text)
        :all-loaded-indicator (infinite-scroll/all-loaded-indicator infinite-scroll/search-all-loaded-text)}))))
 

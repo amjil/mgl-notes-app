@@ -52,7 +52,6 @@
            :item-builder note-item-builder
            :loading-more? loading-more
            :has-more? has-more
-           :all-loaded? (not has-more)
            :load-more-indicator (infinite-scroll/load-more-indicator infinite-scroll/loading-more-text)
            :all-loaded-indicator (infinite-scroll/all-loaded-indicator infinite-scroll/all-loaded-text)})))
      (filter-badge/positioned-filter-badge)])))
