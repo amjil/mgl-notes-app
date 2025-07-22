@@ -1,4 +1,4 @@
-(ns notes-app.widgets.mgl-search-pannel
+(ns notes-app.widgets.mgl-search-panel
   (:require
    ["package:flutter/material.dart" :as m]
    ["package:mongol/mongol.dart" :as mgl]
