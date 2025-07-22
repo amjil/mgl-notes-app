@@ -79,7 +79,11 @@
       .child
       (m/GestureDetector
        .onLongPressStart (fn [details] (show-note-popup-menu ctx details item))
-       .onTap (fn [] 
+       .onDoubleTap (fn []
+                      (dart:core/print (str "Note item double tapped: " note-id))
+                      (notes/set-current-note! item)
+                      (floating-editor/show-floating-editor ctx))
+       .onTap (fn []
                 (dart:core/print (str "Note item tapped: " note-id))
                 (notes/set-current-note! item)
                 (note-viewer/show-diaglog ctx))
