@@ -7,3 +7,6 @@
   (.push navigator 
          (#/(m/MaterialPageRoute Object) 
           .builder (f/build screen))))
+
+(defn navigate-to-back [navigator]
+  (.pop navigator))

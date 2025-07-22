@@ -7,7 +7,8 @@
    [notes-app.widgets.mgl-drawer :as mgl-drawer]
    [notes-app.widgets.mgl-floating-editor :as floating-editor]
    [notes-app.states.ui :as ui]
-   [notes-app.states.notes :as notes]))
+   [notes-app.states.notes :as notes]
+   [notes-app.screens.search :as search-screen]))
 
 ;; Main screen component
 ;; Provides the main interface of the application with notes list and FAB
@@ -15,12 +16,13 @@
 (def screen
   (f/widget
    :context ctx
+   :get [m/Navigator]
    :let [theme (-> m/Theme (.of ctx))
          color-scheme (.-colorScheme theme)]
    (m/Scaffold
     .key ui/scaffold-key
     .backgroundColor (.-surface color-scheme)
-    .appBar (mgl-app-bar/mgl-app-bar {})
+    .appBar (mgl-app-bar/mgl-app-bar navigator search-screen/screen)
     .drawer (mgl-drawer/mgl-left-drawer)
     .endDrawer (mgl-drawer/mgl-right-drawer)
     .body (notes-list/notes-list-stream)
