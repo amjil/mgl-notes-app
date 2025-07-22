@@ -375,10 +375,12 @@
   (let [offset (* page limit)
         ^drift/AppDatabase db @db]
     (.get
-     (doto (.select db (.-tags db))
-       (.where (fn [^drift/Tags tbl] (.like (.-name tbl) (str "%" query "%"))))
-       (.orderBy [(fn [^drift/Tags tbl] (d/OrderingTerm. .expression (.-name tbl) .mode d/OrderingMode.asc))])
-       (.limit limit .offset offset)))))
+     (.customSelect db 
+                    " SELECT * FROM TAGS 
+                     WHERE NAME LIKE ?
+                     ORDER BY NAME ASC 
+                     LIMIT ? OFFSET ?"
+                    .variables [(d/Variable query) (d/Variable limit) (d/Variable offset)]))))
 
 (defn get-tags-count []
   (let [^drift/AppDatabase db @db]

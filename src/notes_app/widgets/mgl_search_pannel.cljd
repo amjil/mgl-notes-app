@@ -9,6 +9,7 @@
    [notes-app.widgets.mgl-infinite-scroll :as infinite-scroll]
    [notes-app.widgets.mgl-text-input :as text-input]
    [notes-app.widgets.mgl-empty-state :as empty-state]
+   [notes-app.widgets.mgl-chip :as chip]
    [notes-app.states.ui :as ui]
    [notes-app.states.search :as search-state]
    [cljd.flutter :as f]))
@@ -26,19 +27,43 @@
 
 ;; Search result item builder
 (defn search-result-item-builder [result]
-  (note-item/note-item result))
+  (cond
+    ;; If the result is nil, show the empty label
+    (nil? result)
+    (m/Column
+     .children
+     [(mgl/MongolText "Notes --- ")])
+
+    ;; If the result is a note, show the note item
+    (empty? (-> result .-data (get "name")))
+    (note-item/note-item result)
+
+    ;; If the result is a tag, show the tag item
+    :else
+    (m/Padding .padding (m/EdgeInsets.only .right 16 .top 16 .bottom 16)
+               .child
+               (m/Row
+                .crossAxisAlignment m/CrossAxisAlignment.start
+                .children
+                [(mgl/MongolText "Tags --- ")
+                 (m/Wrap
+                  .direction m/Axis.vertical
+                  .spacing 8
+                  .children [(chip/mgl-chip (-> result .-data (get "name")) #(dart:core/print (str "tag: ")))])
+                 (mgl/MongolText "Notes --- ")]))))
 
 ;; Handle search input change
 (defn handle-search-change [ctx val]
   ;; Update search query in global state
   (swap! search-state/search-state assoc :query val)
-  ;; Perform search with pagination
-  (when (not (str/blank? val))
-    (search-state/search-notes! ctx val 0 20))
 
   ;; Search tags
   (when (not (str/blank? val))
     (search-state/search-tags! val 0 20))
+
+  ;; Perform search with pagination
+  (when (not (str/blank? val))
+    (search-state/search-notes! ctx val 0 20))
 
   ;; Clear search results if query is empty
   (when (str/blank? val)
@@ -55,6 +80,7 @@
 (defn search-result-panel []
   (f/widget
    :watch [{search-results :results
+            search-results-of-tags :results-of-tags
             search-query :query
             loading-more :loading-more
             has-more :has-more} search-state/search-state]
@@ -70,7 +96,10 @@
 
      :else
      (infinite-scroll/infinite-scroll-list
-      {:items search-results
+      {:items (concat (if (empty? search-results-of-tags)
+                        [nil]
+                        search-results-of-tags)
+                      search-results)
        :scroll-controller scroll-controller
        :scroll-direction m/Axis.horizontal
        :item-builder search-result-item-builder
