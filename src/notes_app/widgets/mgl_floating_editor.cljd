@@ -5,7 +5,8 @@
    [cljd.flutter :as f]
    [clojure.string :as str]
    [notes-app.states.notes :as notes]
-   [notes-app.widgets.mgl-input-editor :as mgl-input-editor]))
+   [notes-app.widgets.mgl-input-editor :as mgl-input-editor]
+   [notes-app.utils.toast :as toast]))
 
 (declare save-note)
 
@@ -94,18 +95,15 @@
 
 (defn save-note [context controller & [old-blocks]]
   (let [content (.-text controller)]
-    (dart:core/print (str "Save button clicked! Content: " content))
-    
     ;; Check if content is empty
     (if (or (nil? content) (empty? (str/trim content)))
-      (dart:core/print "Content is empty, not saving")
+      (toast/show-toast context "Тэмдэглэл оруулна уу")
       ;; Has content, proceed with saving
       (if (nil? (notes/get-current-note))
         (notes/create-note-with-content!
          context content
          (fn []
            (-> m/Navigator (.of context) (.pop))
-           (dart:core/print "Note created")
            (reset! has-changed-atom false)))
 
         (let [note-id (-> (notes/get-current-note) (get "id"))]
@@ -113,5 +111,4 @@
            context note-id content
            (fn []
              (-> m/Navigator (.of context) (.pop))
-             (dart:core/print "Note updated")
              (reset! has-changed-atom false))))))))
