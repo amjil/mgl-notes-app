@@ -87,8 +87,11 @@
       (m/TextSpan
        .text tag
        .style (m/TextStyle
-               .fontSize 16
+               .fontSize 20
                .fontWeight m/FontWeight.w500
+               .backgroundColor (-> theme .-colorScheme .-surface)
+               .decorationStyle m/TextDecorationStyle.solid
+               .height 2.0
                .decoration m/TextDecoration.overline
                .color (-> theme .-colorScheme .-primary))
        .recognizer recognizer)))
