@@ -1,5 +1,6 @@
 (ns notes-app.states.tags
   (:require
+   ["package:uuid/uuid.dart" :as uuid]
    [notes-app.services.db :as db]
    [notes-app.utils.toast :as toast]
    [notes-app.utils.state-helpers :as helpers]
@@ -7,6 +8,7 @@
 
 ;; Tags State Management
 ;; Responsible for managing tags-related states, including tags list, current tag, etc.
+(def ^uuid/Uuid uuid-instance (uuid/Uuid.))
 
 ;; Tags State
 (def tags-state
@@ -69,6 +71,30 @@
     (-> (db/get-tag-by-id id)
         (.then (fn [tag]
                  (swap! tags-state assoc :current-tag tag :loading false))))))
+
+(defn get-note-tags [note-id]
+  (-> (db/get-note-tags note-id)
+      (.then (fn [tags]
+               (swap! tags-state assoc :tags tags :loading false)))))
+
+(defn set-note-tags! [note-id tag-names]
+  (-> (db/get-note-tags note-id)
+      (.then (fn [tags]
+               (dart:core/print (str "get-note-tags tags: " tags))
+               (let [existing-tag-names (set (map (fn [x] (-> x .-data (get "name"))) tags))
+                     new-tag-names (remove (fn [x] (contains? existing-tag-names x)) tag-names)]
+                 (when (not-empty new-tag-names)
+                   (doall
+                    (map (fn [tag-name]
+                           (-> (db/get-tag-by-name tag-name)
+                               (.then
+                                (fn [tag]
+                                  (if tag
+                                    (db/add-tag-to-note note-id (.-id tag))
+                                    (let [id (.v4 uuid-instance)]
+                                      (db/create-tag tag-name id)
+                                      (db/add-tag-to-note note-id id)))))))
+                         new-tag-names))))))))
 
 ;; Set current tag
 (defn set-current-tag! [tag]

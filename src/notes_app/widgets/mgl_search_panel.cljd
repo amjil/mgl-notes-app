@@ -12,6 +12,8 @@
    [notes-app.widgets.mgl-chip :as chip]
    [notes-app.states.ui :as ui]
    [notes-app.states.search :as search-state]
+   [notes-app.states.notes :as notes-state]
+   [notes-app.utils.navigator :as navigator]
    [cljd.flutter :as f]))
 
 ;; ==================== Search specific functions ====================
@@ -26,7 +28,7 @@
     (search-state/load-more-search-results! ctx)))
 
 ;; Search result item builder
-(defn search-result-item-builder [result]
+(defn search-result-item-builder [ctx navigator result]
   (cond
     ;; If the result is nil, show the empty label
     (nil? result)
@@ -49,7 +51,11 @@
                  (m/Wrap
                   .direction m/Axis.vertical
                   .spacing 8
-                  .children [(chip/mgl-chip (-> result .-data (get "name")) #(dart:core/print (str "tag: ")))])
+                  .children [(chip/mgl-chip (-> result .-data (get "name"))
+                                            (fn [] 
+                                              (navigator/navigate-to-home navigator)
+                                              (notes-state/set-filter-tag! (.-data result))
+                                              (notes-state/load-notes-paginated! ctx 0)))])
                  (mgl/MongolText "Notes --- ")]))))
 
 ;; Handle search input change
@@ -79,6 +85,8 @@
 ;; Search result panel with infinite scroll
 (defn search-result-panel []
   (f/widget
+   :context ctx
+   :get [m/Navigator]
    :watch [{search-results :results
             search-results-of-tags :results-of-tags
             search-query :query
@@ -102,7 +110,7 @@
                       search-results)
        :scroll-controller scroll-controller
        :scroll-direction m/Axis.horizontal
-       :item-builder search-result-item-builder
+       :item-builder (partial search-result-item-builder ctx navigator)
        :loading-more? loading-more
        :has-more? has-more
        :load-more-indicator (infinite-scroll/load-more-indicator infinite-scroll/search-loading-more-text)

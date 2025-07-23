@@ -3,14 +3,14 @@
    ["package:flutter/material.dart" :as m]
    ["package:mongol/mongol.dart" :as mgl]
    [cljd.flutter :as f]
-   [notes-app.states.search :as search-state]))
+   [notes-app.states.notes :as note-state]))
 
 (defn filter-badge []
   (f/widget
-   :watch [{filter-badge-tag :filter-badge-tag
-            filter-badge-date :filter-badge-date} search-state/search-state]
-   (let [has-tag? (not-empty filter-badge-tag)
-         has-date? (not-empty filter-badge-date)
+   :watch [{filter-tag-name :filter-tag-name
+            filter-date :filter-date} note-state/notes-state]
+   (let [has-tag? (not-empty filter-tag-name)
+         has-date? (not-empty filter-date)
          is-default (not (or has-tag? has-date?))
          bg-color (if is-default
                     (m/Colors.grey.withOpacity 0.12)
@@ -28,8 +28,8 @@
                    .border (m/Border.all .color border-color)
                    .borderRadius (m/BorderRadius.circular 12))
       .child (mgl/MongolText  (cond
-                                has-tag? filter-badge-tag
-                                has-date? filter-badge-date
+                                has-tag? filter-tag-name
+                                has-date? filter-date
                                 :else "Minii Notes")
                               .style (m/TextStyle .fontSize 12
                                                   .fontWeight (m/FontWeight.w500)

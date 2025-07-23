@@ -10,3 +10,7 @@
 
 (defn navigate-to-back [navigator]
   (.pop navigator))
+
+(defn navigate-to-home [navigator]
+  (.popUntil navigator 
+             (fn [route] (true? (.-isFirst route)))))

@@ -57,6 +57,35 @@
         ORDER BY n.updated_at DESC 
         LIMIT ? OFFSET ?"
       .variables [(d/Variable limit) (d/Variable offset)]))))
+      
+
+(defn get-notes-by-tag [tag-id page limit]
+  (let [offset (* page limit)
+        ^drift/AppDatabase db @db]
+    (.get
+     (.customSelect
+      db
+      "SELECT n.*, nfts.content as content FROM notes n 
+        LEFT JOIN note_fts nfts ON n.id = nfts.id 
+        INNER JOIN note_tags nt ON n.id = nt.note_id
+        WHERE nt.tag_id = ? AND n.is_deleted = false
+        ORDER BY n.updated_at DESC 
+        LIMIT ? OFFSET ?"
+      .variables [(d/Variable tag-id) (d/Variable limit) (d/Variable offset)]))))
+      
+(defn get-notes-by-date [date page limit]
+  (let [offset (* page limit)
+        ^drift/AppDatabase db @db]
+    (.get
+     (.customSelect
+      db
+      "SELECT n.*, nfts.content as content FROM notes n 
+        LEFT JOIN note_fts nfts ON n.id = nfts.id 
+        WHERE CAST(strftime('%Y%m%d', created_at, 'unixepoch') AS INTEGER) = ? 
+             AND n.is_deleted = false
+        ORDER BY n.updated_at DESC 
+        LIMIT ? OFFSET ?"
+      .variables [(d/Variable date) (d/Variable limit) (d/Variable offset)]))))
 
 (defn get-all-notes []
   (let [^drift/AppDatabase db @db]
@@ -320,8 +349,8 @@
 
 ;; ===== Tags db functions =====
 
-(defn create-tag [name]
-  (let [id (.v4 uuid-instance)
+(defn create-tag [name & [id]]
+  (let [id (or id (.v4 uuid-instance))
         ^drift/AppDatabase db @db]
     (.insert
      (.into db (.-tags db))
@@ -474,8 +503,8 @@
                             (delete-note id))))))))
 
 ;; Create note with content (4 steps: note, note_fts, blocks, block_ids)
-(defn create-note-with-content [^String content]
-  (let [^String id (.v4 uuid-instance)
+(defn create-note-with-content [^String content & [id]]
+  (let [^String id (or id (.v4 uuid-instance))
         ^drift/AppDatabase db @db
         ^String
         title (string-utils/extract-title-from-content content)]

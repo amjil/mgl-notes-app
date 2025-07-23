@@ -3,4 +3,4 @@
 
 (defn extract-tags [content]
   (let [tags (re-seq #"#(\w+)" content)]
-    (map (fn [tag] (str/replace tag "#" "")) tags)))
+    (map (fn [tag] (last tag)) tags)))

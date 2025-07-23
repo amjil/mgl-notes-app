@@ -9,7 +9,9 @@
    [notes-app.utils.string :as string-utils]
    [notes-app.states.calendar :as calendar]
    [notes-app.states.stats :as stats]
-   [notes-app.states.notes :as notes]))
+   [notes-app.states.notes :as notes]
+   [notes-app.states.tags :as tags-state]
+   [notes-app.utils.tag :as tags-utils]))
 
 ;; Notes State Management
 ;; Responsible for managing notes-related states, including notes list, current note, etc.
@@ -19,7 +21,11 @@
   (atom
    (helpers/create-base-state
     {:notes []
-     :current-note nil})))
+     :current-note nil
+     ;; Filtering
+     :filter-tag-id nil
+     :filter-tag-name nil
+     :filter-date nil})))
 
 (def ^uuid/Uuid uuid-instance (uuid/Uuid.))
 
@@ -29,7 +35,16 @@
 (defn load-notes-paginated! [ctx page & [page-size]]
   (let [limit (or page-size 20)]
     (helpers/with-loading-state! ctx notes-state
-      (-> (db/get-notes-paginated page limit)
+      (-> (cond
+            (not (nil? (:filter-tag-id @notes-state)))
+            (db/get-notes-by-tag (:filter-tag-id @notes-state) page limit)
+
+            (not (nil? (:filter-date @notes-state)))
+            (db/get-notes-by-date (:filter-date @notes-state) page limit)
+
+            :else
+            (db/get-notes-paginated page limit))
+
           (.then (fn [notes]
                    (helpers/handle-pagination-result! notes-state page notes limit)))))))
 
@@ -55,16 +70,18 @@
 
 ;; Create note with content (4 steps)
 (defn create-note-with-content! [ctx content & [operation]]
-  (helpers/with-success-toast! ctx notes-state
-    (-> (db/create-note-with-content content)
-        (.then (fn []
-                 (load-notes-paginated! ctx 0)
-                 ;; Refresh today's count
-                 (calendar/refresh-today-count! ctx)
-                 (stats/refresh-stats!)
-                 (when operation
-                   (operation)))))
-    "Тэмдэглэл амжилттай үүслээ"))
+  (let [id (.v4 uuid-instance)]
+    (helpers/with-success-toast! ctx notes-state
+      (-> (db/create-note-with-content content id)
+          (.then (fn [_]
+                   (load-notes-paginated! ctx 0)
+                   (tags-state/set-note-tags! id (tags-utils/extract-tags content))
+                   ;; Refresh today's count
+                   (calendar/refresh-today-count! ctx)
+                   (stats/refresh-stats!)
+                   (when operation
+                     (operation)))))
+      "Тэмдэглэл амжилттай үүслээ")))
 
 ;; Update note
 (defn update-note! [ctx id title]
@@ -83,6 +100,7 @@
       (-> (db/update-note-with-content id title content)
           (.then (fn [_]
                    (load-notes-paginated! ctx (:current-page @notes-state))
+                   (tags-state/set-note-tags! id (tags-utils/extract-tags content))
                    (let [note (notes/get-current-note)]
                      (notes/set-current-note! note))
                    (when operation
@@ -247,6 +265,20 @@
 ;; Get page size
 (defn get-page-size []
   (helpers/get-page-size notes-state))
+
+
+;; Set filter tag
+(defn set-filter-tag! [tag]
+  (swap! notes-state assoc :filter-tag-id (get tag "id"))
+  (swap! notes-state assoc :filter-tag-name (get tag "name")))
+
+;; Set filter date
+(defn set-filter-date! [date]
+  (swap! notes-state assoc :filter-date date))
+
+;; Clear filter
+(defn clear-filter! []
+  (swap! notes-state assoc :filter-tag-id nil :filter-tag-name nil :filter-date nil))
 
 ;; ===== Notes State Reset =====
 
