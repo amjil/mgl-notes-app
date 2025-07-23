@@ -3,56 +3,92 @@
    ["package:flutter/material.dart" :as m]
    ["package:flutter/gestures.dart" :as g]))
 
+(defn- all-matches [text pattern type-fn]
+  (let [matches (.allMatches (RegExp. pattern) text)]
+    (mapv (fn [m]
+            (let [full (.group m 0)
+                  start (.-start m)
+                  end (.-end m)
+                  groups (map #(try (.group m %) (catch Exception _ nil)) (range 1 (inc (.-groupCount m))))
+                  match (merge {:type (type-fn)
+                                :full-match full
+                                :start start
+                                :end end}
+                               (case (type-fn)
+                                 :link {:note-name (first groups)
+                                        :block-id (second groups)}
+                                 :tag {:tag (first groups)}
+                                 {}))]
+              match))
+          matches)))
+
 (defn parse-block-spans [text]
-  (let [link-pattern #"\[\[([^#\]]+)(?:#([^\]]+))?\]\]"]
-    (loop [matches (re-seq link-pattern text)
-           spans []
-           last-end 0]
-      (if (empty? matches)
-        ;; Add remaining plain text
+  (let [link-pattern "\\[\\[([^#\\]]+)(?:#([^\\]]+))?\\]\\]"
+        tag-pattern "(?<=^|[^\\w\\]])#([\\p{IsLetter}\\w\\-]+)"
+        ;; Precisely get all matches and their start/end
+        link-matches (all-matches text link-pattern (constantly :link))
+        tag-matches (all-matches text tag-pattern (constantly :tag))
+        matches (sort-by :start (concat link-matches tag-matches))]
+    (loop [spans []
+           last-end 0
+           ms matches]
+      (if (empty? ms)
         (if (< last-end (count text))
           (conj spans {:type :text :content (subs text last-end)})
           spans)
-        (let [[full-match note-name block-id] (first matches)
-              start (.indexOf text full-match last-end)
-              end (+ start (count full-match))
-              ;; Create display text for link (without [[ and ]])
-              display-text (if block-id
-                            (str note-name "#" block-id)
-                            note-name)
-              ;; Add plain text before the link
-              spans-with-text (if (> start last-end)
-                               (conj spans {:type :text :content (subs text last-end start)})
-                               spans)
-              ;; Add the link
-              spans-with-link (conj spans-with-text {:type :link
-                                                     :content full-match
-                                                     :display-text display-text
-                                                     :note-name note-name
-                                                     :block-id block-id})]
-          (recur (rest matches) (concat spans spans-with-link) end))))))
+        (let [{:keys [type full-match start end note-name block-id tag]} (first ms)
+              spans (if (> start last-end)
+                      (conj spans {:type :text :content (subs text last-end start)})
+                      spans)
+              spans (cond
+                      (= type :link)
+                      (conj spans {:type :link
+                                   :content full-match
+                                   :display-text (if block-id (str note-name "#" block-id) note-name)
+                                   :note-name note-name
+                                   :block-id block-id})
+                      (= type :tag)
+                      (conj spans {:type :tag
+                                   :content full-match
+                                   :tag tag})
+                      :else spans)]
+          (recur spans end (rest ms)))))))
 
-(defn ^m/TextSpan create-text-span [span theme]
-  ;;"Create a text span"
-  (m/TextSpan
-   .text (:content span)
-   .style (m/TextStyle
-           .color (-> theme .-colorScheme .-onSurface)
-           .fontSize 16)))
-
-(defn ^m/TextSpan create-link-span [span theme on-link-tap]
-  ;;   "Create a link span"
-  (let [recognizer (g/TapGestureRecognizer.)]
-    (set! (.-onTap recognizer)
-          (fn []
-            (dart:core/print "tap")
-            (when on-link-tap
-              (on-link-tap (:note-name span) (:block-id span)))))
+  (defn ^m/TextSpan create-text-span [span theme]
+    ;;"Create a text span"
     (m/TextSpan
-     .text (:display-text span)
+     .text (:content span)
      .style (m/TextStyle
-             .color (-> theme .-colorScheme .-primary)
-             .fontSize 16
-             .decoration m/TextDecoration.overline
-             .fontWeight m/FontWeight.w500)
-     .recognizer recognizer))) 
+             .color (-> theme .-colorScheme .-onSurface)
+             .fontSize 16)))
+
+  (defn ^m/TextSpan create-link-span [span theme on-link-tap]
+    ;;   "Create a link span"
+    (let [recognizer (g/TapGestureRecognizer.)]
+      (set! (.-onTap recognizer)
+            (fn []
+              (dart:core/print "tap")
+              (when on-link-tap
+                (on-link-tap (:note-name span) (:block-id span)))))
+      (m/TextSpan
+       .text (:display-text span)
+       .style (m/TextStyle
+               .color (-> theme .-colorScheme .-primary)
+               .fontSize 16
+               .decoration m/TextDecoration.overline
+               .fontWeight m/FontWeight.w500)
+       .recognizer recognizer)))
+
+  (defn create-tag-span [tag theme]
+    (let [recognizer (g/TapGestureRecognizer.)]
+      (set! (.-onTap recognizer)
+            (fn []
+              (dart:core/print (str "tag ontap: " tag))))
+      (m/TextSpan
+       .text tag
+       .style (m/TextStyle
+               .fontSize 16
+               .fontWeight m/FontWeight.w500
+               .decoration m/TextDecoration.overline
+               .color (-> theme .-colorScheme .-primary))
+       .recognizer recognizer)))
