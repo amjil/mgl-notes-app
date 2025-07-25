@@ -1,0 +1,157 @@
+(ns notes-app.widgets.mgl-recycle-bin
+  (:require
+   ["package:flutter/material.dart" :as m]
+   ["package:mongol/mongol.dart" :as mgl]
+   [cljd.flutter :as f]
+   [notes-app.widgets.mgl-empty-state :as empty-state]
+   [notes-app.widgets.mgl-loading-state :as loading-state]
+   [notes-app.widgets.mgl-infinite-scroll :as infinite-scroll]
+   [notes-app.widgets.mgl-popup-menu :as popup-menu]
+   [notes-app.states.notes :as notes]
+   [notes-app.utils.navigator :as navigator]))
+
+;; Recycle bin note menu (restore/permanently delete)
+(defn deleted-note-menu-items [ctx note]
+  [(popup-menu/mongol-menu-item
+    {:label "Restore"
+     :icon m/Icons.restore
+     :on-selected (fn [] (notes/restore-note! ctx (get note "id")))})
+   (popup-menu/mongol-menu-item-divider)
+   (popup-menu/mongol-menu-item
+    {:label "Delete Permanently"
+     :icon m/Icons.delete_forever
+     :on-selected (fn [] (notes/hard-delete-note! ctx (get note "id")))})])
+
+(defn show-deleted-note-dialog [ctx note]
+  (let [screen-height (* (-> m/MediaQuery (.of ctx) .-size .-height) 0.85)
+        screen-width (-> m/MediaQuery (.of ctx) .-size .-width)]
+    (m/showDialog
+     .context ctx
+     .builder
+     (fn [_]
+       (m/Dialog
+        .alignment m/Alignment.bottomCenter
+        .insetPadding (m/EdgeInsets.zero)
+        .child
+        (m/Row
+         .mainAxisAlignment m/MainAxisAlignment.end
+         .children
+         [(m/Container
+           .height screen-height
+           .width screen-width
+           .child
+           (m/Column
+            .mainAxisSize m/MainAxisSize.min
+            .children
+            [;; Top button row
+             (m/Row
+              .mainAxisAlignment m/MainAxisAlignment.spaceBetween
+              .children [;; Close button
+                         (m/IconButton
+                          .icon (m/Icon m/Icons.arrow_downward)
+                          .onPressed (fn [] (navigator/navigate-to-back ctx)))
+                         ;; Restore button
+                         (m/IconButton
+                          .icon (m/Icon m/Icons.restore)
+                          .onPressed (fn []
+                                       (notes/restore-note! ctx (get note "id"))
+                                       (navigator/navigate-to-back ctx)))])
+             ;; Main content
+             (m/Expanded
+              .child
+              (m/SingleChildScrollView
+               .scrollDirection m/Axis.horizontal
+               .child
+               (mgl/MongolText (get note "content")
+                               .style (m/TextStyle .fontSize 16))))]))]))))))
+
+;; Recycle bin list helpers
+(defn should-load-more-deleted-notes? []
+  (and (:has-more @notes/notes-state)
+       (not (:loading-more @notes/notes-state))))
+
+(defn load-more-deleted-notes-trigger [ctx]
+  (when (should-load-more-deleted-notes?)
+    (notes/load-deleted-notes! ctx (inc (notes/get-current-page)) (notes/get-page-size))))
+
+;; Recycle bin note item
+(defn deleted-note-item [item]
+  (f/widget
+   :context ctx
+   :let [theme (-> m/Theme (.of ctx))
+         is-dark? (= (.-brightness (.-colorScheme theme)) m/Brightness.dark)
+         bg-color (if is-dark? (m/Color. 0xFF1E1E1E) m/Colors.white)
+         title-color (if is-dark? m/Colors.white m/Colors.black87)
+         preview-color (if is-dark? (m/Colors.grey 400) (m/Colors.grey 600))
+         item (.-data item)
+         note-id (get item "id")
+         note-title (get item "title")
+         note-content (get item "content")
+         title-index (if (nil? note-content)
+                       -1
+                       (.indexOf note-content "\n"))
+         note-content (if (> title-index 0)
+                        (subs note-content title-index)
+                        nil)]
+   (m/Card
+    .color bg-color
+    .margin (m/EdgeInsets.all 12)
+    .shape (m/RoundedRectangleBorder .borderRadius (m/BorderRadius.circular 16))
+    .elevation 4
+    .shadowColor (m/Colors.black.withOpacity 0.1))
+   (m/Padding
+    .padding (m/EdgeInsets.all 16))
+   (m/Column
+    .children
+    [(popup-menu/mongol-popup-menu-button
+      {:items (deleted-note-menu-items ctx item)
+       :on-selected (fn [menu-item]
+                      (dart:core/print (str "Menu item selected: " (get menu-item :label))))})
+     (m/SizedBox .width 8)
+     (m/Expanded
+      .child
+      (m/GestureDetector
+       .onLongPressStart (fn [details]
+                           (popup-menu/show-menu
+                            {:context ctx
+                             :items (deleted-note-menu-items ctx item)
+                             :detail details}))
+       .onTap (fn []
+                (show-deleted-note-dialog ctx item))
+       .child
+       (mgl/MongolListTile
+        .title (when note-title
+                 (mgl/MongolText note-title
+                                 .style (m/TextStyle .fontSize 18
+                                                     .fontWeight m/FontWeight.bold
+                                                     .color title-color)))
+        .subtitle (when note-content
+                    (mgl/MongolText note-content
+                                    .maxLines 3
+                                    .style (m/TextStyle .fontSize 14
+                                                        .color preview-color))))))])))
+
+;; Recycle bin main page
+(defn deleted-notes-list []
+  (f/widget
+   :context ctx
+   :watch [{notes :results
+            loading :loading
+            loading-more :loading-more
+            has-more :has-more} notes/notes-state]
+   :managed [scroll-controller (infinite-scroll/create-scroll-controller (fn [] (load-more-deleted-notes-trigger ctx)))]
+   (m/Stack
+    .children
+    [(if loading
+       (loading-state/loading-indicator-themed)
+       (if (empty? notes)
+         (empty-state/empty-state {:message "Empty: No deleted notes" :icon m/Icons.delete_outline})
+         (infinite-scroll/infinite-scroll-list
+          {:items notes
+           :scroll-controller scroll-controller
+           :scroll-direction m/Axis.horizontal
+           :item-builder deleted-note-item
+           :loading-more? loading-more
+           :has-more? has-more
+           :load-more-indicator (infinite-scroll/load-more-indicator infinite-scroll/loading-more-text)
+           :all-loaded-indicator (infinite-scroll/all-loaded-indicator infinite-scroll/all-loaded-text)})))])))
