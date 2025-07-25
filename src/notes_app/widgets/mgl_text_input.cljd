@@ -137,10 +137,11 @@
 
 ;; Input editor text field
 (defn input-editor-text-field [controller on-changed on-tap & {:keys [autofocus]
-                                                               :or {autofocus false}}]
+                                                               :or {autofocus true}}]
   (f/widget
    :context ctx
    :let [{:keys [color-scheme]} (get-theme-colors ctx)]
+   (m/Padding .padding (m/EdgeInsets.all 8))
    (mongol-text-field
     {:controller controller
      :max-lines 500
@@ -149,4 +150,4 @@
      :on-changed on-changed
      :on-tap on-tap
      :style (default-text-style (.-onSurface color-scheme))
-     :decoration (default-input-decoration (.-surface color-scheme))})))
+     :decoration nil})))
