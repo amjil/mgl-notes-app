@@ -42,6 +42,7 @@
            .child
            (m/Column
             .mainAxisSize m/MainAxisSize.min
+            .crossAxisAlignment m/CrossAxisAlignment.start
             .children
             [;; Top button row
              (m/Row
@@ -49,21 +50,24 @@
               .children [;; Close button
                          (m/IconButton
                           .icon (m/Icon m/Icons.arrow_downward)
-                          .onPressed (fn [] (navigator/navigate-to-back ctx)))
+                          .onPressed (fn [] (m/Navigator.pop ctx)))
                          ;; Restore button
                          (m/IconButton
                           .icon (m/Icon m/Icons.restore)
                           .onPressed (fn []
                                        (notes/restore-note! ctx (get note "id"))
-                                       (navigator/navigate-to-back ctx)))])
+                                       (m/Navigator.pop ctx)))])
              ;; Main content
              (m/Expanded
               .child
-              (m/SingleChildScrollView
-               .scrollDirection m/Axis.horizontal
+              (m/Padding
+               .padding (m/EdgeInsets.all 16)
                .child
-               (mgl/MongolText (get note "content")
-                               .style (m/TextStyle .fontSize 16))))]))]))))))
+               (m/SingleChildScrollView
+                .scrollDirection m/Axis.horizontal
+                .child
+                (mgl/MongolText (get note "content")
+                                .style (m/TextStyle .fontSize 16)))))]))]))))))
 
 ;; Recycle bin list helpers
 (defn should-load-more-deleted-notes? []

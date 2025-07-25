@@ -14,4 +14,4 @@
    (m/Scaffold
     .backgroundColor (.-surface color-scheme)
     .appBar (mgl-app-bar/mgl-search-app-bar navigator)
-    .body (recycle-bin/recycle-bin))))
+    .body (recycle-bin/deleted-notes-list))))
