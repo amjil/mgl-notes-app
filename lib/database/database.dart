@@ -75,6 +75,23 @@ class DailyNotesCount extends Table {
   Set<Column> get primaryKey => {date};
 }
 
+// Sync conflicts table for handling synchronization conflicts
+class SyncConflicts extends Table {
+  TextColumn get id => text()();
+  TextColumn get note_id => text()(); // 'note'
+  TextColumn get conflictType => text()(); // 'version_conflict', 'deletion_conflict', 'merge_conflict'
+  TextColumn get localData => text().nullable()(); // JSON string of local data
+  TextColumn get remoteData => text().nullable()(); // JSON string of remote data
+  TextColumn get resolvedData => text().nullable()(); // JSON string of resolved data after conflict resolution
+  TextColumn get resolution => text().withDefault(const Constant('pending'))(); // 'pending', 'local_wins', 'remote_wins', 'merged'
+  DateTimeColumn get createdAt => dateTime().withDefault(currentDateAndTime)();
+  DateTimeColumn get resolvedAt => dateTime().nullable()();
+  TextColumn get description => text().nullable()(); // Human-readable description of the conflict
+
+  @override
+  Set<Column> get primaryKey => {id};
+}
+
 @DriftDatabase(
   tables: [
     Notes,
@@ -83,13 +100,14 @@ class DailyNotesCount extends Table {
     Tags,
     NoteTags,
     DailyNotesCount,
+    SyncConflicts,
   ],
 )
 class AppDatabase extends _$AppDatabase {
   AppDatabase(super.e);
 
   @override
-  int get schemaVersion => 5;
+  int get schemaVersion => 6;
 
   @override
   MigrationStrategy get migration {
@@ -124,6 +142,9 @@ class AppDatabase extends _$AppDatabase {
         }
         if (from < 6) {
           await m.addColumn(notes, notes.isDeleted);
+        }
+        if (from < 7) {
+          await m.createTable(syncConflicts);
         }
       },
     );

@@ -580,3 +580,121 @@
            (let [data (get record "data")]
              (assoc data "date" (get data "date"))))
          counts)))
+
+;; ===== Sync Conflicts db functions =====
+
+(defn create-sync-conflict [note-id local-data remote-data & {:keys [description] :or {description nil}}]
+  (let [id (.v4 uuid-instance)
+        ^drift/AppDatabase db @db]
+    (.insert
+     (.into db (.-syncConflicts db))
+     (drift/SyncConflictsCompanion.insert
+      .id id
+      .note_id note-id
+      .conflictType "pending"
+      .localData local-data
+      .remoteData remote-data
+      .description description))))
+
+(defn get-sync-conflict-by-id [id]
+  (let [^drift/AppDatabase db @db]
+    (.getSingleOrNull
+     (doto (.select db (.-syncConflicts db))
+       (.where (fn [^drift/SyncConflicts tbl] (.equals (.-id tbl) id)))))))
+
+(defn get-sync-conflicts-by-note-id [note-id]
+  (let [^drift/AppDatabase db @db]
+    (.get
+     (doto (.select db (.-syncConflicts db))
+       (.where (fn [^drift/SyncConflicts tbl] (.equals (.-note_id tbl) note-id)))
+       (.orderBy [(fn [^drift/SyncConflicts tbl] (d/OrderingTerm. .expression (.-createdAt tbl) .mode d/OrderingMode.desc))])))))
+
+(defn get-pending-sync-conflicts []
+  (let [^drift/AppDatabase db @db]
+    (.get
+     (doto (.select db (.-syncConflicts db))
+       (.where (fn [^drift/SyncConflicts tbl] (.equals (.-resolution tbl) "pending")))
+       (.orderBy [(fn [^drift/SyncConflicts tbl] (d/OrderingTerm. .expression (.-createdAt tbl) .mode d/OrderingMode.asc))])))))
+
+(defn get-sync-conflicts-by-type [conflict-type]
+  (let [^drift/AppDatabase db @db]
+    (.get
+     (doto (.select db (.-syncConflicts db))
+       (.where (fn [^drift/SyncConflicts tbl] (.equals (.-conflictType tbl) conflict-type)))
+       (.orderBy [(fn [^drift/SyncConflicts tbl] (d/OrderingTerm. .expression (.-createdAt tbl) .mode d/OrderingMode.desc))])))))
+
+(defn get-sync-conflicts-paginated [page limit]
+  (let [offset (* page limit)
+        ^drift/AppDatabase db @db]
+    (.get
+     (doto (.select db (.-syncConflicts db))
+       (.orderBy [(fn [^drift/SyncConflicts tbl] (d/OrderingTerm. .expression (.-createdAt tbl) .mode d/OrderingMode.desc))])
+       (.limit limit .offset offset)))))
+
+(defn update-sync-conflict-resolution [id resolution & {:keys [description] :or {description nil}}]
+  (let [^drift/AppDatabase db @db
+        query (doto (.update db (.-syncConflicts db))
+                (.where (fn [^drift/SyncConflicts tbl] (.equals (.-id tbl) id))))
+        companion (drift/SyncConflictsCompanion.
+                   .resolution resolution
+                   .resolvedAt (d/Value (DateTime/now))
+                   .description description)]
+    (.write query companion)))
+
+(defn resolve-sync-conflict [id resolution & {:keys [description] :or {description nil}}]
+  (update-sync-conflict-resolution id resolution :description description))
+
+(defn delete-sync-conflict [id]
+  (let [^drift/AppDatabase db @db]
+    (.go
+     (doto
+      (.delete db (.-syncConflicts db))
+       (.where (fn [^drift/SyncConflicts tbl]
+                 (.equals (.-id tbl) id)))))))
+
+(defn delete-sync-conflicts-by-note-id [note-id]
+  (let [^drift/AppDatabase db @db]
+    (.go
+     (doto
+      (.delete db (.-syncConflicts db))
+       (.where (fn [^drift/SyncConflicts tbl]
+                 (.equals (.-note_id tbl) note-id)))))))
+
+(defn get-sync-conflicts-count []
+  (let [^drift/AppDatabase db @db]
+    (.getSingle
+     (.customSelect db
+                    "SELECT COUNT(*) as count FROM sync_conflicts"))))
+
+(defn get-pending-sync-conflicts-count []
+  (let [^drift/AppDatabase db @db]
+    (.getSingle
+     (.customSelect db
+                    "SELECT COUNT(*) as count FROM sync_conflicts WHERE resolution = 'pending'"))))
+
+(defn get-sync-conflicts-by-resolution [resolution]
+  (let [^drift/AppDatabase db @db]
+    (.get
+     (doto (.select db (.-syncConflicts db))
+       (.where (fn [^drift/SyncConflicts tbl] (.equals (.-resolution tbl) resolution)))
+       (.orderBy [(fn [^drift/SyncConflicts tbl] (d/OrderingTerm. .expression (.-createdAt tbl) .mode d/OrderingMode.desc))])))))
+
+(defn get-sync-conflicts-summary []
+  (let [^drift/AppDatabase db @db]
+    (.get
+     (.customSelect db
+                    "SELECT resolution, conflict_type, COUNT(*) as count 
+                     FROM sync_conflicts 
+                     GROUP BY resolution, conflict_type 
+                     ORDER BY resolution, conflict_type"))))
+
+;; (defn cleanup-resolved-sync-conflicts [days-old]
+;;   (let [^drift/AppDatabase db @db
+;;         cutoff-date (- (DateTime/now) (* days-old 24 60 60 1000))]
+;;     (.go
+;;      (doto
+;;       (.delete db (.-syncConflicts db))
+;;        (.where (fn [^drift/SyncConflicts tbl]
+;;                  (and
+;;                   (not (.equals (.-resolution tbl) "pending"))
+;;                   (.lessThan (.-resolvedAt tbl) cutoff-date))))))))

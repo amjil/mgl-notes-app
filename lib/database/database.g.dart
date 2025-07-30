@@ -1976,6 +1976,636 @@ class DailyNotesCountCompanion extends UpdateCompanion<DailyNotesCountData> {
   }
 }
 
+class $SyncConflictsTable extends SyncConflicts
+    with TableInfo<$SyncConflictsTable, SyncConflict> {
+  @override
+  final GeneratedDatabase attachedDatabase;
+  final String? _alias;
+  $SyncConflictsTable(this.attachedDatabase, [this._alias]);
+  static const VerificationMeta _idMeta = const VerificationMeta('id');
+  @override
+  late final GeneratedColumn<String> id = GeneratedColumn<String>(
+    'id',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _note_idMeta = const VerificationMeta(
+    'note_id',
+  );
+  @override
+  late final GeneratedColumn<String> note_id = GeneratedColumn<String>(
+    'note_id',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _conflictTypeMeta = const VerificationMeta(
+    'conflictType',
+  );
+  @override
+  late final GeneratedColumn<String> conflictType = GeneratedColumn<String>(
+    'conflict_type',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _localDataMeta = const VerificationMeta(
+    'localData',
+  );
+  @override
+  late final GeneratedColumn<String> localData = GeneratedColumn<String>(
+    'local_data',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _remoteDataMeta = const VerificationMeta(
+    'remoteData',
+  );
+  @override
+  late final GeneratedColumn<String> remoteData = GeneratedColumn<String>(
+    'remote_data',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _resolvedDataMeta = const VerificationMeta(
+    'resolvedData',
+  );
+  @override
+  late final GeneratedColumn<String> resolvedData = GeneratedColumn<String>(
+    'resolved_data',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _resolutionMeta = const VerificationMeta(
+    'resolution',
+  );
+  @override
+  late final GeneratedColumn<String> resolution = GeneratedColumn<String>(
+    'resolution',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+    defaultValue: const Constant('pending'),
+  );
+  static const VerificationMeta _createdAtMeta = const VerificationMeta(
+    'createdAt',
+  );
+  @override
+  late final GeneratedColumn<DateTime> createdAt = GeneratedColumn<DateTime>(
+    'created_at',
+    aliasedName,
+    false,
+    type: DriftSqlType.dateTime,
+    requiredDuringInsert: false,
+    defaultValue: currentDateAndTime,
+  );
+  static const VerificationMeta _resolvedAtMeta = const VerificationMeta(
+    'resolvedAt',
+  );
+  @override
+  late final GeneratedColumn<DateTime> resolvedAt = GeneratedColumn<DateTime>(
+    'resolved_at',
+    aliasedName,
+    true,
+    type: DriftSqlType.dateTime,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _descriptionMeta = const VerificationMeta(
+    'description',
+  );
+  @override
+  late final GeneratedColumn<String> description = GeneratedColumn<String>(
+    'description',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
+  @override
+  List<GeneratedColumn> get $columns => [
+    id,
+    note_id,
+    conflictType,
+    localData,
+    remoteData,
+    resolvedData,
+    resolution,
+    createdAt,
+    resolvedAt,
+    description,
+  ];
+  @override
+  String get aliasedName => _alias ?? actualTableName;
+  @override
+  String get actualTableName => $name;
+  static const String $name = 'sync_conflicts';
+  @override
+  VerificationContext validateIntegrity(
+    Insertable<SyncConflict> instance, {
+    bool isInserting = false,
+  }) {
+    final context = VerificationContext();
+    final data = instance.toColumns(true);
+    if (data.containsKey('id')) {
+      context.handle(_idMeta, id.isAcceptableOrUnknown(data['id']!, _idMeta));
+    } else if (isInserting) {
+      context.missing(_idMeta);
+    }
+    if (data.containsKey('note_id')) {
+      context.handle(
+        _note_idMeta,
+        note_id.isAcceptableOrUnknown(data['note_id']!, _note_idMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_note_idMeta);
+    }
+    if (data.containsKey('conflict_type')) {
+      context.handle(
+        _conflictTypeMeta,
+        conflictType.isAcceptableOrUnknown(
+          data['conflict_type']!,
+          _conflictTypeMeta,
+        ),
+      );
+    } else if (isInserting) {
+      context.missing(_conflictTypeMeta);
+    }
+    if (data.containsKey('local_data')) {
+      context.handle(
+        _localDataMeta,
+        localData.isAcceptableOrUnknown(data['local_data']!, _localDataMeta),
+      );
+    }
+    if (data.containsKey('remote_data')) {
+      context.handle(
+        _remoteDataMeta,
+        remoteData.isAcceptableOrUnknown(data['remote_data']!, _remoteDataMeta),
+      );
+    }
+    if (data.containsKey('resolved_data')) {
+      context.handle(
+        _resolvedDataMeta,
+        resolvedData.isAcceptableOrUnknown(
+          data['resolved_data']!,
+          _resolvedDataMeta,
+        ),
+      );
+    }
+    if (data.containsKey('resolution')) {
+      context.handle(
+        _resolutionMeta,
+        resolution.isAcceptableOrUnknown(data['resolution']!, _resolutionMeta),
+      );
+    }
+    if (data.containsKey('created_at')) {
+      context.handle(
+        _createdAtMeta,
+        createdAt.isAcceptableOrUnknown(data['created_at']!, _createdAtMeta),
+      );
+    }
+    if (data.containsKey('resolved_at')) {
+      context.handle(
+        _resolvedAtMeta,
+        resolvedAt.isAcceptableOrUnknown(data['resolved_at']!, _resolvedAtMeta),
+      );
+    }
+    if (data.containsKey('description')) {
+      context.handle(
+        _descriptionMeta,
+        description.isAcceptableOrUnknown(
+          data['description']!,
+          _descriptionMeta,
+        ),
+      );
+    }
+    return context;
+  }
+
+  @override
+  Set<GeneratedColumn> get $primaryKey => {id};
+  @override
+  SyncConflict map(Map<String, dynamic> data, {String? tablePrefix}) {
+    final effectivePrefix = tablePrefix != null ? '$tablePrefix.' : '';
+    return SyncConflict(
+      id: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}id'],
+      )!,
+      note_id: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}note_id'],
+      )!,
+      conflictType: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}conflict_type'],
+      )!,
+      localData: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}local_data'],
+      ),
+      remoteData: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}remote_data'],
+      ),
+      resolvedData: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}resolved_data'],
+      ),
+      resolution: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}resolution'],
+      )!,
+      createdAt: attachedDatabase.typeMapping.read(
+        DriftSqlType.dateTime,
+        data['${effectivePrefix}created_at'],
+      )!,
+      resolvedAt: attachedDatabase.typeMapping.read(
+        DriftSqlType.dateTime,
+        data['${effectivePrefix}resolved_at'],
+      ),
+      description: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}description'],
+      ),
+    );
+  }
+
+  @override
+  $SyncConflictsTable createAlias(String alias) {
+    return $SyncConflictsTable(attachedDatabase, alias);
+  }
+}
+
+class SyncConflict extends DataClass implements Insertable<SyncConflict> {
+  final String id;
+  final String note_id;
+  final String conflictType;
+  final String? localData;
+  final String? remoteData;
+  final String? resolvedData;
+  final String resolution;
+  final DateTime createdAt;
+  final DateTime? resolvedAt;
+  final String? description;
+  const SyncConflict({
+    required this.id,
+    required this.note_id,
+    required this.conflictType,
+    this.localData,
+    this.remoteData,
+    this.resolvedData,
+    required this.resolution,
+    required this.createdAt,
+    this.resolvedAt,
+    this.description,
+  });
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    map['id'] = Variable<String>(id);
+    map['note_id'] = Variable<String>(note_id);
+    map['conflict_type'] = Variable<String>(conflictType);
+    if (!nullToAbsent || localData != null) {
+      map['local_data'] = Variable<String>(localData);
+    }
+    if (!nullToAbsent || remoteData != null) {
+      map['remote_data'] = Variable<String>(remoteData);
+    }
+    if (!nullToAbsent || resolvedData != null) {
+      map['resolved_data'] = Variable<String>(resolvedData);
+    }
+    map['resolution'] = Variable<String>(resolution);
+    map['created_at'] = Variable<DateTime>(createdAt);
+    if (!nullToAbsent || resolvedAt != null) {
+      map['resolved_at'] = Variable<DateTime>(resolvedAt);
+    }
+    if (!nullToAbsent || description != null) {
+      map['description'] = Variable<String>(description);
+    }
+    return map;
+  }
+
+  SyncConflictsCompanion toCompanion(bool nullToAbsent) {
+    return SyncConflictsCompanion(
+      id: Value(id),
+      note_id: Value(note_id),
+      conflictType: Value(conflictType),
+      localData: localData == null && nullToAbsent
+          ? const Value.absent()
+          : Value(localData),
+      remoteData: remoteData == null && nullToAbsent
+          ? const Value.absent()
+          : Value(remoteData),
+      resolvedData: resolvedData == null && nullToAbsent
+          ? const Value.absent()
+          : Value(resolvedData),
+      resolution: Value(resolution),
+      createdAt: Value(createdAt),
+      resolvedAt: resolvedAt == null && nullToAbsent
+          ? const Value.absent()
+          : Value(resolvedAt),
+      description: description == null && nullToAbsent
+          ? const Value.absent()
+          : Value(description),
+    );
+  }
+
+  factory SyncConflict.fromJson(
+    Map<String, dynamic> json, {
+    ValueSerializer? serializer,
+  }) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return SyncConflict(
+      id: serializer.fromJson<String>(json['id']),
+      note_id: serializer.fromJson<String>(json['note_id']),
+      conflictType: serializer.fromJson<String>(json['conflictType']),
+      localData: serializer.fromJson<String?>(json['localData']),
+      remoteData: serializer.fromJson<String?>(json['remoteData']),
+      resolvedData: serializer.fromJson<String?>(json['resolvedData']),
+      resolution: serializer.fromJson<String>(json['resolution']),
+      createdAt: serializer.fromJson<DateTime>(json['createdAt']),
+      resolvedAt: serializer.fromJson<DateTime?>(json['resolvedAt']),
+      description: serializer.fromJson<String?>(json['description']),
+    );
+  }
+  @override
+  Map<String, dynamic> toJson({ValueSerializer? serializer}) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return <String, dynamic>{
+      'id': serializer.toJson<String>(id),
+      'note_id': serializer.toJson<String>(note_id),
+      'conflictType': serializer.toJson<String>(conflictType),
+      'localData': serializer.toJson<String?>(localData),
+      'remoteData': serializer.toJson<String?>(remoteData),
+      'resolvedData': serializer.toJson<String?>(resolvedData),
+      'resolution': serializer.toJson<String>(resolution),
+      'createdAt': serializer.toJson<DateTime>(createdAt),
+      'resolvedAt': serializer.toJson<DateTime?>(resolvedAt),
+      'description': serializer.toJson<String?>(description),
+    };
+  }
+
+  SyncConflict copyWith({
+    String? id,
+    String? note_id,
+    String? conflictType,
+    Value<String?> localData = const Value.absent(),
+    Value<String?> remoteData = const Value.absent(),
+    Value<String?> resolvedData = const Value.absent(),
+    String? resolution,
+    DateTime? createdAt,
+    Value<DateTime?> resolvedAt = const Value.absent(),
+    Value<String?> description = const Value.absent(),
+  }) => SyncConflict(
+    id: id ?? this.id,
+    note_id: note_id ?? this.note_id,
+    conflictType: conflictType ?? this.conflictType,
+    localData: localData.present ? localData.value : this.localData,
+    remoteData: remoteData.present ? remoteData.value : this.remoteData,
+    resolvedData: resolvedData.present ? resolvedData.value : this.resolvedData,
+    resolution: resolution ?? this.resolution,
+    createdAt: createdAt ?? this.createdAt,
+    resolvedAt: resolvedAt.present ? resolvedAt.value : this.resolvedAt,
+    description: description.present ? description.value : this.description,
+  );
+  SyncConflict copyWithCompanion(SyncConflictsCompanion data) {
+    return SyncConflict(
+      id: data.id.present ? data.id.value : this.id,
+      note_id: data.note_id.present ? data.note_id.value : this.note_id,
+      conflictType: data.conflictType.present
+          ? data.conflictType.value
+          : this.conflictType,
+      localData: data.localData.present ? data.localData.value : this.localData,
+      remoteData: data.remoteData.present
+          ? data.remoteData.value
+          : this.remoteData,
+      resolvedData: data.resolvedData.present
+          ? data.resolvedData.value
+          : this.resolvedData,
+      resolution: data.resolution.present
+          ? data.resolution.value
+          : this.resolution,
+      createdAt: data.createdAt.present ? data.createdAt.value : this.createdAt,
+      resolvedAt: data.resolvedAt.present
+          ? data.resolvedAt.value
+          : this.resolvedAt,
+      description: data.description.present
+          ? data.description.value
+          : this.description,
+    );
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('SyncConflict(')
+          ..write('id: $id, ')
+          ..write('note_id: $note_id, ')
+          ..write('conflictType: $conflictType, ')
+          ..write('localData: $localData, ')
+          ..write('remoteData: $remoteData, ')
+          ..write('resolvedData: $resolvedData, ')
+          ..write('resolution: $resolution, ')
+          ..write('createdAt: $createdAt, ')
+          ..write('resolvedAt: $resolvedAt, ')
+          ..write('description: $description')
+          ..write(')'))
+        .toString();
+  }
+
+  @override
+  int get hashCode => Object.hash(
+    id,
+    note_id,
+    conflictType,
+    localData,
+    remoteData,
+    resolvedData,
+    resolution,
+    createdAt,
+    resolvedAt,
+    description,
+  );
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      (other is SyncConflict &&
+          other.id == this.id &&
+          other.note_id == this.note_id &&
+          other.conflictType == this.conflictType &&
+          other.localData == this.localData &&
+          other.remoteData == this.remoteData &&
+          other.resolvedData == this.resolvedData &&
+          other.resolution == this.resolution &&
+          other.createdAt == this.createdAt &&
+          other.resolvedAt == this.resolvedAt &&
+          other.description == this.description);
+}
+
+class SyncConflictsCompanion extends UpdateCompanion<SyncConflict> {
+  final Value<String> id;
+  final Value<String> note_id;
+  final Value<String> conflictType;
+  final Value<String?> localData;
+  final Value<String?> remoteData;
+  final Value<String?> resolvedData;
+  final Value<String> resolution;
+  final Value<DateTime> createdAt;
+  final Value<DateTime?> resolvedAt;
+  final Value<String?> description;
+  final Value<int> rowid;
+  const SyncConflictsCompanion({
+    this.id = const Value.absent(),
+    this.note_id = const Value.absent(),
+    this.conflictType = const Value.absent(),
+    this.localData = const Value.absent(),
+    this.remoteData = const Value.absent(),
+    this.resolvedData = const Value.absent(),
+    this.resolution = const Value.absent(),
+    this.createdAt = const Value.absent(),
+    this.resolvedAt = const Value.absent(),
+    this.description = const Value.absent(),
+    this.rowid = const Value.absent(),
+  });
+  SyncConflictsCompanion.insert({
+    required String id,
+    required String note_id,
+    required String conflictType,
+    this.localData = const Value.absent(),
+    this.remoteData = const Value.absent(),
+    this.resolvedData = const Value.absent(),
+    this.resolution = const Value.absent(),
+    this.createdAt = const Value.absent(),
+    this.resolvedAt = const Value.absent(),
+    this.description = const Value.absent(),
+    this.rowid = const Value.absent(),
+  }) : id = Value(id),
+       note_id = Value(note_id),
+       conflictType = Value(conflictType);
+  static Insertable<SyncConflict> custom({
+    Expression<String>? id,
+    Expression<String>? note_id,
+    Expression<String>? conflictType,
+    Expression<String>? localData,
+    Expression<String>? remoteData,
+    Expression<String>? resolvedData,
+    Expression<String>? resolution,
+    Expression<DateTime>? createdAt,
+    Expression<DateTime>? resolvedAt,
+    Expression<String>? description,
+    Expression<int>? rowid,
+  }) {
+    return RawValuesInsertable({
+      if (id != null) 'id': id,
+      if (note_id != null) 'note_id': note_id,
+      if (conflictType != null) 'conflict_type': conflictType,
+      if (localData != null) 'local_data': localData,
+      if (remoteData != null) 'remote_data': remoteData,
+      if (resolvedData != null) 'resolved_data': resolvedData,
+      if (resolution != null) 'resolution': resolution,
+      if (createdAt != null) 'created_at': createdAt,
+      if (resolvedAt != null) 'resolved_at': resolvedAt,
+      if (description != null) 'description': description,
+      if (rowid != null) 'rowid': rowid,
+    });
+  }
+
+  SyncConflictsCompanion copyWith({
+    Value<String>? id,
+    Value<String>? note_id,
+    Value<String>? conflictType,
+    Value<String?>? localData,
+    Value<String?>? remoteData,
+    Value<String?>? resolvedData,
+    Value<String>? resolution,
+    Value<DateTime>? createdAt,
+    Value<DateTime?>? resolvedAt,
+    Value<String?>? description,
+    Value<int>? rowid,
+  }) {
+    return SyncConflictsCompanion(
+      id: id ?? this.id,
+      note_id: note_id ?? this.note_id,
+      conflictType: conflictType ?? this.conflictType,
+      localData: localData ?? this.localData,
+      remoteData: remoteData ?? this.remoteData,
+      resolvedData: resolvedData ?? this.resolvedData,
+      resolution: resolution ?? this.resolution,
+      createdAt: createdAt ?? this.createdAt,
+      resolvedAt: resolvedAt ?? this.resolvedAt,
+      description: description ?? this.description,
+      rowid: rowid ?? this.rowid,
+    );
+  }
+
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    if (id.present) {
+      map['id'] = Variable<String>(id.value);
+    }
+    if (note_id.present) {
+      map['note_id'] = Variable<String>(note_id.value);
+    }
+    if (conflictType.present) {
+      map['conflict_type'] = Variable<String>(conflictType.value);
+    }
+    if (localData.present) {
+      map['local_data'] = Variable<String>(localData.value);
+    }
+    if (remoteData.present) {
+      map['remote_data'] = Variable<String>(remoteData.value);
+    }
+    if (resolvedData.present) {
+      map['resolved_data'] = Variable<String>(resolvedData.value);
+    }
+    if (resolution.present) {
+      map['resolution'] = Variable<String>(resolution.value);
+    }
+    if (createdAt.present) {
+      map['created_at'] = Variable<DateTime>(createdAt.value);
+    }
+    if (resolvedAt.present) {
+      map['resolved_at'] = Variable<DateTime>(resolvedAt.value);
+    }
+    if (description.present) {
+      map['description'] = Variable<String>(description.value);
+    }
+    if (rowid.present) {
+      map['rowid'] = Variable<int>(rowid.value);
+    }
+    return map;
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('SyncConflictsCompanion(')
+          ..write('id: $id, ')
+          ..write('note_id: $note_id, ')
+          ..write('conflictType: $conflictType, ')
+          ..write('localData: $localData, ')
+          ..write('remoteData: $remoteData, ')
+          ..write('resolvedData: $resolvedData, ')
+          ..write('resolution: $resolution, ')
+          ..write('createdAt: $createdAt, ')
+          ..write('resolvedAt: $resolvedAt, ')
+          ..write('description: $description, ')
+          ..write('rowid: $rowid')
+          ..write(')'))
+        .toString();
+  }
+}
+
 abstract class _$AppDatabase extends GeneratedDatabase {
   _$AppDatabase(QueryExecutor e) : super(e);
   $AppDatabaseManager get managers => $AppDatabaseManager(this);
@@ -1987,6 +2617,7 @@ abstract class _$AppDatabase extends GeneratedDatabase {
   late final $DailyNotesCountTable dailyNotesCount = $DailyNotesCountTable(
     this,
   );
+  late final $SyncConflictsTable syncConflicts = $SyncConflictsTable(this);
   @override
   Iterable<TableInfo<Table, Object?>> get allTables =>
       allSchemaEntities.whereType<TableInfo<Table, Object?>>();
@@ -1998,6 +2629,7 @@ abstract class _$AppDatabase extends GeneratedDatabase {
     tags,
     noteTags,
     dailyNotesCount,
+    syncConflicts,
   ];
   @override
   StreamQueryUpdateRules get streamUpdateRules => const StreamQueryUpdateRules([
@@ -4139,6 +4771,313 @@ typedef $$DailyNotesCountTableProcessedTableManager =
       DailyNotesCountData,
       PrefetchHooks Function()
     >;
+typedef $$SyncConflictsTableCreateCompanionBuilder =
+    SyncConflictsCompanion Function({
+      required String id,
+      required String note_id,
+      required String conflictType,
+      Value<String?> localData,
+      Value<String?> remoteData,
+      Value<String?> resolvedData,
+      Value<String> resolution,
+      Value<DateTime> createdAt,
+      Value<DateTime?> resolvedAt,
+      Value<String?> description,
+      Value<int> rowid,
+    });
+typedef $$SyncConflictsTableUpdateCompanionBuilder =
+    SyncConflictsCompanion Function({
+      Value<String> id,
+      Value<String> note_id,
+      Value<String> conflictType,
+      Value<String?> localData,
+      Value<String?> remoteData,
+      Value<String?> resolvedData,
+      Value<String> resolution,
+      Value<DateTime> createdAt,
+      Value<DateTime?> resolvedAt,
+      Value<String?> description,
+      Value<int> rowid,
+    });
+
+class $$SyncConflictsTableFilterComposer
+    extends Composer<_$AppDatabase, $SyncConflictsTable> {
+  $$SyncConflictsTableFilterComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnFilters<String> get id => $composableBuilder(
+    column: $table.id,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get note_id => $composableBuilder(
+    column: $table.note_id,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get conflictType => $composableBuilder(
+    column: $table.conflictType,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get localData => $composableBuilder(
+    column: $table.localData,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get remoteData => $composableBuilder(
+    column: $table.remoteData,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get resolvedData => $composableBuilder(
+    column: $table.resolvedData,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get resolution => $composableBuilder(
+    column: $table.resolution,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<DateTime> get createdAt => $composableBuilder(
+    column: $table.createdAt,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<DateTime> get resolvedAt => $composableBuilder(
+    column: $table.resolvedAt,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get description => $composableBuilder(
+    column: $table.description,
+    builder: (column) => ColumnFilters(column),
+  );
+}
+
+class $$SyncConflictsTableOrderingComposer
+    extends Composer<_$AppDatabase, $SyncConflictsTable> {
+  $$SyncConflictsTableOrderingComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnOrderings<String> get id => $composableBuilder(
+    column: $table.id,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get note_id => $composableBuilder(
+    column: $table.note_id,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get conflictType => $composableBuilder(
+    column: $table.conflictType,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get localData => $composableBuilder(
+    column: $table.localData,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get remoteData => $composableBuilder(
+    column: $table.remoteData,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get resolvedData => $composableBuilder(
+    column: $table.resolvedData,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get resolution => $composableBuilder(
+    column: $table.resolution,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<DateTime> get createdAt => $composableBuilder(
+    column: $table.createdAt,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<DateTime> get resolvedAt => $composableBuilder(
+    column: $table.resolvedAt,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get description => $composableBuilder(
+    column: $table.description,
+    builder: (column) => ColumnOrderings(column),
+  );
+}
+
+class $$SyncConflictsTableAnnotationComposer
+    extends Composer<_$AppDatabase, $SyncConflictsTable> {
+  $$SyncConflictsTableAnnotationComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  GeneratedColumn<String> get id =>
+      $composableBuilder(column: $table.id, builder: (column) => column);
+
+  GeneratedColumn<String> get note_id =>
+      $composableBuilder(column: $table.note_id, builder: (column) => column);
+
+  GeneratedColumn<String> get conflictType => $composableBuilder(
+    column: $table.conflictType,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<String> get localData =>
+      $composableBuilder(column: $table.localData, builder: (column) => column);
+
+  GeneratedColumn<String> get remoteData => $composableBuilder(
+    column: $table.remoteData,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<String> get resolvedData => $composableBuilder(
+    column: $table.resolvedData,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<String> get resolution => $composableBuilder(
+    column: $table.resolution,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<DateTime> get createdAt =>
+      $composableBuilder(column: $table.createdAt, builder: (column) => column);
+
+  GeneratedColumn<DateTime> get resolvedAt => $composableBuilder(
+    column: $table.resolvedAt,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<String> get description => $composableBuilder(
+    column: $table.description,
+    builder: (column) => column,
+  );
+}
+
+class $$SyncConflictsTableTableManager
+    extends
+        RootTableManager<
+          _$AppDatabase,
+          $SyncConflictsTable,
+          SyncConflict,
+          $$SyncConflictsTableFilterComposer,
+          $$SyncConflictsTableOrderingComposer,
+          $$SyncConflictsTableAnnotationComposer,
+          $$SyncConflictsTableCreateCompanionBuilder,
+          $$SyncConflictsTableUpdateCompanionBuilder,
+          (
+            SyncConflict,
+            BaseReferences<_$AppDatabase, $SyncConflictsTable, SyncConflict>,
+          ),
+          SyncConflict,
+          PrefetchHooks Function()
+        > {
+  $$SyncConflictsTableTableManager(_$AppDatabase db, $SyncConflictsTable table)
+    : super(
+        TableManagerState(
+          db: db,
+          table: table,
+          createFilteringComposer: () =>
+              $$SyncConflictsTableFilterComposer($db: db, $table: table),
+          createOrderingComposer: () =>
+              $$SyncConflictsTableOrderingComposer($db: db, $table: table),
+          createComputedFieldComposer: () =>
+              $$SyncConflictsTableAnnotationComposer($db: db, $table: table),
+          updateCompanionCallback:
+              ({
+                Value<String> id = const Value.absent(),
+                Value<String> note_id = const Value.absent(),
+                Value<String> conflictType = const Value.absent(),
+                Value<String?> localData = const Value.absent(),
+                Value<String?> remoteData = const Value.absent(),
+                Value<String?> resolvedData = const Value.absent(),
+                Value<String> resolution = const Value.absent(),
+                Value<DateTime> createdAt = const Value.absent(),
+                Value<DateTime?> resolvedAt = const Value.absent(),
+                Value<String?> description = const Value.absent(),
+                Value<int> rowid = const Value.absent(),
+              }) => SyncConflictsCompanion(
+                id: id,
+                note_id: note_id,
+                conflictType: conflictType,
+                localData: localData,
+                remoteData: remoteData,
+                resolvedData: resolvedData,
+                resolution: resolution,
+                createdAt: createdAt,
+                resolvedAt: resolvedAt,
+                description: description,
+                rowid: rowid,
+              ),
+          createCompanionCallback:
+              ({
+                required String id,
+                required String note_id,
+                required String conflictType,
+                Value<String?> localData = const Value.absent(),
+                Value<String?> remoteData = const Value.absent(),
+                Value<String?> resolvedData = const Value.absent(),
+                Value<String> resolution = const Value.absent(),
+                Value<DateTime> createdAt = const Value.absent(),
+                Value<DateTime?> resolvedAt = const Value.absent(),
+                Value<String?> description = const Value.absent(),
+                Value<int> rowid = const Value.absent(),
+              }) => SyncConflictsCompanion.insert(
+                id: id,
+                note_id: note_id,
+                conflictType: conflictType,
+                localData: localData,
+                remoteData: remoteData,
+                resolvedData: resolvedData,
+                resolution: resolution,
+                createdAt: createdAt,
+                resolvedAt: resolvedAt,
+                description: description,
+                rowid: rowid,
+              ),
+          withReferenceMapper: (p0) => p0
+              .map((e) => (e.readTable(table), BaseReferences(db, table, e)))
+              .toList(),
+          prefetchHooksCallback: null,
+        ),
+      );
+}
+
+typedef $$SyncConflictsTableProcessedTableManager =
+    ProcessedTableManager<
+      _$AppDatabase,
+      $SyncConflictsTable,
+      SyncConflict,
+      $$SyncConflictsTableFilterComposer,
+      $$SyncConflictsTableOrderingComposer,
+      $$SyncConflictsTableAnnotationComposer,
+      $$SyncConflictsTableCreateCompanionBuilder,
+      $$SyncConflictsTableUpdateCompanionBuilder,
+      (
+        SyncConflict,
+        BaseReferences<_$AppDatabase, $SyncConflictsTable, SyncConflict>,
+      ),
+      SyncConflict,
+      PrefetchHooks Function()
+    >;
 
 class $AppDatabaseManager {
   final _$AppDatabase _db;
@@ -4154,4 +5093,6 @@ class $AppDatabaseManager {
       $$NoteTagsTableTableManager(_db, _db.noteTags);
   $$DailyNotesCountTableTableManager get dailyNotesCount =>
       $$DailyNotesCountTableTableManager(_db, _db.dailyNotesCount);
+  $$SyncConflictsTableTableManager get syncConflicts =>
+      $$SyncConflictsTableTableManager(_db, _db.syncConflicts);
 }
