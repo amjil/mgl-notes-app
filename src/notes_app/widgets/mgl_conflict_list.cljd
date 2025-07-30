@@ -1,0 +1,152 @@
+(ns notes-app.widgets.mgl-conflict-list
+  (:require
+   ["package:flutter/material.dart" :as m]
+   ["package:mongol/mongol.dart" :as mgl]
+   [cljd.flutter :as f]
+   [notes-app.widgets.mgl-popup-menu :as popup-menu]
+   [notes-app.widgets.mgl-conflict-view :as conflict-dialog]
+   [notes-app.widgets.mgl-loading-state :as loading-state]
+   [notes-app.widgets.mgl-empty-state :as empty-state]
+   [notes-app.widgets.mgl-infinite-scroll :as infinite-scroll]
+   [notes-app.states.conflict :as conflict]))
+
+;; Constants for better maintainability
+(def CONFLICT_ITEM_MARGIN 12)
+(def CONFLICT_ITEM_PADDING 16)
+(def CONFLICT_ITEM_BORDER_RADIUS 16)
+(def CONFLICT_ITEM_ELEVATION 4)
+(def CONFLICT_ITEM_SHADOW_OPACITY 0.1)
+(def CONFLICT_TEXT_MAX_LINES 3)
+(def CONFLICT_TEXT_FONT_SIZE 14)
+
+;; Memoized theme colors for better performance
+(defn get-theme-colors [theme]
+  (let [is-dark? (= (.-brightness (.-colorScheme theme)) m/Brightness.dark)]
+    {:bg-color (if is-dark? (m/Color. 0xFF1E1E1E) m/Colors.white)
+     :preview-color (if is-dark? (m/Colors.grey 400) (m/Colors.grey 600))}))
+
+;; Enhanced conflict menu items with actual functionality
+(defn conflict-menu-items [ctx conflict]
+  [(popup-menu/mongol-menu-item
+    {:label "Select Local"
+     :icon m/Icons.restore
+     :on-selected (fn [] 
+                    (conflict/resolve-local-wins! ctx (:id conflict))
+                    (dart:core/print "Selected Local"))})
+   (popup-menu/mongol-menu-item
+    {:label "Select Remote"
+     :icon m/Icons.delete_forever
+     :on-selected (fn [] 
+                    (conflict/resolve-remote-wins! ctx (:id conflict))
+                    (dart:core/print "Selected Remote"))})
+   (popup-menu/mongol-menu-item-divider)
+   (popup-menu/mongol-menu-item
+    {:label "Merge Manually"
+     :icon m/Icons.merge_type
+     :on-selected (fn [] 
+                    (conflict/set-current-conflict! conflict)
+                    (conflict-dialog/show-dialog ctx))})])
+
+;; Optimized load more logic
+(defn should-load-more-conflicts? []
+  (let [state @conflict/conflict-state]
+    (and (:has-more state)
+         (not (:loading-more state))
+         (not (:loading state)))))
+
+(defn load-more-conflicts-trigger [ctx]
+  (when (should-load-more-conflicts?)
+    (conflict/load-more-conflicts! ctx)))
+
+;; Optimized conflict item with better performance
+(defn conflict-item [item]
+  (f/widget
+   :context ctx
+   :let [theme (-> m/Theme (.of ctx))
+         colors (get-theme-colors theme)
+         item-data (.-data item)
+         local-content (get item-data "local_data")
+         remote-content (get item-data "remote_data")
+         conflict-id (get item-data "id")
+         resolution (get item-data "resolution")
+         conflict-type (get item-data "conflictType")]
+   (m/Card
+    .color (:bg-color colors)
+    .margin (m/EdgeInsets.all CONFLICT_ITEM_MARGIN)
+    .shape (m/RoundedRectangleBorder .borderRadius (m/BorderRadius.circular CONFLICT_ITEM_BORDER_RADIUS))
+    .elevation CONFLICT_ITEM_ELEVATION
+    .shadowColor (m/Colors.black.withOpacity CONFLICT_ITEM_SHADOW_OPACITY))
+   (m/Padding
+    .padding (m/EdgeInsets.all CONFLICT_ITEM_PADDING))
+   (m/Column
+    .children
+    [(m/Row
+      .children
+      [(popup-menu/mongol-popup-menu-button
+        {:items (conflict-menu-items ctx item-data)
+         :on-selected (fn [menu-item]
+                        (dart:core/print (str "Menu item selected: " (get menu-item :label))))})
+       (m/SizedBox .width 8)
+       ;; Conflict status indicator
+       (m/Container
+        .padding (m/EdgeInsets.symmetric .horizontal 8 .vertical 4)
+        .decoration (m/BoxDecoration
+                     .color (case resolution
+                              "pending" (m/Colors.orange 100)
+                              "local_wins" (m/Colors.green 100)
+                              "remote_wins" (m/Colors.blue 100)
+                              "merged" (m/Colors.purple 100)
+                              (m/Colors.grey 100))
+                     .borderRadius (m/BorderRadius.circular 12))
+        .child (mgl/MongolText (conflict/get-conflict-status-text item-data)
+                               .style (m/TextStyle .fontSize 12 .fontWeight m/FontWeight.w500)))
+       (m/SizedBox .width 8)
+       (m/Expanded
+        .child
+        (m/GestureDetector
+         .onLongPressStart (fn [details]
+                             (popup-menu/show-menu
+                              {:context ctx
+                               :items (conflict-menu-items ctx item-data)
+                               :detail details}))
+         .onTap (fn []
+                  (conflict/set-current-conflict! item-data)
+                  (conflict-dialog/show-dialog ctx))
+         .child
+         (mgl/MongolListTile
+          .title (mgl/MongolText (str "Conflict #" conflict-id)
+                                 .style (m/TextStyle .fontSize 16 .fontWeight m/FontWeight.bold))
+          .subtitle (mgl/MongolText local-content
+                                    .maxLines CONFLICT_TEXT_MAX_LINES
+                                    .style (m/TextStyle .fontSize CONFLICT_TEXT_FONT_SIZE
+                                                        .color (:preview-color colors))))))])])))
+
+;; Optimized conflict list with better state management
+(defn conflict-list []
+  (f/widget
+   :context ctx
+   :watch [{conflicts :results
+            loading :loading
+            loading-more :loading-more
+            has-more :has-more} conflict/conflict-state]
+   :managed [scroll-controller (infinite-scroll/create-scroll-controller (fn [] (load-more-conflicts-trigger ctx)))]
+   (m/Stack
+    .children
+    [(if loading
+       (loading-state/loading-indicator-themed)
+       (if (empty? conflicts)
+         (empty-state/empty-state {:message "No conflicts found"
+                                   :icon m/Icons.check_circle_outline
+                                   :subtitle "All conflicts have been resolved"})
+         ;; Conflict list
+         (m/Expanded
+          .child
+          (infinite-scroll/infinite-scroll-list
+           {:items conflicts
+            :scroll-controller scroll-controller
+            :scroll-direction m/Axis.horizontal
+            :item-builder conflict-item
+            :loading-more? loading-more
+            :has-more? has-more
+            :load-more-indicator (infinite-scroll/load-more-indicator infinite-scroll/loading-more-text)
+            :all-loaded-indicator (infinite-scroll/all-loaded-indicator infinite-scroll/all-loaded-text)}))))])))

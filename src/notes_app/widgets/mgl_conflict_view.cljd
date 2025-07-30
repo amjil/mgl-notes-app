@@ -7,72 +7,149 @@
    [notes-app.states.conflict :as conflict]
    [notes-app.utils.span :as span-utils]))
 
+;; Constants for better maintainability
+(def DIALOG_HEIGHT_RATIO 0.85)
+(def DIALOG_PADDING 16)
+(def BUTTON_ICON_SIZE 24.0)
+
+;; Enhanced conflict viewer with better error handling
 (defn conflict-viewer []
   (f/widget
-   :let [conflict-model (conflict/get-current-conflict)
-         spans (span-utils/merge-rich-text-spans (:remote-data conflict-model) (:local-data conflict-model))]
-   (m/Padding .padding (m/EdgeInsets.all 16))
-   (mgl/MongolRichText .text (m/TextSpan .children spans))))
+   :let [conflict-model (conflict/get-current-conflict)]
+   (if conflict-model
+     (let [spans (span-utils/merge-rich-text-spans (:remote-data conflict-model) (:local-data conflict-model))]
+       (m/Padding 
+        .padding (m/EdgeInsets.all DIALOG_PADDING)
+        .child (mgl/MongolRichText .text (m/TextSpan .children spans))))
+     (m/Center
+      .child (mgl/MongolText "No conflict data available"
+                             .style (m/TextStyle .fontSize 16 .color m/Colors.grey))))))
 
+;; Enhanced conflict editor with better state management
 (defn conflict-editor []
   (f/widget
-   :let [conflict-model (conflict/get-current-conflict)
-         spans (span-utils/merge-rich-text-spans (:remote-data conflict-model) (:local-data conflict-model))
-         text (.-text (m/TextSpan .children spans))]
-   :managed [controller (m/TextEditingController .text text)]
-   (m/Padding .padding (m/EdgeInsets.all 16))
-   (input-editor/input-editor
-    {:controller controller
-     :on-changed identity 
-     :auto-focus true})))
+   :let [conflict-model (conflict/get-current-conflict)]
+   :managed [controller (m/TextEditingController)]
+   (if conflict-model
+     (let [spans (span-utils/merge-rich-text-spans (:remote-data conflict-model) (:local-data conflict-model))
+           text (.-text (m/TextSpan .children spans))]
+       (do
+         (.setText controller text)
+         (m/Padding 
+          .padding (m/EdgeInsets.all DIALOG_PADDING)
+          .child (input-editor/input-editor
+                  {:controller controller
+                   :on-changed identity 
+                   :auto-focus true}))))
+     (m/Center
+      .child (mgl/MongolText "No conflict data available"
+                             .style (m/TextStyle .fontSize 16 .color m/Colors.grey))))))
 
-
-(defn conflict-viewer-dialog [context]
-  (let [is-editing? (atom false)]
+;; Optimized conflict dialog with better structure and functionality
+(defn conflict-dialog [context]
+  (let [is-editing? (atom false)
+        text-controller (atom nil)]
     (f/widget
      :context ctx
-     :let [screen-height (* (-> m/MediaQuery (.of ctx) .-size .-height) 0.85)
-           screen-width (-> m/MediaQuery (.of ctx) .-size .-width)]
+     :let [screen-height (* (-> m/MediaQuery (.of ctx) .-size .-height) DIALOG_HEIGHT_RATIO)
+           screen-width (-> m/MediaQuery (.of ctx) .-size .-width)
+           conflict-model (conflict/get-current-conflict)]
      :watch [is-editing is-editing?]
      (m/Dialog
       .alignment m/Alignment.bottomCenter
       .insetPadding (m/EdgeInsets.zero)
       .child
-      (m/Row
-       .mainAxisAlignment m/MainAxisAlignment.end
-       .children
-       [(m/Container
-         .height screen-height
-         .width screen-width
-         .child
-         (m/Column
-          .mainAxisSize m/MainAxisSize.min
-          .children [;; Top button row
-                     (m/Row
-                      .mainAxisAlignment m/MainAxisAlignment.spaceBetween
-                      .children [;; Close button
-                                 (m/IconButton
-                                  .icon (m/Icon m/Icons.arrow_downward)
-                                  .onPressed (fn [] (-> m/Navigator (.of context) (.pop))))
-                                 ;; Edit button
-                                 (if (true? is-editing)
-                                   (m/IconButton
-                                    .icon (m/Icon m/Icons.save)
-                                    .onPressed (fn []
-                                                 (dart:core/print "Save button clicked")
-                                                 (-> m/Navigator (.of context) (.pop))))
-                                   (m/IconButton
-                                    .icon (m/Icon m/Icons.edit)
-                                    .onPressed (fn [] (reset! is-editing? true))))])
-                     ;; Main content
-                     (m/Expanded
-                      .child
-                      (if (true? is-editing)
-                        (conflict-editor)
-                        (conflict-viewer)))]))])))))
+      (m/Container
+       .height screen-height
+       .width screen-width
+       .decoration (m/BoxDecoration
+                    .color m/Colors.white
+                    .borderRadius (m/BorderRadius.only
+                                  .topLeft (m/Radius.circular 20)
+                                  .topRight (m/Radius.circular 20)))
+       .child
+       (m/Column
+        .children
+        [;; Header with title and buttons
+         (m/Container
+          .padding (m/EdgeInsets.all DIALOG_PADDING)
+          .decoration (m/BoxDecoration
+                       .color (-> m/Colors .grey 50)
+                       .borderRadius (m/BorderRadius.only
+                                     .topLeft (m/Radius.circular 20)
+                                     .topRight (m/Radius.circular 20)))
+          .child
+          (m/Row
+           .mainAxisAlignment m/MainAxisAlignment.spaceBetween
+           .children
+           [;; Title
+            (mgl/MongolText "Conflict Resolution"
+                           .style (m/TextStyle .fontSize 18 .fontWeight m/FontWeight.bold))
+            ;; Action buttons
+            (m/Row
+             .children
+             [(if (true? is-editing)
+                ;; Save button
+                (m/IconButton
+                 .icon (m/Icon m/Icons.save .size BUTTON_ICON_SIZE)
+                 .onPressed (fn []
+                              (when @text-controller
+                                (let [merged-text (.text @text-controller)]
+                                  (conflict/resolve-merge! ctx (:id conflict-model) merged-text)))
+                              (-> m/Navigator (.of context) (.pop))))
+                ;; Edit button
+                (m/IconButton
+                 .icon (m/Icon m/Icons.edit .size BUTTON_ICON_SIZE)
+                 .onPressed (fn [] (reset! is-editing? true))))
+              (m/SizedBox .width 8)
+              ;; Close button
+              (m/IconButton
+               .icon (m/Icon m/Icons.close .size BUTTON_ICON_SIZE)
+               .onPressed (fn [] (-> m/Navigator (.of context) (.pop))))])]))
+         ;; Conflict info section
+         (when conflict-model
+           (m/Container
+            .padding (m/EdgeInsets.symmetric .horizontal DIALOG_PADDING)
+            .child
+            (m/Row
+             .mainAxisAlignment m/MainAxisAlignment.spaceBetween
+             .children
+             [(mgl/MongolText (str "ID: " (:id conflict-model))
+                              .style (m/TextStyle .fontSize 12 .color m/Colors.grey))
+              (mgl/MongolText (conflict/get-conflict-type-text conflict-model)
+                              .style (m/TextStyle .fontSize 12 .color m/Colors.grey))])))
+         ;; Main content area
+         (m/Expanded
+          .child
+          (m/Container
+           .padding (m/EdgeInsets.all DIALOG_PADDING)
+           .child
+           (if (true? is-editing)
+             (conflict-editor)
+             (conflict-viewer))))
+         ;; Bottom action buttons
+         (when (and conflict-model (not (true? is-editing)))
+           (m/Container
+            .padding (m/EdgeInsets.all DIALOG_PADDING)
+            .child
+            (m/Row
+             .mainAxisAlignment m/MainAxisAlignment.spaceEvenly
+             .children
+             [(m/ElevatedButton
+               .onPressed (fn []
+                            (conflict/resolve-local-wins! ctx (:id conflict-model))
+                            (-> m/Navigator (.of context) (.pop)))
+               .child (mgl/MongolText "Use Local"))
+              (m/ElevatedButton
+               .onPressed (fn []
+                            (conflict/resolve-remote-wins! ctx (:id conflict-model))
+                            (-> m/Navigator (.of context) (.pop)))
+               .child (mgl/MongolText "Use Remote"))])))]))))))
 
+;; Enhanced show dialog function
 (defn show-dialog [context]
   (m/showDialog
    .context context
+   .barrierDismissible false
    .builder (fn [_]
-              (conflict-viewer-dialog context))))
+              (conflict-dialog context))))
