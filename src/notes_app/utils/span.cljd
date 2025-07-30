@@ -1,7 +1,8 @@
 (ns notes-app.utils.span
   (:require
    ["package:flutter/material.dart" :as m]
-   ["package:flutter/gestures.dart" :as g]))
+   ["package:flutter/gestures.dart" :as g]
+   ["package:diff_match_patch/diff_match_patch.dart" :as dmp]))
 
 (defn- all-matches [text pattern type-fn]
   (let [matches (.allMatches (RegExp. pattern) text)]
@@ -95,3 +96,18 @@
                .decoration m/TextDecoration.overline
                .color (-> theme .-colorScheme .-primary))
        .recognizer recognizer)))
+
+  
+;; === Conflict Merge RichText Spans ===
+(defn merge-rich-text-spans [old-text new-text]
+  (let [dmp-instance (dmp/DiffMatchPatch.)
+        diffs (.diff dmp-instance old-text new-text)
+        _ (.diffCleanupSemantic dmp-instance diffs)
+        style-spans (fn [x] (condp = (first x)
+                              "EQUAL" (m/TextStyle)
+                              "DELETE" (m/TextStyle .backgroundColor (m/Colors.red)
+                                                    .decoration (m/TextDecoration.lineThrough))
+                              "INSERT" (m/TextStyle .backgroundColor (m/Colors.green))))]
+    (->> diffs
+         (mapv #(vector (aget % "operation") (aget % "text")))
+         (mapv #(m/TextSpan .text (second %) .style (style-spans %))))))

@@ -1,0 +1,78 @@
+(ns notes-app.widgets.mgl-conflict-view
+  (:require
+   ["package:flutter/material.dart" :as m]
+   ["package:mongol/mongol.dart" :as mgl]
+   [cljd.flutter :as f]
+   [notes-app.widgets.mgl-input-editor :as input-editor]
+   [notes-app.states.conflict :as conflict]
+   [notes-app.utils.span :as span-utils]))
+
+(defn conflict-viewer []
+  (f/widget
+   :let [conflict-model (conflict/get-current-conflict)
+         spans (span-utils/merge-rich-text-spans (:remote-data conflict-model) (:local-data conflict-model))]
+   (m/Padding .padding (m/EdgeInsets.all 16))
+   (mgl/MongolRichText .text (m/TextSpan .children spans))))
+
+(defn conflict-editor []
+  (f/widget
+   :let [conflict-model (conflict/get-current-conflict)
+         spans (span-utils/merge-rich-text-spans (:remote-data conflict-model) (:local-data conflict-model))
+         text (.-text (m/TextSpan .children spans))]
+   :managed [controller (m/TextEditingController .text text)]
+   (m/Padding .padding (m/EdgeInsets.all 16))
+   (input-editor/input-editor
+    {:controller controller
+     :on-changed identity 
+     :auto-focus true})))
+
+
+(defn conflict-viewer-dialog [context]
+  (let [is-editing? (atom false)]
+    (f/widget
+     :context ctx
+     :let [screen-height (* (-> m/MediaQuery (.of ctx) .-size .-height) 0.85)
+           screen-width (-> m/MediaQuery (.of ctx) .-size .-width)]
+     :watch [is-editing is-editing?]
+     (m/Dialog
+      .alignment m/Alignment.bottomCenter
+      .insetPadding (m/EdgeInsets.zero)
+      .child
+      (m/Row
+       .mainAxisAlignment m/MainAxisAlignment.end
+       .children
+       [(m/Container
+         .height screen-height
+         .width screen-width
+         .child
+         (m/Column
+          .mainAxisSize m/MainAxisSize.min
+          .children [;; Top button row
+                     (m/Row
+                      .mainAxisAlignment m/MainAxisAlignment.spaceBetween
+                      .children [;; Close button
+                                 (m/IconButton
+                                  .icon (m/Icon m/Icons.arrow_downward)
+                                  .onPressed (fn [] (-> m/Navigator (.of context) (.pop))))
+                                 ;; Edit button
+                                 (if (true? is-editing)
+                                   (m/IconButton
+                                    .icon (m/Icon m/Icons.save)
+                                    .onPressed (fn []
+                                                 (dart:core/print "Save button clicked")
+                                                 (-> m/Navigator (.of context) (.pop))))
+                                   (m/IconButton
+                                    .icon (m/Icon m/Icons.edit)
+                                    .onPressed (fn [] (reset! is-editing? true))))])
+                     ;; Main content
+                     (m/Expanded
+                      .child
+                      (if (true? is-editing)
+                        (conflict-editor)
+                        (conflict-viewer)))]))])))))
+
+(defn show-dialog [context]
+  (m/showDialog
+   .context context
+   .builder (fn [_]
+              (conflict-viewer-dialog context))))

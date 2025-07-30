@@ -1,0 +1,294 @@
+(ns notes-app.states.conflict
+  (:require
+   ["package:uuid/uuid.dart" :as uuid]
+   [notes-app.services.db :as db]
+   [notes-app.utils.state-helpers :as helpers]))
+
+;; Conflict State Management
+;; Responsible for managing sync conflicts-related states, including conflicts list, current conflict, etc.
+
+;; Conflict State
+(def conflict-state
+  (atom
+   (helpers/create-base-state
+    {:conflicts []
+     :current-conflict nil
+     :pending-count 0
+     :total-count 0
+     :conflict-summary {}
+     :filter-resolution nil
+     :filter-type nil})))
+
+(def ^uuid/Uuid uuid-instance (uuid/Uuid.))
+
+;; ===== Conflict State Operations =====
+
+;; Load all conflicts
+(defn load-all-conflicts! [ctx]
+  (helpers/with-loading-state! ctx conflict-state
+    (-> (db/get-sync-conflicts-paginated 0 1000)
+        (.then (fn [conflicts]
+                 (swap! conflict-state assoc :conflicts conflicts :loading false))))))
+
+;; Load conflicts paginated
+(defn load-conflicts-paginated! [ctx page & [page-size]]
+  (let [limit (or page-size 20)]
+    (helpers/with-loading-state! ctx conflict-state
+      (-> (db/get-sync-conflicts-paginated page limit)
+          (.then (fn [conflicts]
+                   (helpers/handle-pagination-result! conflict-state page conflicts limit)))))))
+
+;; Load pending conflicts
+(defn load-pending-conflicts! [ctx]
+  (helpers/with-loading-state! ctx conflict-state
+    (-> (db/get-pending-sync-conflicts)
+        (.then (fn [conflicts]
+                 (swap! conflict-state assoc :conflicts conflicts :loading false))))))
+
+;; Load conflicts by note id
+(defn load-conflicts-by-note-id! [ctx note-id]
+  (helpers/with-loading-state! ctx conflict-state
+    (-> (db/get-sync-conflicts-by-note-id note-id)
+        (.then (fn [conflicts]
+                 (swap! conflict-state assoc :conflicts conflicts :loading false))))))
+
+;; Load conflicts by resolution
+(defn load-conflicts-by-resolution! [ctx resolution]
+  (helpers/with-loading-state! ctx conflict-state
+    (-> (db/get-sync-conflicts-by-resolution resolution)
+        (.then (fn [conflicts]
+                 (swap! conflict-state assoc :conflicts conflicts :loading false))))))
+
+;; Load conflicts by type
+(defn load-conflicts-by-type! [ctx conflict-type]
+  (helpers/with-loading-state! ctx conflict-state
+    (-> (db/get-sync-conflicts-by-type conflict-type)
+        (.then (fn [conflicts]
+                 (swap! conflict-state assoc :conflicts conflicts :loading false))))))
+
+;; Load conflict summary
+(defn load-conflict-summary! [ctx]
+  (helpers/with-loading-state! ctx conflict-state
+    (-> (db/get-sync-conflicts-summary)
+        (.then (fn [summary]
+                 (swap! conflict-state assoc :conflict-summary summary :loading false))))))
+
+;; Load conflict counts
+(defn load-conflict-counts! []
+  (dart:core/print "load-conflict-counts!")
+  (->
+   (db/get-sync-conflicts-count)
+   (.then (fn [total-count]
+            (dart:core/print (str "total-count: " total-count))
+            (swap! conflict-state assoc :total-count (get total-count "count" 0) :loading false))))
+  (->
+   (db/get-pending-sync-conflicts-count)
+   (.then (fn [pending-count]
+            (dart:core/print (str "pending-count: " pending-count))
+            (swap! conflict-state assoc :pending-count (get pending-count "count" 0) :loading false)))))
+
+;; Create conflict
+(defn create-conflict! [ctx note-id local-data remote-data & {:keys [description conflict-type] :or {description nil conflict-type "version_conflict"}}]
+  (helpers/with-success-toast! ctx conflict-state
+    (-> (db/create-sync-conflict note-id local-data remote-data :description description)
+        (.then (fn [conflict]
+                 (swap! conflict-state assoc
+                        :conflicts (conj (:conflicts @conflict-state) conflict)
+                        :loading false)
+                 (load-conflict-counts!)
+                 conflict)))
+    "Зөрчлийг амжилттай үүсгэлээ"))
+
+;; Get conflict by id
+(defn get-conflict-by-id! [ctx id]
+  (helpers/with-loading-state! ctx conflict-state
+    (-> (db/get-sync-conflict-by-id id)
+        (.then (fn [conflict]
+                 (swap! conflict-state assoc :current-conflict conflict :loading false)
+                 conflict)))))
+
+;; Resolve conflict
+(defn resolve-conflict! [ctx id resolution & {:keys [description] :or {description nil}}]
+  (helpers/with-success-toast! ctx conflict-state
+    (-> (db/resolve-sync-conflict id resolution :description description)
+        (.then (fn [success]
+                 (when success
+                   (let [updated-conflicts (map (fn [conflict]
+                                                  (if (= (:id conflict) id)
+                                                    (assoc conflict :resolution resolution :resolvedAt (DateTime/now))
+                                                    conflict))
+                                                (:conflicts @conflict-state))]
+                     (swap! conflict-state assoc :conflicts updated-conflicts)))
+                 (load-conflict-counts!)
+                 success)))
+    "Зөрчлийг амжилттай шийдлээ"))
+
+;; Delete conflict
+(defn delete-conflict! [ctx id]
+  (helpers/with-success-toast! ctx conflict-state
+    (-> (db/delete-sync-conflict id)
+        (.then (fn [success]
+                 (when success
+                   (let [filtered-conflicts (filter (fn [conflict] (not= (:id conflict) id))
+                                                   (:conflicts @conflict-state))]
+                     (swap! conflict-state assoc :conflicts filtered-conflicts)))
+                 (load-conflict-counts!)
+                 success)))
+    "Зөрчлийг амжилттай устгалаа"))
+
+;; Delete conflicts by note id
+(defn delete-conflicts-by-note-id! [ctx note-id]
+  (helpers/with-success-toast! ctx conflict-state
+    (-> (db/delete-sync-conflicts-by-note-id note-id)
+        (.then (fn [success]
+                 (when success
+                   (let [filtered-conflicts (filter (fn [conflict] (not= (:note_id conflict) note-id))
+                                                   (:conflicts @conflict-state))]
+                     (swap! conflict-state assoc :conflicts filtered-conflicts)))
+                 (load-conflict-counts!)
+                 success)))
+    "Зөрчлүүдийг амжилттай устгалаа"))
+
+;; Load more conflicts
+(defn load-more-conflicts! [ctx]
+  (helpers/load-more-helper! ctx conflict-state
+    (fn [page page-size]
+      (db/get-sync-conflicts-paginated page page-size))))
+
+;; Set filter resolution
+(defn set-filter-resolution! [resolution]
+  (swap! conflict-state assoc :filter-resolution resolution))
+
+;; Set filter type
+(defn set-filter-type! [conflict-type]
+  (swap! conflict-state assoc :filter-type conflict-type))
+
+;; Clear filters
+(defn clear-filters! []
+  (swap! conflict-state assoc :filter-resolution nil :filter-type nil))
+
+;; Apply filters
+(defn apply-filters! [ctx]
+  (let [resolution (:filter-resolution @conflict-state)
+        conflict-type (:filter-type @conflict-state)]
+    (cond
+      (and resolution conflict-type)
+      (load-conflicts-by-resolution! ctx resolution)
+      
+      resolution
+      (load-conflicts-by-resolution! ctx resolution)
+      
+      conflict-type
+      (load-conflicts-by-type! ctx conflict-type)
+      
+      :else
+      (load-all-conflicts! ctx))))
+
+;; ===== Conflict Resolution Helpers =====
+
+;; Auto-resolve conflict with local wins
+(defn resolve-local-wins! [ctx id]
+  (resolve-conflict! ctx id "local_wins" :description "Автоматаар шийдэгдсэн - Локал өгөгдөл хүрэлцэх"))
+
+;; Auto-resolve conflict with remote wins
+(defn resolve-remote-wins! [ctx id]
+  (resolve-conflict! ctx id "remote_wins" :description "Автоматаар шийдэгдсэн - Алсын өгөгдөл хүрэлцэх"))
+
+;; Auto-resolve conflict with merge
+(defn resolve-merge! [ctx id merged-data]
+  (-> (db/update-sync-conflict-resolution id "merged" :description "Автоматаар шийдэгдсэн - Нэгтгэсэн")
+      (.then (fn [success]
+               (when success
+                 (let [updated-conflicts (map (fn [conflict]
+                                                (if (= (:id conflict) id)
+                                                  (assoc conflict 
+                                                         :resolution "merged" 
+                                                         :resolvedData merged-data
+                                                         :resolvedAt (DateTime/now))
+                                                  conflict))
+                                              (:conflicts @conflict-state))]
+                   (swap! conflict-state assoc :conflicts updated-conflicts)))
+               (load-conflict-counts!)
+               success))))
+
+;; ===== State Queries =====
+
+;; Get conflicts
+(defn get-conflicts []
+  (:conflicts @conflict-state))
+
+;; Get current conflict
+(defn get-current-conflict []
+  (:current-conflict @conflict-state))
+
+;; Get pending count
+(defn get-pending-count []
+  (:pending-count @conflict-state))
+
+;; Get total count
+(defn get-total-count []
+  (:total-count @conflict-state))
+
+;; Get conflict summary
+(defn get-conflict-summary []
+  (:conflict-summary @conflict-state))
+
+;; Check if has pending conflicts
+(defn has-pending-conflicts? []
+  (> (:pending-count @conflict-state) 0))
+
+;; Get conflicts by resolution
+(defn get-conflicts-by-resolution [resolution]
+  (filter (fn [conflict] (= (:resolution conflict) resolution))
+          (:conflicts @conflict-state)))
+
+;; Get conflicts by type
+(defn get-conflicts-by-type [conflict-type]
+  (filter (fn [conflict] (= (:conflictType conflict) conflict-type))
+          (:conflicts @conflict-state)))
+
+;; ===== Utility Functions =====
+
+;; Get conflict description
+(defn get-conflict-description [conflict]
+  (or (:description conflict)
+      (str "Зөрчлийн төрөл: " (:conflictType conflict))))
+
+;; Get conflict status text
+(defn get-conflict-status-text [conflict]
+  (case (:resolution conflict)
+    "pending" "Хүлээгдэж буй"
+    "local_wins" "Локал хүрэлцэх"
+    "remote_wins" "Алсын хүрэлцэх"
+    "merged" "Нэгтгэсэн"
+    "Хүлээгдэж буй"))
+
+;; Get conflict type text
+(defn get-conflict-type-text [conflict]
+  (case (:conflictType conflict)
+    "version_conflict" "Хувилбарын зөрчөл"
+    "deletion_conflict" "Устгах зөрчөл"
+    "merge_conflict" "Нэгтгэх зөрчөл"
+    "Хүлээгдэж буй"))
+
+;; ===== State Reset =====
+
+;; Reset conflict state
+(defn reset-conflict-state! []
+  (reset! conflict-state
+          (helpers/create-base-state
+           {:conflicts []
+            :current-conflict nil
+            :pending-count 0
+            :total-count 0
+            :conflict-summary {}
+            :filter-resolution nil
+            :filter-type nil})))
+
+;; Refresh conflict state
+(defn refresh-conflict-state! [ctx]
+  (load-all-conflicts! ctx)
+  (load-conflict-counts!)
+  (load-conflict-summary! ctx))
+
+
