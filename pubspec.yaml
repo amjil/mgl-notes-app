@@ -49,6 +49,7 @@ dependencies:
   http: ^1.4.0
   
   path_provider: ^2.1.4
+  # file_picker: ^8.0.0+1
   
   # Drift database related dependencies
   drift: ^2.27.0

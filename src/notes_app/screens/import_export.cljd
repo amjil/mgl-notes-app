@@ -1,0 +1,102 @@
+(ns notes-app.screens.import-export
+  (:require
+   ["package:flutter/material.dart" :as m]
+   ["package:mongol/mongol.dart" :as mgl]
+   [cljd.flutter :as f]
+   [notes-app.services.import-export :as import-export-service]
+   [notes-app.widgets.mgl-import-export :as import-export]
+   [notes-app.utils.file :as file]
+   [notes-app.utils.toast :as toast]))
+
+(def screen
+  (f/widget
+   :context ctx
+   :get {{{headline-smaill .-headlineSmall
+           title-medium .-titleMedium
+           body-medium .-bodyMedium} .-textTheme
+          {surface .-surface
+           on-surface .-onSurface} .-colorScheme} m/Theme}
+   (m/Scaffold
+    .appBar 
+    (m/AppBar
+             .title (m/Text "Import/Export")
+             .backgroundColor surface
+             .foregroundColor on-surface))
+   .body
+   (m/SingleChildScrollView
+    .scrollDirection m/Axis.horizontal
+    .padding (m/EdgeInsets.all 16))
+   (m/Row
+    .crossAxisAlignment m/CrossAxisAlignment.start
+    .children
+    [(mgl/MongolText "Data Management"
+                     .style headline-smaill)
+     (m/SizedBox .width 16)
+
+     ;; Export Section
+     (m/Card
+      .child (m/Padding
+              .padding (m/EdgeInsets.all 16)
+              .child (m/Row
+                      .crossAxisAlignment m/CrossAxisAlignment.start
+                      .children
+                      [(mgl/MongolText "Export Notes"
+                                       .style title-medium)
+                       (m/SizedBox .width 8)
+                       (mgl/MongolText "Export all your notes to a JSON file for backup or transfer."
+                                       .style body-medium)
+                       (m/SizedBox .width 16)
+                       (m/ElevatedButton
+                        .onPressed (fn []
+                                     (-> (import-export-service/export-notes)
+                                         (.then (fn [result]
+                                                  (toast/show-toast ctx "Notes exported successfully" :success)))
+                                         (.catchError (fn [error]
+                                                        (toast/show-toast ctx (str "Error exporting notes: " error) :error)))))
+                        .child (m/Column
+                                .mainAxisSize m/MainAxisSize.min
+                                .children [(m/Icon m/Icons.download)
+                                           (m/SizedBox .height 8)
+                                           (mgl/MongolText "Export Notes")]))])))
+
+     (m/SizedBox .width 16)
+
+     ;; Import Section
+     (m/Card
+      .child (m/Padding
+              .padding (m/EdgeInsets.all 16)
+              .child (m/Row
+                      .crossAxisAlignment m/CrossAxisAlignment.start
+                      .children
+                      [(mgl/MongolText "Import Notes"
+                                       .style title-medium)
+                       (m/SizedBox .width 8)
+                       (mgl/MongolText "Import notes from a JSON file. This will add new notes to your collection."
+                                       .style body-medium)
+                       (m/SizedBox .width 16)
+                       (m/ElevatedButton
+                        .onPressed (fn []
+                                     (file/file-picker ctx))
+                        .child (m/Column
+                                .mainAxisSize m/MainAxisSize.min
+                                .children [(m/Icon m/Icons.upload)
+                                           (m/SizedBox .height 8)
+                                           (mgl/MongolText "Import Notes")]))])))
+
+     (m/SizedBox .width 16)
+
+     ;; Export Files Section
+     (m/Card
+      .child
+      (m/Padding
+       .padding (m/EdgeInsets.all 16)
+       .child (m/Row
+               .crossAxisAlignment m/CrossAxisAlignment.start
+               .children
+               [(mgl/MongolText "Export Files"
+                                .style title-medium)
+                (m/SizedBox .width 8)
+                (mgl/MongolText "Manage your exported files."
+                                .style body-medium)
+                (m/SizedBox .width 16)
+                (import-export/export-files-list)])))])))

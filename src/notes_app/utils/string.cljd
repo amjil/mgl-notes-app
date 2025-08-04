@@ -27,4 +27,12 @@
        (map str/trim)
        (filter #(not (str/blank? %)))
        first
-       (or "Шинэ тэмдэглэл"))) 
+       (or "Шинэ тэмдэглэл")))
+
+;; Pad string to the left with a character
+(defn pad-left [s pad-char target-length]
+  (let [current-length (count s)
+        padding-needed (- target-length current-length)]
+    (if (<= padding-needed 0)
+      s
+      (str (str/join (repeat padding-needed pad-char)) s)))) 

@@ -59,3 +59,12 @@
 (defn empty-blocks []
   (empty-state {:message "Блок байхгүй"
                 :icon m/Icons.block_outlined}))
+
+;; Empty export files state
+(defn empty-export-files []
+  (empty-state {:message "Export files not found"
+                :icon m/Icons.file_present_outlined}))
+
+(defn empty-export-files-with-errors []
+  (empty-state {:message "Error When Fetching Export Files"
+                :icon m/Icons.file_present_outlined}))

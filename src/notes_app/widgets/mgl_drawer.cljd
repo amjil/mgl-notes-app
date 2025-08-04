@@ -29,7 +29,8 @@
                         .onPressed #(dart:core/print "Open avatar")))
                (m/IconButton
                 .icon (m/Icon m/Icons.settings)
-                .onPressed #(dart:core/print "Open Settings"))]))
+                .onPressed (fn []
+                             (dart:core/print "Open Settings")))]))
      (m/Divider .height 1)
      (mgl-stats-widget/stats-panel)
      (m/Divider .height 1)

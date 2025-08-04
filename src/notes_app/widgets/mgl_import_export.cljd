@@ -1,0 +1,59 @@
+(ns notes-app.widgets.mgl-import-export
+  (:require
+   ["package:flutter/material.dart" :as m]
+   ["package:mongol/mongol.dart" :as mgl]
+   [cljd.flutter :as f]
+   [notes-app.services.import-export :as import-export]
+   [notes-app.widgets.mgl-setting :as mgl-setting]
+   [notes-app.widgets.mgl-popup-menu :as popup-menu]
+   [notes-app.utils.toast :as toast]
+   [notes-app.widgets.mgl-empty-state :as empty-state]
+   [notes-app.utils.file :as file]))
+
+;; Import/Export settings widget
+;; Provides UI for importing and exporting notes data
+(def state (atom nil))
+
+(defn create-menu-items [ctx file]
+  [(popup-menu/mongol-menu-item
+    {:label "Share"
+     :icon m/Icons.share
+     :on-selected (fn []
+                    (import-export/share-export-file (.-path file)))})
+   (popup-menu/mongol-menu-item-divider)
+   (popup-menu/mongol-menu-item
+    {:label "Delete"
+     :icon m/Icons.delete
+     :on-selected (fn []
+                    (import-export/delete-export-file (.-path file)))})])
+
+(defn export-files-list []
+  (f/widget
+   :context ctx
+   :let [theme (-> m/Theme (.of ctx))
+         color-scheme (.-colorScheme theme)]
+   :watch [files state]
+   (if (empty? files)
+     (empty-state/empty-export-files)
+     (m/ListView.builder
+      .scrollDirection m/Axis.horizontal
+      .itemCount (count files)
+      .itemBuilder (fn [context index]
+                     (let [file (nth files index)]
+                       (mgl/MongolListTile
+                        .leading (popup-menu/mongol-popup-menu-button
+                                  {:items (create-menu-items ctx file)
+                                   :on-selected (fn [menu-item]
+                                                  (dart:core/print (str "Menu item selected: " (get menu-item :label))))})
+                        .title (mgl/MongolText (.-name file))
+                        .subtitle (mgl/MongolText (str "Size: " (.-size file) " bytes"))
+                        .trailing (m/Icon m/Icons.file_present))))))))
+
+
+(defn import-export-settings-item [ctx]
+  (mgl-setting/settings-item
+   {:title "Import/Export"
+    :subtitle "Manage your notes data"
+    :leading m/Icons.import_export
+    :on-tap (fn []
+              (dart:core/print "Import/Export settings item tapped"))})) 
