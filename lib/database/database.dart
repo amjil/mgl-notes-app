@@ -17,6 +17,9 @@ class Notes extends Table {
   TextColumn get syncStatus => text().withDefault(const Constant('pending'))();
   BoolColumn get isBlocksSynced => boolean().withDefault(const Constant(false))();
   BoolColumn get isDeleted => boolean().withDefault(const Constant(false))();
+  DateTimeColumn get syncedAt => dateTime().nullable()();
+  TextColumn get baseHash => text().nullable()();
+  BoolColumn get mergedFromConflict => boolean().withDefault(const Constant(false))();
 
   @override
   Set<Column> get primaryKey => {id};
@@ -107,7 +110,7 @@ class AppDatabase extends _$AppDatabase {
   AppDatabase(super.e);
 
   @override
-  int get schemaVersion => 6;
+  int get schemaVersion => 8;
 
   @override
   MigrationStrategy get migration {
@@ -145,6 +148,13 @@ class AppDatabase extends _$AppDatabase {
         }
         if (from < 7) {
           await m.createTable(syncConflicts);
+        }
+        if (from < 8) {
+          await m.addColumn(notes, notes.syncedAt);
+          await m.addColumn(notes, notes.baseHash);
+        }
+        if (from < 9) {
+          await m.addColumn(notes, notes.mergedFromConflict);
         }
       },
     );
