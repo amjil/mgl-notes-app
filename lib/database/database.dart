@@ -20,6 +20,7 @@ class Notes extends Table {
   DateTimeColumn get syncedAt => dateTime().nullable()();
   TextColumn get baseHash => text().nullable()();
   BoolColumn get mergedFromConflict => boolean().withDefault(const Constant(false))();
+  DateTimeColumn get deletedAt => dateTime().nullable()();
 
   @override
   Set<Column> get primaryKey => {id};
@@ -110,7 +111,7 @@ class AppDatabase extends _$AppDatabase {
   AppDatabase(super.e);
 
   @override
-  int get schemaVersion => 8;
+  int get schemaVersion => 9;
 
   @override
   MigrationStrategy get migration {
@@ -155,6 +156,9 @@ class AppDatabase extends _$AppDatabase {
         }
         if (from < 9) {
           await m.addColumn(notes, notes.mergedFromConflict);
+        }
+        if (from < 10) {
+          await m.addColumn(notes, notes.deletedAt);
         }
       },
     );
