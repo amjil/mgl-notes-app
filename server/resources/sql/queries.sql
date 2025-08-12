@@ -22,7 +22,7 @@ WHERE id = :id
 
 -- Notes related queries
 -- :name pull-notes :? :*
-select id, content, block_ids, created_at, updated_at 
+select id, content, block_ids, created_at, updated_at, sync_version 
 from notes
 where updated_at > :since
 order by updated_at asc

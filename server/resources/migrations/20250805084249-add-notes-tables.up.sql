@@ -18,3 +18,4 @@ CREATE TABLE notes
 -- Create indexes to improve query performance
 CREATE INDEX idx_notes_user_id ON notes(user_id);
 CREATE INDEX idx_notes_updated_at ON notes(updated_at);
+CREATE INDEX idx_notes_sync_version ON notes(sync_version);
