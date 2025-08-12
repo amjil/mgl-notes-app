@@ -27,7 +27,8 @@
                  [org.clojure/tools.logging "1.2.4"]
                  [org.postgresql/postgresql "42.3.2"]
                  [ring/ring-core "1.9.6"]
-                 [ring/ring-defaults "0.3.4"]]
+                 [ring/ring-defaults "0.3.4"]
+                 [ring-logger "1.1.1"]]
 
   :min-lein-version "2.0.0"
   

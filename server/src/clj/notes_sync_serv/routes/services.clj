@@ -9,7 +9,7 @@
    [reitit.ring.middleware.parameters :as parameters]
    [notes-sync-serv.middleware.formats :as formats]
    [notes-sync-serv.routes.notes :as notes-routes]
-   [ring.util.http-response :refer :all]))
+   [ring.util.http-response :refer [ok]]))
 
 (defn service-routes []
   ["/api"
@@ -49,5 +49,7 @@
    ["/ping"
     {:get (constantly (ok {:message "pong"}))}]
    
+   ;; Notes routes
+   (notes-routes/notes-routes)
    
    ])

@@ -60,6 +60,22 @@
       (log/error e "Failed to get note sync data")
       [])))
 
+(defn upsert-note!
+  "Upsert note (insert or update)"
+  [{:keys [id user_id content block_ids created_at updated_at sync_version]}]
+  (try
+    (db/upsert-note! {:id id
+                      :user_id user_id
+                      :content content
+                      :block_ids block_ids
+                      :created_at created_at
+                      :updated_at updated_at
+                      :sync_version sync_version})
+    {:success true :id id}
+    (catch Exception e
+      (log/error e "Failed to upsert note")
+      {:success false :error (.getMessage e)})))
+
 (defn soft-delete-note!
   "Soft delete note"
   [{:keys [id user_id sync_version]}]
