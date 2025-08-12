@@ -18,9 +18,8 @@ class Notes extends Table {
   BoolColumn get isBlocksSynced => boolean().withDefault(const Constant(false))();
   BoolColumn get isDeleted => boolean().withDefault(const Constant(false))();
   DateTimeColumn get syncedAt => dateTime().nullable()();
-  TextColumn get baseHash => text().nullable()();
-  BoolColumn get mergedFromConflict => boolean().withDefault(const Constant(false))();
   DateTimeColumn get deletedAt => dateTime().nullable()();
+  IntColumn get syncVersion => integer().withDefault(const Constant(0))();
 
   @override
   Set<Column> get primaryKey => {id};
@@ -111,7 +110,7 @@ class AppDatabase extends _$AppDatabase {
   AppDatabase(super.e);
 
   @override
-  int get schemaVersion => 9;
+  int get schemaVersion => 10;
 
   @override
   MigrationStrategy get migration {
@@ -159,6 +158,9 @@ class AppDatabase extends _$AppDatabase {
         }
         if (from < 10) {
           await m.addColumn(notes, notes.deletedAt);
+        }
+        if (from < 11) {
+          await m.addColumn(notes, notes.syncVersion);
         }
       },
     );
