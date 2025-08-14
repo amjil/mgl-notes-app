@@ -15,10 +15,18 @@
                            token :identity}]
                        (let [result (notes-service/sync-note token body)]
                          (if (:conflict result)
-                           (conflict {:code 409
-                                     :msg "Data conflict, please merge and resubmit"
-                                     :errors "Version conflict"
-                                     :server_version (:server_version result)})
+                           (let [conflict-type (:conflict-type result)
+                                 conflict-msg (case conflict-type
+                                               :version-conflict "Version conflict detected"
+                                               :content-conflict "Content conflict detected - content has been modified since last sync"
+                                               "Data conflict detected")]
+                             (conflict {:code 409
+                                       :msg conflict-msg
+                                       :conflict-type conflict-type
+                                       :errors (:message result)
+                                       :server_version (:server_version result)
+                                       :client_base_hash (:client_base_hash result)
+                                       :server_content_hash (:server_content_hash result)}))
                            (ok {:code 200
                                 :msg "Sync successful"
                                 :data result}))))}}]

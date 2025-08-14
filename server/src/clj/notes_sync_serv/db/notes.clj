@@ -5,19 +5,8 @@
 
 ;; Database operations for notes
 
-(defn create-note!
-  "Create new note"
-  [{:keys [id user_id title content sync_version]}]
-  (try
-    (db/create-note! {:id id
-                      :user_id user_id
-                      :title title
-                      :content content
-                      :sync_version sync_version})
-    {:success true :id id}
-    (catch Exception e
-      (log/error e "Failed to create note")
-      {:success false :error (.getMessage e)})))
+;; Note: create-note! function removed as it's not defined in SQL queries
+;; Use upsert-note! instead for both create and update operations
 
 (defn update-note!
   "Update note"
