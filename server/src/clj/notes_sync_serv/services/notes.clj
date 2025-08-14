@@ -27,21 +27,12 @@
   (try
     (let [server-note (notes-db/get-note note-id user-id)]
       (if server-note
-        (let [version-conflict (not= (:sync_version server-note) client-version)
-              ;; Calculate hash of current note content on server side
+        (let [;; Calculate hash of current note content on server side
               current-content-hash (calculate-content-hash (:content server-note))
               ;; Check if base_hash matches
               hash-conflict (and client-base-hash 
                                 (not= client-base-hash current-content-hash))]
           (cond
-            ;; Version conflict
-            version-conflict
-            {:conflict true
-             :conflict-type :version-conflict
-             :server_version server-note
-             :client_version client-version
-             :message "Version conflict detected"}
-            
             ;; Hash conflict (content conflict)
             hash-conflict
             {:conflict true
@@ -59,78 +50,121 @@
       nil)))
 
 (defn sync-note [token note-data]
-  "Sync single note, handle conflict detection"
+  "Sync single note, handle conflict detection and deletion"
   (try
     (let [user-id (get-user-id-from-token token)
           note-id (:id note-data)
           client-version (:sync_version note-data)
-          client-base-hash (:base_hash note-data)]
+          client-base-hash (:base_hash note-data)
+          is-deleted (:is_deleted note-data false)]
 
       (if-not user-id
         {:success false :error "Invalid token"}
 
-        ;; Check version conflict and base_hash conflict
-        (if-let [conflict-info (check-version-conflict user-id note-id client-version client-base-hash)]
-          conflict-info
-          
-          ;; No conflict, perform sync
-          (let [result (notes-db/upsert-note! (assoc note-data :user_id user-id))]
+        ;; Check if note is marked as deleted by client
+        (if is-deleted
+          ;; Handle client deletion
+          (let [result (notes-db/soft-delete-note! {:id note-id
+                                                   :user_id user-id
+                                                   :sync_version client-version})]
             (if (:success result)
-              {:success true :id note-id :synced true}
-              {:success false :error (:error result)})))))
+              {:success true :id note-id :deleted true :synced true}
+              {:success false :error (:error result)}))
+          
+          ;; Check version conflict and base_hash conflict for non-deleted notes
+          (if-let [conflict-info (check-version-conflict user-id note-id client-version client-base-hash)]
+            conflict-info
+            
+            ;; No conflict, perform sync
+            (let [result (notes-db/upsert-note! (assoc note-data :user_id user-id))]
+              (if (:success result)
+                {:success true :id note-id :synced true}
+                {:success false :error (:error result)}))))))
     (catch Exception e
       (log/error e "Failed to sync note")
       {:success false :error (.getMessage e)})))
 
-  (defn get-notes-changes [token query-params]
-    "Get notes changes list"
-    (try
-      (let [user-id (get-user-id-from-token token)
-            since (:since query-params)]
+(defn sync-note-deletion [token note-data]
+  "Sync note deletion from client"
+  (try
+    (let [user-id (get-user-id-from-token token)
+          note-id (:id note-data)
+          client-version (:sync_version note-data)]
 
-        (if-not user-id
-          {:success false :error "Invalid token"}
+      (if-not user-id
+        {:success false :error "Invalid token"}
 
-          (let [changes (notes-db/get-notes-since user-id since)]
-            {:success true
-             :changes changes
-             :count (count changes)})))
-      (catch Exception e
-        (log/error e "Failed to get notes changes")
-        {:success false :error (.getMessage e)})))
+        ;; Check if note exists and belongs to user
+        (let [existing-note (notes-db/get-note note-id user-id)]
+          (if existing-note
+            ;; Note exists, perform soft deletion
+            (let [result (notes-db/soft-delete-note! {:id note-id
+                                                     :user_id user-id
+                                                     :sync_version client-version})]
+              (if (:success result)
+                {:success true :id note-id :deleted true :synced true}
+                {:success false :error (:error result)}))
+            
+            ;; Note doesn't exist, return success (already deleted)
+            {:success true :id note-id :deleted true :synced true :note-not-found true}))))
+    (catch Exception e
+      (log/error e "Failed to sync note deletion")
+      {:success false :error (.getMessage e)})))
 
-  (defn get-note [token note-id]
-    "Get single note"
-    (try
-      (let [user-id (get-user-id-from-token token)]
+(defn get-notes-changes [token query-params]
+  "Get notes changes list (excluding deleted notes)"
+  (try
+    (let [user-id (get-user-id-from-token token)
+          since (:since query-params)]
 
-        (if-not user-id
-          {:success false :error "Invalid token"}
+      (if-not user-id
+        {:success false :error "Invalid token"}
 
-          (let [note (notes-db/get-note note-id user-id)]
-            (if note
-              {:success true :note note}
-              {:success false :error "Note does not exist"}))))
-      (catch Exception e
-        (log/error e "Failed to get note")
-        {:success false :error (.getMessage e)})))
+        (let [changes (notes-db/get-notes-since user-id since)
+              ;; Filter out deleted notes
+              active-changes (filter #(not (:is_deleted %)) changes)]
+          {:success true
+           :changes active-changes
+           :count (count active-changes)})))
+    (catch Exception e
+      (log/error e "Failed to get notes changes")
+      {:success false :error (.getMessage e)})))
 
-  (defn batch-sync-notes [token notes-list]
-    "Batch sync notes, return conflict list"
-    (try
-      (let [user-id (get-user-id-from-token token)]
+(defn get-note [token note-id]
+  "Get single note"
+  (try
+    (let [user-id (get-user-id-from-token token)]
 
-        (if-not user-id
-          {:success false :error "Invalid token"}
+      (if-not user-id
+        {:success false :error "Invalid token"}
 
-          (let [results (map #(sync-note token %) notes-list)
-                conflicts (filter :conflict results)
-                successful (filter #(and (:success %) (:synced %)) results)]
+        (let [note (notes-db/get-note note-id user-id)]
+          (if note
+            {:success true :note note}
+            {:success false :error "Note does not exist"}))))
+    (catch Exception e
+      (log/error e "Failed to get note")
+      {:success false :error (.getMessage e)})))
 
-            {:success true
-             :synced_count (count successful)
-             :conflict_count (count conflicts)
-             :conflicts conflicts})))
-      (catch Exception e
-        (log/error e "Failed to batch sync notes")
-        {:success false :error (.getMessage e)})))
+(defn batch-sync-notes [token notes-list]
+  "Batch sync notes, return conflict list and deletion count"
+  (try
+    (let [user-id (get-user-id-from-token token)]
+
+      (if-not user-id
+        {:success false :error "Invalid token"}
+
+        (let [results (map #(sync-note token %) notes-list)
+              conflicts (filter :conflict results)
+              successful (filter #(and (:success %) (:synced %)) results)
+              deleted (filter #(and (:success %) (:deleted %)) results)]
+
+          {:success true
+           :synced_count (count successful)
+           :conflict_count (count conflicts)
+           :deleted_count (count deleted)
+           :conflicts conflicts
+           :deleted deleted})))
+    (catch Exception e
+      (log/error e "Failed to batch sync notes")
+      {:success false :error (.getMessage e)})))
