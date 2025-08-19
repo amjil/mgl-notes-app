@@ -126,6 +126,20 @@ class $NotesTable extends Notes with TableInfo<$NotesTable, Note> {
     type: DriftSqlType.string,
     requiredDuringInsert: false,
   );
+  static const VerificationMeta _mergedFromConflictMeta =
+      const VerificationMeta('mergedFromConflict');
+  @override
+  late final GeneratedColumn<bool> mergedFromConflict = GeneratedColumn<bool>(
+    'merged_from_conflict',
+    aliasedName,
+    false,
+    type: DriftSqlType.bool,
+    requiredDuringInsert: false,
+    defaultConstraints: GeneratedColumn.constraintIsAlways(
+      'CHECK ("merged_from_conflict" IN (0, 1))',
+    ),
+    defaultValue: const Constant(false),
+  );
   static const VerificationMeta _deletedAtMeta = const VerificationMeta(
     'deletedAt',
   );
@@ -161,6 +175,7 @@ class $NotesTable extends Notes with TableInfo<$NotesTable, Note> {
     isDeleted,
     syncedAt,
     baseHash,
+    mergedFromConflict,
     deletedAt,
     syncVersion,
   ];
@@ -240,6 +255,15 @@ class $NotesTable extends Notes with TableInfo<$NotesTable, Note> {
         baseHash.isAcceptableOrUnknown(data['base_hash']!, _baseHashMeta),
       );
     }
+    if (data.containsKey('merged_from_conflict')) {
+      context.handle(
+        _mergedFromConflictMeta,
+        mergedFromConflict.isAcceptableOrUnknown(
+          data['merged_from_conflict']!,
+          _mergedFromConflictMeta,
+        ),
+      );
+    }
     if (data.containsKey('deleted_at')) {
       context.handle(
         _deletedAtMeta,
@@ -304,6 +328,10 @@ class $NotesTable extends Notes with TableInfo<$NotesTable, Note> {
         DriftSqlType.string,
         data['${effectivePrefix}base_hash'],
       ),
+      mergedFromConflict: attachedDatabase.typeMapping.read(
+        DriftSqlType.bool,
+        data['${effectivePrefix}merged_from_conflict'],
+      )!,
       deletedAt: attachedDatabase.typeMapping.read(
         DriftSqlType.dateTime,
         data['${effectivePrefix}deleted_at'],
@@ -332,6 +360,7 @@ class Note extends DataClass implements Insertable<Note> {
   final bool isDeleted;
   final DateTime? syncedAt;
   final String? baseHash;
+  final bool mergedFromConflict;
   final DateTime? deletedAt;
   final int syncVersion;
   const Note({
@@ -345,6 +374,7 @@ class Note extends DataClass implements Insertable<Note> {
     required this.isDeleted,
     this.syncedAt,
     this.baseHash,
+    required this.mergedFromConflict,
     this.deletedAt,
     required this.syncVersion,
   });
@@ -365,6 +395,7 @@ class Note extends DataClass implements Insertable<Note> {
     if (!nullToAbsent || baseHash != null) {
       map['base_hash'] = Variable<String>(baseHash);
     }
+    map['merged_from_conflict'] = Variable<bool>(mergedFromConflict);
     if (!nullToAbsent || deletedAt != null) {
       map['deleted_at'] = Variable<DateTime>(deletedAt);
     }
@@ -388,6 +419,7 @@ class Note extends DataClass implements Insertable<Note> {
       baseHash: baseHash == null && nullToAbsent
           ? const Value.absent()
           : Value(baseHash),
+      mergedFromConflict: Value(mergedFromConflict),
       deletedAt: deletedAt == null && nullToAbsent
           ? const Value.absent()
           : Value(deletedAt),
@@ -411,6 +443,7 @@ class Note extends DataClass implements Insertable<Note> {
       isDeleted: serializer.fromJson<bool>(json['isDeleted']),
       syncedAt: serializer.fromJson<DateTime?>(json['syncedAt']),
       baseHash: serializer.fromJson<String?>(json['baseHash']),
+      mergedFromConflict: serializer.fromJson<bool>(json['mergedFromConflict']),
       deletedAt: serializer.fromJson<DateTime?>(json['deletedAt']),
       syncVersion: serializer.fromJson<int>(json['syncVersion']),
     );
@@ -429,6 +462,7 @@ class Note extends DataClass implements Insertable<Note> {
       'isDeleted': serializer.toJson<bool>(isDeleted),
       'syncedAt': serializer.toJson<DateTime?>(syncedAt),
       'baseHash': serializer.toJson<String?>(baseHash),
+      'mergedFromConflict': serializer.toJson<bool>(mergedFromConflict),
       'deletedAt': serializer.toJson<DateTime?>(deletedAt),
       'syncVersion': serializer.toJson<int>(syncVersion),
     };
@@ -445,6 +479,7 @@ class Note extends DataClass implements Insertable<Note> {
     bool? isDeleted,
     Value<DateTime?> syncedAt = const Value.absent(),
     Value<String?> baseHash = const Value.absent(),
+    bool? mergedFromConflict,
     Value<DateTime?> deletedAt = const Value.absent(),
     int? syncVersion,
   }) => Note(
@@ -458,6 +493,7 @@ class Note extends DataClass implements Insertable<Note> {
     isDeleted: isDeleted ?? this.isDeleted,
     syncedAt: syncedAt.present ? syncedAt.value : this.syncedAt,
     baseHash: baseHash.present ? baseHash.value : this.baseHash,
+    mergedFromConflict: mergedFromConflict ?? this.mergedFromConflict,
     deletedAt: deletedAt.present ? deletedAt.value : this.deletedAt,
     syncVersion: syncVersion ?? this.syncVersion,
   );
@@ -477,6 +513,9 @@ class Note extends DataClass implements Insertable<Note> {
       isDeleted: data.isDeleted.present ? data.isDeleted.value : this.isDeleted,
       syncedAt: data.syncedAt.present ? data.syncedAt.value : this.syncedAt,
       baseHash: data.baseHash.present ? data.baseHash.value : this.baseHash,
+      mergedFromConflict: data.mergedFromConflict.present
+          ? data.mergedFromConflict.value
+          : this.mergedFromConflict,
       deletedAt: data.deletedAt.present ? data.deletedAt.value : this.deletedAt,
       syncVersion: data.syncVersion.present
           ? data.syncVersion.value
@@ -497,6 +536,7 @@ class Note extends DataClass implements Insertable<Note> {
           ..write('isDeleted: $isDeleted, ')
           ..write('syncedAt: $syncedAt, ')
           ..write('baseHash: $baseHash, ')
+          ..write('mergedFromConflict: $mergedFromConflict, ')
           ..write('deletedAt: $deletedAt, ')
           ..write('syncVersion: $syncVersion')
           ..write(')'))
@@ -515,6 +555,7 @@ class Note extends DataClass implements Insertable<Note> {
     isDeleted,
     syncedAt,
     baseHash,
+    mergedFromConflict,
     deletedAt,
     syncVersion,
   );
@@ -532,6 +573,7 @@ class Note extends DataClass implements Insertable<Note> {
           other.isDeleted == this.isDeleted &&
           other.syncedAt == this.syncedAt &&
           other.baseHash == this.baseHash &&
+          other.mergedFromConflict == this.mergedFromConflict &&
           other.deletedAt == this.deletedAt &&
           other.syncVersion == this.syncVersion);
 }
@@ -547,6 +589,7 @@ class NotesCompanion extends UpdateCompanion<Note> {
   final Value<bool> isDeleted;
   final Value<DateTime?> syncedAt;
   final Value<String?> baseHash;
+  final Value<bool> mergedFromConflict;
   final Value<DateTime?> deletedAt;
   final Value<int> syncVersion;
   final Value<int> rowid;
@@ -561,6 +604,7 @@ class NotesCompanion extends UpdateCompanion<Note> {
     this.isDeleted = const Value.absent(),
     this.syncedAt = const Value.absent(),
     this.baseHash = const Value.absent(),
+    this.mergedFromConflict = const Value.absent(),
     this.deletedAt = const Value.absent(),
     this.syncVersion = const Value.absent(),
     this.rowid = const Value.absent(),
@@ -576,6 +620,7 @@ class NotesCompanion extends UpdateCompanion<Note> {
     this.isDeleted = const Value.absent(),
     this.syncedAt = const Value.absent(),
     this.baseHash = const Value.absent(),
+    this.mergedFromConflict = const Value.absent(),
     this.deletedAt = const Value.absent(),
     this.syncVersion = const Value.absent(),
     this.rowid = const Value.absent(),
@@ -592,6 +637,7 @@ class NotesCompanion extends UpdateCompanion<Note> {
     Expression<bool>? isDeleted,
     Expression<DateTime>? syncedAt,
     Expression<String>? baseHash,
+    Expression<bool>? mergedFromConflict,
     Expression<DateTime>? deletedAt,
     Expression<int>? syncVersion,
     Expression<int>? rowid,
@@ -607,6 +653,8 @@ class NotesCompanion extends UpdateCompanion<Note> {
       if (isDeleted != null) 'is_deleted': isDeleted,
       if (syncedAt != null) 'synced_at': syncedAt,
       if (baseHash != null) 'base_hash': baseHash,
+      if (mergedFromConflict != null)
+        'merged_from_conflict': mergedFromConflict,
       if (deletedAt != null) 'deleted_at': deletedAt,
       if (syncVersion != null) 'sync_version': syncVersion,
       if (rowid != null) 'rowid': rowid,
@@ -624,6 +672,7 @@ class NotesCompanion extends UpdateCompanion<Note> {
     Value<bool>? isDeleted,
     Value<DateTime?>? syncedAt,
     Value<String?>? baseHash,
+    Value<bool>? mergedFromConflict,
     Value<DateTime?>? deletedAt,
     Value<int>? syncVersion,
     Value<int>? rowid,
@@ -639,6 +688,7 @@ class NotesCompanion extends UpdateCompanion<Note> {
       isDeleted: isDeleted ?? this.isDeleted,
       syncedAt: syncedAt ?? this.syncedAt,
       baseHash: baseHash ?? this.baseHash,
+      mergedFromConflict: mergedFromConflict ?? this.mergedFromConflict,
       deletedAt: deletedAt ?? this.deletedAt,
       syncVersion: syncVersion ?? this.syncVersion,
       rowid: rowid ?? this.rowid,
@@ -678,6 +728,9 @@ class NotesCompanion extends UpdateCompanion<Note> {
     if (baseHash.present) {
       map['base_hash'] = Variable<String>(baseHash.value);
     }
+    if (mergedFromConflict.present) {
+      map['merged_from_conflict'] = Variable<bool>(mergedFromConflict.value);
+    }
     if (deletedAt.present) {
       map['deleted_at'] = Variable<DateTime>(deletedAt.value);
     }
@@ -703,6 +756,7 @@ class NotesCompanion extends UpdateCompanion<Note> {
           ..write('isDeleted: $isDeleted, ')
           ..write('syncedAt: $syncedAt, ')
           ..write('baseHash: $baseHash, ')
+          ..write('mergedFromConflict: $mergedFromConflict, ')
           ..write('deletedAt: $deletedAt, ')
           ..write('syncVersion: $syncVersion, ')
           ..write('rowid: $rowid')
@@ -2881,6 +2935,7 @@ typedef $$NotesTableCreateCompanionBuilder =
       Value<bool> isDeleted,
       Value<DateTime?> syncedAt,
       Value<String?> baseHash,
+      Value<bool> mergedFromConflict,
       Value<DateTime?> deletedAt,
       Value<int> syncVersion,
       Value<int> rowid,
@@ -2897,6 +2952,7 @@ typedef $$NotesTableUpdateCompanionBuilder =
       Value<bool> isDeleted,
       Value<DateTime?> syncedAt,
       Value<String?> baseHash,
+      Value<bool> mergedFromConflict,
       Value<DateTime?> deletedAt,
       Value<int> syncVersion,
       Value<int> rowid,
@@ -3019,6 +3075,11 @@ class $$NotesTableFilterComposer extends Composer<_$AppDatabase, $NotesTable> {
 
   ColumnFilters<String> get baseHash => $composableBuilder(
     column: $table.baseHash,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<bool> get mergedFromConflict => $composableBuilder(
+    column: $table.mergedFromConflict,
     builder: (column) => ColumnFilters(column),
   );
 
@@ -3167,6 +3228,11 @@ class $$NotesTableOrderingComposer
     builder: (column) => ColumnOrderings(column),
   );
 
+  ColumnOrderings<bool> get mergedFromConflict => $composableBuilder(
+    column: $table.mergedFromConflict,
+    builder: (column) => ColumnOrderings(column),
+  );
+
   ColumnOrderings<DateTime> get deletedAt => $composableBuilder(
     column: $table.deletedAt,
     builder: (column) => ColumnOrderings(column),
@@ -3220,6 +3286,11 @@ class $$NotesTableAnnotationComposer
 
   GeneratedColumn<String> get baseHash =>
       $composableBuilder(column: $table.baseHash, builder: (column) => column);
+
+  GeneratedColumn<bool> get mergedFromConflict => $composableBuilder(
+    column: $table.mergedFromConflict,
+    builder: (column) => column,
+  );
 
   GeneratedColumn<DateTime> get deletedAt =>
       $composableBuilder(column: $table.deletedAt, builder: (column) => column);
@@ -3347,6 +3418,7 @@ class $$NotesTableTableManager
                 Value<bool> isDeleted = const Value.absent(),
                 Value<DateTime?> syncedAt = const Value.absent(),
                 Value<String?> baseHash = const Value.absent(),
+                Value<bool> mergedFromConflict = const Value.absent(),
                 Value<DateTime?> deletedAt = const Value.absent(),
                 Value<int> syncVersion = const Value.absent(),
                 Value<int> rowid = const Value.absent(),
@@ -3361,6 +3433,7 @@ class $$NotesTableTableManager
                 isDeleted: isDeleted,
                 syncedAt: syncedAt,
                 baseHash: baseHash,
+                mergedFromConflict: mergedFromConflict,
                 deletedAt: deletedAt,
                 syncVersion: syncVersion,
                 rowid: rowid,
@@ -3377,6 +3450,7 @@ class $$NotesTableTableManager
                 Value<bool> isDeleted = const Value.absent(),
                 Value<DateTime?> syncedAt = const Value.absent(),
                 Value<String?> baseHash = const Value.absent(),
+                Value<bool> mergedFromConflict = const Value.absent(),
                 Value<DateTime?> deletedAt = const Value.absent(),
                 Value<int> syncVersion = const Value.absent(),
                 Value<int> rowid = const Value.absent(),
@@ -3391,6 +3465,7 @@ class $$NotesTableTableManager
                 isDeleted: isDeleted,
                 syncedAt: syncedAt,
                 baseHash: baseHash,
+                mergedFromConflict: mergedFromConflict,
                 deletedAt: deletedAt,
                 syncVersion: syncVersion,
                 rowid: rowid,

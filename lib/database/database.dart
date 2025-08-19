@@ -19,6 +19,7 @@ class Notes extends Table {
   BoolColumn get isDeleted => boolean().withDefault(const Constant(false))();
   DateTimeColumn get syncedAt => dateTime().nullable()();
   TextColumn get baseHash => text().nullable()();
+  BoolColumn get mergedFromConflict => boolean().withDefault(const Constant(false))();
   DateTimeColumn get deletedAt => dateTime().nullable()();
   IntColumn get syncVersion => integer().withDefault(const Constant(0))();
 
