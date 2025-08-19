@@ -579,7 +579,7 @@
                             (delete-links-by-note-id id)))
                    (.then (fn [_]
                             ;; Step 3: Delete note_fts and note
-                            (delete-note id))))))))
+                            (soft-delete-note id))))))))
 
 ;; Create note with content (4 steps: note, note_fts, blocks, block_ids)
 (defn create-note-with-content [^String content & [id base-hash]]
@@ -834,24 +834,6 @@
     (.getSingle
      (.customSelect db
                     "SELECT COUNT(*) as count FROM notes WHERE sync_status = 'synced'"))))
-
-;; Create sync conflict record
-(defn create-sync-conflict [note-id conflict-type local-data remote-data description]
-  (let [^drift/AppDatabase db @db
-        conflict-id (.v4 uuid-instance)]
-    (.insert
-     (.into db (.-syncConflicts db))
-     (drift/SyncConflictsCompanion.insert
-      .id conflict-id
-      .note_id note-id
-      .conflictType conflict-type
-      .localData local-data
-      .remoteData remote-data
-      .resolvedData nil
-      .resolution "pending"
-      .createdAt (dart:core/DateTime.now)
-      .resolvedAt nil
-      .description description))))
 
 ;; Update sync conflict record
 (defn update-sync-conflict [id resolution resolved-data description]

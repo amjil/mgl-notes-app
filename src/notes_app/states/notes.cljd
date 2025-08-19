@@ -110,7 +110,7 @@
 ;; Delete note
 (defn delete-note! [ctx id]
   (helpers/with-success-toast! ctx notes-state
-    (-> (db/delete-note id)
+    (-> (db/soft-delete-note id)
         (.then (fn [success]
                  (when success
                    (load-notes-paginated! ctx (:current-page @notes-state))
