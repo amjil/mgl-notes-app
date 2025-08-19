@@ -1,4 +1,5 @@
 (ns notes-app.services.db
+  "Database service - provides abstract interface for all database operations"
   (:require
    ["package:cljd_mgl_notes_app/database/database.dart" :as drift]
    ["package:drift/drift.dart" :as d]
@@ -6,37 +7,53 @@
    [cljd.dart.isolates :as di]
    [clojure.string :as str]
    [notes-app.utils.string :as string-utils]
-   [notes-app.utils.diff :as diff-utils]
-   ))
+   [notes-app.utils.diff :as diff-utils]))
+
+;; =============================================================================
+;; Database Instance Management
+;; =============================================================================
 
 (declare get-blocks-by-note-id)
 
+;; Database instance reference
 (def db (atom nil))
 
+;; UUID generator instance
 (def ^uuid/Uuid uuid-instance (uuid/Uuid.))
 
-(defn initialize-database! []
+(defn initialize-database!
+  "Initialize database instance"
+  []
   (reset! db (await (drift/initDriftDatabase))))
 
-;; Notes db functions
-(defn create-note [^String id ^String title & {:keys [is-blocks-synced] :or {is-blocks-synced false}}]
+;; =============================================================================
+;; Basic Note Operations
+;; =============================================================================
+
+(defn create-note
+  "Create new note"
+  [^String id ^String title & {:keys [is-blocks-synced base-hash] :or {is-blocks-synced false}}]
   (let [^drift/AppDatabase db @db]
     (.insert
      (.into db (.-notes db))
      (drift/NotesCompanion.insert
       .id id
       .title title
+      .baseHash (d/Value base-hash)
       .isBlocksSynced (d/Value ^bool is-blocks-synced)))))
 
-
-(defn get-note-by-id [id]
+(defn get-note-by-id
+  "Get note basic information by ID"
+  [id]
   (let [^drift/AppDatabase db @db]
     (await
      (.getSingleOrNull
       (doto (.select db (.-notes db))
         (.where (fn [^drift/Notes tbl] (.equals (.-id tbl) id))))))))
 
-(defn get-note-with-content-by-id [id]
+(defn get-note-with-content-by-id
+  "Get note and its content by ID"
+  [id]
   (let [^drift/AppDatabase db @db]
     (.getSingleOrNull
      (.customSelect db
@@ -45,7 +62,13 @@
                       WHERE n.id = ? AND n.is_deleted = false"
                     .variables [(d/Variable id)]))))
 
-(defn get-notes-paginated [page limit]
+;; =============================================================================
+;; Note Query Operations
+;; =============================================================================
+
+(defn get-notes-paginated
+  "Get paginated note list"
+  [page limit]
   (let [offset (* page limit)
         ^drift/AppDatabase db @db]
     (.get
@@ -57,9 +80,10 @@
         ORDER BY n.updated_at DESC 
         LIMIT ? OFFSET ?"
       .variables [(d/Variable limit) (d/Variable offset)]))))
-      
 
-(defn get-notes-by-tag [tag-id page limit]
+(defn get-notes-by-tag
+  "Get notes by tag with pagination"
+  [tag-id page limit]
   (let [offset (* page limit)
         ^drift/AppDatabase db @db]
     (.get
@@ -72,8 +96,10 @@
         ORDER BY n.updated_at DESC 
         LIMIT ? OFFSET ?"
       .variables [(d/Variable tag-id) (d/Variable limit) (d/Variable offset)]))))
-      
-(defn get-notes-by-date [date page limit]
+
+(defn get-notes-by-date
+  "Get notes by date with pagination"
+  [date page limit]
   (let [offset (* page limit)
         ^drift/AppDatabase db @db]
     (.get
@@ -87,23 +113,48 @@
         LIMIT ? OFFSET ?"
       .variables [(d/Variable date) (d/Variable limit) (d/Variable offset)]))))
 
-(defn get-all-notes []
+(defn get-notes-by-pending-sync
+  "Get notes pending synchronization"
+  []
+  (let [^drift/AppDatabase db @db]
+    (.get
+     (.customSelect db
+                    "SELECT n.*, nfts.content as content FROM notes n 
+                     LEFT JOIN note_fts nfts ON n.id = nfts.id 
+                     WHERE n.sync_status = 'pending'"))))
+
+(defn get-all-notes
+  "Get all notes"
+  []
   (let [^drift/AppDatabase db @db]
     (.get
      (doto (.select db (.-notes db))
        (.where (fn [^drift/Notes tbl] (.equals (.-isDeleted tbl) false)))
        (.orderBy [(fn [^drift/Notes tbl] (d/OrderingTerm. .expression (.-updatedAt tbl) .mode d/OrderingMode.desc))])))))
 
-(defn update-note [id ^String title]
+;; =============================================================================
+;; Note Update Operations
+;; =============================================================================
+
+(defn update-note
+  "Update note title"
+  [id ^String title & {:keys [base-hash] :or {base-hash nil}}]
   (let [^drift/AppDatabase db @db
         query (doto (.update db (.-notes db))
                 (.where (fn [^drift/Notes tbl] (.equals (.-id tbl) id))))
-        companion (drift/NotesCompanion.
-                   .title (d/Value title)
-                   .isBlocksSynced (d/Value false))]
+        companion (if (nil? base-hash)
+                    (drift/NotesCompanion.
+                     .title (d/Value title)
+                     .isBlocksSynced (d/Value false))
+                    (drift/NotesCompanion.
+                     .title (d/Value title)
+                     .baseHash (d/Value base-hash)
+                     .isBlocksSynced (d/Value false)))]
     (.write query companion)))
 
-(defn update-note-blocks-synced [id block-ids]
+(defn update-note-blocks-synced
+  "Update note blocks synchronization status"
+  [id block-ids]
   (let [^drift/AppDatabase db @db
         query (doto (.update db (.-notes db))
                 (.where (fn [^drift/Notes tbl] (.equals (.-id tbl) id))))
@@ -112,22 +163,35 @@
                    .blockIds (d/Value block-ids))]
     (.write query companion)))
 
+;; =============================================================================
+;; Note Content Operations
+;; =============================================================================
 
-(defn create-note-content [^String id ^String content]
+(defn create-note-content
+  "Create note content"
+  [^String id ^String content]
   (dart:core/print (str "insert-note-content id = " id " content = " content))
   (let [^drift/AppDatabase db @db]
     (.customStatement db
                       "INSERT INTO note_fts (id, content) VALUES (?, ?)"
                       [id content])))
 
-(defn update-note-content [^String id ^String content]
+(defn update-note-content
+  "Update note content"
+  [^String id ^String content]
   (dart:core/print (str "update-note-content id = " id " content = " content))
   (let [^drift/AppDatabase db @db]
     (.customStatement db
                       "update note_fts SET content = ? where id = ?"
                       [content id])))
 
-(defn delete-note [id]
+;; =============================================================================
+;; Note Delete and Restore Operations
+;; =============================================================================
+
+(defn soft-delete-note
+  "Soft delete note (mark as deleted)"
+  [id]
   (let [^drift/AppDatabase db @db
         query (doto (.update db (.-notes db))
                 (.where (fn [^drift/Notes tbl] (.equals (.-id tbl) id))))
@@ -135,8 +199,13 @@
                    .isDeleted (d/Value true))]
     (.write query companion)))
 
-;; Hard delete note (permanently remove from database)
-(defn hard-delete-note [id]
+;; =============================================================================
+;; Note Delete and Restore Operations
+;; =============================================================================
+
+(defn hard-delete-note
+  "Hard delete note (permanently remove from database)"
+  [id]
   (let [^drift/AppDatabase db @db]
     (.go
      (doto
@@ -147,8 +216,9 @@
                       "DELETE FROM note_fts WHERE id = ?"
                       [id])))
 
-;; Restore deleted note
-(defn restore-note [id]
+(defn restore-note
+  "Restore deleted note"
+  [id]
   (let [^drift/AppDatabase db @db
         query (doto (.update db (.-notes db))
                 (.where (fn [^drift/Notes tbl] (.equals (.-id tbl) id))))
@@ -156,8 +226,9 @@
                    .isDeleted (d/Value false))]
     (.write query companion)))
 
-;; Get deleted notes
-(defn get-deleted-notes [page limit]
+(defn get-deleted-notes
+  "Get paginated deleted notes"
+  [page limit]
   (let [offset (* page limit)
         ^drift/AppDatabase db @db]
     (.get
@@ -170,7 +241,13 @@
         LIMIT ? OFFSET ?"
       .variables [(d/Variable limit) (d/Variable offset)]))))
 
-(defn search-notes [query page limit]
+;; =============================================================================
+;; Note Search and Statistics
+;; =============================================================================
+
+(defn search-notes
+  "Search notes"
+  [query page limit]
   (let [offset (* page limit)
         ^drift/AppDatabase db @db]
     (.get
@@ -184,7 +261,9 @@
         LIMIT ? OFFSET ?"
       .variables [(d/Variable query) (d/Variable limit) (d/Variable offset)]))))
 
-(defn get-notes-count []
+(defn get-notes-count
+  "Get total notes count"
+  []
   (let [^drift/AppDatabase db @db]
     (.getSingle
      (.customSelect db
@@ -503,7 +582,7 @@
                             (delete-note id))))))))
 
 ;; Create note with content (4 steps: note, note_fts, blocks, block_ids)
-(defn create-note-with-content [^String content & [id]]
+(defn create-note-with-content [^String content & [id base-hash]]
   (let [^String id (or id (.v4 uuid-instance))
         ^drift/AppDatabase db @db
         ^String
@@ -511,18 +590,29 @@
     (.transaction
      db
      (fn []
-       (create-note id title)
+       (create-note id title base-hash)
        (create-note-content id content)))))
 
 ;; Update note with content (4 steps: note, note_fts, blocks, block_ids)
-(defn update-note-with-content [^String id ^String title ^String content]
+(defn update-note-with-content [^String id ^String title ^String content & {:keys [base-hash] :or {base-hash nil}}]
   (dart:core/print (str "update-note-with-content id = " id " title = " title " content = " content))
   (let [^drift/AppDatabase db @db]
     (.transaction
      db
      (fn []
-       (update-note id title)
+       (update-note id title {:base-hash base-hash})
        (update-note-content id content)))))
+
+(defn create-note-from-server [server-note]
+  (let [^String id (get server-note "id")
+        ^String content (get server-note "content")]
+    (create-note-with-content content id {:base-hash (get server-note "base_hash")})))
+
+(defn update-note-from-server [server-note]
+  (let [^String id (get server-note "id")
+        ^String title (string-utils/extract-title-from-content (get server-note "content"))
+        ^String content (get server-note "content")]
+    (update-note-with-content id title content {:base-hash (get server-note "base_hash")})))
 
 ;; ===== Daily Notes Count db functions =====
 
@@ -698,3 +788,85 @@
 ;;                  (and
 ;;                   (not (.equals (.-resolution tbl) "pending"))
 ;;                   (.lessThan (.-resolvedAt tbl) cutoff-date))))))))
+
+;; Update note's base_hash
+(defn update-note-base-hash [id content]
+  (let [^drift/AppDatabase db @db
+        base-hash (-> content
+                      (str/trim)
+                      (str/lower-case)
+                      (str/replace #"\s+" "")
+                      (hash)
+                      (str))]
+    (.customStatement db
+                      "UPDATE notes SET base_hash = ? WHERE id = ?"
+                      [base-hash id])))
+
+;; Update note sync status
+(defn update-note-sync-status [id status & {:keys [synced-at] :or {synced-at nil}}]
+  (let [^drift/AppDatabase db @db]
+    (if synced-at
+      (.customStatement db
+                        "UPDATE notes SET sync_status = ?, synced_at = ? WHERE id = ?"
+                        [status synced-at id])
+      (.customStatement db
+                        "UPDATE notes SET sync_status = ?, synced_at = now() WHERE id = ?"
+                        [status id]))))
+
+;; Get notes for synchronization
+(defn get-notes-for-sync []
+  (let [^drift/AppDatabase db @db]
+    (.get
+     (doto (.select db (.-notes db))
+       (.where (fn [^drift/Notes tbl] (.equals (.-syncStatus tbl) "pending")))
+       (.orderBy [(fn [^drift/Notes tbl] (d/OrderingTerm. .expression (.-updatedAt tbl) .mode d/OrderingMode.asc))])))))
+
+;; Get pending notes count
+(defn get-pending-notes-count []
+  (let [^drift/AppDatabase db @db]
+    (.getSingle
+     (.customSelect db
+                    "SELECT COUNT(*) as count FROM notes WHERE sync_status = 'pending'"))))
+
+;; Get synced notes count
+(defn get-synced-notes-count []
+  (let [^drift/AppDatabase db @db]
+    (.getSingle
+     (.customSelect db
+                    "SELECT COUNT(*) as count FROM notes WHERE sync_status = 'synced'"))))
+
+;; Create sync conflict record
+(defn create-sync-conflict [note-id conflict-type local-data remote-data description]
+  (let [^drift/AppDatabase db @db
+        conflict-id (.v4 uuid-instance)]
+    (.insert
+     (.into db (.-syncConflicts db))
+     (drift/SyncConflictsCompanion.insert
+      .id conflict-id
+      .note_id note-id
+      .conflictType conflict-type
+      .localData local-data
+      .remoteData remote-data
+      .resolvedData nil
+      .resolution "pending"
+      .createdAt (dart:core/DateTime.now)
+      .resolvedAt nil
+      .description description))))
+
+;; Update sync conflict record
+(defn update-sync-conflict [id resolution resolved-data description]
+  (let [^drift/AppDatabase db @db]
+    (if resolved-data
+      (.customStatement db
+                        "UPDATE sync_conflicts SET resolution = ?, resolved_at = ?, resolved_data = ?, description = ? WHERE id = ?"
+                        [resolution (dart:core/DateTime.now) resolved-data description id])
+      (.customStatement db
+                        "UPDATE sync_conflicts SET resolution = ?, resolved_at = ?, description = ? WHERE id = ?"
+                        [resolution (dart:core/DateTime.now) description id]))))
+
+;; Clean up resolved conflict records
+(defn cleanup-resolved-sync-conflicts []
+  (let [^drift/AppDatabase db @db]
+    (.go
+     (doto (.delete db (.-syncConflicts db))
+       (.where (fn [^drift/SyncConflicts tbl] (.not (.equals (.-resolution tbl) "pending"))))))))

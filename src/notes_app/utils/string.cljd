@@ -1,5 +1,6 @@
 (ns notes-app.utils.string
-  (:require [clojure.string :as str]))
+  (:require [clojure.string :as str]
+            ["package:crypto/crypto.dart" :as crypto]))
 
 ;; Extract first line from content as title
 (defn extract-title-from-content [content]
@@ -35,4 +36,29 @@
         padding-needed (- target-length current-length)]
     (if (<= padding-needed 0)
       s
-      (str (str/join (repeat padding-needed pad-char)) s)))) 
+      (str (str/join (repeat padding-needed pad-char)) s))))
+
+;; =============================================================================
+;; JSON Utilities
+;; =============================================================================
+
+(defn json-encode
+  "Encode data to JSON string"
+  [data]
+  (dart:convert/jsonEncode data))
+
+(defn json-decode
+  "Decode JSON string to data"
+  [json-string]
+  (dart:convert/jsonDecode json-string)) 
+
+(defn calculate-base-hash
+  "Calculate base_hash value for note content, used for conflict detection"
+  [^String content]
+  (let [normalized-content (-> content
+                               (str/trim)
+                               (str/lower-case)
+                               (str/replace #"\s+" ""))
+        bytes (.codeUnits normalized-content)
+        digest (.convert (crypto/sha256) bytes)]
+    (.toString digest)))
