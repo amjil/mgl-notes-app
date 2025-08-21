@@ -1,0 +1,256 @@
+(ns notes-app.services.sync
+  "Notes synchronization service - handles note synchronization, conflict detection and resolution between client and server"
+  (:require
+   ["package:http/http.dart" :as http]
+   [notes-app.services.db :as db-service]
+   [notes-app.utils.string :as string-utils]))
+
+;; =============================================================================
+;; Constants
+;; =============================================================================
+
+;; HTTP client instance
+(def http-client (http/Client.))
+
+;; =============================================================================
+;; State Management
+;; =============================================================================
+
+;; Synchronization manager state
+(def sync-manager-state
+  (atom
+   {:base-url "http://localhost:3000/api"  ; Server base URL
+    :auth-token nil                         ; Authentication token
+    :last-sync-time nil}))                  ; Last synchronization time
+
+;; =============================================================================
+;; Core Functions
+;; =============================================================================
+
+(defn get-auth-headers
+  "Get authentication request headers"
+  []
+  (let [token (:auth-token @sync-manager-state)]
+    (if token
+      {"Authorization" (str "Bearer " token)
+       "Content-Type" "application/json"}
+      {"Content-Type" "application/json"})))
+
+;; =============================================================================
+;; Synchronization Operations
+;; =============================================================================
+(declare update-note-sync-status update-note-base-hash create-conflict-record)
+
+(defn sync-note
+  "Synchronize single note to server"
+  [note]
+  (let [current-base-hash (string-utils/calculate-base-hash (.-content note))
+        base-url (:base-url @sync-manager-state)
+        headers (get-auth-headers)
+        body (string-utils/json-encode
+              {"id" (.-id note)
+               "content" (.-content note)
+               "block_ids" (.-blockIds note)
+               "created_at" (.toIso8601String (.-createdAt note))
+               "updated_at" (.toIso8601String (.-updatedAt note))
+               "sync_version" (.-syncVersion note)
+               "base_hash" (or (.-baseHash note) current-base-hash)
+               "is_deleted" (.-isDeleted note)})]
+    
+    (try
+      (let [response (await (.post http-client
+                                   (dart:core/Uri.parse (str base-url "/notes/sync"))
+                                   .headers headers
+                                   .body body))]
+        (if (= (.statusCode response) 200)
+          ;; Synchronization successful
+          (let [data (string-utils/json-decode (.body response))
+                note-id (get-in data ["data" "id"] (.-id note))]
+            ;; Update local database status after successful synchronization
+            (try
+              (await (update-note-sync-status note-id "synced" :synced-at (dart:core/DateTime.now)))
+              (await (update-note-base-hash note-id (.-content note)))
+              (dart:core/print (str "Note synced successfully: " note-id))
+              (catch Exception e
+                (dart:core/print (str "Failed to update local sync status: " e))))
+            {:type :success :id note-id :synced true :conflict-resolved false})
+
+          (if (= (.statusCode response) 409)
+            ;; Conflict detected
+            (let [data (string-utils/json-decode (.body response))
+                  server-version (get data "server_version")]
+              ;; Update local status to conflict when conflict detected
+              (try
+                (await (update-note-sync-status (.-id note) "conflict"))
+                (await (create-conflict-record (.-id note)
+                                            "content_conflict"
+                                            {:content (.-content note)
+                                             :sync_version (.-syncVersion note)
+                                             :base_hash (.-baseHash note)
+                                             :updated_at (.toIso8601String (.-updatedAt note))}
+                                            {:content (get server-version "content")
+                                             :sync_version (get server-version "sync_version")
+                                             :base_hash (get server-version "base_hash")
+                                             :updated_at (get server-version "updated_at")}
+                                            (str "Content conflict detected between local and server versions for note " (.-id note))))
+                (dart:core/print (str "Conflict detected for note: " (.-id note)))
+                (catch Exception e
+                  (dart:core/print (str "Failed to update conflict status: " e))))
+              {:type :conflict :error "Conflict detected" :synced false :conflict-resolved false})
+
+            (if (= (.statusCode response) 410)
+              ;; Note has been deleted on server
+              ;; When note is deleted on server, mark local note as deleted
+              (try
+                (await (db-service/soft-delete-note (.-id note)))
+                (dart:core/print (str "Note marked as deleted locally: " (.-id note) " (was deleted on server)"))
+              {:type :deleted :error "Note has been deleted on server" :synced false :conflict-resolved false}
+                (catch :default e
+                  (dart:core/print (str "Failed to mark note as deleted: " e))))
+
+              ;; Other errors
+              ;; Update local status when synchronization fails
+              (try
+                (await (update-note-sync-status (.-id note) "failed"))
+                (dart:core/print (str "Sync failed for note: " (.-id note) " - " (.statusCode response)))
+                {:type :error :error (str "Synchronization failed: " (.statusCode response)) :synced false :conflict-resolved false}
+                (catch Exception e
+                  (dart:core/print (str "Failed to update failed status: " e))))))))
+
+      (catch Exception e
+        ;; Update local status when network error occurs
+        (try
+          (await (update-note-sync-status (.-id note) "failed"))
+          (dart:core/print (str "Network error for note: " (.-id note) " - " e))
+          (catch Exception e2
+            (dart:core/print (str "Failed to update error status: " e2))))
+        {:type :error :error (str "Network error: " e) :synced false :conflict-resolved false}))))
+
+(defn get-server-changes
+  "Get note changes from server and process them (including conflict detection)"
+  [since]
+  (let [base-url (:base-url @sync-manager-state)
+        headers (get-auth-headers)
+        url (str base-url "/notes/changes?since=" (.toIso8601String since))]
+    (try
+      (let [response (await (.get http-client
+                                   (dart:core/Uri.parse url)
+                                   .headers headers))]
+        (when (= (.statusCode response) 200)
+          (let [data (string-utils/json-decode (.body response))
+                changes (get data "data" "changes")]
+            ;; Process server-side changes, including conflict detection
+            (doseq [server-note changes]
+              (when (not (get server-note "is_deleted"))
+                (let [existing-note (await (db-service/get-note-by-id (get server-note "id")))]
+                  (if existing-note
+                    ;; Check if there is a conflict
+                    (let [local-base-hash (string-utils/calculate-base-hash (get existing-note "content"))
+                          base-hash (get existing-note "base_hash")
+                          server-base-hash (get server-note "base_hash")
+                          has-conflict (not= local-base-hash base-hash)]
+                      (if has-conflict
+                        ;; Conflict detected, record conflict information
+                        (do
+                          ;; Update local status to conflict
+                          (await (update-note-sync-status (get server-note "id") "conflict"))
+                                                      ;; Create conflict record
+                          (await (create-conflict-record 
+                                  (get server-note "id")
+                                  "content_conflict"
+                                  {:content (.-content existing-note)
+                                   :sync_version (.-syncVersion existing-note)
+                                   :base_hash base-hash
+                                   :updated_at (.toIso8601String (.-updatedAt existing-note))}
+                                  {:content (get server-note "content")
+                                   :sync_version (get server-note "sync_version")
+                                   :base_hash server-base-hash
+                                   :updated_at (.toIso8601String (get server-note "updated_at"))}
+                                  (str "Content conflict detected between local and server versions for note " (get server-note "id"))))
+                          (dart:core/print (str "Conflict detected and recorded for note: " (.-id server-note))))
+                        ;; No conflict, update normally
+                        (await (db-service/update-note-from-server server-note))))
+                    ;; Create new note
+                    (await (db-service/create-note-from-server server-note)))))
+            true)
+          (throw (Exception. (str "Failed to get server changes: " (.statusCode response)))))))
+      
+      (catch Exception e
+        (throw (Exception. (str "Network error: " e)))))))
+
+(defn batch-sync-notes
+  "Batch synchronize multiple notes"
+  [notes]
+  (let [results (map sync-note notes)
+        conflicts (filter #(= (:type %) :conflict) results)
+        successful (filter #(= (:type %) :success) results)
+        deleted (filter #(= (:type %) :deleted) results)]
+    {:synced-count (count successful)
+     :conflict-count (count conflicts)
+     :deleted-count (count deleted)
+     :conflicts conflicts
+     :deleted deleted}))
+
+;; =============================================================================
+;; Conflict Record Management
+;; =============================================================================
+
+(defn create-conflict-record
+  "Create conflict record"
+  [note-id conflict-type local-data remote-data description]
+  (let [local-data-json (string-utils/json-encode local-data)
+        remote-data-json (string-utils/json-encode remote-data)]
+    (db-service/create-sync-conflict note-id conflict-type local-data-json remote-data-json description)))
+
+;; =============================================================================
+;; Database Operations
+;; =============================================================================
+
+(defn update-note-base-hash
+  "Update note base_hash"
+  [id content]
+  (db-service/update-note-base-hash id content))
+
+(defn update-note-sync-status
+  "Update note synchronization status"
+  [id status & {:keys [synced-at] :or {synced-at nil}}]
+  (db-service/update-note-sync-status id status :synced-at synced-at))
+
+(defn get-notes-for-sync
+  "Get notes that need synchronization"
+  []
+  (db-service/get-notes-for-sync))
+
+;; =============================================================================
+;; Advanced Synchronization Features
+;; =============================================================================
+
+(defn sync-all-pending-notes
+  "Synchronize all pending notes"
+  []
+  (let [notes (await (get-notes-for-sync))]
+    (if (empty? notes)
+      {:message "No pending notes to synchronize"
+       :synced-count 0
+       :conflict-count 0}
+      (let [result (batch-sync-notes notes)]
+        (swap! sync-manager-state assoc :last-sync-time (dart:core/DateTime.now))
+        result))))
+
+(defn full-sync
+  "Complete bidirectional synchronization: push local changes + get server changes"
+  []
+  (let [last-sync (:last-sync-time @sync-manager-state)
+        ;; 1. First push local changes
+        local-sync-result (await (sync-all-pending-notes))
+        ;; 2. Then get server changes (including conflict detection and handling)
+        server-notes (await (get-server-changes 
+                             (or last-sync 
+                                 (.subtract (dart:core/DateTime.now) 
+                                           (dart:core/Duration. :days 7)))))]
+    ;; 3. Update synchronization time
+    (swap! sync-manager-state assoc :last-sync-time (dart:core/DateTime.now))
+    
+    {:local-sync local-sync-result
+     :server-notes-count (count server-notes)
+     :synced-at (dart:core/DateTime.now)}))

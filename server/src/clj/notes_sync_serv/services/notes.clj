@@ -28,9 +28,9 @@
     (let [server-note (notes-db/get-note note-id user-id)]
       (if server-note
         (let [;; Calculate hash of current note content on server side
-              current-content-hash (calculate-content-hash (:content server-note))
+              current-content-hash (:base_hash server-note)
               ;; Check if base_hash matches
-              hash-conflict (and client-base-hash 
+              hash-conflict (and current-content-hash
                                 (not= client-base-hash current-content-hash))]
           (cond
             ;; Hash conflict (content conflict)
@@ -40,6 +40,7 @@
              :server_version server-note
              :client_base_hash client-base-hash
              :server_content_hash current-content-hash
+             :success false
              :message "Content has been modified since last sync"}
             
             ;; No conflict
