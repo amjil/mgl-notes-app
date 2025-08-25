@@ -1,0 +1,180 @@
+(ns notes-app.screens.help-support
+  (:require 
+   ["package:flutter/material.dart" :as m]
+   ["package:mongol/mongol.dart" :as mgl]
+   [cljd.flutter :as f]
+   [notes-app.widgets.mgl-app-bar :as mgl-app-bar]))
+
+;; Helper functions for better code organization
+(defn- create-info-card [title content color-scheme]
+  (m/Container
+   .padding (m.EdgeInsets/all 16)
+   .decoration (m/BoxDecoration
+                .color (.-surfaceVariant color-scheme)
+                .borderRadius (m.BorderRadius/circular 12))
+   .child (m/Row
+           .crossAxisAlignment m.CrossAxisAlignment/start
+           .children [(mgl/MongolText title
+                                     .style (m/TextStyle
+                                             .fontSize 18
+                                             .fontWeight m.FontWeight/bold
+                                             .color (.-onSurface color-scheme)))
+                      (m/Container .width 8)
+                      content])))
+
+(defn- create-help-item [icon text description color-scheme]
+  (m/Row
+   .crossAxisAlignment m.CrossAxisAlignment/start
+   .children [(m/Column
+               .crossAxisAlignment m.CrossAxisAlignment/start
+               .children [(m/Icon icon
+                                  .size 24
+                                  .color (.-primary color-scheme))
+                          (m/Container .height 8)
+                          (mgl/MongolText text
+                                          .style (m/TextStyle
+                                                  .fontSize 16
+                                                  .fontWeight m.FontWeight/bold
+                                                  .color (.-onSurface color-scheme)))])
+              (m/SizedBox .height 8)
+              (m/Padding .padding (m.EdgeInsets/only .top 8 .left 8)
+                         .child (mgl/MongolText description
+                                                .style (m/TextStyle
+                                                        .fontSize 14
+                                                        .color (.-onSurfaceVariant color-scheme)
+                                                        .height 1.4)))]))
+
+(defn- create-help-header [color-scheme]
+  [(m/Container
+    .width 120
+    .height 120
+    .decoration (m/BoxDecoration
+                 .color (.-primary color-scheme)
+                 .shape m.BoxShape/circle)
+    .child (m/Icon
+            m/Icons.help_outline
+            .size 60
+            .color (.-onPrimary color-scheme)))
+   
+   (m/Container .width 10)
+   
+   (m/Row
+    .crossAxisAlignment m.CrossAxisAlignment/start
+    .children [(mgl/MongolText "Help & Support"
+                            .style (m/TextStyle
+                                    .fontSize 28
+                                    .fontWeight m.FontWeight/bold
+                                    .color (.-onSurface color-scheme)))
+               (m/Container .width 8)
+               (mgl/MongolText "Get help with using the app"
+                               .style (m/TextStyle
+                                       .fontSize 16
+                                       .color (.-onSurfaceVariant color-scheme)))])
+   
+   (m/Container .width 30)])
+
+(defn- create-getting-started-section [color-scheme]
+  (create-info-card
+   "Getting Started"
+   (m/Row
+    .crossAxisAlignment m.CrossAxisAlignment/start
+    .children [(create-help-item m/Icons.add_circle "Create Notes"
+                                "Tap the + button to create a new note. You can add text, organize with tags, and save your thoughts."
+                                color-scheme)
+               (m/Container .width 16)
+               (create-help-item m/Icons.search "Search & Find"
+                                "Use the search icon to find specific notes by text content or tags."
+                                color-scheme)
+               (m/Container .width 16)
+               (create-help-item m/Icons.folder "Organize"
+                                "Use tags and categories to keep your notes organized and easy to find."
+                                color-scheme)])
+   color-scheme))
+
+(defn- create-common-issues-section [color-scheme]
+  (create-info-card
+   "Common Issues"
+   (m/Row
+    .crossAxisAlignment m.CrossAxisAlignment/start
+    .children [(create-help-item m/Icons.sync "Sync Issues"
+                                "If notes aren't syncing, check your internet connection and try refreshing the app."
+                                color-scheme)
+               (m/Container .width 16)
+               (create-help-item m/Icons.save "Save Problems"
+                                "Notes auto-save as you type. If you're having issues, try closing and reopening the note."
+                                color-scheme)
+               (m/Container .width 16)
+               (create-help-item m/Icons.import_export "Import/Export"
+                                "Use the floating action button to import notes from other apps or export your data."
+                                color-scheme)])
+   color-scheme))
+
+(defn- create-contact-support-section [color-scheme]
+  (create-info-card
+   "Contact Support"
+   (m/Row
+    .crossAxisAlignment m.CrossAxisAlignment/start
+    .children [(create-help-item m/Icons.email "Email Support"
+                                "Send us an email at support@notesapp.com for technical assistance."
+                                color-scheme)
+               (m/Container .width 16)
+               (create-help-item m/Icons.bug_report "Report Bugs"
+                                "Found a bug? Use the bug report feature in the settings menu."
+                                color-scheme)
+               (m/Container .width 16)
+               (create-help-item m/Icons.feedback "Feedback"
+                                "We'd love to hear your suggestions for improving the app." color-scheme)])
+   color-scheme))
+
+(defn- create-faq-section [color-scheme]
+  (create-info-card
+   "Frequently Asked Questions"
+   (m/Row
+    .crossAxisAlignment m.CrossAxisAlignment/start
+    .children [(mgl/MongolText "Q: How do I backup my notes?"
+                               .style (m/TextStyle
+                                       .fontSize 14
+                                       .fontWeight m.FontWeight/bold
+                                       .color (.-onSurface color-scheme)))
+               (m/Container .width 12)
+               (mgl/MongolText "A: Use the export feature in the floating action button to backup your notes."
+                               .style (m/TextStyle
+                                       .fontSize 14
+                                       .color (.-onSurfaceVariant color-scheme)))
+               (m/Container .width 12)
+               (mgl/MongolText "Q: Can I use the app offline?"
+                               .style (m/TextStyle
+                                       .fontSize 14
+                                       .fontWeight m.FontWeight/bold
+                                       .color (.-onSurface color-scheme)))
+               (m/Container .width 12)
+               (mgl/MongolText "A: Yes! Notes are saved locally and will sync when you're back online."
+                               .style (m/TextStyle
+                                       .fontSize 14
+                                       .color (.-onSurfaceVariant color-scheme)))])
+   color-scheme))
+
+(def screen
+  (f/widget
+   :context ctx
+   :get [m/Navigator]
+   :let [theme (-> m/Theme (.of ctx))
+         color-scheme (.-colorScheme theme)]
+   (m/Scaffold
+    .backgroundColor (.-surface color-scheme)
+    .appBar (mgl-app-bar/mgl-search-app-bar navigator)
+    .body (m/SingleChildScrollView
+           .scrollDirection m.Axis/horizontal
+           .padding (m.EdgeInsets/all 20)
+           .child (m/Row
+                   .crossAxisAlignment m.CrossAxisAlignment/start
+                   .children (concat
+                              (create-help-header color-scheme)
+                              [(create-getting-started-section color-scheme)
+                               (m/Container .width 20)
+                               (create-common-issues-section color-scheme)
+                               (m/Container .width 20)
+                               (create-contact-support-section color-scheme)
+                               (m/Container .width 20)
+                               (create-faq-section color-scheme)
+                               (m/Container .width 30)]))))))
