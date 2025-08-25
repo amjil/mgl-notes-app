@@ -5,6 +5,94 @@
    [cljd.flutter :as f]
    [notes-app.widgets.mgl-app-bar :as mgl-app-bar]))
 
+;; Helper functions for better code organization
+(defn- create-info-card [title content color-scheme]
+  (m/Container
+   .padding (m.EdgeInsets/all 16)
+   .decoration (m/BoxDecoration
+                .color (.-surfaceVariant color-scheme)
+                .borderRadius (m.BorderRadius/circular 12))
+   .child (m/Row
+           .crossAxisAlignment m.CrossAxisAlignment/start
+           .children [(mgl/MongolText title
+                                     .style (m/TextStyle
+                                             .fontSize 18
+                                             .fontWeight m.FontWeight/bold
+                                             .color (.-onSurface color-scheme)))
+                      (m/Container .width 8)
+                      content])))
+
+(defn- create-feature-item [text color-scheme]
+  (m/Column
+   .children [(m/Icon m.Icons/check_circle
+                      .size 16
+                      .color (.-primary color-scheme))
+              (m/Container .height 8)
+              (mgl/MongolText text
+                              .style (m/TextStyle
+                                      .fontSize 14
+                                      .color (.-onSurfaceVariant color-scheme)))]))
+
+(defn- create-app-header [color-scheme]
+  [(m/Container
+    .width 120
+    .height 120
+    .decoration (m/BoxDecoration
+                 .color (.-primary color-scheme)
+                 .shape m.BoxShape/circle)
+    .child (m/Icon
+            m.Icons/note_add
+            .size 60
+            .color (.-onPrimary color-scheme)))
+   
+   (m/Container .width 20)
+   
+   (m/Column
+    .crossAxisAlignment m.CrossAxisAlignment/start
+    .children [(mgl/MongolText "Notes App"
+                            .style (m/TextStyle
+                                    .fontSize 28
+                                    .fontWeight m.FontWeight/bold
+                                    .color (.-onSurface color-scheme)))
+               (m/Container .height 8)
+               (mgl/MongolText "Version 1.0.0"
+                               .style (m/TextStyle
+                                       .fontSize 16
+                                       .color (.-onSurfaceVariant color-scheme)))])
+   
+   (m/Container .width 30)])
+
+(defn- create-features-section [color-scheme]
+  (create-info-card
+   "Features"
+   (m/Row
+    .crossAxisAlignment m.CrossAxisAlignment/start
+    .children [(create-feature-item "Create and edit notes" color-scheme)
+               (m/Container .width 4)
+               (create-feature-item "Organize notes by categories" color-scheme)
+               (m/Container .width 4)
+               (create-feature-item "Beautiful and intuitive UI" color-scheme)])
+   color-scheme))
+
+(defn- create-app-description [color-scheme]
+  (create-info-card
+   "App Description"
+   (mgl/MongolText "A modern note-taking application built with Flutter and ClojureDart. Features include creating, editing, and organizing notes with a beautiful user interface."
+                   .style (m/TextStyle
+                           .fontSize 14
+                           .color (.-onSurfaceVariant color-scheme)
+                           .height 1.5))
+   color-scheme))
+
+(defn- create-developer-info [color-scheme]
+  (create-info-card
+   "Developer"
+   (mgl/MongolText "Built with ❤️ using Flutter and ClojureDart"
+                   .style (m/TextStyle
+                           .fontSize 14
+                           .color (.-onSurfaceVariant color-scheme)))
+   color-scheme))
+
 (def screen
   (f/widget
    :context ctx
@@ -19,128 +107,11 @@
            .padding (m.EdgeInsets/all 20)
            .child (m/Row
                    .crossAxisAlignment m.CrossAxisAlignment/start
-                   .children [(m/Container
-                               .width 120
-                               .height 120
-                               .decoration (m/BoxDecoration
-                                            .color (.-primary color-scheme)
-                                            .shape m.BoxShape/circle)
-                               .child (m/Icon
-                                       m.Icons/note_add
-                                       .size 60
-                                       .color (.-onPrimary color-scheme)))
-
-                              (m/Container .width 20)
-
-                              (mgl/MongolText "Notes App"
-                                              .style (m/TextStyle
-                                                      .fontSize 28
-                                                      .fontWeight m.FontWeight/bold
-                                                      .color (.-onSurface color-scheme)))
-
-                              (m/Container .width 8)
-
-                              (mgl/MongolText "Version 1.0.0"
-                                              .style (m/TextStyle
-                                                      .fontSize 16
-                                                      .color (.-onSurfaceVariant color-scheme)))
-
-                              (m/Container .width 30)
-
-                              (m/Container
-                               .padding (m.EdgeInsets/all 16)
-                               .decoration (m/BoxDecoration
-                                            .color (.-surfaceVariant color-scheme)
-                                            .borderRadius (m.BorderRadius/circular 12))
-                               .child (m/Row
-                                       .crossAxisAlignment m.CrossAxisAlignment/start
-                                       .children [(mgl/MongolText "App Description"
-                                                                  .style (m/TextStyle
-                                                                          .fontSize 18
-                                                                          .fontWeight m.FontWeight/bold
-                                                                          .color (.-onSurface color-scheme)))
-
-                                                  (m/Container .width 8)
-
-                                                  (mgl/MongolText "A modern note-taking application built with Flutter and ClojureDart. Features include creating, editing, and organizing notes with a beautiful user interface."
-                                                                  .style (m/TextStyle
-                                                                          .fontSize 14
-                                                                          .color (.-onSurfaceVariant color-scheme)
-                                                                          .height 1.5))]))
-
-                              (m/Container .width 20)
-
-                              (m/Container
-                               .padding (m.EdgeInsets/all 16)
-                               .decoration (m/BoxDecoration
-                                            .color (.-surfaceVariant color-scheme)
-                                            .borderRadius (m.BorderRadius/circular 12))
-                               .child (m/Row
-                                       .crossAxisAlignment m.CrossAxisAlignment/start
-                                       .children [(mgl/MongolText "Features"
-                                                                  .style (m/TextStyle
-                                                                          .fontSize 18
-                                                                          .fontWeight m.FontWeight/bold
-                                                                          .color (.-onSurface color-scheme)))
-
-                                                  (m/Container .width 8)
-
-                                                  (m/Row
-                                                   .crossAxisAlignment m.CrossAxisAlignment/start
-                                                   .children [(m/Column
-                                                               .children [(m/Icon m.Icons/check_circle
-                                                                                  .size 16
-                                                                                  .color (.-primary color-scheme))
-                                                                          (m/Container .height 8)
-                                                                          (mgl/MongolText "Create and edit notes"
-                                                                                          .style (m/TextStyle
-                                                                                                  .fontSize 14
-                                                                                                  .color (.-onSurfaceVariant color-scheme)))])
-
-                                                              (m/Container .width 4)
-
-                                                              (m/Column
-                                                               .children [(m/Icon m.Icons/check_circle
-                                                                                  .size 16
-                                                                                  .color (.-primary color-scheme))
-                                                                          (m/Container .height 8)
-                                                                          (mgl/MongolText "Organize notes by categories"
-                                                                                          .style (m/TextStyle
-                                                                                                  .fontSize 14
-                                                                                                  .color (.-onSurfaceVariant color-scheme)))])
-
-                                                              (m/Container .width 4)
-
-                                                              (m/Column
-                                                               .children [(m/Icon m.Icons/check_circle
-                                                                                  .size 16
-                                                                                  .color (.-primary color-scheme))
-                                                                          (m/Container .height 8)
-                                                                          (mgl/MongolText "Beautiful and intuitive UI"
-                                                                                          .style (m/TextStyle
-                                                                                                  .fontSize 14
-                                                                                                  .color (.-onSurfaceVariant color-scheme)))])])]))
-
-                              (m/Container .width 20)
-
-                              (m/Container
-                               .padding (m.EdgeInsets/all 16)
-                               .decoration (m/BoxDecoration
-                                            .color (.-surfaceVariant color-scheme)
-                                            .borderRadius (m.BorderRadius/circular 12))
-                               .child (m/Row
-                                       .crossAxisAlignment m.CrossAxisAlignment/start
-                                       .children [(mgl/MongolText "Developer"
-                                                                  .style (m/TextStyle
-                                                                          .fontSize 18
-                                                                          .fontWeight m.FontWeight/bold
-                                                                          .color (.-onSurface color-scheme)))
-
-                                                  (m/Container .width 8)
-
-                                                  (mgl/MongolText "Built with ❤️ using Flutter and ClojureDart"
-                                                                  .style (m/TextStyle
-                                                                          .fontSize 14
-                                                                          .color (.-onSurfaceVariant color-scheme)))]))
-
-                              (m/Container .width 30)])))))
+                   .children (concat
+                              (create-app-header color-scheme)
+                              [(create-app-description color-scheme)
+                               (m/Container .width 20)
+                               (create-features-section color-scheme)
+                               (m/Container .width 20)
+                               (create-developer-info color-scheme)
+                               (m/Container .width 30)]))))))
