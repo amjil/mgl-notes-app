@@ -6,14 +6,18 @@
    
 (defn menu-item [item]
   (f/widget
+   :context ctx
+   :let [theme (-> m/Theme (.of ctx))
+         color-scheme (-> theme .-colorScheme)
+         text-color (-> color-scheme .-primary)]
    (m/Padding
     .padding (m/EdgeInsets.all 8)
-    .child (m/Column 
-            .children 
-            [(m/Icon (:icon item) .size 28)
+    .child (m/Column
+            .children
+            [(m/Icon (:icon item) .size 28 .color text-color)
              (m/SizedBox .height 4)
              (mgl/MongolText (:label item)
-                             .style (m/TextStyle .fontSize 16))]))))
+                             .style (m/TextStyle .fontSize 16 .color text-color))]))))
 
 (defn mgl-menu-bar []
   (f/widget

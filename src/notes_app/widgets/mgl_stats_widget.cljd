@@ -5,10 +5,6 @@
    [cljd.flutter :as f]
    [notes-app.states.stats :as stats]))
 
-;; Extract common styles to avoid repeated creation
-(def label-style (m/TextStyle .fontSize 16))
-(def value-style (m/TextStyle .fontSize 22 .fontWeight m/FontWeight.bold))
-
 ;; Data validation function
 (defn validate-stat-value [value]
   (if (and (number? value) (>= value 0))
@@ -16,44 +12,41 @@
     0))
 
 ;; Individual stat item component
-(defn- item-label [label]
-  (mgl/MongolText label .style label-style))
-
-(defn- item-value [value]
-  (m/Text (str (validate-stat-value value))
-          .style value-style))
-
-;; Individual stat item component
 (defn- stat-item [label value]
-  (m/Expanded
-   .child
-   (m/Column
-    .mainAxisAlignment m/MainAxisAlignment.center
-    .crossAxisAlignment m/CrossAxisAlignment.center
-    .children [(item-label label)
-               (m/Align
-                .alignment m/Alignment.center
-                .child (item-value value))])))
+  (f/widget
+   :context ctx
+   :let [theme (-> m/Theme (.of ctx))
+         color-scheme (-> theme .-colorScheme)
+         text-color (-> color-scheme .-primary)]
+   (m/Expanded
+    .child
+    (m/Column
+     .mainAxisAlignment m/MainAxisAlignment.spaceBetween
+     .children [(mgl/MongolText label .style (m/TextStyle
+                                              .fontSize 16
+                                              .fontWeight (m/FontWeight.w500)
+                                              .color text-color))
+                (m/Align
+                 .alignment m/Alignment.center
+                 .child (m/Text (str (validate-stat-value value))
+                                .style (m/TextStyle .fontSize 22 .fontWeight (m/FontWeight.bold)
+                                                    .color text-color)))]))))
 
 (defn stats-panel []
   (f/widget
    :watch [{note-count :note-count 
             tag-count :tag-count 
             active-days :active-days
-            total-blocks :total-blocks
-            total-links :total-links} stats/stats-state]
+            total-blocks :total-blocks} stats/stats-state]
    (m/Padding
     .padding (m/EdgeInsets.symmetric .vertical 16 .horizontal 48)
     .child
     (m/Column
+     .mainAxisAlignment m/MainAxisAlignment.center
      .children
      [(m/Row
        .mainAxisAlignment m/MainAxisAlignment.spaceBetween
        .children [(stat-item "Notes" note-count)
                   (stat-item "Tags" tag-count)
-                  (stat-item "Active" active-days)])
-      (m/SizedBox .height 16)
-      (m/Row
-       .mainAxisAlignment m/MainAxisAlignment.spaceBetween
-       .children [(stat-item "Blocks" total-blocks)
-                  (stat-item "Links" total-links)])]))))
+                  (stat-item "Active" active-days)
+                  (stat-item "Blocks" total-blocks)])]))))

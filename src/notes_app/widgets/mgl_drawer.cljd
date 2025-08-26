@@ -12,12 +12,22 @@
 
 (defn mgl-left-drawer []
   (f/widget
+   :context ctx
+   :let [theme (-> m/Theme (.of ctx))
+         color-scheme (-> theme .-colorScheme)
+         bg-color (-> color-scheme .-primaryContainer)
+         scaffold-bg-color (-> color-scheme .-surface)]
    (m/Drawer)
    (m/SafeArea)
+   (m/Container
+    .decoration (m/BoxDecoration
+                 .color scaffold-bg-color))
    (m/Column
     .children
-    [(m/Padding
-      .padding (m/EdgeInsets.symmetric .vertical 26 .horizontal 16)
+    [(m/Container
+      .padding (m/EdgeInsets.symmetric .vertical 20 .horizontal 16)
+      .decoration (m/BoxDecoration
+                   .color bg-color)
       .child (m/Row
               .mainAxisAlignment m/MainAxisAlignment.spaceBetween
               .children
@@ -32,9 +42,13 @@
                 .onPressed (fn []
                              (dart:core/print "Open Settings")))]))
      (m/Divider .height 1)
-     (mgl-stats-widget/stats-panel)
+     (m/Expanded
+      .flex 1
+      .child
+      (mgl-stats-widget/stats-panel))
      (m/Divider .height 1)
      (m/Expanded
+      .flex 2
       .child
       (mgl-menu-bar/mgl-menu-bar))])))
 
