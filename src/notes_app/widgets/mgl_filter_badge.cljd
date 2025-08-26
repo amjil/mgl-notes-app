@@ -7,35 +7,34 @@
 
 (defn filter-badge []
   (f/widget
+   :context ctx
    :watch [{filter-tag-name :filter-tag-name
             filter-date :filter-date} note-state/notes-state]
-   (let [has-tag? (not-empty filter-tag-name)
-         has-date? (not-empty filter-date)
-         is-default (not (or has-tag? has-date?))
-         bg-color (if is-default
-                    (m/Colors.grey.withOpacity 0.12)
-                    (m/Colors.blue.withOpacity 0.15))
-         border-color (if is-default
-                        (m/Colors.grey 400)
-                        (m/Colors.blue 400))
-         text-color (if is-default
-                      (m/Colors.grey 800)
-                      (m/Colors.blue 900))]
-     (m/Container
-      .padding (m/EdgeInsets.symmetric .vertical 16 .horizontal 8)
-      .decoration (m/BoxDecoration
-                   .color bg-color
-                   .border (m/Border.all .color border-color)
-                   .borderRadius (m/BorderRadius.circular 12))
-      .child (mgl/MongolText  (cond
-                                has-tag? filter-tag-name
-                                has-date? filter-date
-                                :else "Minii Notes")
-                              .style (m/TextStyle .fontSize 12
-                                                  .fontWeight (m/FontWeight.w500)
-                                                  .color text-color))))))
+   :let [theme (-> m/Theme (.of ctx))
+         color-scheme (-> theme .-colorScheme)
+         text-color (-> color-scheme .-primary)
+         bg-color (-> color-scheme .-primaryContainer)]
+   (m/Container
+    .padding (m/EdgeInsets.symmetric .vertical 1 .horizontal 1)
+    .decoration (m/BoxDecoration
+                 .color bg-color)
+    .child
+    (m/Column
+     .mainAxisSize m/MainAxisSize.min
+     .mainAxisAlignment m/MainAxisAlignment.start
+     .children [(m/Icon
+                 (m/Icons.filter_alt_rounded)
+                 .size 16
+                 .color text-color)
+                (mgl/MongolText  (cond
+                                   (not-empty filter-tag-name) filter-tag-name
+                                   (not-empty filter-date) filter-date
+                                   :else "Minii Notes")
+                                 .style (m/TextStyle .fontSize 12
+                                                     .fontWeight (m/FontWeight.w500)
+                                                     .color text-color))]))))
 (defn positioned-filter-badge []
   (m/Positioned
-   .top 16
-   .right 12
+   .top 0
+   .right 0
    .child (filter-badge)))
