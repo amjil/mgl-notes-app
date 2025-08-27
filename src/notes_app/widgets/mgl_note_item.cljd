@@ -45,10 +45,13 @@
   (f/widget
    :context ctx
    :let [theme (-> m/Theme (.of ctx))
-         is-dark? (= (.-brightness (.-colorScheme theme)) m/Brightness.dark)
-         bg-color (if is-dark? (m/Color. 0xFF1E1E1E) m/Colors.white)
-         title-color (if is-dark? m/Colors.white m/Colors.black87)
-         preview-color (if is-dark? (m/Colors.grey 400) (m/Colors.grey 600))
+         color-scheme (.-colorScheme theme)
+         is-dark? (= (.-brightness color-scheme) m/Brightness.dark)
+         bg-color (.-surface color-scheme)
+         title-color (.-onSurface color-scheme)
+         preview-color (.-onSurfaceVariant color-scheme)
+         border-color (.-outline color-scheme)
+         shadow-color (.-shadow color-scheme)
          item (.-data item)
          note-id (get item "id")
          note-title (get item "title")
@@ -62,9 +65,11 @@
    (m/Card
     .color bg-color
     .margin (m/EdgeInsets.all 12)
-    .shape (m/RoundedRectangleBorder .borderRadius (m/BorderRadius.circular 16))
-    .elevation 4
-    .shadowColor (m/Colors.black.withOpacity 0.1))
+    .shape (m/RoundedRectangleBorder 
+             .borderRadius (m/BorderRadius.circular 16)
+             .side (m/BorderSide .color border-color .width 1))
+    .elevation (if is-dark? 2 4)
+    .shadowColor shadow-color)
    (m/Padding
     .padding (m/EdgeInsets.all 16))
    (m/Column
@@ -91,11 +96,15 @@
        (mgl/MongolListTile
         .title (when note-title
                  (mgl/MongolText note-title
-                                 .style (m/TextStyle .fontSize 18
-                                                     .fontWeight m/FontWeight.bold
-                                                     .color title-color)))
+                                 .style (m/TextStyle 
+                                          .fontSize 18
+                                          .fontWeight m/FontWeight.bold
+                                          .color title-color
+                                          .height 1.2)))
         .subtitle (when note-content
                     (mgl/MongolText note-content
                                     .maxLines 3
-                                    .style (m/TextStyle .fontSize 14
-                                                        .color preview-color))))))])))
+                                    .style (m/TextStyle 
+                                             .fontSize 14
+                                             .color preview-color
+                                             .height 1.4))))))])))
