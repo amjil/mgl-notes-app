@@ -140,8 +140,6 @@ mgl-notes-app/
 │   │   ├── mgl_app_bar.cljd     # Application bar
 │   │   ├── mgl_calendar_bar.cljd # Calendar component
 │   │   ├── mgl_chip.cljd        # Chip component
-│   │   ├── mgl_conflict_list.cljd # Conflict list view
-│   │   ├── mgl_conflict_view.cljd # Conflict resolution view
 │   │   ├── mgl_drawer.cljd      # Navigation drawer
 │   │   ├── mgl_editor_with_preview.cljd # Editor with preview
 │   │   ├── mgl_empty_state.cljd # Empty state component
@@ -168,7 +166,6 @@ mgl-notes-app/
 │   ├── states/                   # Application state management
 │   │   ├── blocks.cljd          # Block state management
 │   │   ├── calendar.cljd        # Calendar state
-│   │   ├── conflict.cljd        # Conflict resolution state
 │   │   ├── links.cljd           # Link management state
 │   │   ├── notes.cljd           # Notes state
 │   │   ├── search.cljd          # Search state
