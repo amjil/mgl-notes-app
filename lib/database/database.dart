@@ -38,19 +38,6 @@ class Blocks extends Table {
   Set<Column> get primaryKey => {id};
 }
 
-// Links table
-class Links extends Table {
-  TextColumn get id => text()();
-  TextColumn get userId => text().nullable()();
-  TextColumn get fromBlockId => text().references(Blocks, #id, onDelete: KeyAction.cascade)();
-  TextColumn get toNoteId => text().references(Notes, #id, onDelete: KeyAction.cascade)();
-  TextColumn get toBlockId => text().nullable()();
-  DateTimeColumn get createdAt => dateTime().withDefault(currentDateAndTime)();
-
-  @override
-  Set<Column> get primaryKey => {id};
-}
-
 // Tags table
 class Tags extends Table {
   TextColumn get id => text()();
@@ -71,24 +58,12 @@ class NoteTags extends Table {
   Set<Column> get primaryKey => {noteId, tagId};
 }
 
-// Daily notes count table for calendar visualization
-class DailyNotesCount extends Table {
-  TextColumn get date => text()(); // Format: YYYY.MM.DD
-  IntColumn get noteCount => integer().withDefault(const Constant(0))();
-  DateTimeColumn get lastUpdated => dateTime().withDefault(currentDateAndTime)();
-
-  @override
-  Set<Column> get primaryKey => {date};
-}
-
 @DriftDatabase(
   tables: [
     Notes,
     Blocks,
-    Links,
     Tags,
     NoteTags,
-    DailyNotesCount,
   ],
 )
 class AppDatabase extends _$AppDatabase {

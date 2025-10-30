@@ -1063,424 +1063,6 @@ class BlocksCompanion extends UpdateCompanion<Block> {
   }
 }
 
-class $LinksTable extends Links with TableInfo<$LinksTable, Link> {
-  @override
-  final GeneratedDatabase attachedDatabase;
-  final String? _alias;
-  $LinksTable(this.attachedDatabase, [this._alias]);
-  static const VerificationMeta _idMeta = const VerificationMeta('id');
-  @override
-  late final GeneratedColumn<String> id = GeneratedColumn<String>(
-    'id',
-    aliasedName,
-    false,
-    type: DriftSqlType.string,
-    requiredDuringInsert: true,
-  );
-  static const VerificationMeta _userIdMeta = const VerificationMeta('userId');
-  @override
-  late final GeneratedColumn<String> userId = GeneratedColumn<String>(
-    'user_id',
-    aliasedName,
-    true,
-    type: DriftSqlType.string,
-    requiredDuringInsert: false,
-  );
-  static const VerificationMeta _fromBlockIdMeta = const VerificationMeta(
-    'fromBlockId',
-  );
-  @override
-  late final GeneratedColumn<String> fromBlockId = GeneratedColumn<String>(
-    'from_block_id',
-    aliasedName,
-    false,
-    type: DriftSqlType.string,
-    requiredDuringInsert: true,
-    defaultConstraints: GeneratedColumn.constraintIsAlways(
-      'REFERENCES blocks (id) ON DELETE CASCADE',
-    ),
-  );
-  static const VerificationMeta _toNoteIdMeta = const VerificationMeta(
-    'toNoteId',
-  );
-  @override
-  late final GeneratedColumn<String> toNoteId = GeneratedColumn<String>(
-    'to_note_id',
-    aliasedName,
-    false,
-    type: DriftSqlType.string,
-    requiredDuringInsert: true,
-    defaultConstraints: GeneratedColumn.constraintIsAlways(
-      'REFERENCES notes (id) ON DELETE CASCADE',
-    ),
-  );
-  static const VerificationMeta _toBlockIdMeta = const VerificationMeta(
-    'toBlockId',
-  );
-  @override
-  late final GeneratedColumn<String> toBlockId = GeneratedColumn<String>(
-    'to_block_id',
-    aliasedName,
-    true,
-    type: DriftSqlType.string,
-    requiredDuringInsert: false,
-  );
-  static const VerificationMeta _createdAtMeta = const VerificationMeta(
-    'createdAt',
-  );
-  @override
-  late final GeneratedColumn<DateTime> createdAt = GeneratedColumn<DateTime>(
-    'created_at',
-    aliasedName,
-    false,
-    type: DriftSqlType.dateTime,
-    requiredDuringInsert: false,
-    defaultValue: currentDateAndTime,
-  );
-  @override
-  List<GeneratedColumn> get $columns => [
-    id,
-    userId,
-    fromBlockId,
-    toNoteId,
-    toBlockId,
-    createdAt,
-  ];
-  @override
-  String get aliasedName => _alias ?? actualTableName;
-  @override
-  String get actualTableName => $name;
-  static const String $name = 'links';
-  @override
-  VerificationContext validateIntegrity(
-    Insertable<Link> instance, {
-    bool isInserting = false,
-  }) {
-    final context = VerificationContext();
-    final data = instance.toColumns(true);
-    if (data.containsKey('id')) {
-      context.handle(_idMeta, id.isAcceptableOrUnknown(data['id']!, _idMeta));
-    } else if (isInserting) {
-      context.missing(_idMeta);
-    }
-    if (data.containsKey('user_id')) {
-      context.handle(
-        _userIdMeta,
-        userId.isAcceptableOrUnknown(data['user_id']!, _userIdMeta),
-      );
-    }
-    if (data.containsKey('from_block_id')) {
-      context.handle(
-        _fromBlockIdMeta,
-        fromBlockId.isAcceptableOrUnknown(
-          data['from_block_id']!,
-          _fromBlockIdMeta,
-        ),
-      );
-    } else if (isInserting) {
-      context.missing(_fromBlockIdMeta);
-    }
-    if (data.containsKey('to_note_id')) {
-      context.handle(
-        _toNoteIdMeta,
-        toNoteId.isAcceptableOrUnknown(data['to_note_id']!, _toNoteIdMeta),
-      );
-    } else if (isInserting) {
-      context.missing(_toNoteIdMeta);
-    }
-    if (data.containsKey('to_block_id')) {
-      context.handle(
-        _toBlockIdMeta,
-        toBlockId.isAcceptableOrUnknown(data['to_block_id']!, _toBlockIdMeta),
-      );
-    }
-    if (data.containsKey('created_at')) {
-      context.handle(
-        _createdAtMeta,
-        createdAt.isAcceptableOrUnknown(data['created_at']!, _createdAtMeta),
-      );
-    }
-    return context;
-  }
-
-  @override
-  Set<GeneratedColumn> get $primaryKey => {id};
-  @override
-  Link map(Map<String, dynamic> data, {String? tablePrefix}) {
-    final effectivePrefix = tablePrefix != null ? '$tablePrefix.' : '';
-    return Link(
-      id: attachedDatabase.typeMapping.read(
-        DriftSqlType.string,
-        data['${effectivePrefix}id'],
-      )!,
-      userId: attachedDatabase.typeMapping.read(
-        DriftSqlType.string,
-        data['${effectivePrefix}user_id'],
-      ),
-      fromBlockId: attachedDatabase.typeMapping.read(
-        DriftSqlType.string,
-        data['${effectivePrefix}from_block_id'],
-      )!,
-      toNoteId: attachedDatabase.typeMapping.read(
-        DriftSqlType.string,
-        data['${effectivePrefix}to_note_id'],
-      )!,
-      toBlockId: attachedDatabase.typeMapping.read(
-        DriftSqlType.string,
-        data['${effectivePrefix}to_block_id'],
-      ),
-      createdAt: attachedDatabase.typeMapping.read(
-        DriftSqlType.dateTime,
-        data['${effectivePrefix}created_at'],
-      )!,
-    );
-  }
-
-  @override
-  $LinksTable createAlias(String alias) {
-    return $LinksTable(attachedDatabase, alias);
-  }
-}
-
-class Link extends DataClass implements Insertable<Link> {
-  final String id;
-  final String? userId;
-  final String fromBlockId;
-  final String toNoteId;
-  final String? toBlockId;
-  final DateTime createdAt;
-  const Link({
-    required this.id,
-    this.userId,
-    required this.fromBlockId,
-    required this.toNoteId,
-    this.toBlockId,
-    required this.createdAt,
-  });
-  @override
-  Map<String, Expression> toColumns(bool nullToAbsent) {
-    final map = <String, Expression>{};
-    map['id'] = Variable<String>(id);
-    if (!nullToAbsent || userId != null) {
-      map['user_id'] = Variable<String>(userId);
-    }
-    map['from_block_id'] = Variable<String>(fromBlockId);
-    map['to_note_id'] = Variable<String>(toNoteId);
-    if (!nullToAbsent || toBlockId != null) {
-      map['to_block_id'] = Variable<String>(toBlockId);
-    }
-    map['created_at'] = Variable<DateTime>(createdAt);
-    return map;
-  }
-
-  LinksCompanion toCompanion(bool nullToAbsent) {
-    return LinksCompanion(
-      id: Value(id),
-      userId: userId == null && nullToAbsent
-          ? const Value.absent()
-          : Value(userId),
-      fromBlockId: Value(fromBlockId),
-      toNoteId: Value(toNoteId),
-      toBlockId: toBlockId == null && nullToAbsent
-          ? const Value.absent()
-          : Value(toBlockId),
-      createdAt: Value(createdAt),
-    );
-  }
-
-  factory Link.fromJson(
-    Map<String, dynamic> json, {
-    ValueSerializer? serializer,
-  }) {
-    serializer ??= driftRuntimeOptions.defaultSerializer;
-    return Link(
-      id: serializer.fromJson<String>(json['id']),
-      userId: serializer.fromJson<String?>(json['userId']),
-      fromBlockId: serializer.fromJson<String>(json['fromBlockId']),
-      toNoteId: serializer.fromJson<String>(json['toNoteId']),
-      toBlockId: serializer.fromJson<String?>(json['toBlockId']),
-      createdAt: serializer.fromJson<DateTime>(json['createdAt']),
-    );
-  }
-  @override
-  Map<String, dynamic> toJson({ValueSerializer? serializer}) {
-    serializer ??= driftRuntimeOptions.defaultSerializer;
-    return <String, dynamic>{
-      'id': serializer.toJson<String>(id),
-      'userId': serializer.toJson<String?>(userId),
-      'fromBlockId': serializer.toJson<String>(fromBlockId),
-      'toNoteId': serializer.toJson<String>(toNoteId),
-      'toBlockId': serializer.toJson<String?>(toBlockId),
-      'createdAt': serializer.toJson<DateTime>(createdAt),
-    };
-  }
-
-  Link copyWith({
-    String? id,
-    Value<String?> userId = const Value.absent(),
-    String? fromBlockId,
-    String? toNoteId,
-    Value<String?> toBlockId = const Value.absent(),
-    DateTime? createdAt,
-  }) => Link(
-    id: id ?? this.id,
-    userId: userId.present ? userId.value : this.userId,
-    fromBlockId: fromBlockId ?? this.fromBlockId,
-    toNoteId: toNoteId ?? this.toNoteId,
-    toBlockId: toBlockId.present ? toBlockId.value : this.toBlockId,
-    createdAt: createdAt ?? this.createdAt,
-  );
-  Link copyWithCompanion(LinksCompanion data) {
-    return Link(
-      id: data.id.present ? data.id.value : this.id,
-      userId: data.userId.present ? data.userId.value : this.userId,
-      fromBlockId: data.fromBlockId.present
-          ? data.fromBlockId.value
-          : this.fromBlockId,
-      toNoteId: data.toNoteId.present ? data.toNoteId.value : this.toNoteId,
-      toBlockId: data.toBlockId.present ? data.toBlockId.value : this.toBlockId,
-      createdAt: data.createdAt.present ? data.createdAt.value : this.createdAt,
-    );
-  }
-
-  @override
-  String toString() {
-    return (StringBuffer('Link(')
-          ..write('id: $id, ')
-          ..write('userId: $userId, ')
-          ..write('fromBlockId: $fromBlockId, ')
-          ..write('toNoteId: $toNoteId, ')
-          ..write('toBlockId: $toBlockId, ')
-          ..write('createdAt: $createdAt')
-          ..write(')'))
-        .toString();
-  }
-
-  @override
-  int get hashCode =>
-      Object.hash(id, userId, fromBlockId, toNoteId, toBlockId, createdAt);
-  @override
-  bool operator ==(Object other) =>
-      identical(this, other) ||
-      (other is Link &&
-          other.id == this.id &&
-          other.userId == this.userId &&
-          other.fromBlockId == this.fromBlockId &&
-          other.toNoteId == this.toNoteId &&
-          other.toBlockId == this.toBlockId &&
-          other.createdAt == this.createdAt);
-}
-
-class LinksCompanion extends UpdateCompanion<Link> {
-  final Value<String> id;
-  final Value<String?> userId;
-  final Value<String> fromBlockId;
-  final Value<String> toNoteId;
-  final Value<String?> toBlockId;
-  final Value<DateTime> createdAt;
-  final Value<int> rowid;
-  const LinksCompanion({
-    this.id = const Value.absent(),
-    this.userId = const Value.absent(),
-    this.fromBlockId = const Value.absent(),
-    this.toNoteId = const Value.absent(),
-    this.toBlockId = const Value.absent(),
-    this.createdAt = const Value.absent(),
-    this.rowid = const Value.absent(),
-  });
-  LinksCompanion.insert({
-    required String id,
-    this.userId = const Value.absent(),
-    required String fromBlockId,
-    required String toNoteId,
-    this.toBlockId = const Value.absent(),
-    this.createdAt = const Value.absent(),
-    this.rowid = const Value.absent(),
-  }) : id = Value(id),
-       fromBlockId = Value(fromBlockId),
-       toNoteId = Value(toNoteId);
-  static Insertable<Link> custom({
-    Expression<String>? id,
-    Expression<String>? userId,
-    Expression<String>? fromBlockId,
-    Expression<String>? toNoteId,
-    Expression<String>? toBlockId,
-    Expression<DateTime>? createdAt,
-    Expression<int>? rowid,
-  }) {
-    return RawValuesInsertable({
-      if (id != null) 'id': id,
-      if (userId != null) 'user_id': userId,
-      if (fromBlockId != null) 'from_block_id': fromBlockId,
-      if (toNoteId != null) 'to_note_id': toNoteId,
-      if (toBlockId != null) 'to_block_id': toBlockId,
-      if (createdAt != null) 'created_at': createdAt,
-      if (rowid != null) 'rowid': rowid,
-    });
-  }
-
-  LinksCompanion copyWith({
-    Value<String>? id,
-    Value<String?>? userId,
-    Value<String>? fromBlockId,
-    Value<String>? toNoteId,
-    Value<String?>? toBlockId,
-    Value<DateTime>? createdAt,
-    Value<int>? rowid,
-  }) {
-    return LinksCompanion(
-      id: id ?? this.id,
-      userId: userId ?? this.userId,
-      fromBlockId: fromBlockId ?? this.fromBlockId,
-      toNoteId: toNoteId ?? this.toNoteId,
-      toBlockId: toBlockId ?? this.toBlockId,
-      createdAt: createdAt ?? this.createdAt,
-      rowid: rowid ?? this.rowid,
-    );
-  }
-
-  @override
-  Map<String, Expression> toColumns(bool nullToAbsent) {
-    final map = <String, Expression>{};
-    if (id.present) {
-      map['id'] = Variable<String>(id.value);
-    }
-    if (userId.present) {
-      map['user_id'] = Variable<String>(userId.value);
-    }
-    if (fromBlockId.present) {
-      map['from_block_id'] = Variable<String>(fromBlockId.value);
-    }
-    if (toNoteId.present) {
-      map['to_note_id'] = Variable<String>(toNoteId.value);
-    }
-    if (toBlockId.present) {
-      map['to_block_id'] = Variable<String>(toBlockId.value);
-    }
-    if (createdAt.present) {
-      map['created_at'] = Variable<DateTime>(createdAt.value);
-    }
-    if (rowid.present) {
-      map['rowid'] = Variable<int>(rowid.value);
-    }
-    return map;
-  }
-
-  @override
-  String toString() {
-    return (StringBuffer('LinksCompanion(')
-          ..write('id: $id, ')
-          ..write('userId: $userId, ')
-          ..write('fromBlockId: $fromBlockId, ')
-          ..write('toNoteId: $toNoteId, ')
-          ..write('toBlockId: $toBlockId, ')
-          ..write('createdAt: $createdAt, ')
-          ..write('rowid: $rowid')
-          ..write(')'))
-        .toString();
-  }
-}
-
 class $TagsTable extends Tags with TableInfo<$TagsTable, Tag> {
   @override
   final GeneratedDatabase attachedDatabase;
@@ -2003,286 +1585,13 @@ class NoteTagsCompanion extends UpdateCompanion<NoteTag> {
   }
 }
 
-class $DailyNotesCountTable extends DailyNotesCount
-    with TableInfo<$DailyNotesCountTable, DailyNotesCountData> {
-  @override
-  final GeneratedDatabase attachedDatabase;
-  final String? _alias;
-  $DailyNotesCountTable(this.attachedDatabase, [this._alias]);
-  static const VerificationMeta _dateMeta = const VerificationMeta('date');
-  @override
-  late final GeneratedColumn<String> date = GeneratedColumn<String>(
-    'date',
-    aliasedName,
-    false,
-    type: DriftSqlType.string,
-    requiredDuringInsert: true,
-  );
-  static const VerificationMeta _noteCountMeta = const VerificationMeta(
-    'noteCount',
-  );
-  @override
-  late final GeneratedColumn<int> noteCount = GeneratedColumn<int>(
-    'note_count',
-    aliasedName,
-    false,
-    type: DriftSqlType.int,
-    requiredDuringInsert: false,
-    defaultValue: const Constant(0),
-  );
-  static const VerificationMeta _lastUpdatedMeta = const VerificationMeta(
-    'lastUpdated',
-  );
-  @override
-  late final GeneratedColumn<DateTime> lastUpdated = GeneratedColumn<DateTime>(
-    'last_updated',
-    aliasedName,
-    false,
-    type: DriftSqlType.dateTime,
-    requiredDuringInsert: false,
-    defaultValue: currentDateAndTime,
-  );
-  @override
-  List<GeneratedColumn> get $columns => [date, noteCount, lastUpdated];
-  @override
-  String get aliasedName => _alias ?? actualTableName;
-  @override
-  String get actualTableName => $name;
-  static const String $name = 'daily_notes_count';
-  @override
-  VerificationContext validateIntegrity(
-    Insertable<DailyNotesCountData> instance, {
-    bool isInserting = false,
-  }) {
-    final context = VerificationContext();
-    final data = instance.toColumns(true);
-    if (data.containsKey('date')) {
-      context.handle(
-        _dateMeta,
-        date.isAcceptableOrUnknown(data['date']!, _dateMeta),
-      );
-    } else if (isInserting) {
-      context.missing(_dateMeta);
-    }
-    if (data.containsKey('note_count')) {
-      context.handle(
-        _noteCountMeta,
-        noteCount.isAcceptableOrUnknown(data['note_count']!, _noteCountMeta),
-      );
-    }
-    if (data.containsKey('last_updated')) {
-      context.handle(
-        _lastUpdatedMeta,
-        lastUpdated.isAcceptableOrUnknown(
-          data['last_updated']!,
-          _lastUpdatedMeta,
-        ),
-      );
-    }
-    return context;
-  }
-
-  @override
-  Set<GeneratedColumn> get $primaryKey => {date};
-  @override
-  DailyNotesCountData map(Map<String, dynamic> data, {String? tablePrefix}) {
-    final effectivePrefix = tablePrefix != null ? '$tablePrefix.' : '';
-    return DailyNotesCountData(
-      date: attachedDatabase.typeMapping.read(
-        DriftSqlType.string,
-        data['${effectivePrefix}date'],
-      )!,
-      noteCount: attachedDatabase.typeMapping.read(
-        DriftSqlType.int,
-        data['${effectivePrefix}note_count'],
-      )!,
-      lastUpdated: attachedDatabase.typeMapping.read(
-        DriftSqlType.dateTime,
-        data['${effectivePrefix}last_updated'],
-      )!,
-    );
-  }
-
-  @override
-  $DailyNotesCountTable createAlias(String alias) {
-    return $DailyNotesCountTable(attachedDatabase, alias);
-  }
-}
-
-class DailyNotesCountData extends DataClass
-    implements Insertable<DailyNotesCountData> {
-  final String date;
-  final int noteCount;
-  final DateTime lastUpdated;
-  const DailyNotesCountData({
-    required this.date,
-    required this.noteCount,
-    required this.lastUpdated,
-  });
-  @override
-  Map<String, Expression> toColumns(bool nullToAbsent) {
-    final map = <String, Expression>{};
-    map['date'] = Variable<String>(date);
-    map['note_count'] = Variable<int>(noteCount);
-    map['last_updated'] = Variable<DateTime>(lastUpdated);
-    return map;
-  }
-
-  DailyNotesCountCompanion toCompanion(bool nullToAbsent) {
-    return DailyNotesCountCompanion(
-      date: Value(date),
-      noteCount: Value(noteCount),
-      lastUpdated: Value(lastUpdated),
-    );
-  }
-
-  factory DailyNotesCountData.fromJson(
-    Map<String, dynamic> json, {
-    ValueSerializer? serializer,
-  }) {
-    serializer ??= driftRuntimeOptions.defaultSerializer;
-    return DailyNotesCountData(
-      date: serializer.fromJson<String>(json['date']),
-      noteCount: serializer.fromJson<int>(json['noteCount']),
-      lastUpdated: serializer.fromJson<DateTime>(json['lastUpdated']),
-    );
-  }
-  @override
-  Map<String, dynamic> toJson({ValueSerializer? serializer}) {
-    serializer ??= driftRuntimeOptions.defaultSerializer;
-    return <String, dynamic>{
-      'date': serializer.toJson<String>(date),
-      'noteCount': serializer.toJson<int>(noteCount),
-      'lastUpdated': serializer.toJson<DateTime>(lastUpdated),
-    };
-  }
-
-  DailyNotesCountData copyWith({
-    String? date,
-    int? noteCount,
-    DateTime? lastUpdated,
-  }) => DailyNotesCountData(
-    date: date ?? this.date,
-    noteCount: noteCount ?? this.noteCount,
-    lastUpdated: lastUpdated ?? this.lastUpdated,
-  );
-  DailyNotesCountData copyWithCompanion(DailyNotesCountCompanion data) {
-    return DailyNotesCountData(
-      date: data.date.present ? data.date.value : this.date,
-      noteCount: data.noteCount.present ? data.noteCount.value : this.noteCount,
-      lastUpdated: data.lastUpdated.present
-          ? data.lastUpdated.value
-          : this.lastUpdated,
-    );
-  }
-
-  @override
-  String toString() {
-    return (StringBuffer('DailyNotesCountData(')
-          ..write('date: $date, ')
-          ..write('noteCount: $noteCount, ')
-          ..write('lastUpdated: $lastUpdated')
-          ..write(')'))
-        .toString();
-  }
-
-  @override
-  int get hashCode => Object.hash(date, noteCount, lastUpdated);
-  @override
-  bool operator ==(Object other) =>
-      identical(this, other) ||
-      (other is DailyNotesCountData &&
-          other.date == this.date &&
-          other.noteCount == this.noteCount &&
-          other.lastUpdated == this.lastUpdated);
-}
-
-class DailyNotesCountCompanion extends UpdateCompanion<DailyNotesCountData> {
-  final Value<String> date;
-  final Value<int> noteCount;
-  final Value<DateTime> lastUpdated;
-  final Value<int> rowid;
-  const DailyNotesCountCompanion({
-    this.date = const Value.absent(),
-    this.noteCount = const Value.absent(),
-    this.lastUpdated = const Value.absent(),
-    this.rowid = const Value.absent(),
-  });
-  DailyNotesCountCompanion.insert({
-    required String date,
-    this.noteCount = const Value.absent(),
-    this.lastUpdated = const Value.absent(),
-    this.rowid = const Value.absent(),
-  }) : date = Value(date);
-  static Insertable<DailyNotesCountData> custom({
-    Expression<String>? date,
-    Expression<int>? noteCount,
-    Expression<DateTime>? lastUpdated,
-    Expression<int>? rowid,
-  }) {
-    return RawValuesInsertable({
-      if (date != null) 'date': date,
-      if (noteCount != null) 'note_count': noteCount,
-      if (lastUpdated != null) 'last_updated': lastUpdated,
-      if (rowid != null) 'rowid': rowid,
-    });
-  }
-
-  DailyNotesCountCompanion copyWith({
-    Value<String>? date,
-    Value<int>? noteCount,
-    Value<DateTime>? lastUpdated,
-    Value<int>? rowid,
-  }) {
-    return DailyNotesCountCompanion(
-      date: date ?? this.date,
-      noteCount: noteCount ?? this.noteCount,
-      lastUpdated: lastUpdated ?? this.lastUpdated,
-      rowid: rowid ?? this.rowid,
-    );
-  }
-
-  @override
-  Map<String, Expression> toColumns(bool nullToAbsent) {
-    final map = <String, Expression>{};
-    if (date.present) {
-      map['date'] = Variable<String>(date.value);
-    }
-    if (noteCount.present) {
-      map['note_count'] = Variable<int>(noteCount.value);
-    }
-    if (lastUpdated.present) {
-      map['last_updated'] = Variable<DateTime>(lastUpdated.value);
-    }
-    if (rowid.present) {
-      map['rowid'] = Variable<int>(rowid.value);
-    }
-    return map;
-  }
-
-  @override
-  String toString() {
-    return (StringBuffer('DailyNotesCountCompanion(')
-          ..write('date: $date, ')
-          ..write('noteCount: $noteCount, ')
-          ..write('lastUpdated: $lastUpdated, ')
-          ..write('rowid: $rowid')
-          ..write(')'))
-        .toString();
-  }
-}
-
 abstract class _$AppDatabase extends GeneratedDatabase {
   _$AppDatabase(QueryExecutor e) : super(e);
   $AppDatabaseManager get managers => $AppDatabaseManager(this);
   late final $NotesTable notes = $NotesTable(this);
   late final $BlocksTable blocks = $BlocksTable(this);
-  late final $LinksTable links = $LinksTable(this);
   late final $TagsTable tags = $TagsTable(this);
   late final $NoteTagsTable noteTags = $NoteTagsTable(this);
-  late final $DailyNotesCountTable dailyNotesCount = $DailyNotesCountTable(
-    this,
-  );
   @override
   Iterable<TableInfo<Table, Object?>> get allTables =>
       allSchemaEntities.whereType<TableInfo<Table, Object?>>();
@@ -2290,10 +1599,8 @@ abstract class _$AppDatabase extends GeneratedDatabase {
   List<DatabaseSchemaEntity> get allSchemaEntities => [
     notes,
     blocks,
-    links,
     tags,
     noteTags,
-    dailyNotesCount,
   ];
   @override
   StreamQueryUpdateRules get streamUpdateRules => const StreamQueryUpdateRules([
@@ -2303,20 +1610,6 @@ abstract class _$AppDatabase extends GeneratedDatabase {
         limitUpdateKind: UpdateKind.delete,
       ),
       result: [TableUpdate('blocks', kind: UpdateKind.delete)],
-    ),
-    WritePropagation(
-      on: TableUpdateQuery.onTableName(
-        'blocks',
-        limitUpdateKind: UpdateKind.delete,
-      ),
-      result: [TableUpdate('links', kind: UpdateKind.delete)],
-    ),
-    WritePropagation(
-      on: TableUpdateQuery.onTableName(
-        'notes',
-        limitUpdateKind: UpdateKind.delete,
-      ),
-      result: [TableUpdate('links', kind: UpdateKind.delete)],
     ),
     WritePropagation(
       on: TableUpdateQuery.onTableName(
@@ -2382,25 +1675,6 @@ final class $$NotesTableReferences
     ).filter((f) => f.noteId.id.sqlEquals($_itemColumn<String>('id')!));
 
     final cache = $_typedResult.readTableOrNull(_blocksRefsTable($_db));
-    return ProcessedTableManager(
-      manager.$state.copyWith(prefetchedData: cache),
-    );
-  }
-
-  static MultiTypedResultKey<$LinksTable, List<Link>> _linksRefsTable(
-    _$AppDatabase db,
-  ) => MultiTypedResultKey.fromTable(
-    db.links,
-    aliasName: $_aliasNameGenerator(db.notes.id, db.links.toNoteId),
-  );
-
-  $$LinksTableProcessedTableManager get linksRefs {
-    final manager = $$LinksTableTableManager(
-      $_db,
-      $_db.links,
-    ).filter((f) => f.toNoteId.id.sqlEquals($_itemColumn<String>('id')!));
-
-    final cache = $_typedResult.readTableOrNull(_linksRefsTable($_db));
     return ProcessedTableManager(
       manager.$state.copyWith(prefetchedData: cache),
     );
@@ -2500,31 +1774,6 @@ class $$NotesTableFilterComposer extends Composer<_$AppDatabase, $NotesTable> {
           }) => $$BlocksTableFilterComposer(
             $db: $db,
             $table: $db.blocks,
-            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
-            joinBuilder: joinBuilder,
-            $removeJoinBuilderFromRootComposer:
-                $removeJoinBuilderFromRootComposer,
-          ),
-    );
-    return f(composer);
-  }
-
-  Expression<bool> linksRefs(
-    Expression<bool> Function($$LinksTableFilterComposer f) f,
-  ) {
-    final $$LinksTableFilterComposer composer = $composerBuilder(
-      composer: this,
-      getCurrentColumn: (t) => t.id,
-      referencedTable: $db.links,
-      getReferencedColumn: (t) => t.toNoteId,
-      builder:
-          (
-            joinBuilder, {
-            $addJoinBuilderToRootComposer,
-            $removeJoinBuilderFromRootComposer,
-          }) => $$LinksTableFilterComposer(
-            $db: $db,
-            $table: $db.links,
             $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
             joinBuilder: joinBuilder,
             $removeJoinBuilderFromRootComposer:
@@ -2686,31 +1935,6 @@ class $$NotesTableAnnotationComposer
     return f(composer);
   }
 
-  Expression<T> linksRefs<T extends Object>(
-    Expression<T> Function($$LinksTableAnnotationComposer a) f,
-  ) {
-    final $$LinksTableAnnotationComposer composer = $composerBuilder(
-      composer: this,
-      getCurrentColumn: (t) => t.id,
-      referencedTable: $db.links,
-      getReferencedColumn: (t) => t.toNoteId,
-      builder:
-          (
-            joinBuilder, {
-            $addJoinBuilderToRootComposer,
-            $removeJoinBuilderFromRootComposer,
-          }) => $$LinksTableAnnotationComposer(
-            $db: $db,
-            $table: $db.links,
-            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
-            joinBuilder: joinBuilder,
-            $removeJoinBuilderFromRootComposer:
-                $removeJoinBuilderFromRootComposer,
-          ),
-    );
-    return f(composer);
-  }
-
   Expression<T> noteTagsRefs<T extends Object>(
     Expression<T> Function($$NoteTagsTableAnnotationComposer a) f,
   ) {
@@ -2750,11 +1974,7 @@ class $$NotesTableTableManager
           $$NotesTableUpdateCompanionBuilder,
           (Note, $$NotesTableReferences),
           Note,
-          PrefetchHooks Function({
-            bool blocksRefs,
-            bool linksRefs,
-            bool noteTagsRefs,
-          })
+          PrefetchHooks Function({bool blocksRefs, bool noteTagsRefs})
         > {
   $$NotesTableTableManager(_$AppDatabase db, $NotesTable table)
     : super(
@@ -2825,65 +2045,43 @@ class $$NotesTableTableManager
                     (e.readTable(table), $$NotesTableReferences(db, table, e)),
               )
               .toList(),
-          prefetchHooksCallback:
-              ({blocksRefs = false, linksRefs = false, noteTagsRefs = false}) {
-                return PrefetchHooks(
-                  db: db,
-                  explicitlyWatchedTables: [
-                    if (blocksRefs) db.blocks,
-                    if (linksRefs) db.links,
-                    if (noteTagsRefs) db.noteTags,
-                  ],
-                  addJoins: null,
-                  getPrefetchedDataCallback: (items) async {
-                    return [
-                      if (blocksRefs)
-                        await $_getPrefetchedData<Note, $NotesTable, Block>(
-                          currentTable: table,
-                          referencedTable: $$NotesTableReferences
-                              ._blocksRefsTable(db),
-                          managerFromTypedResult: (p0) =>
-                              $$NotesTableReferences(db, table, p0).blocksRefs,
-                          referencedItemsForCurrentItem:
-                              (item, referencedItems) => referencedItems.where(
-                                (e) => e.noteId == item.id,
-                              ),
-                          typedResults: items,
-                        ),
-                      if (linksRefs)
-                        await $_getPrefetchedData<Note, $NotesTable, Link>(
-                          currentTable: table,
-                          referencedTable: $$NotesTableReferences
-                              ._linksRefsTable(db),
-                          managerFromTypedResult: (p0) =>
-                              $$NotesTableReferences(db, table, p0).linksRefs,
-                          referencedItemsForCurrentItem:
-                              (item, referencedItems) => referencedItems.where(
-                                (e) => e.toNoteId == item.id,
-                              ),
-                          typedResults: items,
-                        ),
-                      if (noteTagsRefs)
-                        await $_getPrefetchedData<Note, $NotesTable, NoteTag>(
-                          currentTable: table,
-                          referencedTable: $$NotesTableReferences
-                              ._noteTagsRefsTable(db),
-                          managerFromTypedResult: (p0) =>
-                              $$NotesTableReferences(
-                                db,
-                                table,
-                                p0,
-                              ).noteTagsRefs,
-                          referencedItemsForCurrentItem:
-                              (item, referencedItems) => referencedItems.where(
-                                (e) => e.noteId == item.id,
-                              ),
-                          typedResults: items,
-                        ),
-                    ];
-                  },
-                );
+          prefetchHooksCallback: ({blocksRefs = false, noteTagsRefs = false}) {
+            return PrefetchHooks(
+              db: db,
+              explicitlyWatchedTables: [
+                if (blocksRefs) db.blocks,
+                if (noteTagsRefs) db.noteTags,
+              ],
+              addJoins: null,
+              getPrefetchedDataCallback: (items) async {
+                return [
+                  if (blocksRefs)
+                    await $_getPrefetchedData<Note, $NotesTable, Block>(
+                      currentTable: table,
+                      referencedTable: $$NotesTableReferences._blocksRefsTable(
+                        db,
+                      ),
+                      managerFromTypedResult: (p0) =>
+                          $$NotesTableReferences(db, table, p0).blocksRefs,
+                      referencedItemsForCurrentItem: (item, referencedItems) =>
+                          referencedItems.where((e) => e.noteId == item.id),
+                      typedResults: items,
+                    ),
+                  if (noteTagsRefs)
+                    await $_getPrefetchedData<Note, $NotesTable, NoteTag>(
+                      currentTable: table,
+                      referencedTable: $$NotesTableReferences
+                          ._noteTagsRefsTable(db),
+                      managerFromTypedResult: (p0) =>
+                          $$NotesTableReferences(db, table, p0).noteTagsRefs,
+                      referencedItemsForCurrentItem: (item, referencedItems) =>
+                          referencedItems.where((e) => e.noteId == item.id),
+                      typedResults: items,
+                    ),
+                ];
               },
+            );
+          },
         ),
       );
 }
@@ -2900,11 +2098,7 @@ typedef $$NotesTableProcessedTableManager =
       $$NotesTableUpdateCompanionBuilder,
       (Note, $$NotesTableReferences),
       Note,
-      PrefetchHooks Function({
-        bool blocksRefs,
-        bool linksRefs,
-        bool noteTagsRefs,
-      })
+      PrefetchHooks Function({bool blocksRefs, bool noteTagsRefs})
     >;
 typedef $$BlocksTableCreateCompanionBuilder =
     BlocksCompanion Function({
@@ -2947,25 +2141,6 @@ final class $$BlocksTableReferences
     if (item == null) return manager;
     return ProcessedTableManager(
       manager.$state.copyWith(prefetchedData: [item]),
-    );
-  }
-
-  static MultiTypedResultKey<$LinksTable, List<Link>> _linksRefsTable(
-    _$AppDatabase db,
-  ) => MultiTypedResultKey.fromTable(
-    db.links,
-    aliasName: $_aliasNameGenerator(db.blocks.id, db.links.fromBlockId),
-  );
-
-  $$LinksTableProcessedTableManager get linksRefs {
-    final manager = $$LinksTableTableManager(
-      $_db,
-      $_db.links,
-    ).filter((f) => f.fromBlockId.id.sqlEquals($_itemColumn<String>('id')!));
-
-    final cache = $_typedResult.readTableOrNull(_linksRefsTable($_db));
-    return ProcessedTableManager(
-      manager.$state.copyWith(prefetchedData: cache),
     );
   }
 }
@@ -3030,31 +2205,6 @@ class $$BlocksTableFilterComposer
           ),
     );
     return composer;
-  }
-
-  Expression<bool> linksRefs(
-    Expression<bool> Function($$LinksTableFilterComposer f) f,
-  ) {
-    final $$LinksTableFilterComposer composer = $composerBuilder(
-      composer: this,
-      getCurrentColumn: (t) => t.id,
-      referencedTable: $db.links,
-      getReferencedColumn: (t) => t.fromBlockId,
-      builder:
-          (
-            joinBuilder, {
-            $addJoinBuilderToRootComposer,
-            $removeJoinBuilderFromRootComposer,
-          }) => $$LinksTableFilterComposer(
-            $db: $db,
-            $table: $db.links,
-            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
-            joinBuilder: joinBuilder,
-            $removeJoinBuilderFromRootComposer:
-                $removeJoinBuilderFromRootComposer,
-          ),
-    );
-    return f(composer);
   }
 }
 
@@ -3172,31 +2322,6 @@ class $$BlocksTableAnnotationComposer
     );
     return composer;
   }
-
-  Expression<T> linksRefs<T extends Object>(
-    Expression<T> Function($$LinksTableAnnotationComposer a) f,
-  ) {
-    final $$LinksTableAnnotationComposer composer = $composerBuilder(
-      composer: this,
-      getCurrentColumn: (t) => t.id,
-      referencedTable: $db.links,
-      getReferencedColumn: (t) => t.fromBlockId,
-      builder:
-          (
-            joinBuilder, {
-            $addJoinBuilderToRootComposer,
-            $removeJoinBuilderFromRootComposer,
-          }) => $$LinksTableAnnotationComposer(
-            $db: $db,
-            $table: $db.links,
-            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
-            joinBuilder: joinBuilder,
-            $removeJoinBuilderFromRootComposer:
-                $removeJoinBuilderFromRootComposer,
-          ),
-    );
-    return f(composer);
-  }
 }
 
 class $$BlocksTableTableManager
@@ -3212,7 +2337,7 @@ class $$BlocksTableTableManager
           $$BlocksTableUpdateCompanionBuilder,
           (Block, $$BlocksTableReferences),
           Block,
-          PrefetchHooks Function({bool noteId, bool linksRefs})
+          PrefetchHooks Function({bool noteId})
         > {
   $$BlocksTableTableManager(_$AppDatabase db, $BlocksTable table)
     : super(
@@ -3271,10 +2396,10 @@ class $$BlocksTableTableManager
                     (e.readTable(table), $$BlocksTableReferences(db, table, e)),
               )
               .toList(),
-          prefetchHooksCallback: ({noteId = false, linksRefs = false}) {
+          prefetchHooksCallback: ({noteId = false}) {
             return PrefetchHooks(
               db: db,
-              explicitlyWatchedTables: [if (linksRefs) db.links],
+              explicitlyWatchedTables: [],
               addJoins:
                   <
                     T extends TableManagerState<
@@ -3308,22 +2433,7 @@ class $$BlocksTableTableManager
                     return state;
                   },
               getPrefetchedDataCallback: (items) async {
-                return [
-                  if (linksRefs)
-                    await $_getPrefetchedData<Block, $BlocksTable, Link>(
-                      currentTable: table,
-                      referencedTable: $$BlocksTableReferences._linksRefsTable(
-                        db,
-                      ),
-                      managerFromTypedResult: (p0) =>
-                          $$BlocksTableReferences(db, table, p0).linksRefs,
-                      referencedItemsForCurrentItem: (item, referencedItems) =>
-                          referencedItems.where(
-                            (e) => e.fromBlockId == item.id,
-                          ),
-                      typedResults: items,
-                    ),
-                ];
+                return [];
               },
             );
           },
@@ -3343,427 +2453,7 @@ typedef $$BlocksTableProcessedTableManager =
       $$BlocksTableUpdateCompanionBuilder,
       (Block, $$BlocksTableReferences),
       Block,
-      PrefetchHooks Function({bool noteId, bool linksRefs})
-    >;
-typedef $$LinksTableCreateCompanionBuilder =
-    LinksCompanion Function({
-      required String id,
-      Value<String?> userId,
-      required String fromBlockId,
-      required String toNoteId,
-      Value<String?> toBlockId,
-      Value<DateTime> createdAt,
-      Value<int> rowid,
-    });
-typedef $$LinksTableUpdateCompanionBuilder =
-    LinksCompanion Function({
-      Value<String> id,
-      Value<String?> userId,
-      Value<String> fromBlockId,
-      Value<String> toNoteId,
-      Value<String?> toBlockId,
-      Value<DateTime> createdAt,
-      Value<int> rowid,
-    });
-
-final class $$LinksTableReferences
-    extends BaseReferences<_$AppDatabase, $LinksTable, Link> {
-  $$LinksTableReferences(super.$_db, super.$_table, super.$_typedResult);
-
-  static $BlocksTable _fromBlockIdTable(_$AppDatabase db) => db.blocks
-      .createAlias($_aliasNameGenerator(db.links.fromBlockId, db.blocks.id));
-
-  $$BlocksTableProcessedTableManager get fromBlockId {
-    final $_column = $_itemColumn<String>('from_block_id')!;
-
-    final manager = $$BlocksTableTableManager(
-      $_db,
-      $_db.blocks,
-    ).filter((f) => f.id.sqlEquals($_column));
-    final item = $_typedResult.readTableOrNull(_fromBlockIdTable($_db));
-    if (item == null) return manager;
-    return ProcessedTableManager(
-      manager.$state.copyWith(prefetchedData: [item]),
-    );
-  }
-
-  static $NotesTable _toNoteIdTable(_$AppDatabase db) => db.notes.createAlias(
-    $_aliasNameGenerator(db.links.toNoteId, db.notes.id),
-  );
-
-  $$NotesTableProcessedTableManager get toNoteId {
-    final $_column = $_itemColumn<String>('to_note_id')!;
-
-    final manager = $$NotesTableTableManager(
-      $_db,
-      $_db.notes,
-    ).filter((f) => f.id.sqlEquals($_column));
-    final item = $_typedResult.readTableOrNull(_toNoteIdTable($_db));
-    if (item == null) return manager;
-    return ProcessedTableManager(
-      manager.$state.copyWith(prefetchedData: [item]),
-    );
-  }
-}
-
-class $$LinksTableFilterComposer extends Composer<_$AppDatabase, $LinksTable> {
-  $$LinksTableFilterComposer({
-    required super.$db,
-    required super.$table,
-    super.joinBuilder,
-    super.$addJoinBuilderToRootComposer,
-    super.$removeJoinBuilderFromRootComposer,
-  });
-  ColumnFilters<String> get id => $composableBuilder(
-    column: $table.id,
-    builder: (column) => ColumnFilters(column),
-  );
-
-  ColumnFilters<String> get userId => $composableBuilder(
-    column: $table.userId,
-    builder: (column) => ColumnFilters(column),
-  );
-
-  ColumnFilters<String> get toBlockId => $composableBuilder(
-    column: $table.toBlockId,
-    builder: (column) => ColumnFilters(column),
-  );
-
-  ColumnFilters<DateTime> get createdAt => $composableBuilder(
-    column: $table.createdAt,
-    builder: (column) => ColumnFilters(column),
-  );
-
-  $$BlocksTableFilterComposer get fromBlockId {
-    final $$BlocksTableFilterComposer composer = $composerBuilder(
-      composer: this,
-      getCurrentColumn: (t) => t.fromBlockId,
-      referencedTable: $db.blocks,
-      getReferencedColumn: (t) => t.id,
-      builder:
-          (
-            joinBuilder, {
-            $addJoinBuilderToRootComposer,
-            $removeJoinBuilderFromRootComposer,
-          }) => $$BlocksTableFilterComposer(
-            $db: $db,
-            $table: $db.blocks,
-            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
-            joinBuilder: joinBuilder,
-            $removeJoinBuilderFromRootComposer:
-                $removeJoinBuilderFromRootComposer,
-          ),
-    );
-    return composer;
-  }
-
-  $$NotesTableFilterComposer get toNoteId {
-    final $$NotesTableFilterComposer composer = $composerBuilder(
-      composer: this,
-      getCurrentColumn: (t) => t.toNoteId,
-      referencedTable: $db.notes,
-      getReferencedColumn: (t) => t.id,
-      builder:
-          (
-            joinBuilder, {
-            $addJoinBuilderToRootComposer,
-            $removeJoinBuilderFromRootComposer,
-          }) => $$NotesTableFilterComposer(
-            $db: $db,
-            $table: $db.notes,
-            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
-            joinBuilder: joinBuilder,
-            $removeJoinBuilderFromRootComposer:
-                $removeJoinBuilderFromRootComposer,
-          ),
-    );
-    return composer;
-  }
-}
-
-class $$LinksTableOrderingComposer
-    extends Composer<_$AppDatabase, $LinksTable> {
-  $$LinksTableOrderingComposer({
-    required super.$db,
-    required super.$table,
-    super.joinBuilder,
-    super.$addJoinBuilderToRootComposer,
-    super.$removeJoinBuilderFromRootComposer,
-  });
-  ColumnOrderings<String> get id => $composableBuilder(
-    column: $table.id,
-    builder: (column) => ColumnOrderings(column),
-  );
-
-  ColumnOrderings<String> get userId => $composableBuilder(
-    column: $table.userId,
-    builder: (column) => ColumnOrderings(column),
-  );
-
-  ColumnOrderings<String> get toBlockId => $composableBuilder(
-    column: $table.toBlockId,
-    builder: (column) => ColumnOrderings(column),
-  );
-
-  ColumnOrderings<DateTime> get createdAt => $composableBuilder(
-    column: $table.createdAt,
-    builder: (column) => ColumnOrderings(column),
-  );
-
-  $$BlocksTableOrderingComposer get fromBlockId {
-    final $$BlocksTableOrderingComposer composer = $composerBuilder(
-      composer: this,
-      getCurrentColumn: (t) => t.fromBlockId,
-      referencedTable: $db.blocks,
-      getReferencedColumn: (t) => t.id,
-      builder:
-          (
-            joinBuilder, {
-            $addJoinBuilderToRootComposer,
-            $removeJoinBuilderFromRootComposer,
-          }) => $$BlocksTableOrderingComposer(
-            $db: $db,
-            $table: $db.blocks,
-            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
-            joinBuilder: joinBuilder,
-            $removeJoinBuilderFromRootComposer:
-                $removeJoinBuilderFromRootComposer,
-          ),
-    );
-    return composer;
-  }
-
-  $$NotesTableOrderingComposer get toNoteId {
-    final $$NotesTableOrderingComposer composer = $composerBuilder(
-      composer: this,
-      getCurrentColumn: (t) => t.toNoteId,
-      referencedTable: $db.notes,
-      getReferencedColumn: (t) => t.id,
-      builder:
-          (
-            joinBuilder, {
-            $addJoinBuilderToRootComposer,
-            $removeJoinBuilderFromRootComposer,
-          }) => $$NotesTableOrderingComposer(
-            $db: $db,
-            $table: $db.notes,
-            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
-            joinBuilder: joinBuilder,
-            $removeJoinBuilderFromRootComposer:
-                $removeJoinBuilderFromRootComposer,
-          ),
-    );
-    return composer;
-  }
-}
-
-class $$LinksTableAnnotationComposer
-    extends Composer<_$AppDatabase, $LinksTable> {
-  $$LinksTableAnnotationComposer({
-    required super.$db,
-    required super.$table,
-    super.joinBuilder,
-    super.$addJoinBuilderToRootComposer,
-    super.$removeJoinBuilderFromRootComposer,
-  });
-  GeneratedColumn<String> get id =>
-      $composableBuilder(column: $table.id, builder: (column) => column);
-
-  GeneratedColumn<String> get userId =>
-      $composableBuilder(column: $table.userId, builder: (column) => column);
-
-  GeneratedColumn<String> get toBlockId =>
-      $composableBuilder(column: $table.toBlockId, builder: (column) => column);
-
-  GeneratedColumn<DateTime> get createdAt =>
-      $composableBuilder(column: $table.createdAt, builder: (column) => column);
-
-  $$BlocksTableAnnotationComposer get fromBlockId {
-    final $$BlocksTableAnnotationComposer composer = $composerBuilder(
-      composer: this,
-      getCurrentColumn: (t) => t.fromBlockId,
-      referencedTable: $db.blocks,
-      getReferencedColumn: (t) => t.id,
-      builder:
-          (
-            joinBuilder, {
-            $addJoinBuilderToRootComposer,
-            $removeJoinBuilderFromRootComposer,
-          }) => $$BlocksTableAnnotationComposer(
-            $db: $db,
-            $table: $db.blocks,
-            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
-            joinBuilder: joinBuilder,
-            $removeJoinBuilderFromRootComposer:
-                $removeJoinBuilderFromRootComposer,
-          ),
-    );
-    return composer;
-  }
-
-  $$NotesTableAnnotationComposer get toNoteId {
-    final $$NotesTableAnnotationComposer composer = $composerBuilder(
-      composer: this,
-      getCurrentColumn: (t) => t.toNoteId,
-      referencedTable: $db.notes,
-      getReferencedColumn: (t) => t.id,
-      builder:
-          (
-            joinBuilder, {
-            $addJoinBuilderToRootComposer,
-            $removeJoinBuilderFromRootComposer,
-          }) => $$NotesTableAnnotationComposer(
-            $db: $db,
-            $table: $db.notes,
-            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
-            joinBuilder: joinBuilder,
-            $removeJoinBuilderFromRootComposer:
-                $removeJoinBuilderFromRootComposer,
-          ),
-    );
-    return composer;
-  }
-}
-
-class $$LinksTableTableManager
-    extends
-        RootTableManager<
-          _$AppDatabase,
-          $LinksTable,
-          Link,
-          $$LinksTableFilterComposer,
-          $$LinksTableOrderingComposer,
-          $$LinksTableAnnotationComposer,
-          $$LinksTableCreateCompanionBuilder,
-          $$LinksTableUpdateCompanionBuilder,
-          (Link, $$LinksTableReferences),
-          Link,
-          PrefetchHooks Function({bool fromBlockId, bool toNoteId})
-        > {
-  $$LinksTableTableManager(_$AppDatabase db, $LinksTable table)
-    : super(
-        TableManagerState(
-          db: db,
-          table: table,
-          createFilteringComposer: () =>
-              $$LinksTableFilterComposer($db: db, $table: table),
-          createOrderingComposer: () =>
-              $$LinksTableOrderingComposer($db: db, $table: table),
-          createComputedFieldComposer: () =>
-              $$LinksTableAnnotationComposer($db: db, $table: table),
-          updateCompanionCallback:
-              ({
-                Value<String> id = const Value.absent(),
-                Value<String?> userId = const Value.absent(),
-                Value<String> fromBlockId = const Value.absent(),
-                Value<String> toNoteId = const Value.absent(),
-                Value<String?> toBlockId = const Value.absent(),
-                Value<DateTime> createdAt = const Value.absent(),
-                Value<int> rowid = const Value.absent(),
-              }) => LinksCompanion(
-                id: id,
-                userId: userId,
-                fromBlockId: fromBlockId,
-                toNoteId: toNoteId,
-                toBlockId: toBlockId,
-                createdAt: createdAt,
-                rowid: rowid,
-              ),
-          createCompanionCallback:
-              ({
-                required String id,
-                Value<String?> userId = const Value.absent(),
-                required String fromBlockId,
-                required String toNoteId,
-                Value<String?> toBlockId = const Value.absent(),
-                Value<DateTime> createdAt = const Value.absent(),
-                Value<int> rowid = const Value.absent(),
-              }) => LinksCompanion.insert(
-                id: id,
-                userId: userId,
-                fromBlockId: fromBlockId,
-                toNoteId: toNoteId,
-                toBlockId: toBlockId,
-                createdAt: createdAt,
-                rowid: rowid,
-              ),
-          withReferenceMapper: (p0) => p0
-              .map(
-                (e) =>
-                    (e.readTable(table), $$LinksTableReferences(db, table, e)),
-              )
-              .toList(),
-          prefetchHooksCallback: ({fromBlockId = false, toNoteId = false}) {
-            return PrefetchHooks(
-              db: db,
-              explicitlyWatchedTables: [],
-              addJoins:
-                  <
-                    T extends TableManagerState<
-                      dynamic,
-                      dynamic,
-                      dynamic,
-                      dynamic,
-                      dynamic,
-                      dynamic,
-                      dynamic,
-                      dynamic,
-                      dynamic,
-                      dynamic,
-                      dynamic
-                    >
-                  >(state) {
-                    if (fromBlockId) {
-                      state =
-                          state.withJoin(
-                                currentTable: table,
-                                currentColumn: table.fromBlockId,
-                                referencedTable: $$LinksTableReferences
-                                    ._fromBlockIdTable(db),
-                                referencedColumn: $$LinksTableReferences
-                                    ._fromBlockIdTable(db)
-                                    .id,
-                              )
-                              as T;
-                    }
-                    if (toNoteId) {
-                      state =
-                          state.withJoin(
-                                currentTable: table,
-                                currentColumn: table.toNoteId,
-                                referencedTable: $$LinksTableReferences
-                                    ._toNoteIdTable(db),
-                                referencedColumn: $$LinksTableReferences
-                                    ._toNoteIdTable(db)
-                                    .id,
-                              )
-                              as T;
-                    }
-
-                    return state;
-                  },
-              getPrefetchedDataCallback: (items) async {
-                return [];
-              },
-            );
-          },
-        ),
-      );
-}
-
-typedef $$LinksTableProcessedTableManager =
-    ProcessedTableManager<
-      _$AppDatabase,
-      $LinksTable,
-      Link,
-      $$LinksTableFilterComposer,
-      $$LinksTableOrderingComposer,
-      $$LinksTableAnnotationComposer,
-      $$LinksTableCreateCompanionBuilder,
-      $$LinksTableUpdateCompanionBuilder,
-      (Link, $$LinksTableReferences),
-      Link,
-      PrefetchHooks Function({bool fromBlockId, bool toNoteId})
+      PrefetchHooks Function({bool noteId})
     >;
 typedef $$TagsTableCreateCompanionBuilder =
     TagsCompanion Function({
@@ -4384,180 +3074,6 @@ typedef $$NoteTagsTableProcessedTableManager =
       NoteTag,
       PrefetchHooks Function({bool noteId, bool tagId})
     >;
-typedef $$DailyNotesCountTableCreateCompanionBuilder =
-    DailyNotesCountCompanion Function({
-      required String date,
-      Value<int> noteCount,
-      Value<DateTime> lastUpdated,
-      Value<int> rowid,
-    });
-typedef $$DailyNotesCountTableUpdateCompanionBuilder =
-    DailyNotesCountCompanion Function({
-      Value<String> date,
-      Value<int> noteCount,
-      Value<DateTime> lastUpdated,
-      Value<int> rowid,
-    });
-
-class $$DailyNotesCountTableFilterComposer
-    extends Composer<_$AppDatabase, $DailyNotesCountTable> {
-  $$DailyNotesCountTableFilterComposer({
-    required super.$db,
-    required super.$table,
-    super.joinBuilder,
-    super.$addJoinBuilderToRootComposer,
-    super.$removeJoinBuilderFromRootComposer,
-  });
-  ColumnFilters<String> get date => $composableBuilder(
-    column: $table.date,
-    builder: (column) => ColumnFilters(column),
-  );
-
-  ColumnFilters<int> get noteCount => $composableBuilder(
-    column: $table.noteCount,
-    builder: (column) => ColumnFilters(column),
-  );
-
-  ColumnFilters<DateTime> get lastUpdated => $composableBuilder(
-    column: $table.lastUpdated,
-    builder: (column) => ColumnFilters(column),
-  );
-}
-
-class $$DailyNotesCountTableOrderingComposer
-    extends Composer<_$AppDatabase, $DailyNotesCountTable> {
-  $$DailyNotesCountTableOrderingComposer({
-    required super.$db,
-    required super.$table,
-    super.joinBuilder,
-    super.$addJoinBuilderToRootComposer,
-    super.$removeJoinBuilderFromRootComposer,
-  });
-  ColumnOrderings<String> get date => $composableBuilder(
-    column: $table.date,
-    builder: (column) => ColumnOrderings(column),
-  );
-
-  ColumnOrderings<int> get noteCount => $composableBuilder(
-    column: $table.noteCount,
-    builder: (column) => ColumnOrderings(column),
-  );
-
-  ColumnOrderings<DateTime> get lastUpdated => $composableBuilder(
-    column: $table.lastUpdated,
-    builder: (column) => ColumnOrderings(column),
-  );
-}
-
-class $$DailyNotesCountTableAnnotationComposer
-    extends Composer<_$AppDatabase, $DailyNotesCountTable> {
-  $$DailyNotesCountTableAnnotationComposer({
-    required super.$db,
-    required super.$table,
-    super.joinBuilder,
-    super.$addJoinBuilderToRootComposer,
-    super.$removeJoinBuilderFromRootComposer,
-  });
-  GeneratedColumn<String> get date =>
-      $composableBuilder(column: $table.date, builder: (column) => column);
-
-  GeneratedColumn<int> get noteCount =>
-      $composableBuilder(column: $table.noteCount, builder: (column) => column);
-
-  GeneratedColumn<DateTime> get lastUpdated => $composableBuilder(
-    column: $table.lastUpdated,
-    builder: (column) => column,
-  );
-}
-
-class $$DailyNotesCountTableTableManager
-    extends
-        RootTableManager<
-          _$AppDatabase,
-          $DailyNotesCountTable,
-          DailyNotesCountData,
-          $$DailyNotesCountTableFilterComposer,
-          $$DailyNotesCountTableOrderingComposer,
-          $$DailyNotesCountTableAnnotationComposer,
-          $$DailyNotesCountTableCreateCompanionBuilder,
-          $$DailyNotesCountTableUpdateCompanionBuilder,
-          (
-            DailyNotesCountData,
-            BaseReferences<
-              _$AppDatabase,
-              $DailyNotesCountTable,
-              DailyNotesCountData
-            >,
-          ),
-          DailyNotesCountData,
-          PrefetchHooks Function()
-        > {
-  $$DailyNotesCountTableTableManager(
-    _$AppDatabase db,
-    $DailyNotesCountTable table,
-  ) : super(
-        TableManagerState(
-          db: db,
-          table: table,
-          createFilteringComposer: () =>
-              $$DailyNotesCountTableFilterComposer($db: db, $table: table),
-          createOrderingComposer: () =>
-              $$DailyNotesCountTableOrderingComposer($db: db, $table: table),
-          createComputedFieldComposer: () =>
-              $$DailyNotesCountTableAnnotationComposer($db: db, $table: table),
-          updateCompanionCallback:
-              ({
-                Value<String> date = const Value.absent(),
-                Value<int> noteCount = const Value.absent(),
-                Value<DateTime> lastUpdated = const Value.absent(),
-                Value<int> rowid = const Value.absent(),
-              }) => DailyNotesCountCompanion(
-                date: date,
-                noteCount: noteCount,
-                lastUpdated: lastUpdated,
-                rowid: rowid,
-              ),
-          createCompanionCallback:
-              ({
-                required String date,
-                Value<int> noteCount = const Value.absent(),
-                Value<DateTime> lastUpdated = const Value.absent(),
-                Value<int> rowid = const Value.absent(),
-              }) => DailyNotesCountCompanion.insert(
-                date: date,
-                noteCount: noteCount,
-                lastUpdated: lastUpdated,
-                rowid: rowid,
-              ),
-          withReferenceMapper: (p0) => p0
-              .map((e) => (e.readTable(table), BaseReferences(db, table, e)))
-              .toList(),
-          prefetchHooksCallback: null,
-        ),
-      );
-}
-
-typedef $$DailyNotesCountTableProcessedTableManager =
-    ProcessedTableManager<
-      _$AppDatabase,
-      $DailyNotesCountTable,
-      DailyNotesCountData,
-      $$DailyNotesCountTableFilterComposer,
-      $$DailyNotesCountTableOrderingComposer,
-      $$DailyNotesCountTableAnnotationComposer,
-      $$DailyNotesCountTableCreateCompanionBuilder,
-      $$DailyNotesCountTableUpdateCompanionBuilder,
-      (
-        DailyNotesCountData,
-        BaseReferences<
-          _$AppDatabase,
-          $DailyNotesCountTable,
-          DailyNotesCountData
-        >,
-      ),
-      DailyNotesCountData,
-      PrefetchHooks Function()
-    >;
 
 class $AppDatabaseManager {
   final _$AppDatabase _db;
@@ -4566,11 +3082,7 @@ class $AppDatabaseManager {
       $$NotesTableTableManager(_db, _db.notes);
   $$BlocksTableTableManager get blocks =>
       $$BlocksTableTableManager(_db, _db.blocks);
-  $$LinksTableTableManager get links =>
-      $$LinksTableTableManager(_db, _db.links);
   $$TagsTableTableManager get tags => $$TagsTableTableManager(_db, _db.tags);
   $$NoteTagsTableTableManager get noteTags =>
       $$NoteTagsTableTableManager(_db, _db.noteTags);
-  $$DailyNotesCountTableTableManager get dailyNotesCount =>
-      $$DailyNotesCountTableTableManager(_db, _db.dailyNotesCount);
 }
