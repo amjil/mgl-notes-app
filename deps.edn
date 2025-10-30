@@ -7,7 +7,9 @@
          :sha "d070ea149db29bed57a77eee09af3f865462c4ac"}
         amjil/mongol-virtual-keyboard
         {:git/url "https://github.com/amjil/mongol-virtual-keyboard.git"
-         :sha "f409d7bd417017ecf52bc752ca347883c8ceae92"}}
+         :sha "f409d7bd417017ecf52bc752ca347883c8ceae92"}
+        amjil/electric-sync
+        {:local/root "../electric-sync"}}
  :aliases {:cljd {:main-opts ["-m" "cljd.build"]}}
  :cljd/opts {:kind :flutter
              :main notes-app.main}}
