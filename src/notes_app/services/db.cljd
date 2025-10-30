@@ -346,76 +346,6 @@
      (.customSelect db
                     "SELECT COUNT(*) as count FROM blocks"))))
 
-;; ===== Links db functions =====
-
-(defn create-link [from-block-id to-note-id & [to-block-id]]
-  (let [id (.v4 uuid-instance)
-        ^drift/AppDatabase db @db]
-    (.insert
-     (.into db (.-links db))
-     (drift/LinksCompanion.insert
-      .id id
-      .fromBlockId from-block-id
-      .toNoteId to-note-id
-      .toBlockId to-block-id))))
-
-(defn get-link-by-id [id]
-  (let [^drift/AppDatabase db @db
-        query (doto (.select db (.-links db))
-                (.where (fn [^drift/Links tbl] (.equals (.-id tbl) id))))]
-    (await
-     (.getSingleOrNull query))))
-
-(defn get-links-by-block-id [block-id]
-  (let [^drift/AppDatabase db @db]
-    (.get
-     (doto (.select db (.-links db))
-       (.where (fn [^drift/Links tbl] (.equals (.-fromBlockId tbl) block-id)))))))
-
-(defn get-links-by-note-id [note-id]
-  (let [^drift/AppDatabase db @db]
-    (.get
-     (doto (.select db (.-links db))
-       (.where (fn [^drift/Links tbl] (.equals (.-toNoteId tbl) note-id)))))))
-
-(defn get-links-paginated [page limit]
-  (let [offset (* page limit)
-        ^drift/AppDatabase db @db]
-    (.get
-     (doto (.select db (.-links db))
-       (.limit limit .offset offset)))))
-
-(defn delete-links-by-note-id [note-id]
-  (let [^drift/AppDatabase db @db]
-    (.go
-     (doto
-      (.delete db (.-links db))
-       (.where (fn [^drift/Links tbl]
-                 (.equals (.-toNoteId tbl) note-id)))))))
-
-(defn update-link [id to-note-id & [to-block-id]]
-  (let [^drift/AppDatabase db @db
-        query (doto (.update db (.-links db))
-                (.where (fn [^drift/Links tbl] (.equals (.-id tbl) id))))
-        companion (drift/LinksCompanion.
-                   .toNoteId to-note-id
-                   .toBlockId to-block-id)]
-    (.write query companion)))
-
-(defn delete-link [id]
-  (let [^drift/AppDatabase db @db]
-    (.go
-     (doto
-      (.delete db (.-links db))
-       (.where (fn [^drift/Links tbl]
-                 (.equals (.-id tbl) id)))))))
-
-(defn get-links-count []
-  (let [^drift/AppDatabase db @db]
-    (.getSingle
-     (.customSelect db
-                    "SELECT COUNT(*) as count FROM links"))))
-
 ;; ===== Tags db functions =====
 
 (defn create-tag [name & [id]]
@@ -565,9 +495,6 @@
                (-> (doseq [block blocks]
                      (delete-block (:id block)))
                    (.then (fn [_]
-                            ;; Step 2: Delete links
-                            (delete-links-by-note-id id)))
-                   (.then (fn [_]
                             ;; Step 3: Delete note_fts and note
                             (soft-delete-note id))))))))
 
@@ -603,63 +530,6 @@
         ^String title (string-utils/extract-title-from-content (get server-note "content"))
         ^String content (get server-note "content")]
     (update-note-with-content id title content)))
-
-;; ===== Daily Notes Count db functions =====
-
-(defn get-daily-notes-count [date]
-  (let [^drift/AppDatabase db @db]
-    (.getSingleOrNull
-     (doto (.select db (.-dailyNotesCount db))
-       (.where (fn [^drift/DailyNotesCount tbl] (.equals (.-date tbl) date)))))))
-
-(defn update-daily-notes-count [date ^int count]
-  (let [^drift/AppDatabase db @db]
-    (.insertOnConflictUpdate
-     (.into db (.-dailyNotesCount db))
-     (drift/DailyNotesCountCompanion.insert
-      .date date
-      .noteCount (d/Value count)))))
-
-(defn get-daily-notes-counts [^Object start-date ^Object end-date]
-  (let [^drift/AppDatabase db @db]
-    (.get
-     (.customSelect db
-                    "SELECT COUNT(*) as count, date as date
-                      FROM daily_notes_count 
-                      WHERE date >= ? AND date <= ?
-                      order by date asc"
-                    .variables [(d/Variable start-date) (d/Variable end-date)]))))
-
-(defn calculate-daily-notes-count [date]
-  (let [^drift/AppDatabase db @db
-        date-str (str date)]
-    (.getSingle
-     (.customSelect
-      db
-      "SELECT COUNT(*) as count FROM notes 
-       WHERE DATE(created_at) = DATE(?) AND is_deleted = false"
-      .variables [(d/Variable date-str)]))))
-
-(defn refresh-daily-notes-count [date]
-  (let [count-result (await (calculate-daily-notes-count date))
-        count (get (.-data count-result) "count")]
-    (await (update-daily-notes-count date count))
-    count))
-
-(defn refresh-daily-notes-counts [start-date end-date]
-  (let [^drift/AppDatabase db @db]
-    (.transaction
-     db
-     (fn []
-       (doseq [date (range start-date end-date)]
-         (await (refresh-daily-notes-count date)))))))
-
-(defn get-notes-count-by-date-range [start-date end-date]
-  (let [counts (await (get-daily-notes-counts start-date end-date))]
-    (map (fn [record]
-           (let [data (get record "data")]
-             (assoc data "date" (get data "date"))))
-         counts)))
 
 ;; Update note sync status
 (defn update-note-sync-status [id status & {:keys [synced-at] :or {synced-at nil}}]

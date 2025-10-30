@@ -1,10 +1,7 @@
 (ns notes-app.widgets.mgl-drawer
   (:require
    ["package:flutter/material.dart" :as m]
-   [notes-app.widgets.mgl-calendar-bar :as mgl-calendar-bar]
    [notes-app.widgets.mgl-chip :as mgl-chip]
-   [notes-app.widgets.mgl-menu-bar :as mgl-menu-bar]
-   [notes-app.widgets.mgl-stats-widget :as mgl-stats-widget]
    [notes-app.states.search :as search]
    [cljd.flutter :as f]))
 
@@ -41,16 +38,7 @@
                 .icon (m/Icon m/Icons.settings)
                 .onPressed (fn []
                              (dart:core/print "Open Settings")))]))
-     (m/Divider .height 1)
-     (m/Expanded
-      .flex 1
-      .child
-      (mgl-stats-widget/stats-panel))
-     (m/Divider .height 1)
-     (m/Expanded
-      .flex 2
-      .child
-      (mgl-menu-bar/mgl-menu-bar))])))
+     (m/Divider .height 1)])))
 
 (defn mgl-right-drawer []
   (f/widget
@@ -60,9 +48,7 @@
     .padding (m/EdgeInsets.all 16))
    (m/Column
     .children
-    [(mgl-calendar-bar/mgl-calendar-bar)
-     (m/Divider .height 1)
-     (m/Expanded
+    [(m/Expanded
       .child (m/Padding
               .padding (m/EdgeInsets.symmetric .vertical 12)
               .child (often-used-tags)))

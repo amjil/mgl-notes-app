@@ -7,8 +7,6 @@
    [notes-app.utils.date :as date]
    [notes-app.utils.diff :as diff]
    [notes-app.utils.string :as string-utils]
-   [notes-app.states.calendar :as calendar]
-   [notes-app.states.stats :as stats]
    [notes-app.states.notes :as notes]
    [notes-app.states.tags :as tags-state]
    [notes-app.utils.tag :as tags-utils]))
@@ -61,10 +59,7 @@
     (-> (db/create-note (.v4 uuid-instance) title)
         (.then (fn [success]
                  (when success
-                   (load-notes-paginated! ctx 0)
-                   ;; Refresh today's count
-                   (calendar/refresh-today-count! ctx)
-                   (stats/refresh-stats!))
+                   (load-notes-paginated! ctx 0))
                  success)))
     "Тэмдэглэл амжилттай үүслээ"))
 
@@ -76,9 +71,6 @@
           (.then (fn [_]
                    (load-notes-paginated! ctx 0)
                    (tags-state/set-note-tags! id (tags-utils/extract-tags content))
-                   ;; Refresh today's count
-                   (calendar/refresh-today-count! ctx)
-                   (stats/refresh-stats!)
                    (when operation
                      (operation)))))
       "Тэмдэглэл амжилттай үүслээ")))
@@ -113,10 +105,7 @@
     (-> (db/soft-delete-note id)
         (.then (fn [success]
                  (when success
-                   (load-notes-paginated! ctx (:current-page @notes-state))
-                   ;; Refresh today's count
-                   (calendar/refresh-today-count! ctx)
-                   (stats/refresh-stats!))
+                   (load-notes-paginated! ctx (:current-page @notes-state)))
                  success)))
     "Тэмдэглэл амжилттай устгагдлаа"))
 
@@ -126,10 +115,7 @@
     (-> (db/delete-note-with-blocks id)
         (.then (fn [success]
                  (when success
-                   (load-notes-paginated! ctx (:current-page @notes-state))
-                   ;; Refresh today's count
-                   (calendar/refresh-today-count! ctx)
-                   (stats/refresh-stats!))
+                   (load-notes-paginated! ctx (:current-page @notes-state)))
                  success)))
     "Тэмдэглэл амжилттай устгагдлаа"))
 
@@ -139,10 +125,7 @@
     (-> (db/restore-note id)
         (.then (fn [success]
                  (when success
-                   (load-notes-paginated! ctx (:current-page @notes-state))
-                   ;; Refresh today's count
-                   (calendar/refresh-today-count! ctx)
-                   (stats/refresh-stats!))
+                   (load-notes-paginated! ctx (:current-page @notes-state)))
                  success)))
     "Тэмдэглэл амжилттай сэргээгдлээ"))
 
@@ -152,10 +135,7 @@
     (-> (db/hard-delete-note id)
         (.then (fn [success]
                  (when success
-                   (load-notes-paginated! ctx (:current-page @notes-state))
-                   ;; Refresh today's count
-                   (calendar/refresh-today-count! ctx)
-                   (stats/refresh-stats!))
+                   (load-notes-paginated! ctx (:current-page @notes-state)))
                  success)))
     "Тэмдэглэл бүрмөсөн устгагдлаа"))
 

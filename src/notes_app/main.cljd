@@ -8,7 +8,6 @@
    [notes-app.screens.home :as home]
    [notes-app.services.db :as db]
    [notes-app.states.ui :as ui]
-   [notes-app.states.stats :as stats]
    [notes-app.theme :as theme]))
 
 ;; Simplified main application entry point
@@ -20,9 +19,6 @@
 
   ;; Initialize database
   (await (db/initialize-database!))
-
-  ;; Initialize stats
-  (stats/initialize-stats!)
 
   ;; Set up input control
   (control/set-control)

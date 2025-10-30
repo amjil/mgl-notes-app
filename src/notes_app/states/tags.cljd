@@ -3,8 +3,7 @@
    ["package:uuid/uuid.dart" :as uuid]
    [notes-app.services.db :as db]
    [notes-app.utils.toast :as toast]
-   [notes-app.utils.state-helpers :as helpers]
-   [notes-app.states.stats :as stats]))
+   [notes-app.utils.state-helpers :as helpers]))
 
 ;; Tags State Management
 ;; Responsible for managing tags-related states, including tags list, current tag, etc.
@@ -34,7 +33,6 @@
                  (swap! tags-state assoc
                         :tags (conj (:tags @tags-state) tag)
                         :loading false)
-                 (stats/on-tag-created!)
                  tag)))
     "Тэг амжилттай үүслээ"))
 
@@ -60,8 +58,7 @@
         (.then (fn [success]
                  (when success
                    (swap! tags-state assoc
-                          :tags (filter #(not= (:id %) id) (:tags @tags-state)))
-                   (stats/on-tag-deleted!))
+                          :tags (filter #(not= (:id %) id) (:tags @tags-state))))
                  success)))
     "Тэг амжилттай устгагдлаа"))
 
