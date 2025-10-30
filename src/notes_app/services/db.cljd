@@ -6,8 +6,7 @@
    ["package:uuid/uuid.dart" :as uuid]
    [cljd.dart.isolates :as di]
    [clojure.string :as str]
-   [notes-app.utils.string :as string-utils]
-   [notes-app.utils.diff :as diff-utils]))
+   [notes-app.utils.string :as string-utils]))
 
 ;; =============================================================================
 ;; Database Instance Management
@@ -32,15 +31,13 @@
 
 (defn create-note
   "Create new note"
-  [^String id ^String title & {:keys [is-blocks-synced base-hash] :or {is-blocks-synced false}}]
+  [^String id ^String title]
   (let [^drift/AppDatabase db @db]
     (.insert
      (.into db (.-notes db))
      (drift/NotesCompanion.insert
       .id id
-      .title title
-      .baseHash (d/Value base-hash)
-      .isBlocksSynced (d/Value ^bool is-blocks-synced)))))
+      .title title))))
 
 (defn get-note-by-id
   "Get note basic information by ID"
@@ -142,14 +139,8 @@
   (let [^drift/AppDatabase db @db
         query (doto (.update db (.-notes db))
                 (.where (fn [^drift/Notes tbl] (.equals (.-id tbl) id))))
-        companion (if (nil? base-hash)
-                    (drift/NotesCompanion.
-                     .title (d/Value title)
-                     .isBlocksSynced (d/Value false))
-                    (drift/NotesCompanion.
-                     .title (d/Value title)
-                     .baseHash (d/Value base-hash)
-                     .isBlocksSynced (d/Value false)))]
+        companion (drift/NotesCompanion.
+                     .title (d/Value title))]
     (.write query companion)))
 
 (defn update-note-blocks-synced
@@ -159,7 +150,6 @@
         query (doto (.update db (.-notes db))
                 (.where (fn [^drift/Notes tbl] (.equals (.-id tbl) id))))
         companion (drift/NotesCompanion.
-                   .isBlocksSynced true
                    .blockIds (d/Value block-ids))]
     (.write query companion)))
 
@@ -582,7 +572,7 @@
                             (soft-delete-note id))))))))
 
 ;; Create note with content (4 steps: note, note_fts, blocks, block_ids)
-(defn create-note-with-content [^String content & [id base-hash]]
+(defn create-note-with-content [^String content & [id]]
   (let [^String id (or id (.v4 uuid-instance))
         ^drift/AppDatabase db @db
         ^String
@@ -590,29 +580,29 @@
     (.transaction
      db
      (fn []
-       (create-note id title base-hash)
+       (create-note id title)
        (create-note-content id content)))))
 
 ;; Update note with content (4 steps: note, note_fts, blocks, block_ids)
-(defn update-note-with-content [^String id ^String title ^String content & {:keys [base-hash] :or {base-hash nil}}]
+(defn update-note-with-content [^String id ^String title ^String content]
   (dart:core/print (str "update-note-with-content id = " id " title = " title " content = " content))
   (let [^drift/AppDatabase db @db]
     (.transaction
      db
      (fn []
-       (update-note id title {:base-hash base-hash})
+       (update-note id title)
        (update-note-content id content)))))
 
 (defn create-note-from-server [server-note]
   (let [^String id (get server-note "id")
         ^String content (get server-note "content")]
-    (create-note-with-content content id {:base-hash (get server-note "base_hash")})))
+    (create-note-with-content content id)))
 
 (defn update-note-from-server [server-note]
   (let [^String id (get server-note "id")
         ^String title (string-utils/extract-title-from-content (get server-note "content"))
         ^String content (get server-note "content")]
-    (update-note-with-content id title content {:base-hash (get server-note "base_hash")})))
+    (update-note-with-content id title content)))
 
 ;; ===== Daily Notes Count db functions =====
 
@@ -671,137 +661,6 @@
              (assoc data "date" (get data "date"))))
          counts)))
 
-;; ===== Sync Conflicts db functions =====
-
-(defn create-sync-conflict [note-id local-data remote-data & {:keys [description] :or {description nil}}]
-  (let [id (.v4 uuid-instance)
-        ^drift/AppDatabase db @db]
-    (.insert
-     (.into db (.-syncConflicts db))
-     (drift/SyncConflictsCompanion.insert
-      .id id
-      .note_id note-id
-      .conflictType "pending"
-      .localData local-data
-      .remoteData remote-data
-      .description description))))
-
-(defn get-sync-conflict-by-id [id]
-  (let [^drift/AppDatabase db @db]
-    (.getSingleOrNull
-     (doto (.select db (.-syncConflicts db))
-       (.where (fn [^drift/SyncConflicts tbl] (.equals (.-id tbl) id)))))))
-
-(defn get-sync-conflicts-by-note-id [note-id]
-  (let [^drift/AppDatabase db @db]
-    (.get
-     (doto (.select db (.-syncConflicts db))
-       (.where (fn [^drift/SyncConflicts tbl] (.equals (.-note_id tbl) note-id)))
-       (.orderBy [(fn [^drift/SyncConflicts tbl] (d/OrderingTerm. .expression (.-createdAt tbl) .mode d/OrderingMode.desc))])))))
-
-(defn get-pending-sync-conflicts []
-  (let [^drift/AppDatabase db @db]
-    (.get
-     (doto (.select db (.-syncConflicts db))
-       (.where (fn [^drift/SyncConflicts tbl] (.equals (.-resolution tbl) "pending")))
-       (.orderBy [(fn [^drift/SyncConflicts tbl] (d/OrderingTerm. .expression (.-createdAt tbl) .mode d/OrderingMode.asc))])))))
-
-(defn get-sync-conflicts-by-type [conflict-type]
-  (let [^drift/AppDatabase db @db]
-    (.get
-     (doto (.select db (.-syncConflicts db))
-       (.where (fn [^drift/SyncConflicts tbl] (.equals (.-conflictType tbl) conflict-type)))
-       (.orderBy [(fn [^drift/SyncConflicts tbl] (d/OrderingTerm. .expression (.-createdAt tbl) .mode d/OrderingMode.desc))])))))
-
-(defn get-sync-conflicts-paginated [page limit]
-  (let [offset (* page limit)
-        ^drift/AppDatabase db @db]
-    (.get
-     (doto (.select db (.-syncConflicts db))
-       (.orderBy [(fn [^drift/SyncConflicts tbl] (d/OrderingTerm. .expression (.-createdAt tbl) .mode d/OrderingMode.desc))])
-       (.limit limit .offset offset)))))
-
-(defn update-sync-conflict-resolution [id resolution & {:keys [description] :or {description nil}}]
-  (let [^drift/AppDatabase db @db
-        query (doto (.update db (.-syncConflicts db))
-                (.where (fn [^drift/SyncConflicts tbl] (.equals (.-id tbl) id))))
-        companion (drift/SyncConflictsCompanion.
-                   .resolution resolution
-                   .resolvedAt (d/Value (DateTime/now))
-                   .description description)]
-    (.write query companion)))
-
-(defn resolve-sync-conflict [id resolution & {:keys [description] :or {description nil}}]
-  (update-sync-conflict-resolution id resolution :description description))
-
-(defn delete-sync-conflict [id]
-  (let [^drift/AppDatabase db @db]
-    (.go
-     (doto
-      (.delete db (.-syncConflicts db))
-       (.where (fn [^drift/SyncConflicts tbl]
-                 (.equals (.-id tbl) id)))))))
-
-(defn delete-sync-conflicts-by-note-id [note-id]
-  (let [^drift/AppDatabase db @db]
-    (.go
-     (doto
-      (.delete db (.-syncConflicts db))
-       (.where (fn [^drift/SyncConflicts tbl]
-                 (.equals (.-note_id tbl) note-id)))))))
-
-(defn get-sync-conflicts-count []
-  (let [^drift/AppDatabase db @db]
-    (.getSingle
-     (.customSelect db
-                    "SELECT COUNT(*) as count FROM sync_conflicts"))))
-
-(defn get-pending-sync-conflicts-count []
-  (let [^drift/AppDatabase db @db]
-    (.getSingle
-     (.customSelect db
-                    "SELECT COUNT(*) as count FROM sync_conflicts WHERE resolution = 'pending'"))))
-
-(defn get-sync-conflicts-by-resolution [resolution]
-  (let [^drift/AppDatabase db @db]
-    (.get
-     (doto (.select db (.-syncConflicts db))
-       (.where (fn [^drift/SyncConflicts tbl] (.equals (.-resolution tbl) resolution)))
-       (.orderBy [(fn [^drift/SyncConflicts tbl] (d/OrderingTerm. .expression (.-createdAt tbl) .mode d/OrderingMode.desc))])))))
-
-(defn get-sync-conflicts-summary []
-  (let [^drift/AppDatabase db @db]
-    (.get
-     (.customSelect db
-                    "SELECT resolution, conflict_type, COUNT(*) as count 
-                     FROM sync_conflicts 
-                     GROUP BY resolution, conflict_type 
-                     ORDER BY resolution, conflict_type"))))
-
-;; (defn cleanup-resolved-sync-conflicts [days-old]
-;;   (let [^drift/AppDatabase db @db
-;;         cutoff-date (- (DateTime/now) (* days-old 24 60 60 1000))]
-;;     (.go
-;;      (doto
-;;       (.delete db (.-syncConflicts db))
-;;        (.where (fn [^drift/SyncConflicts tbl]
-;;                  (and
-;;                   (not (.equals (.-resolution tbl) "pending"))
-;;                   (.lessThan (.-resolvedAt tbl) cutoff-date))))))))
-
-;; Update note's base_hash
-(defn update-note-base-hash [id content]
-  (let [^drift/AppDatabase db @db
-        base-hash (-> content
-                      (str/trim)
-                      (str/lower-case)
-                      (str/replace #"\s+" "")
-                      (hash)
-                      (str))]
-    (.customStatement db
-                      "UPDATE notes SET base_hash = ? WHERE id = ?"
-                      [base-hash id])))
-
 ;; Update note sync status
 (defn update-note-sync-status [id status & {:keys [synced-at] :or {synced-at nil}}]
   (let [^drift/AppDatabase db @db]
@@ -835,20 +694,4 @@
      (.customSelect db
                     "SELECT COUNT(*) as count FROM notes WHERE sync_status = 'synced'"))))
 
-;; Update sync conflict record
-(defn update-sync-conflict [id resolution resolved-data description]
-  (let [^drift/AppDatabase db @db]
-    (if resolved-data
-      (.customStatement db
-                        "UPDATE sync_conflicts SET resolution = ?, resolved_at = ?, resolved_data = ?, description = ? WHERE id = ?"
-                        [resolution (dart:core/DateTime.now) resolved-data description id])
-      (.customStatement db
-                        "UPDATE sync_conflicts SET resolution = ?, resolved_at = ?, description = ? WHERE id = ?"
-                        [resolution (dart:core/DateTime.now) description id]))))
 
-;; Clean up resolved conflict records
-(defn cleanup-resolved-sync-conflicts []
-  (let [^drift/AppDatabase db @db]
-    (.go
-     (doto (.delete db (.-syncConflicts db))
-       (.where (fn [^drift/SyncConflicts tbl] (.not (.equals (.-resolution tbl) "pending"))))))))
