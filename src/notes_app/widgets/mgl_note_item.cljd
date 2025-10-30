@@ -4,7 +4,6 @@
    ["package:mongol/mongol.dart" :as mgl]
    [cljd.flutter :as f]
    [notes-app.widgets.mgl-popup-menu :as popup-menu]
-   [notes-app.widgets.mgl-note-viewer :as note-viewer]
    [notes-app.widgets.mgl-floating-editor :as floating-editor]
    [notes-app.utils.clipboard :as clipboard-utils]
    [notes-app.states.notes :as notes]
@@ -90,21 +89,20 @@
                       (floating-editor/show-floating-editor ctx))
        .onTap (fn []
                 (dart:core/print (str "Note item tapped: " note-id))
-                (notes/set-current-note! item)
-                (note-viewer/show-diaglog ctx))
+                (notes/set-current-note! item))
        .child
        (mgl/MongolListTile
         .title (when note-title
                  (mgl/MongolText note-title
-                                 .style (m/TextStyle 
-                                          .fontSize 18
-                                          .fontWeight m/FontWeight.bold
-                                          .color title-color
-                                          .height 1.2)))
+                                 .style (m/TextStyle
+                                         .fontSize 18
+                                         .fontWeight m/FontWeight.bold
+                                         .color title-color
+                                         .height 1.2)))
         .subtitle (when note-content
                     (mgl/MongolText note-content
                                     .maxLines 3
-                                    .style (m/TextStyle 
-                                             .fontSize 14
-                                             .color preview-color
-                                             .height 1.4))))))])))
+                                    .style (m/TextStyle
+                                            .fontSize 14
+                                            .color preview-color
+                                            .height 1.4))))))])))

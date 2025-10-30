@@ -14,9 +14,6 @@
    ;;  .title (m/Text "Minii Notes"
    ;;                 .style (m/TextStyle .fontSize 22))
    .actions [(m/IconButton
-              .icon (m/Icon m/Icons.view_sidebar)
-              .onPressed (fn [] (.openEndDrawer (.-currentState db/scaffold-key))))
-             (m/IconButton
               .icon (m/Icon (m/Icons.search))
               .onPressed (fn [] (navigator/navigate-to-screen navigator search-screen)))]))
 

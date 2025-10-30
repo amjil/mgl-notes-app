@@ -24,7 +24,6 @@
     .backgroundColor (.-surface color-scheme)
     .appBar (mgl-app-bar/mgl-app-bar navigator search-screen/screen)
     .drawer (mgl-drawer/mgl-left-drawer)
-    .endDrawer (mgl-drawer/mgl-right-drawer)
     .body (notes-list/notes-list-stream)
     .floatingActionButton (m/FloatingActionButton
                            .onPressed (fn []

@@ -40,24 +40,6 @@
                              (dart:core/print "Open Settings")))]))
      (m/Divider .height 1)])))
 
-(defn mgl-right-drawer []
-  (f/widget
-   (m/Drawer)
-   (m/SafeArea)
-   (m/Padding
-    .padding (m/EdgeInsets.all 16))
-   (m/Column
-    .children
-    [(m/Expanded
-      .child (m/Padding
-              .padding (m/EdgeInsets.symmetric .vertical 12)
-              .child (often-used-tags)))
-     (m/Divider .height 1)
-     (m/Expanded
-      .child (m/Padding
-              .padding (m/EdgeInsets.symmetric .vertical 12)
-              .child (often-search-query)))])))
-              
 (defn often-used-tags []
   (f/widget
    :watch [{often-used-tags :often-used-tags} search/search-state]
