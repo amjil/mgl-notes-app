@@ -26,6 +26,15 @@ class $NotesTable extends Notes with TableInfo<$NotesTable, Note> {
     type: DriftSqlType.string,
     requiredDuringInsert: true,
   );
+  static const VerificationMeta _userIdMeta = const VerificationMeta('userId');
+  @override
+  late final GeneratedColumn<String> userId = GeneratedColumn<String>(
+    'user_id',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
   static const VerificationMeta _blockIdsMeta = const VerificationMeta(
     'blockIds',
   );
@@ -74,21 +83,6 @@ class $NotesTable extends Notes with TableInfo<$NotesTable, Note> {
     requiredDuringInsert: false,
     defaultValue: const Constant('pending'),
   );
-  static const VerificationMeta _isBlocksSyncedMeta = const VerificationMeta(
-    'isBlocksSynced',
-  );
-  @override
-  late final GeneratedColumn<bool> isBlocksSynced = GeneratedColumn<bool>(
-    'is_blocks_synced',
-    aliasedName,
-    false,
-    type: DriftSqlType.bool,
-    requiredDuringInsert: false,
-    defaultConstraints: GeneratedColumn.constraintIsAlways(
-      'CHECK ("is_blocks_synced" IN (0, 1))',
-    ),
-    defaultValue: const Constant(false),
-  );
   static const VerificationMeta _isDeletedMeta = const VerificationMeta(
     'isDeleted',
   );
@@ -104,42 +98,6 @@ class $NotesTable extends Notes with TableInfo<$NotesTable, Note> {
     ),
     defaultValue: const Constant(false),
   );
-  static const VerificationMeta _syncedAtMeta = const VerificationMeta(
-    'syncedAt',
-  );
-  @override
-  late final GeneratedColumn<DateTime> syncedAt = GeneratedColumn<DateTime>(
-    'synced_at',
-    aliasedName,
-    true,
-    type: DriftSqlType.dateTime,
-    requiredDuringInsert: false,
-  );
-  static const VerificationMeta _baseHashMeta = const VerificationMeta(
-    'baseHash',
-  );
-  @override
-  late final GeneratedColumn<String> baseHash = GeneratedColumn<String>(
-    'base_hash',
-    aliasedName,
-    true,
-    type: DriftSqlType.string,
-    requiredDuringInsert: false,
-  );
-  static const VerificationMeta _mergedFromConflictMeta =
-      const VerificationMeta('mergedFromConflict');
-  @override
-  late final GeneratedColumn<bool> mergedFromConflict = GeneratedColumn<bool>(
-    'merged_from_conflict',
-    aliasedName,
-    false,
-    type: DriftSqlType.bool,
-    requiredDuringInsert: false,
-    defaultConstraints: GeneratedColumn.constraintIsAlways(
-      'CHECK ("merged_from_conflict" IN (0, 1))',
-    ),
-    defaultValue: const Constant(false),
-  );
   static const VerificationMeta _deletedAtMeta = const VerificationMeta(
     'deletedAt',
   );
@@ -151,33 +109,29 @@ class $NotesTable extends Notes with TableInfo<$NotesTable, Note> {
     type: DriftSqlType.dateTime,
     requiredDuringInsert: false,
   );
-  static const VerificationMeta _syncVersionMeta = const VerificationMeta(
-    'syncVersion',
+  static const VerificationMeta _syncedAtMeta = const VerificationMeta(
+    'syncedAt',
   );
   @override
-  late final GeneratedColumn<int> syncVersion = GeneratedColumn<int>(
-    'sync_version',
+  late final GeneratedColumn<DateTime> syncedAt = GeneratedColumn<DateTime>(
+    'synced_at',
     aliasedName,
-    false,
-    type: DriftSqlType.int,
+    true,
+    type: DriftSqlType.dateTime,
     requiredDuringInsert: false,
-    defaultValue: const Constant(0),
   );
   @override
   List<GeneratedColumn> get $columns => [
     id,
     title,
+    userId,
     blockIds,
     createdAt,
     updatedAt,
     syncStatus,
-    isBlocksSynced,
     isDeleted,
-    syncedAt,
-    baseHash,
-    mergedFromConflict,
     deletedAt,
-    syncVersion,
+    syncedAt,
   ];
   @override
   String get aliasedName => _alias ?? actualTableName;
@@ -204,6 +158,12 @@ class $NotesTable extends Notes with TableInfo<$NotesTable, Note> {
     } else if (isInserting) {
       context.missing(_titleMeta);
     }
+    if (data.containsKey('user_id')) {
+      context.handle(
+        _userIdMeta,
+        userId.isAcceptableOrUnknown(data['user_id']!, _userIdMeta),
+      );
+    }
     if (data.containsKey('block_ids')) {
       context.handle(
         _blockIdsMeta,
@@ -228,40 +188,10 @@ class $NotesTable extends Notes with TableInfo<$NotesTable, Note> {
         syncStatus.isAcceptableOrUnknown(data['sync_status']!, _syncStatusMeta),
       );
     }
-    if (data.containsKey('is_blocks_synced')) {
-      context.handle(
-        _isBlocksSyncedMeta,
-        isBlocksSynced.isAcceptableOrUnknown(
-          data['is_blocks_synced']!,
-          _isBlocksSyncedMeta,
-        ),
-      );
-    }
     if (data.containsKey('is_deleted')) {
       context.handle(
         _isDeletedMeta,
         isDeleted.isAcceptableOrUnknown(data['is_deleted']!, _isDeletedMeta),
-      );
-    }
-    if (data.containsKey('synced_at')) {
-      context.handle(
-        _syncedAtMeta,
-        syncedAt.isAcceptableOrUnknown(data['synced_at']!, _syncedAtMeta),
-      );
-    }
-    if (data.containsKey('base_hash')) {
-      context.handle(
-        _baseHashMeta,
-        baseHash.isAcceptableOrUnknown(data['base_hash']!, _baseHashMeta),
-      );
-    }
-    if (data.containsKey('merged_from_conflict')) {
-      context.handle(
-        _mergedFromConflictMeta,
-        mergedFromConflict.isAcceptableOrUnknown(
-          data['merged_from_conflict']!,
-          _mergedFromConflictMeta,
-        ),
       );
     }
     if (data.containsKey('deleted_at')) {
@@ -270,13 +200,10 @@ class $NotesTable extends Notes with TableInfo<$NotesTable, Note> {
         deletedAt.isAcceptableOrUnknown(data['deleted_at']!, _deletedAtMeta),
       );
     }
-    if (data.containsKey('sync_version')) {
+    if (data.containsKey('synced_at')) {
       context.handle(
-        _syncVersionMeta,
-        syncVersion.isAcceptableOrUnknown(
-          data['sync_version']!,
-          _syncVersionMeta,
-        ),
+        _syncedAtMeta,
+        syncedAt.isAcceptableOrUnknown(data['synced_at']!, _syncedAtMeta),
       );
     }
     return context;
@@ -296,6 +223,10 @@ class $NotesTable extends Notes with TableInfo<$NotesTable, Note> {
         DriftSqlType.string,
         data['${effectivePrefix}title'],
       )!,
+      userId: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}user_id'],
+      ),
       blockIds: attachedDatabase.typeMapping.read(
         DriftSqlType.string,
         data['${effectivePrefix}block_ids'],
@@ -312,34 +243,18 @@ class $NotesTable extends Notes with TableInfo<$NotesTable, Note> {
         DriftSqlType.string,
         data['${effectivePrefix}sync_status'],
       )!,
-      isBlocksSynced: attachedDatabase.typeMapping.read(
-        DriftSqlType.bool,
-        data['${effectivePrefix}is_blocks_synced'],
-      )!,
       isDeleted: attachedDatabase.typeMapping.read(
         DriftSqlType.bool,
         data['${effectivePrefix}is_deleted'],
-      )!,
-      syncedAt: attachedDatabase.typeMapping.read(
-        DriftSqlType.dateTime,
-        data['${effectivePrefix}synced_at'],
-      ),
-      baseHash: attachedDatabase.typeMapping.read(
-        DriftSqlType.string,
-        data['${effectivePrefix}base_hash'],
-      ),
-      mergedFromConflict: attachedDatabase.typeMapping.read(
-        DriftSqlType.bool,
-        data['${effectivePrefix}merged_from_conflict'],
       )!,
       deletedAt: attachedDatabase.typeMapping.read(
         DriftSqlType.dateTime,
         data['${effectivePrefix}deleted_at'],
       ),
-      syncVersion: attachedDatabase.typeMapping.read(
-        DriftSqlType.int,
-        data['${effectivePrefix}sync_version'],
-      )!,
+      syncedAt: attachedDatabase.typeMapping.read(
+        DriftSqlType.dateTime,
+        data['${effectivePrefix}synced_at'],
+      ),
     );
   }
 
@@ -352,54 +267,45 @@ class $NotesTable extends Notes with TableInfo<$NotesTable, Note> {
 class Note extends DataClass implements Insertable<Note> {
   final String id;
   final String title;
+  final String? userId;
   final String blockIds;
   final DateTime createdAt;
   final DateTime updatedAt;
   final String syncStatus;
-  final bool isBlocksSynced;
   final bool isDeleted;
-  final DateTime? syncedAt;
-  final String? baseHash;
-  final bool mergedFromConflict;
   final DateTime? deletedAt;
-  final int syncVersion;
+  final DateTime? syncedAt;
   const Note({
     required this.id,
     required this.title,
+    this.userId,
     required this.blockIds,
     required this.createdAt,
     required this.updatedAt,
     required this.syncStatus,
-    required this.isBlocksSynced,
     required this.isDeleted,
-    this.syncedAt,
-    this.baseHash,
-    required this.mergedFromConflict,
     this.deletedAt,
-    required this.syncVersion,
+    this.syncedAt,
   });
   @override
   Map<String, Expression> toColumns(bool nullToAbsent) {
     final map = <String, Expression>{};
     map['id'] = Variable<String>(id);
     map['title'] = Variable<String>(title);
+    if (!nullToAbsent || userId != null) {
+      map['user_id'] = Variable<String>(userId);
+    }
     map['block_ids'] = Variable<String>(blockIds);
     map['created_at'] = Variable<DateTime>(createdAt);
     map['updated_at'] = Variable<DateTime>(updatedAt);
     map['sync_status'] = Variable<String>(syncStatus);
-    map['is_blocks_synced'] = Variable<bool>(isBlocksSynced);
     map['is_deleted'] = Variable<bool>(isDeleted);
-    if (!nullToAbsent || syncedAt != null) {
-      map['synced_at'] = Variable<DateTime>(syncedAt);
-    }
-    if (!nullToAbsent || baseHash != null) {
-      map['base_hash'] = Variable<String>(baseHash);
-    }
-    map['merged_from_conflict'] = Variable<bool>(mergedFromConflict);
     if (!nullToAbsent || deletedAt != null) {
       map['deleted_at'] = Variable<DateTime>(deletedAt);
     }
-    map['sync_version'] = Variable<int>(syncVersion);
+    if (!nullToAbsent || syncedAt != null) {
+      map['synced_at'] = Variable<DateTime>(syncedAt);
+    }
     return map;
   }
 
@@ -407,23 +313,20 @@ class Note extends DataClass implements Insertable<Note> {
     return NotesCompanion(
       id: Value(id),
       title: Value(title),
+      userId: userId == null && nullToAbsent
+          ? const Value.absent()
+          : Value(userId),
       blockIds: Value(blockIds),
       createdAt: Value(createdAt),
       updatedAt: Value(updatedAt),
       syncStatus: Value(syncStatus),
-      isBlocksSynced: Value(isBlocksSynced),
       isDeleted: Value(isDeleted),
-      syncedAt: syncedAt == null && nullToAbsent
-          ? const Value.absent()
-          : Value(syncedAt),
-      baseHash: baseHash == null && nullToAbsent
-          ? const Value.absent()
-          : Value(baseHash),
-      mergedFromConflict: Value(mergedFromConflict),
       deletedAt: deletedAt == null && nullToAbsent
           ? const Value.absent()
           : Value(deletedAt),
-      syncVersion: Value(syncVersion),
+      syncedAt: syncedAt == null && nullToAbsent
+          ? const Value.absent()
+          : Value(syncedAt),
     );
   }
 
@@ -435,17 +338,14 @@ class Note extends DataClass implements Insertable<Note> {
     return Note(
       id: serializer.fromJson<String>(json['id']),
       title: serializer.fromJson<String>(json['title']),
+      userId: serializer.fromJson<String?>(json['userId']),
       blockIds: serializer.fromJson<String>(json['blockIds']),
       createdAt: serializer.fromJson<DateTime>(json['createdAt']),
       updatedAt: serializer.fromJson<DateTime>(json['updatedAt']),
       syncStatus: serializer.fromJson<String>(json['syncStatus']),
-      isBlocksSynced: serializer.fromJson<bool>(json['isBlocksSynced']),
       isDeleted: serializer.fromJson<bool>(json['isDeleted']),
-      syncedAt: serializer.fromJson<DateTime?>(json['syncedAt']),
-      baseHash: serializer.fromJson<String?>(json['baseHash']),
-      mergedFromConflict: serializer.fromJson<bool>(json['mergedFromConflict']),
       deletedAt: serializer.fromJson<DateTime?>(json['deletedAt']),
-      syncVersion: serializer.fromJson<int>(json['syncVersion']),
+      syncedAt: serializer.fromJson<DateTime?>(json['syncedAt']),
     );
   }
   @override
@@ -454,72 +354,54 @@ class Note extends DataClass implements Insertable<Note> {
     return <String, dynamic>{
       'id': serializer.toJson<String>(id),
       'title': serializer.toJson<String>(title),
+      'userId': serializer.toJson<String?>(userId),
       'blockIds': serializer.toJson<String>(blockIds),
       'createdAt': serializer.toJson<DateTime>(createdAt),
       'updatedAt': serializer.toJson<DateTime>(updatedAt),
       'syncStatus': serializer.toJson<String>(syncStatus),
-      'isBlocksSynced': serializer.toJson<bool>(isBlocksSynced),
       'isDeleted': serializer.toJson<bool>(isDeleted),
-      'syncedAt': serializer.toJson<DateTime?>(syncedAt),
-      'baseHash': serializer.toJson<String?>(baseHash),
-      'mergedFromConflict': serializer.toJson<bool>(mergedFromConflict),
       'deletedAt': serializer.toJson<DateTime?>(deletedAt),
-      'syncVersion': serializer.toJson<int>(syncVersion),
+      'syncedAt': serializer.toJson<DateTime?>(syncedAt),
     };
   }
 
   Note copyWith({
     String? id,
     String? title,
+    Value<String?> userId = const Value.absent(),
     String? blockIds,
     DateTime? createdAt,
     DateTime? updatedAt,
     String? syncStatus,
-    bool? isBlocksSynced,
     bool? isDeleted,
-    Value<DateTime?> syncedAt = const Value.absent(),
-    Value<String?> baseHash = const Value.absent(),
-    bool? mergedFromConflict,
     Value<DateTime?> deletedAt = const Value.absent(),
-    int? syncVersion,
+    Value<DateTime?> syncedAt = const Value.absent(),
   }) => Note(
     id: id ?? this.id,
     title: title ?? this.title,
+    userId: userId.present ? userId.value : this.userId,
     blockIds: blockIds ?? this.blockIds,
     createdAt: createdAt ?? this.createdAt,
     updatedAt: updatedAt ?? this.updatedAt,
     syncStatus: syncStatus ?? this.syncStatus,
-    isBlocksSynced: isBlocksSynced ?? this.isBlocksSynced,
     isDeleted: isDeleted ?? this.isDeleted,
-    syncedAt: syncedAt.present ? syncedAt.value : this.syncedAt,
-    baseHash: baseHash.present ? baseHash.value : this.baseHash,
-    mergedFromConflict: mergedFromConflict ?? this.mergedFromConflict,
     deletedAt: deletedAt.present ? deletedAt.value : this.deletedAt,
-    syncVersion: syncVersion ?? this.syncVersion,
+    syncedAt: syncedAt.present ? syncedAt.value : this.syncedAt,
   );
   Note copyWithCompanion(NotesCompanion data) {
     return Note(
       id: data.id.present ? data.id.value : this.id,
       title: data.title.present ? data.title.value : this.title,
+      userId: data.userId.present ? data.userId.value : this.userId,
       blockIds: data.blockIds.present ? data.blockIds.value : this.blockIds,
       createdAt: data.createdAt.present ? data.createdAt.value : this.createdAt,
       updatedAt: data.updatedAt.present ? data.updatedAt.value : this.updatedAt,
       syncStatus: data.syncStatus.present
           ? data.syncStatus.value
           : this.syncStatus,
-      isBlocksSynced: data.isBlocksSynced.present
-          ? data.isBlocksSynced.value
-          : this.isBlocksSynced,
       isDeleted: data.isDeleted.present ? data.isDeleted.value : this.isDeleted,
-      syncedAt: data.syncedAt.present ? data.syncedAt.value : this.syncedAt,
-      baseHash: data.baseHash.present ? data.baseHash.value : this.baseHash,
-      mergedFromConflict: data.mergedFromConflict.present
-          ? data.mergedFromConflict.value
-          : this.mergedFromConflict,
       deletedAt: data.deletedAt.present ? data.deletedAt.value : this.deletedAt,
-      syncVersion: data.syncVersion.present
-          ? data.syncVersion.value
-          : this.syncVersion,
+      syncedAt: data.syncedAt.present ? data.syncedAt.value : this.syncedAt,
     );
   }
 
@@ -528,17 +410,14 @@ class Note extends DataClass implements Insertable<Note> {
     return (StringBuffer('Note(')
           ..write('id: $id, ')
           ..write('title: $title, ')
+          ..write('userId: $userId, ')
           ..write('blockIds: $blockIds, ')
           ..write('createdAt: $createdAt, ')
           ..write('updatedAt: $updatedAt, ')
           ..write('syncStatus: $syncStatus, ')
-          ..write('isBlocksSynced: $isBlocksSynced, ')
           ..write('isDeleted: $isDeleted, ')
-          ..write('syncedAt: $syncedAt, ')
-          ..write('baseHash: $baseHash, ')
-          ..write('mergedFromConflict: $mergedFromConflict, ')
           ..write('deletedAt: $deletedAt, ')
-          ..write('syncVersion: $syncVersion')
+          ..write('syncedAt: $syncedAt')
           ..write(')'))
         .toString();
   }
@@ -547,17 +426,14 @@ class Note extends DataClass implements Insertable<Note> {
   int get hashCode => Object.hash(
     id,
     title,
+    userId,
     blockIds,
     createdAt,
     updatedAt,
     syncStatus,
-    isBlocksSynced,
     isDeleted,
-    syncedAt,
-    baseHash,
-    mergedFromConflict,
     deletedAt,
-    syncVersion,
+    syncedAt,
   );
   @override
   bool operator ==(Object other) =>
@@ -565,98 +441,79 @@ class Note extends DataClass implements Insertable<Note> {
       (other is Note &&
           other.id == this.id &&
           other.title == this.title &&
+          other.userId == this.userId &&
           other.blockIds == this.blockIds &&
           other.createdAt == this.createdAt &&
           other.updatedAt == this.updatedAt &&
           other.syncStatus == this.syncStatus &&
-          other.isBlocksSynced == this.isBlocksSynced &&
           other.isDeleted == this.isDeleted &&
-          other.syncedAt == this.syncedAt &&
-          other.baseHash == this.baseHash &&
-          other.mergedFromConflict == this.mergedFromConflict &&
           other.deletedAt == this.deletedAt &&
-          other.syncVersion == this.syncVersion);
+          other.syncedAt == this.syncedAt);
 }
 
 class NotesCompanion extends UpdateCompanion<Note> {
   final Value<String> id;
   final Value<String> title;
+  final Value<String?> userId;
   final Value<String> blockIds;
   final Value<DateTime> createdAt;
   final Value<DateTime> updatedAt;
   final Value<String> syncStatus;
-  final Value<bool> isBlocksSynced;
   final Value<bool> isDeleted;
-  final Value<DateTime?> syncedAt;
-  final Value<String?> baseHash;
-  final Value<bool> mergedFromConflict;
   final Value<DateTime?> deletedAt;
-  final Value<int> syncVersion;
+  final Value<DateTime?> syncedAt;
   final Value<int> rowid;
   const NotesCompanion({
     this.id = const Value.absent(),
     this.title = const Value.absent(),
+    this.userId = const Value.absent(),
     this.blockIds = const Value.absent(),
     this.createdAt = const Value.absent(),
     this.updatedAt = const Value.absent(),
     this.syncStatus = const Value.absent(),
-    this.isBlocksSynced = const Value.absent(),
     this.isDeleted = const Value.absent(),
-    this.syncedAt = const Value.absent(),
-    this.baseHash = const Value.absent(),
-    this.mergedFromConflict = const Value.absent(),
     this.deletedAt = const Value.absent(),
-    this.syncVersion = const Value.absent(),
+    this.syncedAt = const Value.absent(),
     this.rowid = const Value.absent(),
   });
   NotesCompanion.insert({
     required String id,
     required String title,
+    this.userId = const Value.absent(),
     this.blockIds = const Value.absent(),
     this.createdAt = const Value.absent(),
     this.updatedAt = const Value.absent(),
     this.syncStatus = const Value.absent(),
-    this.isBlocksSynced = const Value.absent(),
     this.isDeleted = const Value.absent(),
-    this.syncedAt = const Value.absent(),
-    this.baseHash = const Value.absent(),
-    this.mergedFromConflict = const Value.absent(),
     this.deletedAt = const Value.absent(),
-    this.syncVersion = const Value.absent(),
+    this.syncedAt = const Value.absent(),
     this.rowid = const Value.absent(),
   }) : id = Value(id),
        title = Value(title);
   static Insertable<Note> custom({
     Expression<String>? id,
     Expression<String>? title,
+    Expression<String>? userId,
     Expression<String>? blockIds,
     Expression<DateTime>? createdAt,
     Expression<DateTime>? updatedAt,
     Expression<String>? syncStatus,
-    Expression<bool>? isBlocksSynced,
     Expression<bool>? isDeleted,
-    Expression<DateTime>? syncedAt,
-    Expression<String>? baseHash,
-    Expression<bool>? mergedFromConflict,
     Expression<DateTime>? deletedAt,
-    Expression<int>? syncVersion,
+    Expression<DateTime>? syncedAt,
     Expression<int>? rowid,
   }) {
     return RawValuesInsertable({
       if (id != null) 'id': id,
       if (title != null) 'title': title,
+      if (userId != null) 'user_id': userId,
       if (blockIds != null) 'block_ids': blockIds,
       if (createdAt != null) 'created_at': createdAt,
       if (updatedAt != null) 'updated_at': updatedAt,
       if (syncStatus != null) 'sync_status': syncStatus,
-      if (isBlocksSynced != null) 'is_blocks_synced': isBlocksSynced,
       if (isDeleted != null) 'is_deleted': isDeleted,
-      if (syncedAt != null) 'synced_at': syncedAt,
-      if (baseHash != null) 'base_hash': baseHash,
-      if (mergedFromConflict != null)
-        'merged_from_conflict': mergedFromConflict,
       if (deletedAt != null) 'deleted_at': deletedAt,
-      if (syncVersion != null) 'sync_version': syncVersion,
+      if (syncedAt != null) 'synced_at': syncedAt,
       if (rowid != null) 'rowid': rowid,
     });
   }
@@ -664,33 +521,27 @@ class NotesCompanion extends UpdateCompanion<Note> {
   NotesCompanion copyWith({
     Value<String>? id,
     Value<String>? title,
+    Value<String?>? userId,
     Value<String>? blockIds,
     Value<DateTime>? createdAt,
     Value<DateTime>? updatedAt,
     Value<String>? syncStatus,
-    Value<bool>? isBlocksSynced,
     Value<bool>? isDeleted,
-    Value<DateTime?>? syncedAt,
-    Value<String?>? baseHash,
-    Value<bool>? mergedFromConflict,
     Value<DateTime?>? deletedAt,
-    Value<int>? syncVersion,
+    Value<DateTime?>? syncedAt,
     Value<int>? rowid,
   }) {
     return NotesCompanion(
       id: id ?? this.id,
       title: title ?? this.title,
+      userId: userId ?? this.userId,
       blockIds: blockIds ?? this.blockIds,
       createdAt: createdAt ?? this.createdAt,
       updatedAt: updatedAt ?? this.updatedAt,
       syncStatus: syncStatus ?? this.syncStatus,
-      isBlocksSynced: isBlocksSynced ?? this.isBlocksSynced,
       isDeleted: isDeleted ?? this.isDeleted,
-      syncedAt: syncedAt ?? this.syncedAt,
-      baseHash: baseHash ?? this.baseHash,
-      mergedFromConflict: mergedFromConflict ?? this.mergedFromConflict,
       deletedAt: deletedAt ?? this.deletedAt,
-      syncVersion: syncVersion ?? this.syncVersion,
+      syncedAt: syncedAt ?? this.syncedAt,
       rowid: rowid ?? this.rowid,
     );
   }
@@ -704,6 +555,9 @@ class NotesCompanion extends UpdateCompanion<Note> {
     if (title.present) {
       map['title'] = Variable<String>(title.value);
     }
+    if (userId.present) {
+      map['user_id'] = Variable<String>(userId.value);
+    }
     if (blockIds.present) {
       map['block_ids'] = Variable<String>(blockIds.value);
     }
@@ -716,26 +570,14 @@ class NotesCompanion extends UpdateCompanion<Note> {
     if (syncStatus.present) {
       map['sync_status'] = Variable<String>(syncStatus.value);
     }
-    if (isBlocksSynced.present) {
-      map['is_blocks_synced'] = Variable<bool>(isBlocksSynced.value);
-    }
     if (isDeleted.present) {
       map['is_deleted'] = Variable<bool>(isDeleted.value);
-    }
-    if (syncedAt.present) {
-      map['synced_at'] = Variable<DateTime>(syncedAt.value);
-    }
-    if (baseHash.present) {
-      map['base_hash'] = Variable<String>(baseHash.value);
-    }
-    if (mergedFromConflict.present) {
-      map['merged_from_conflict'] = Variable<bool>(mergedFromConflict.value);
     }
     if (deletedAt.present) {
       map['deleted_at'] = Variable<DateTime>(deletedAt.value);
     }
-    if (syncVersion.present) {
-      map['sync_version'] = Variable<int>(syncVersion.value);
+    if (syncedAt.present) {
+      map['synced_at'] = Variable<DateTime>(syncedAt.value);
     }
     if (rowid.present) {
       map['rowid'] = Variable<int>(rowid.value);
@@ -748,17 +590,14 @@ class NotesCompanion extends UpdateCompanion<Note> {
     return (StringBuffer('NotesCompanion(')
           ..write('id: $id, ')
           ..write('title: $title, ')
+          ..write('userId: $userId, ')
           ..write('blockIds: $blockIds, ')
           ..write('createdAt: $createdAt, ')
           ..write('updatedAt: $updatedAt, ')
           ..write('syncStatus: $syncStatus, ')
-          ..write('isBlocksSynced: $isBlocksSynced, ')
           ..write('isDeleted: $isDeleted, ')
-          ..write('syncedAt: $syncedAt, ')
-          ..write('baseHash: $baseHash, ')
-          ..write('mergedFromConflict: $mergedFromConflict, ')
           ..write('deletedAt: $deletedAt, ')
-          ..write('syncVersion: $syncVersion, ')
+          ..write('syncedAt: $syncedAt, ')
           ..write('rowid: $rowid')
           ..write(')'))
         .toString();
@@ -790,6 +629,15 @@ class $BlocksTable extends Blocks with TableInfo<$BlocksTable, Block> {
     defaultConstraints: GeneratedColumn.constraintIsAlways(
       'REFERENCES notes (id) ON DELETE CASCADE',
     ),
+  );
+  static const VerificationMeta _userIdMeta = const VerificationMeta('userId');
+  @override
+  late final GeneratedColumn<String> userId = GeneratedColumn<String>(
+    'user_id',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
   );
   static const VerificationMeta _contentMeta = const VerificationMeta(
     'content',
@@ -842,6 +690,7 @@ class $BlocksTable extends Blocks with TableInfo<$BlocksTable, Block> {
   List<GeneratedColumn> get $columns => [
     id,
     noteId,
+    userId,
     content,
     createdAt,
     updatedAt,
@@ -871,6 +720,12 @@ class $BlocksTable extends Blocks with TableInfo<$BlocksTable, Block> {
       );
     } else if (isInserting) {
       context.missing(_noteIdMeta);
+    }
+    if (data.containsKey('user_id')) {
+      context.handle(
+        _userIdMeta,
+        userId.isAcceptableOrUnknown(data['user_id']!, _userIdMeta),
+      );
     }
     if (data.containsKey('content')) {
       context.handle(
@@ -915,6 +770,10 @@ class $BlocksTable extends Blocks with TableInfo<$BlocksTable, Block> {
         DriftSqlType.string,
         data['${effectivePrefix}note_id'],
       )!,
+      userId: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}user_id'],
+      ),
       content: attachedDatabase.typeMapping.read(
         DriftSqlType.string,
         data['${effectivePrefix}content'],
@@ -943,6 +802,7 @@ class $BlocksTable extends Blocks with TableInfo<$BlocksTable, Block> {
 class Block extends DataClass implements Insertable<Block> {
   final String id;
   final String noteId;
+  final String? userId;
   final String content;
   final DateTime createdAt;
   final DateTime updatedAt;
@@ -950,6 +810,7 @@ class Block extends DataClass implements Insertable<Block> {
   const Block({
     required this.id,
     required this.noteId,
+    this.userId,
     required this.content,
     required this.createdAt,
     required this.updatedAt,
@@ -960,6 +821,9 @@ class Block extends DataClass implements Insertable<Block> {
     final map = <String, Expression>{};
     map['id'] = Variable<String>(id);
     map['note_id'] = Variable<String>(noteId);
+    if (!nullToAbsent || userId != null) {
+      map['user_id'] = Variable<String>(userId);
+    }
     map['content'] = Variable<String>(content);
     map['created_at'] = Variable<DateTime>(createdAt);
     map['updated_at'] = Variable<DateTime>(updatedAt);
@@ -971,6 +835,9 @@ class Block extends DataClass implements Insertable<Block> {
     return BlocksCompanion(
       id: Value(id),
       noteId: Value(noteId),
+      userId: userId == null && nullToAbsent
+          ? const Value.absent()
+          : Value(userId),
       content: Value(content),
       createdAt: Value(createdAt),
       updatedAt: Value(updatedAt),
@@ -986,6 +853,7 @@ class Block extends DataClass implements Insertable<Block> {
     return Block(
       id: serializer.fromJson<String>(json['id']),
       noteId: serializer.fromJson<String>(json['noteId']),
+      userId: serializer.fromJson<String?>(json['userId']),
       content: serializer.fromJson<String>(json['content']),
       createdAt: serializer.fromJson<DateTime>(json['createdAt']),
       updatedAt: serializer.fromJson<DateTime>(json['updatedAt']),
@@ -998,6 +866,7 @@ class Block extends DataClass implements Insertable<Block> {
     return <String, dynamic>{
       'id': serializer.toJson<String>(id),
       'noteId': serializer.toJson<String>(noteId),
+      'userId': serializer.toJson<String?>(userId),
       'content': serializer.toJson<String>(content),
       'createdAt': serializer.toJson<DateTime>(createdAt),
       'updatedAt': serializer.toJson<DateTime>(updatedAt),
@@ -1008,6 +877,7 @@ class Block extends DataClass implements Insertable<Block> {
   Block copyWith({
     String? id,
     String? noteId,
+    Value<String?> userId = const Value.absent(),
     String? content,
     DateTime? createdAt,
     DateTime? updatedAt,
@@ -1015,6 +885,7 @@ class Block extends DataClass implements Insertable<Block> {
   }) => Block(
     id: id ?? this.id,
     noteId: noteId ?? this.noteId,
+    userId: userId.present ? userId.value : this.userId,
     content: content ?? this.content,
     createdAt: createdAt ?? this.createdAt,
     updatedAt: updatedAt ?? this.updatedAt,
@@ -1024,6 +895,7 @@ class Block extends DataClass implements Insertable<Block> {
     return Block(
       id: data.id.present ? data.id.value : this.id,
       noteId: data.noteId.present ? data.noteId.value : this.noteId,
+      userId: data.userId.present ? data.userId.value : this.userId,
       content: data.content.present ? data.content.value : this.content,
       createdAt: data.createdAt.present ? data.createdAt.value : this.createdAt,
       updatedAt: data.updatedAt.present ? data.updatedAt.value : this.updatedAt,
@@ -1038,6 +910,7 @@ class Block extends DataClass implements Insertable<Block> {
     return (StringBuffer('Block(')
           ..write('id: $id, ')
           ..write('noteId: $noteId, ')
+          ..write('userId: $userId, ')
           ..write('content: $content, ')
           ..write('createdAt: $createdAt, ')
           ..write('updatedAt: $updatedAt, ')
@@ -1047,14 +920,22 @@ class Block extends DataClass implements Insertable<Block> {
   }
 
   @override
-  int get hashCode =>
-      Object.hash(id, noteId, content, createdAt, updatedAt, syncStatus);
+  int get hashCode => Object.hash(
+    id,
+    noteId,
+    userId,
+    content,
+    createdAt,
+    updatedAt,
+    syncStatus,
+  );
   @override
   bool operator ==(Object other) =>
       identical(this, other) ||
       (other is Block &&
           other.id == this.id &&
           other.noteId == this.noteId &&
+          other.userId == this.userId &&
           other.content == this.content &&
           other.createdAt == this.createdAt &&
           other.updatedAt == this.updatedAt &&
@@ -1064,6 +945,7 @@ class Block extends DataClass implements Insertable<Block> {
 class BlocksCompanion extends UpdateCompanion<Block> {
   final Value<String> id;
   final Value<String> noteId;
+  final Value<String?> userId;
   final Value<String> content;
   final Value<DateTime> createdAt;
   final Value<DateTime> updatedAt;
@@ -1072,6 +954,7 @@ class BlocksCompanion extends UpdateCompanion<Block> {
   const BlocksCompanion({
     this.id = const Value.absent(),
     this.noteId = const Value.absent(),
+    this.userId = const Value.absent(),
     this.content = const Value.absent(),
     this.createdAt = const Value.absent(),
     this.updatedAt = const Value.absent(),
@@ -1081,6 +964,7 @@ class BlocksCompanion extends UpdateCompanion<Block> {
   BlocksCompanion.insert({
     required String id,
     required String noteId,
+    this.userId = const Value.absent(),
     required String content,
     this.createdAt = const Value.absent(),
     this.updatedAt = const Value.absent(),
@@ -1092,6 +976,7 @@ class BlocksCompanion extends UpdateCompanion<Block> {
   static Insertable<Block> custom({
     Expression<String>? id,
     Expression<String>? noteId,
+    Expression<String>? userId,
     Expression<String>? content,
     Expression<DateTime>? createdAt,
     Expression<DateTime>? updatedAt,
@@ -1101,6 +986,7 @@ class BlocksCompanion extends UpdateCompanion<Block> {
     return RawValuesInsertable({
       if (id != null) 'id': id,
       if (noteId != null) 'note_id': noteId,
+      if (userId != null) 'user_id': userId,
       if (content != null) 'content': content,
       if (createdAt != null) 'created_at': createdAt,
       if (updatedAt != null) 'updated_at': updatedAt,
@@ -1112,6 +998,7 @@ class BlocksCompanion extends UpdateCompanion<Block> {
   BlocksCompanion copyWith({
     Value<String>? id,
     Value<String>? noteId,
+    Value<String?>? userId,
     Value<String>? content,
     Value<DateTime>? createdAt,
     Value<DateTime>? updatedAt,
@@ -1121,6 +1008,7 @@ class BlocksCompanion extends UpdateCompanion<Block> {
     return BlocksCompanion(
       id: id ?? this.id,
       noteId: noteId ?? this.noteId,
+      userId: userId ?? this.userId,
       content: content ?? this.content,
       createdAt: createdAt ?? this.createdAt,
       updatedAt: updatedAt ?? this.updatedAt,
@@ -1137,6 +1025,9 @@ class BlocksCompanion extends UpdateCompanion<Block> {
     }
     if (noteId.present) {
       map['note_id'] = Variable<String>(noteId.value);
+    }
+    if (userId.present) {
+      map['user_id'] = Variable<String>(userId.value);
     }
     if (content.present) {
       map['content'] = Variable<String>(content.value);
@@ -1161,6 +1052,7 @@ class BlocksCompanion extends UpdateCompanion<Block> {
     return (StringBuffer('BlocksCompanion(')
           ..write('id: $id, ')
           ..write('noteId: $noteId, ')
+          ..write('userId: $userId, ')
           ..write('content: $content, ')
           ..write('createdAt: $createdAt, ')
           ..write('updatedAt: $updatedAt, ')
@@ -1184,6 +1076,15 @@ class $LinksTable extends Links with TableInfo<$LinksTable, Link> {
     false,
     type: DriftSqlType.string,
     requiredDuringInsert: true,
+  );
+  static const VerificationMeta _userIdMeta = const VerificationMeta('userId');
+  @override
+  late final GeneratedColumn<String> userId = GeneratedColumn<String>(
+    'user_id',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
   );
   static const VerificationMeta _fromBlockIdMeta = const VerificationMeta(
     'fromBlockId',
@@ -1239,6 +1140,7 @@ class $LinksTable extends Links with TableInfo<$LinksTable, Link> {
   @override
   List<GeneratedColumn> get $columns => [
     id,
+    userId,
     fromBlockId,
     toNoteId,
     toBlockId,
@@ -1260,6 +1162,12 @@ class $LinksTable extends Links with TableInfo<$LinksTable, Link> {
       context.handle(_idMeta, id.isAcceptableOrUnknown(data['id']!, _idMeta));
     } else if (isInserting) {
       context.missing(_idMeta);
+    }
+    if (data.containsKey('user_id')) {
+      context.handle(
+        _userIdMeta,
+        userId.isAcceptableOrUnknown(data['user_id']!, _userIdMeta),
+      );
     }
     if (data.containsKey('from_block_id')) {
       context.handle(
@@ -1305,6 +1213,10 @@ class $LinksTable extends Links with TableInfo<$LinksTable, Link> {
         DriftSqlType.string,
         data['${effectivePrefix}id'],
       )!,
+      userId: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}user_id'],
+      ),
       fromBlockId: attachedDatabase.typeMapping.read(
         DriftSqlType.string,
         data['${effectivePrefix}from_block_id'],
@@ -1332,12 +1244,14 @@ class $LinksTable extends Links with TableInfo<$LinksTable, Link> {
 
 class Link extends DataClass implements Insertable<Link> {
   final String id;
+  final String? userId;
   final String fromBlockId;
   final String toNoteId;
   final String? toBlockId;
   final DateTime createdAt;
   const Link({
     required this.id,
+    this.userId,
     required this.fromBlockId,
     required this.toNoteId,
     this.toBlockId,
@@ -1347,6 +1261,9 @@ class Link extends DataClass implements Insertable<Link> {
   Map<String, Expression> toColumns(bool nullToAbsent) {
     final map = <String, Expression>{};
     map['id'] = Variable<String>(id);
+    if (!nullToAbsent || userId != null) {
+      map['user_id'] = Variable<String>(userId);
+    }
     map['from_block_id'] = Variable<String>(fromBlockId);
     map['to_note_id'] = Variable<String>(toNoteId);
     if (!nullToAbsent || toBlockId != null) {
@@ -1359,6 +1276,9 @@ class Link extends DataClass implements Insertable<Link> {
   LinksCompanion toCompanion(bool nullToAbsent) {
     return LinksCompanion(
       id: Value(id),
+      userId: userId == null && nullToAbsent
+          ? const Value.absent()
+          : Value(userId),
       fromBlockId: Value(fromBlockId),
       toNoteId: Value(toNoteId),
       toBlockId: toBlockId == null && nullToAbsent
@@ -1375,6 +1295,7 @@ class Link extends DataClass implements Insertable<Link> {
     serializer ??= driftRuntimeOptions.defaultSerializer;
     return Link(
       id: serializer.fromJson<String>(json['id']),
+      userId: serializer.fromJson<String?>(json['userId']),
       fromBlockId: serializer.fromJson<String>(json['fromBlockId']),
       toNoteId: serializer.fromJson<String>(json['toNoteId']),
       toBlockId: serializer.fromJson<String?>(json['toBlockId']),
@@ -1386,6 +1307,7 @@ class Link extends DataClass implements Insertable<Link> {
     serializer ??= driftRuntimeOptions.defaultSerializer;
     return <String, dynamic>{
       'id': serializer.toJson<String>(id),
+      'userId': serializer.toJson<String?>(userId),
       'fromBlockId': serializer.toJson<String>(fromBlockId),
       'toNoteId': serializer.toJson<String>(toNoteId),
       'toBlockId': serializer.toJson<String?>(toBlockId),
@@ -1395,12 +1317,14 @@ class Link extends DataClass implements Insertable<Link> {
 
   Link copyWith({
     String? id,
+    Value<String?> userId = const Value.absent(),
     String? fromBlockId,
     String? toNoteId,
     Value<String?> toBlockId = const Value.absent(),
     DateTime? createdAt,
   }) => Link(
     id: id ?? this.id,
+    userId: userId.present ? userId.value : this.userId,
     fromBlockId: fromBlockId ?? this.fromBlockId,
     toNoteId: toNoteId ?? this.toNoteId,
     toBlockId: toBlockId.present ? toBlockId.value : this.toBlockId,
@@ -1409,6 +1333,7 @@ class Link extends DataClass implements Insertable<Link> {
   Link copyWithCompanion(LinksCompanion data) {
     return Link(
       id: data.id.present ? data.id.value : this.id,
+      userId: data.userId.present ? data.userId.value : this.userId,
       fromBlockId: data.fromBlockId.present
           ? data.fromBlockId.value
           : this.fromBlockId,
@@ -1422,6 +1347,7 @@ class Link extends DataClass implements Insertable<Link> {
   String toString() {
     return (StringBuffer('Link(')
           ..write('id: $id, ')
+          ..write('userId: $userId, ')
           ..write('fromBlockId: $fromBlockId, ')
           ..write('toNoteId: $toNoteId, ')
           ..write('toBlockId: $toBlockId, ')
@@ -1432,12 +1358,13 @@ class Link extends DataClass implements Insertable<Link> {
 
   @override
   int get hashCode =>
-      Object.hash(id, fromBlockId, toNoteId, toBlockId, createdAt);
+      Object.hash(id, userId, fromBlockId, toNoteId, toBlockId, createdAt);
   @override
   bool operator ==(Object other) =>
       identical(this, other) ||
       (other is Link &&
           other.id == this.id &&
+          other.userId == this.userId &&
           other.fromBlockId == this.fromBlockId &&
           other.toNoteId == this.toNoteId &&
           other.toBlockId == this.toBlockId &&
@@ -1446,6 +1373,7 @@ class Link extends DataClass implements Insertable<Link> {
 
 class LinksCompanion extends UpdateCompanion<Link> {
   final Value<String> id;
+  final Value<String?> userId;
   final Value<String> fromBlockId;
   final Value<String> toNoteId;
   final Value<String?> toBlockId;
@@ -1453,6 +1381,7 @@ class LinksCompanion extends UpdateCompanion<Link> {
   final Value<int> rowid;
   const LinksCompanion({
     this.id = const Value.absent(),
+    this.userId = const Value.absent(),
     this.fromBlockId = const Value.absent(),
     this.toNoteId = const Value.absent(),
     this.toBlockId = const Value.absent(),
@@ -1461,6 +1390,7 @@ class LinksCompanion extends UpdateCompanion<Link> {
   });
   LinksCompanion.insert({
     required String id,
+    this.userId = const Value.absent(),
     required String fromBlockId,
     required String toNoteId,
     this.toBlockId = const Value.absent(),
@@ -1471,6 +1401,7 @@ class LinksCompanion extends UpdateCompanion<Link> {
        toNoteId = Value(toNoteId);
   static Insertable<Link> custom({
     Expression<String>? id,
+    Expression<String>? userId,
     Expression<String>? fromBlockId,
     Expression<String>? toNoteId,
     Expression<String>? toBlockId,
@@ -1479,6 +1410,7 @@ class LinksCompanion extends UpdateCompanion<Link> {
   }) {
     return RawValuesInsertable({
       if (id != null) 'id': id,
+      if (userId != null) 'user_id': userId,
       if (fromBlockId != null) 'from_block_id': fromBlockId,
       if (toNoteId != null) 'to_note_id': toNoteId,
       if (toBlockId != null) 'to_block_id': toBlockId,
@@ -1489,6 +1421,7 @@ class LinksCompanion extends UpdateCompanion<Link> {
 
   LinksCompanion copyWith({
     Value<String>? id,
+    Value<String?>? userId,
     Value<String>? fromBlockId,
     Value<String>? toNoteId,
     Value<String?>? toBlockId,
@@ -1497,6 +1430,7 @@ class LinksCompanion extends UpdateCompanion<Link> {
   }) {
     return LinksCompanion(
       id: id ?? this.id,
+      userId: userId ?? this.userId,
       fromBlockId: fromBlockId ?? this.fromBlockId,
       toNoteId: toNoteId ?? this.toNoteId,
       toBlockId: toBlockId ?? this.toBlockId,
@@ -1510,6 +1444,9 @@ class LinksCompanion extends UpdateCompanion<Link> {
     final map = <String, Expression>{};
     if (id.present) {
       map['id'] = Variable<String>(id.value);
+    }
+    if (userId.present) {
+      map['user_id'] = Variable<String>(userId.value);
     }
     if (fromBlockId.present) {
       map['from_block_id'] = Variable<String>(fromBlockId.value);
@@ -1533,6 +1470,7 @@ class LinksCompanion extends UpdateCompanion<Link> {
   String toString() {
     return (StringBuffer('LinksCompanion(')
           ..write('id: $id, ')
+          ..write('userId: $userId, ')
           ..write('fromBlockId: $fromBlockId, ')
           ..write('toNoteId: $toNoteId, ')
           ..write('toBlockId: $toBlockId, ')
@@ -1557,6 +1495,15 @@ class $TagsTable extends Tags with TableInfo<$TagsTable, Tag> {
     type: DriftSqlType.string,
     requiredDuringInsert: true,
   );
+  static const VerificationMeta _userIdMeta = const VerificationMeta('userId');
+  @override
+  late final GeneratedColumn<String> userId = GeneratedColumn<String>(
+    'user_id',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
   static const VerificationMeta _nameMeta = const VerificationMeta('name');
   @override
   late final GeneratedColumn<String> name = GeneratedColumn<String>(
@@ -1568,7 +1515,7 @@ class $TagsTable extends Tags with TableInfo<$TagsTable, Tag> {
     defaultConstraints: GeneratedColumn.constraintIsAlways('UNIQUE'),
   );
   @override
-  List<GeneratedColumn> get $columns => [id, name];
+  List<GeneratedColumn> get $columns => [id, userId, name];
   @override
   String get aliasedName => _alias ?? actualTableName;
   @override
@@ -1585,6 +1532,12 @@ class $TagsTable extends Tags with TableInfo<$TagsTable, Tag> {
       context.handle(_idMeta, id.isAcceptableOrUnknown(data['id']!, _idMeta));
     } else if (isInserting) {
       context.missing(_idMeta);
+    }
+    if (data.containsKey('user_id')) {
+      context.handle(
+        _userIdMeta,
+        userId.isAcceptableOrUnknown(data['user_id']!, _userIdMeta),
+      );
     }
     if (data.containsKey('name')) {
       context.handle(
@@ -1607,6 +1560,10 @@ class $TagsTable extends Tags with TableInfo<$TagsTable, Tag> {
         DriftSqlType.string,
         data['${effectivePrefix}id'],
       )!,
+      userId: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}user_id'],
+      ),
       name: attachedDatabase.typeMapping.read(
         DriftSqlType.string,
         data['${effectivePrefix}name'],
@@ -1622,18 +1579,28 @@ class $TagsTable extends Tags with TableInfo<$TagsTable, Tag> {
 
 class Tag extends DataClass implements Insertable<Tag> {
   final String id;
+  final String? userId;
   final String name;
-  const Tag({required this.id, required this.name});
+  const Tag({required this.id, this.userId, required this.name});
   @override
   Map<String, Expression> toColumns(bool nullToAbsent) {
     final map = <String, Expression>{};
     map['id'] = Variable<String>(id);
+    if (!nullToAbsent || userId != null) {
+      map['user_id'] = Variable<String>(userId);
+    }
     map['name'] = Variable<String>(name);
     return map;
   }
 
   TagsCompanion toCompanion(bool nullToAbsent) {
-    return TagsCompanion(id: Value(id), name: Value(name));
+    return TagsCompanion(
+      id: Value(id),
+      userId: userId == null && nullToAbsent
+          ? const Value.absent()
+          : Value(userId),
+      name: Value(name),
+    );
   }
 
   factory Tag.fromJson(
@@ -1643,6 +1610,7 @@ class Tag extends DataClass implements Insertable<Tag> {
     serializer ??= driftRuntimeOptions.defaultSerializer;
     return Tag(
       id: serializer.fromJson<String>(json['id']),
+      userId: serializer.fromJson<String?>(json['userId']),
       name: serializer.fromJson<String>(json['name']),
     );
   }
@@ -1651,15 +1619,24 @@ class Tag extends DataClass implements Insertable<Tag> {
     serializer ??= driftRuntimeOptions.defaultSerializer;
     return <String, dynamic>{
       'id': serializer.toJson<String>(id),
+      'userId': serializer.toJson<String?>(userId),
       'name': serializer.toJson<String>(name),
     };
   }
 
-  Tag copyWith({String? id, String? name}) =>
-      Tag(id: id ?? this.id, name: name ?? this.name);
+  Tag copyWith({
+    String? id,
+    Value<String?> userId = const Value.absent(),
+    String? name,
+  }) => Tag(
+    id: id ?? this.id,
+    userId: userId.present ? userId.value : this.userId,
+    name: name ?? this.name,
+  );
   Tag copyWithCompanion(TagsCompanion data) {
     return Tag(
       id: data.id.present ? data.id.value : this.id,
+      userId: data.userId.present ? data.userId.value : this.userId,
       name: data.name.present ? data.name.value : this.name,
     );
   }
@@ -1668,41 +1645,50 @@ class Tag extends DataClass implements Insertable<Tag> {
   String toString() {
     return (StringBuffer('Tag(')
           ..write('id: $id, ')
+          ..write('userId: $userId, ')
           ..write('name: $name')
           ..write(')'))
         .toString();
   }
 
   @override
-  int get hashCode => Object.hash(id, name);
+  int get hashCode => Object.hash(id, userId, name);
   @override
   bool operator ==(Object other) =>
       identical(this, other) ||
-      (other is Tag && other.id == this.id && other.name == this.name);
+      (other is Tag &&
+          other.id == this.id &&
+          other.userId == this.userId &&
+          other.name == this.name);
 }
 
 class TagsCompanion extends UpdateCompanion<Tag> {
   final Value<String> id;
+  final Value<String?> userId;
   final Value<String> name;
   final Value<int> rowid;
   const TagsCompanion({
     this.id = const Value.absent(),
+    this.userId = const Value.absent(),
     this.name = const Value.absent(),
     this.rowid = const Value.absent(),
   });
   TagsCompanion.insert({
     required String id,
+    this.userId = const Value.absent(),
     required String name,
     this.rowid = const Value.absent(),
   }) : id = Value(id),
        name = Value(name);
   static Insertable<Tag> custom({
     Expression<String>? id,
+    Expression<String>? userId,
     Expression<String>? name,
     Expression<int>? rowid,
   }) {
     return RawValuesInsertable({
       if (id != null) 'id': id,
+      if (userId != null) 'user_id': userId,
       if (name != null) 'name': name,
       if (rowid != null) 'rowid': rowid,
     });
@@ -1710,11 +1696,13 @@ class TagsCompanion extends UpdateCompanion<Tag> {
 
   TagsCompanion copyWith({
     Value<String>? id,
+    Value<String?>? userId,
     Value<String>? name,
     Value<int>? rowid,
   }) {
     return TagsCompanion(
       id: id ?? this.id,
+      userId: userId ?? this.userId,
       name: name ?? this.name,
       rowid: rowid ?? this.rowid,
     );
@@ -1725,6 +1713,9 @@ class TagsCompanion extends UpdateCompanion<Tag> {
     final map = <String, Expression>{};
     if (id.present) {
       map['id'] = Variable<String>(id.value);
+    }
+    if (userId.present) {
+      map['user_id'] = Variable<String>(userId.value);
     }
     if (name.present) {
       map['name'] = Variable<String>(name.value);
@@ -1739,6 +1730,7 @@ class TagsCompanion extends UpdateCompanion<Tag> {
   String toString() {
     return (StringBuffer('TagsCompanion(')
           ..write('id: $id, ')
+          ..write('userId: $userId, ')
           ..write('name: $name, ')
           ..write('rowid: $rowid')
           ..write(')'))
@@ -1751,6 +1743,15 @@ class $NoteTagsTable extends NoteTags with TableInfo<$NoteTagsTable, NoteTag> {
   final GeneratedDatabase attachedDatabase;
   final String? _alias;
   $NoteTagsTable(this.attachedDatabase, [this._alias]);
+  static const VerificationMeta _userIdMeta = const VerificationMeta('userId');
+  @override
+  late final GeneratedColumn<String> userId = GeneratedColumn<String>(
+    'user_id',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
   static const VerificationMeta _noteIdMeta = const VerificationMeta('noteId');
   @override
   late final GeneratedColumn<String> noteId = GeneratedColumn<String>(
@@ -1776,7 +1777,7 @@ class $NoteTagsTable extends NoteTags with TableInfo<$NoteTagsTable, NoteTag> {
     ),
   );
   @override
-  List<GeneratedColumn> get $columns => [noteId, tagId];
+  List<GeneratedColumn> get $columns => [userId, noteId, tagId];
   @override
   String get aliasedName => _alias ?? actualTableName;
   @override
@@ -1789,6 +1790,12 @@ class $NoteTagsTable extends NoteTags with TableInfo<$NoteTagsTable, NoteTag> {
   }) {
     final context = VerificationContext();
     final data = instance.toColumns(true);
+    if (data.containsKey('user_id')) {
+      context.handle(
+        _userIdMeta,
+        userId.isAcceptableOrUnknown(data['user_id']!, _userIdMeta),
+      );
+    }
     if (data.containsKey('note_id')) {
       context.handle(
         _noteIdMeta,
@@ -1814,6 +1821,10 @@ class $NoteTagsTable extends NoteTags with TableInfo<$NoteTagsTable, NoteTag> {
   NoteTag map(Map<String, dynamic> data, {String? tablePrefix}) {
     final effectivePrefix = tablePrefix != null ? '$tablePrefix.' : '';
     return NoteTag(
+      userId: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}user_id'],
+      ),
       noteId: attachedDatabase.typeMapping.read(
         DriftSqlType.string,
         data['${effectivePrefix}note_id'],
@@ -1832,19 +1843,29 @@ class $NoteTagsTable extends NoteTags with TableInfo<$NoteTagsTable, NoteTag> {
 }
 
 class NoteTag extends DataClass implements Insertable<NoteTag> {
+  final String? userId;
   final String noteId;
   final String tagId;
-  const NoteTag({required this.noteId, required this.tagId});
+  const NoteTag({this.userId, required this.noteId, required this.tagId});
   @override
   Map<String, Expression> toColumns(bool nullToAbsent) {
     final map = <String, Expression>{};
+    if (!nullToAbsent || userId != null) {
+      map['user_id'] = Variable<String>(userId);
+    }
     map['note_id'] = Variable<String>(noteId);
     map['tag_id'] = Variable<String>(tagId);
     return map;
   }
 
   NoteTagsCompanion toCompanion(bool nullToAbsent) {
-    return NoteTagsCompanion(noteId: Value(noteId), tagId: Value(tagId));
+    return NoteTagsCompanion(
+      userId: userId == null && nullToAbsent
+          ? const Value.absent()
+          : Value(userId),
+      noteId: Value(noteId),
+      tagId: Value(tagId),
+    );
   }
 
   factory NoteTag.fromJson(
@@ -1853,6 +1874,7 @@ class NoteTag extends DataClass implements Insertable<NoteTag> {
   }) {
     serializer ??= driftRuntimeOptions.defaultSerializer;
     return NoteTag(
+      userId: serializer.fromJson<String?>(json['userId']),
       noteId: serializer.fromJson<String>(json['noteId']),
       tagId: serializer.fromJson<String>(json['tagId']),
     );
@@ -1861,15 +1883,24 @@ class NoteTag extends DataClass implements Insertable<NoteTag> {
   Map<String, dynamic> toJson({ValueSerializer? serializer}) {
     serializer ??= driftRuntimeOptions.defaultSerializer;
     return <String, dynamic>{
+      'userId': serializer.toJson<String?>(userId),
       'noteId': serializer.toJson<String>(noteId),
       'tagId': serializer.toJson<String>(tagId),
     };
   }
 
-  NoteTag copyWith({String? noteId, String? tagId}) =>
-      NoteTag(noteId: noteId ?? this.noteId, tagId: tagId ?? this.tagId);
+  NoteTag copyWith({
+    Value<String?> userId = const Value.absent(),
+    String? noteId,
+    String? tagId,
+  }) => NoteTag(
+    userId: userId.present ? userId.value : this.userId,
+    noteId: noteId ?? this.noteId,
+    tagId: tagId ?? this.tagId,
+  );
   NoteTag copyWithCompanion(NoteTagsCompanion data) {
     return NoteTag(
+      userId: data.userId.present ? data.userId.value : this.userId,
       noteId: data.noteId.present ? data.noteId.value : this.noteId,
       tagId: data.tagId.present ? data.tagId.value : this.tagId,
     );
@@ -1878,6 +1909,7 @@ class NoteTag extends DataClass implements Insertable<NoteTag> {
   @override
   String toString() {
     return (StringBuffer('NoteTag(')
+          ..write('userId: $userId, ')
           ..write('noteId: $noteId, ')
           ..write('tagId: $tagId')
           ..write(')'))
@@ -1885,36 +1917,42 @@ class NoteTag extends DataClass implements Insertable<NoteTag> {
   }
 
   @override
-  int get hashCode => Object.hash(noteId, tagId);
+  int get hashCode => Object.hash(userId, noteId, tagId);
   @override
   bool operator ==(Object other) =>
       identical(this, other) ||
       (other is NoteTag &&
+          other.userId == this.userId &&
           other.noteId == this.noteId &&
           other.tagId == this.tagId);
 }
 
 class NoteTagsCompanion extends UpdateCompanion<NoteTag> {
+  final Value<String?> userId;
   final Value<String> noteId;
   final Value<String> tagId;
   final Value<int> rowid;
   const NoteTagsCompanion({
+    this.userId = const Value.absent(),
     this.noteId = const Value.absent(),
     this.tagId = const Value.absent(),
     this.rowid = const Value.absent(),
   });
   NoteTagsCompanion.insert({
+    this.userId = const Value.absent(),
     required String noteId,
     required String tagId,
     this.rowid = const Value.absent(),
   }) : noteId = Value(noteId),
        tagId = Value(tagId);
   static Insertable<NoteTag> custom({
+    Expression<String>? userId,
     Expression<String>? noteId,
     Expression<String>? tagId,
     Expression<int>? rowid,
   }) {
     return RawValuesInsertable({
+      if (userId != null) 'user_id': userId,
       if (noteId != null) 'note_id': noteId,
       if (tagId != null) 'tag_id': tagId,
       if (rowid != null) 'rowid': rowid,
@@ -1922,11 +1960,13 @@ class NoteTagsCompanion extends UpdateCompanion<NoteTag> {
   }
 
   NoteTagsCompanion copyWith({
+    Value<String?>? userId,
     Value<String>? noteId,
     Value<String>? tagId,
     Value<int>? rowid,
   }) {
     return NoteTagsCompanion(
+      userId: userId ?? this.userId,
       noteId: noteId ?? this.noteId,
       tagId: tagId ?? this.tagId,
       rowid: rowid ?? this.rowid,
@@ -1936,6 +1976,9 @@ class NoteTagsCompanion extends UpdateCompanion<NoteTag> {
   @override
   Map<String, Expression> toColumns(bool nullToAbsent) {
     final map = <String, Expression>{};
+    if (userId.present) {
+      map['user_id'] = Variable<String>(userId.value);
+    }
     if (noteId.present) {
       map['note_id'] = Variable<String>(noteId.value);
     }
@@ -1951,6 +1994,7 @@ class NoteTagsCompanion extends UpdateCompanion<NoteTag> {
   @override
   String toString() {
     return (StringBuffer('NoteTagsCompanion(')
+          ..write('userId: $userId, ')
           ..write('noteId: $noteId, ')
           ..write('tagId: $tagId, ')
           ..write('rowid: $rowid')
@@ -2228,636 +2272,6 @@ class DailyNotesCountCompanion extends UpdateCompanion<DailyNotesCountData> {
   }
 }
 
-class $SyncConflictsTable extends SyncConflicts
-    with TableInfo<$SyncConflictsTable, SyncConflict> {
-  @override
-  final GeneratedDatabase attachedDatabase;
-  final String? _alias;
-  $SyncConflictsTable(this.attachedDatabase, [this._alias]);
-  static const VerificationMeta _idMeta = const VerificationMeta('id');
-  @override
-  late final GeneratedColumn<String> id = GeneratedColumn<String>(
-    'id',
-    aliasedName,
-    false,
-    type: DriftSqlType.string,
-    requiredDuringInsert: true,
-  );
-  static const VerificationMeta _note_idMeta = const VerificationMeta(
-    'note_id',
-  );
-  @override
-  late final GeneratedColumn<String> note_id = GeneratedColumn<String>(
-    'note_id',
-    aliasedName,
-    false,
-    type: DriftSqlType.string,
-    requiredDuringInsert: true,
-  );
-  static const VerificationMeta _conflictTypeMeta = const VerificationMeta(
-    'conflictType',
-  );
-  @override
-  late final GeneratedColumn<String> conflictType = GeneratedColumn<String>(
-    'conflict_type',
-    aliasedName,
-    false,
-    type: DriftSqlType.string,
-    requiredDuringInsert: true,
-  );
-  static const VerificationMeta _localDataMeta = const VerificationMeta(
-    'localData',
-  );
-  @override
-  late final GeneratedColumn<String> localData = GeneratedColumn<String>(
-    'local_data',
-    aliasedName,
-    true,
-    type: DriftSqlType.string,
-    requiredDuringInsert: false,
-  );
-  static const VerificationMeta _remoteDataMeta = const VerificationMeta(
-    'remoteData',
-  );
-  @override
-  late final GeneratedColumn<String> remoteData = GeneratedColumn<String>(
-    'remote_data',
-    aliasedName,
-    true,
-    type: DriftSqlType.string,
-    requiredDuringInsert: false,
-  );
-  static const VerificationMeta _resolvedDataMeta = const VerificationMeta(
-    'resolvedData',
-  );
-  @override
-  late final GeneratedColumn<String> resolvedData = GeneratedColumn<String>(
-    'resolved_data',
-    aliasedName,
-    true,
-    type: DriftSqlType.string,
-    requiredDuringInsert: false,
-  );
-  static const VerificationMeta _resolutionMeta = const VerificationMeta(
-    'resolution',
-  );
-  @override
-  late final GeneratedColumn<String> resolution = GeneratedColumn<String>(
-    'resolution',
-    aliasedName,
-    false,
-    type: DriftSqlType.string,
-    requiredDuringInsert: false,
-    defaultValue: const Constant('pending'),
-  );
-  static const VerificationMeta _createdAtMeta = const VerificationMeta(
-    'createdAt',
-  );
-  @override
-  late final GeneratedColumn<DateTime> createdAt = GeneratedColumn<DateTime>(
-    'created_at',
-    aliasedName,
-    false,
-    type: DriftSqlType.dateTime,
-    requiredDuringInsert: false,
-    defaultValue: currentDateAndTime,
-  );
-  static const VerificationMeta _resolvedAtMeta = const VerificationMeta(
-    'resolvedAt',
-  );
-  @override
-  late final GeneratedColumn<DateTime> resolvedAt = GeneratedColumn<DateTime>(
-    'resolved_at',
-    aliasedName,
-    true,
-    type: DriftSqlType.dateTime,
-    requiredDuringInsert: false,
-  );
-  static const VerificationMeta _descriptionMeta = const VerificationMeta(
-    'description',
-  );
-  @override
-  late final GeneratedColumn<String> description = GeneratedColumn<String>(
-    'description',
-    aliasedName,
-    true,
-    type: DriftSqlType.string,
-    requiredDuringInsert: false,
-  );
-  @override
-  List<GeneratedColumn> get $columns => [
-    id,
-    note_id,
-    conflictType,
-    localData,
-    remoteData,
-    resolvedData,
-    resolution,
-    createdAt,
-    resolvedAt,
-    description,
-  ];
-  @override
-  String get aliasedName => _alias ?? actualTableName;
-  @override
-  String get actualTableName => $name;
-  static const String $name = 'sync_conflicts';
-  @override
-  VerificationContext validateIntegrity(
-    Insertable<SyncConflict> instance, {
-    bool isInserting = false,
-  }) {
-    final context = VerificationContext();
-    final data = instance.toColumns(true);
-    if (data.containsKey('id')) {
-      context.handle(_idMeta, id.isAcceptableOrUnknown(data['id']!, _idMeta));
-    } else if (isInserting) {
-      context.missing(_idMeta);
-    }
-    if (data.containsKey('note_id')) {
-      context.handle(
-        _note_idMeta,
-        note_id.isAcceptableOrUnknown(data['note_id']!, _note_idMeta),
-      );
-    } else if (isInserting) {
-      context.missing(_note_idMeta);
-    }
-    if (data.containsKey('conflict_type')) {
-      context.handle(
-        _conflictTypeMeta,
-        conflictType.isAcceptableOrUnknown(
-          data['conflict_type']!,
-          _conflictTypeMeta,
-        ),
-      );
-    } else if (isInserting) {
-      context.missing(_conflictTypeMeta);
-    }
-    if (data.containsKey('local_data')) {
-      context.handle(
-        _localDataMeta,
-        localData.isAcceptableOrUnknown(data['local_data']!, _localDataMeta),
-      );
-    }
-    if (data.containsKey('remote_data')) {
-      context.handle(
-        _remoteDataMeta,
-        remoteData.isAcceptableOrUnknown(data['remote_data']!, _remoteDataMeta),
-      );
-    }
-    if (data.containsKey('resolved_data')) {
-      context.handle(
-        _resolvedDataMeta,
-        resolvedData.isAcceptableOrUnknown(
-          data['resolved_data']!,
-          _resolvedDataMeta,
-        ),
-      );
-    }
-    if (data.containsKey('resolution')) {
-      context.handle(
-        _resolutionMeta,
-        resolution.isAcceptableOrUnknown(data['resolution']!, _resolutionMeta),
-      );
-    }
-    if (data.containsKey('created_at')) {
-      context.handle(
-        _createdAtMeta,
-        createdAt.isAcceptableOrUnknown(data['created_at']!, _createdAtMeta),
-      );
-    }
-    if (data.containsKey('resolved_at')) {
-      context.handle(
-        _resolvedAtMeta,
-        resolvedAt.isAcceptableOrUnknown(data['resolved_at']!, _resolvedAtMeta),
-      );
-    }
-    if (data.containsKey('description')) {
-      context.handle(
-        _descriptionMeta,
-        description.isAcceptableOrUnknown(
-          data['description']!,
-          _descriptionMeta,
-        ),
-      );
-    }
-    return context;
-  }
-
-  @override
-  Set<GeneratedColumn> get $primaryKey => {id};
-  @override
-  SyncConflict map(Map<String, dynamic> data, {String? tablePrefix}) {
-    final effectivePrefix = tablePrefix != null ? '$tablePrefix.' : '';
-    return SyncConflict(
-      id: attachedDatabase.typeMapping.read(
-        DriftSqlType.string,
-        data['${effectivePrefix}id'],
-      )!,
-      note_id: attachedDatabase.typeMapping.read(
-        DriftSqlType.string,
-        data['${effectivePrefix}note_id'],
-      )!,
-      conflictType: attachedDatabase.typeMapping.read(
-        DriftSqlType.string,
-        data['${effectivePrefix}conflict_type'],
-      )!,
-      localData: attachedDatabase.typeMapping.read(
-        DriftSqlType.string,
-        data['${effectivePrefix}local_data'],
-      ),
-      remoteData: attachedDatabase.typeMapping.read(
-        DriftSqlType.string,
-        data['${effectivePrefix}remote_data'],
-      ),
-      resolvedData: attachedDatabase.typeMapping.read(
-        DriftSqlType.string,
-        data['${effectivePrefix}resolved_data'],
-      ),
-      resolution: attachedDatabase.typeMapping.read(
-        DriftSqlType.string,
-        data['${effectivePrefix}resolution'],
-      )!,
-      createdAt: attachedDatabase.typeMapping.read(
-        DriftSqlType.dateTime,
-        data['${effectivePrefix}created_at'],
-      )!,
-      resolvedAt: attachedDatabase.typeMapping.read(
-        DriftSqlType.dateTime,
-        data['${effectivePrefix}resolved_at'],
-      ),
-      description: attachedDatabase.typeMapping.read(
-        DriftSqlType.string,
-        data['${effectivePrefix}description'],
-      ),
-    );
-  }
-
-  @override
-  $SyncConflictsTable createAlias(String alias) {
-    return $SyncConflictsTable(attachedDatabase, alias);
-  }
-}
-
-class SyncConflict extends DataClass implements Insertable<SyncConflict> {
-  final String id;
-  final String note_id;
-  final String conflictType;
-  final String? localData;
-  final String? remoteData;
-  final String? resolvedData;
-  final String resolution;
-  final DateTime createdAt;
-  final DateTime? resolvedAt;
-  final String? description;
-  const SyncConflict({
-    required this.id,
-    required this.note_id,
-    required this.conflictType,
-    this.localData,
-    this.remoteData,
-    this.resolvedData,
-    required this.resolution,
-    required this.createdAt,
-    this.resolvedAt,
-    this.description,
-  });
-  @override
-  Map<String, Expression> toColumns(bool nullToAbsent) {
-    final map = <String, Expression>{};
-    map['id'] = Variable<String>(id);
-    map['note_id'] = Variable<String>(note_id);
-    map['conflict_type'] = Variable<String>(conflictType);
-    if (!nullToAbsent || localData != null) {
-      map['local_data'] = Variable<String>(localData);
-    }
-    if (!nullToAbsent || remoteData != null) {
-      map['remote_data'] = Variable<String>(remoteData);
-    }
-    if (!nullToAbsent || resolvedData != null) {
-      map['resolved_data'] = Variable<String>(resolvedData);
-    }
-    map['resolution'] = Variable<String>(resolution);
-    map['created_at'] = Variable<DateTime>(createdAt);
-    if (!nullToAbsent || resolvedAt != null) {
-      map['resolved_at'] = Variable<DateTime>(resolvedAt);
-    }
-    if (!nullToAbsent || description != null) {
-      map['description'] = Variable<String>(description);
-    }
-    return map;
-  }
-
-  SyncConflictsCompanion toCompanion(bool nullToAbsent) {
-    return SyncConflictsCompanion(
-      id: Value(id),
-      note_id: Value(note_id),
-      conflictType: Value(conflictType),
-      localData: localData == null && nullToAbsent
-          ? const Value.absent()
-          : Value(localData),
-      remoteData: remoteData == null && nullToAbsent
-          ? const Value.absent()
-          : Value(remoteData),
-      resolvedData: resolvedData == null && nullToAbsent
-          ? const Value.absent()
-          : Value(resolvedData),
-      resolution: Value(resolution),
-      createdAt: Value(createdAt),
-      resolvedAt: resolvedAt == null && nullToAbsent
-          ? const Value.absent()
-          : Value(resolvedAt),
-      description: description == null && nullToAbsent
-          ? const Value.absent()
-          : Value(description),
-    );
-  }
-
-  factory SyncConflict.fromJson(
-    Map<String, dynamic> json, {
-    ValueSerializer? serializer,
-  }) {
-    serializer ??= driftRuntimeOptions.defaultSerializer;
-    return SyncConflict(
-      id: serializer.fromJson<String>(json['id']),
-      note_id: serializer.fromJson<String>(json['note_id']),
-      conflictType: serializer.fromJson<String>(json['conflictType']),
-      localData: serializer.fromJson<String?>(json['localData']),
-      remoteData: serializer.fromJson<String?>(json['remoteData']),
-      resolvedData: serializer.fromJson<String?>(json['resolvedData']),
-      resolution: serializer.fromJson<String>(json['resolution']),
-      createdAt: serializer.fromJson<DateTime>(json['createdAt']),
-      resolvedAt: serializer.fromJson<DateTime?>(json['resolvedAt']),
-      description: serializer.fromJson<String?>(json['description']),
-    );
-  }
-  @override
-  Map<String, dynamic> toJson({ValueSerializer? serializer}) {
-    serializer ??= driftRuntimeOptions.defaultSerializer;
-    return <String, dynamic>{
-      'id': serializer.toJson<String>(id),
-      'note_id': serializer.toJson<String>(note_id),
-      'conflictType': serializer.toJson<String>(conflictType),
-      'localData': serializer.toJson<String?>(localData),
-      'remoteData': serializer.toJson<String?>(remoteData),
-      'resolvedData': serializer.toJson<String?>(resolvedData),
-      'resolution': serializer.toJson<String>(resolution),
-      'createdAt': serializer.toJson<DateTime>(createdAt),
-      'resolvedAt': serializer.toJson<DateTime?>(resolvedAt),
-      'description': serializer.toJson<String?>(description),
-    };
-  }
-
-  SyncConflict copyWith({
-    String? id,
-    String? note_id,
-    String? conflictType,
-    Value<String?> localData = const Value.absent(),
-    Value<String?> remoteData = const Value.absent(),
-    Value<String?> resolvedData = const Value.absent(),
-    String? resolution,
-    DateTime? createdAt,
-    Value<DateTime?> resolvedAt = const Value.absent(),
-    Value<String?> description = const Value.absent(),
-  }) => SyncConflict(
-    id: id ?? this.id,
-    note_id: note_id ?? this.note_id,
-    conflictType: conflictType ?? this.conflictType,
-    localData: localData.present ? localData.value : this.localData,
-    remoteData: remoteData.present ? remoteData.value : this.remoteData,
-    resolvedData: resolvedData.present ? resolvedData.value : this.resolvedData,
-    resolution: resolution ?? this.resolution,
-    createdAt: createdAt ?? this.createdAt,
-    resolvedAt: resolvedAt.present ? resolvedAt.value : this.resolvedAt,
-    description: description.present ? description.value : this.description,
-  );
-  SyncConflict copyWithCompanion(SyncConflictsCompanion data) {
-    return SyncConflict(
-      id: data.id.present ? data.id.value : this.id,
-      note_id: data.note_id.present ? data.note_id.value : this.note_id,
-      conflictType: data.conflictType.present
-          ? data.conflictType.value
-          : this.conflictType,
-      localData: data.localData.present ? data.localData.value : this.localData,
-      remoteData: data.remoteData.present
-          ? data.remoteData.value
-          : this.remoteData,
-      resolvedData: data.resolvedData.present
-          ? data.resolvedData.value
-          : this.resolvedData,
-      resolution: data.resolution.present
-          ? data.resolution.value
-          : this.resolution,
-      createdAt: data.createdAt.present ? data.createdAt.value : this.createdAt,
-      resolvedAt: data.resolvedAt.present
-          ? data.resolvedAt.value
-          : this.resolvedAt,
-      description: data.description.present
-          ? data.description.value
-          : this.description,
-    );
-  }
-
-  @override
-  String toString() {
-    return (StringBuffer('SyncConflict(')
-          ..write('id: $id, ')
-          ..write('note_id: $note_id, ')
-          ..write('conflictType: $conflictType, ')
-          ..write('localData: $localData, ')
-          ..write('remoteData: $remoteData, ')
-          ..write('resolvedData: $resolvedData, ')
-          ..write('resolution: $resolution, ')
-          ..write('createdAt: $createdAt, ')
-          ..write('resolvedAt: $resolvedAt, ')
-          ..write('description: $description')
-          ..write(')'))
-        .toString();
-  }
-
-  @override
-  int get hashCode => Object.hash(
-    id,
-    note_id,
-    conflictType,
-    localData,
-    remoteData,
-    resolvedData,
-    resolution,
-    createdAt,
-    resolvedAt,
-    description,
-  );
-  @override
-  bool operator ==(Object other) =>
-      identical(this, other) ||
-      (other is SyncConflict &&
-          other.id == this.id &&
-          other.note_id == this.note_id &&
-          other.conflictType == this.conflictType &&
-          other.localData == this.localData &&
-          other.remoteData == this.remoteData &&
-          other.resolvedData == this.resolvedData &&
-          other.resolution == this.resolution &&
-          other.createdAt == this.createdAt &&
-          other.resolvedAt == this.resolvedAt &&
-          other.description == this.description);
-}
-
-class SyncConflictsCompanion extends UpdateCompanion<SyncConflict> {
-  final Value<String> id;
-  final Value<String> note_id;
-  final Value<String> conflictType;
-  final Value<String?> localData;
-  final Value<String?> remoteData;
-  final Value<String?> resolvedData;
-  final Value<String> resolution;
-  final Value<DateTime> createdAt;
-  final Value<DateTime?> resolvedAt;
-  final Value<String?> description;
-  final Value<int> rowid;
-  const SyncConflictsCompanion({
-    this.id = const Value.absent(),
-    this.note_id = const Value.absent(),
-    this.conflictType = const Value.absent(),
-    this.localData = const Value.absent(),
-    this.remoteData = const Value.absent(),
-    this.resolvedData = const Value.absent(),
-    this.resolution = const Value.absent(),
-    this.createdAt = const Value.absent(),
-    this.resolvedAt = const Value.absent(),
-    this.description = const Value.absent(),
-    this.rowid = const Value.absent(),
-  });
-  SyncConflictsCompanion.insert({
-    required String id,
-    required String note_id,
-    required String conflictType,
-    this.localData = const Value.absent(),
-    this.remoteData = const Value.absent(),
-    this.resolvedData = const Value.absent(),
-    this.resolution = const Value.absent(),
-    this.createdAt = const Value.absent(),
-    this.resolvedAt = const Value.absent(),
-    this.description = const Value.absent(),
-    this.rowid = const Value.absent(),
-  }) : id = Value(id),
-       note_id = Value(note_id),
-       conflictType = Value(conflictType);
-  static Insertable<SyncConflict> custom({
-    Expression<String>? id,
-    Expression<String>? note_id,
-    Expression<String>? conflictType,
-    Expression<String>? localData,
-    Expression<String>? remoteData,
-    Expression<String>? resolvedData,
-    Expression<String>? resolution,
-    Expression<DateTime>? createdAt,
-    Expression<DateTime>? resolvedAt,
-    Expression<String>? description,
-    Expression<int>? rowid,
-  }) {
-    return RawValuesInsertable({
-      if (id != null) 'id': id,
-      if (note_id != null) 'note_id': note_id,
-      if (conflictType != null) 'conflict_type': conflictType,
-      if (localData != null) 'local_data': localData,
-      if (remoteData != null) 'remote_data': remoteData,
-      if (resolvedData != null) 'resolved_data': resolvedData,
-      if (resolution != null) 'resolution': resolution,
-      if (createdAt != null) 'created_at': createdAt,
-      if (resolvedAt != null) 'resolved_at': resolvedAt,
-      if (description != null) 'description': description,
-      if (rowid != null) 'rowid': rowid,
-    });
-  }
-
-  SyncConflictsCompanion copyWith({
-    Value<String>? id,
-    Value<String>? note_id,
-    Value<String>? conflictType,
-    Value<String?>? localData,
-    Value<String?>? remoteData,
-    Value<String?>? resolvedData,
-    Value<String>? resolution,
-    Value<DateTime>? createdAt,
-    Value<DateTime?>? resolvedAt,
-    Value<String?>? description,
-    Value<int>? rowid,
-  }) {
-    return SyncConflictsCompanion(
-      id: id ?? this.id,
-      note_id: note_id ?? this.note_id,
-      conflictType: conflictType ?? this.conflictType,
-      localData: localData ?? this.localData,
-      remoteData: remoteData ?? this.remoteData,
-      resolvedData: resolvedData ?? this.resolvedData,
-      resolution: resolution ?? this.resolution,
-      createdAt: createdAt ?? this.createdAt,
-      resolvedAt: resolvedAt ?? this.resolvedAt,
-      description: description ?? this.description,
-      rowid: rowid ?? this.rowid,
-    );
-  }
-
-  @override
-  Map<String, Expression> toColumns(bool nullToAbsent) {
-    final map = <String, Expression>{};
-    if (id.present) {
-      map['id'] = Variable<String>(id.value);
-    }
-    if (note_id.present) {
-      map['note_id'] = Variable<String>(note_id.value);
-    }
-    if (conflictType.present) {
-      map['conflict_type'] = Variable<String>(conflictType.value);
-    }
-    if (localData.present) {
-      map['local_data'] = Variable<String>(localData.value);
-    }
-    if (remoteData.present) {
-      map['remote_data'] = Variable<String>(remoteData.value);
-    }
-    if (resolvedData.present) {
-      map['resolved_data'] = Variable<String>(resolvedData.value);
-    }
-    if (resolution.present) {
-      map['resolution'] = Variable<String>(resolution.value);
-    }
-    if (createdAt.present) {
-      map['created_at'] = Variable<DateTime>(createdAt.value);
-    }
-    if (resolvedAt.present) {
-      map['resolved_at'] = Variable<DateTime>(resolvedAt.value);
-    }
-    if (description.present) {
-      map['description'] = Variable<String>(description.value);
-    }
-    if (rowid.present) {
-      map['rowid'] = Variable<int>(rowid.value);
-    }
-    return map;
-  }
-
-  @override
-  String toString() {
-    return (StringBuffer('SyncConflictsCompanion(')
-          ..write('id: $id, ')
-          ..write('note_id: $note_id, ')
-          ..write('conflictType: $conflictType, ')
-          ..write('localData: $localData, ')
-          ..write('remoteData: $remoteData, ')
-          ..write('resolvedData: $resolvedData, ')
-          ..write('resolution: $resolution, ')
-          ..write('createdAt: $createdAt, ')
-          ..write('resolvedAt: $resolvedAt, ')
-          ..write('description: $description, ')
-          ..write('rowid: $rowid')
-          ..write(')'))
-        .toString();
-  }
-}
-
 abstract class _$AppDatabase extends GeneratedDatabase {
   _$AppDatabase(QueryExecutor e) : super(e);
   $AppDatabaseManager get managers => $AppDatabaseManager(this);
@@ -2869,7 +2283,6 @@ abstract class _$AppDatabase extends GeneratedDatabase {
   late final $DailyNotesCountTable dailyNotesCount = $DailyNotesCountTable(
     this,
   );
-  late final $SyncConflictsTable syncConflicts = $SyncConflictsTable(this);
   @override
   Iterable<TableInfo<Table, Object?>> get allTables =>
       allSchemaEntities.whereType<TableInfo<Table, Object?>>();
@@ -2881,7 +2294,6 @@ abstract class _$AppDatabase extends GeneratedDatabase {
     tags,
     noteTags,
     dailyNotesCount,
-    syncConflicts,
   ];
   @override
   StreamQueryUpdateRules get streamUpdateRules => const StreamQueryUpdateRules([
@@ -2927,34 +2339,28 @@ typedef $$NotesTableCreateCompanionBuilder =
     NotesCompanion Function({
       required String id,
       required String title,
+      Value<String?> userId,
       Value<String> blockIds,
       Value<DateTime> createdAt,
       Value<DateTime> updatedAt,
       Value<String> syncStatus,
-      Value<bool> isBlocksSynced,
       Value<bool> isDeleted,
-      Value<DateTime?> syncedAt,
-      Value<String?> baseHash,
-      Value<bool> mergedFromConflict,
       Value<DateTime?> deletedAt,
-      Value<int> syncVersion,
+      Value<DateTime?> syncedAt,
       Value<int> rowid,
     });
 typedef $$NotesTableUpdateCompanionBuilder =
     NotesCompanion Function({
       Value<String> id,
       Value<String> title,
+      Value<String?> userId,
       Value<String> blockIds,
       Value<DateTime> createdAt,
       Value<DateTime> updatedAt,
       Value<String> syncStatus,
-      Value<bool> isBlocksSynced,
       Value<bool> isDeleted,
-      Value<DateTime?> syncedAt,
-      Value<String?> baseHash,
-      Value<bool> mergedFromConflict,
       Value<DateTime?> deletedAt,
-      Value<int> syncVersion,
+      Value<DateTime?> syncedAt,
       Value<int> rowid,
     });
 
@@ -3038,6 +2444,11 @@ class $$NotesTableFilterComposer extends Composer<_$AppDatabase, $NotesTable> {
     builder: (column) => ColumnFilters(column),
   );
 
+  ColumnFilters<String> get userId => $composableBuilder(
+    column: $table.userId,
+    builder: (column) => ColumnFilters(column),
+  );
+
   ColumnFilters<String> get blockIds => $composableBuilder(
     column: $table.blockIds,
     builder: (column) => ColumnFilters(column),
@@ -3058,28 +2469,8 @@ class $$NotesTableFilterComposer extends Composer<_$AppDatabase, $NotesTable> {
     builder: (column) => ColumnFilters(column),
   );
 
-  ColumnFilters<bool> get isBlocksSynced => $composableBuilder(
-    column: $table.isBlocksSynced,
-    builder: (column) => ColumnFilters(column),
-  );
-
   ColumnFilters<bool> get isDeleted => $composableBuilder(
     column: $table.isDeleted,
-    builder: (column) => ColumnFilters(column),
-  );
-
-  ColumnFilters<DateTime> get syncedAt => $composableBuilder(
-    column: $table.syncedAt,
-    builder: (column) => ColumnFilters(column),
-  );
-
-  ColumnFilters<String> get baseHash => $composableBuilder(
-    column: $table.baseHash,
-    builder: (column) => ColumnFilters(column),
-  );
-
-  ColumnFilters<bool> get mergedFromConflict => $composableBuilder(
-    column: $table.mergedFromConflict,
     builder: (column) => ColumnFilters(column),
   );
 
@@ -3088,8 +2479,8 @@ class $$NotesTableFilterComposer extends Composer<_$AppDatabase, $NotesTable> {
     builder: (column) => ColumnFilters(column),
   );
 
-  ColumnFilters<int> get syncVersion => $composableBuilder(
-    column: $table.syncVersion,
+  ColumnFilters<DateTime> get syncedAt => $composableBuilder(
+    column: $table.syncedAt,
     builder: (column) => ColumnFilters(column),
   );
 
@@ -3188,6 +2579,11 @@ class $$NotesTableOrderingComposer
     builder: (column) => ColumnOrderings(column),
   );
 
+  ColumnOrderings<String> get userId => $composableBuilder(
+    column: $table.userId,
+    builder: (column) => ColumnOrderings(column),
+  );
+
   ColumnOrderings<String> get blockIds => $composableBuilder(
     column: $table.blockIds,
     builder: (column) => ColumnOrderings(column),
@@ -3208,28 +2604,8 @@ class $$NotesTableOrderingComposer
     builder: (column) => ColumnOrderings(column),
   );
 
-  ColumnOrderings<bool> get isBlocksSynced => $composableBuilder(
-    column: $table.isBlocksSynced,
-    builder: (column) => ColumnOrderings(column),
-  );
-
   ColumnOrderings<bool> get isDeleted => $composableBuilder(
     column: $table.isDeleted,
-    builder: (column) => ColumnOrderings(column),
-  );
-
-  ColumnOrderings<DateTime> get syncedAt => $composableBuilder(
-    column: $table.syncedAt,
-    builder: (column) => ColumnOrderings(column),
-  );
-
-  ColumnOrderings<String> get baseHash => $composableBuilder(
-    column: $table.baseHash,
-    builder: (column) => ColumnOrderings(column),
-  );
-
-  ColumnOrderings<bool> get mergedFromConflict => $composableBuilder(
-    column: $table.mergedFromConflict,
     builder: (column) => ColumnOrderings(column),
   );
 
@@ -3238,8 +2614,8 @@ class $$NotesTableOrderingComposer
     builder: (column) => ColumnOrderings(column),
   );
 
-  ColumnOrderings<int> get syncVersion => $composableBuilder(
-    column: $table.syncVersion,
+  ColumnOrderings<DateTime> get syncedAt => $composableBuilder(
+    column: $table.syncedAt,
     builder: (column) => ColumnOrderings(column),
   );
 }
@@ -3259,6 +2635,9 @@ class $$NotesTableAnnotationComposer
   GeneratedColumn<String> get title =>
       $composableBuilder(column: $table.title, builder: (column) => column);
 
+  GeneratedColumn<String> get userId =>
+      $composableBuilder(column: $table.userId, builder: (column) => column);
+
   GeneratedColumn<String> get blockIds =>
       $composableBuilder(column: $table.blockIds, builder: (column) => column);
 
@@ -3273,32 +2652,14 @@ class $$NotesTableAnnotationComposer
     builder: (column) => column,
   );
 
-  GeneratedColumn<bool> get isBlocksSynced => $composableBuilder(
-    column: $table.isBlocksSynced,
-    builder: (column) => column,
-  );
-
   GeneratedColumn<bool> get isDeleted =>
       $composableBuilder(column: $table.isDeleted, builder: (column) => column);
-
-  GeneratedColumn<DateTime> get syncedAt =>
-      $composableBuilder(column: $table.syncedAt, builder: (column) => column);
-
-  GeneratedColumn<String> get baseHash =>
-      $composableBuilder(column: $table.baseHash, builder: (column) => column);
-
-  GeneratedColumn<bool> get mergedFromConflict => $composableBuilder(
-    column: $table.mergedFromConflict,
-    builder: (column) => column,
-  );
 
   GeneratedColumn<DateTime> get deletedAt =>
       $composableBuilder(column: $table.deletedAt, builder: (column) => column);
 
-  GeneratedColumn<int> get syncVersion => $composableBuilder(
-    column: $table.syncVersion,
-    builder: (column) => column,
-  );
+  GeneratedColumn<DateTime> get syncedAt =>
+      $composableBuilder(column: $table.syncedAt, builder: (column) => column);
 
   Expression<T> blocksRefs<T extends Object>(
     Expression<T> Function($$BlocksTableAnnotationComposer a) f,
@@ -3410,64 +2771,52 @@ class $$NotesTableTableManager
               ({
                 Value<String> id = const Value.absent(),
                 Value<String> title = const Value.absent(),
+                Value<String?> userId = const Value.absent(),
                 Value<String> blockIds = const Value.absent(),
                 Value<DateTime> createdAt = const Value.absent(),
                 Value<DateTime> updatedAt = const Value.absent(),
                 Value<String> syncStatus = const Value.absent(),
-                Value<bool> isBlocksSynced = const Value.absent(),
                 Value<bool> isDeleted = const Value.absent(),
-                Value<DateTime?> syncedAt = const Value.absent(),
-                Value<String?> baseHash = const Value.absent(),
-                Value<bool> mergedFromConflict = const Value.absent(),
                 Value<DateTime?> deletedAt = const Value.absent(),
-                Value<int> syncVersion = const Value.absent(),
+                Value<DateTime?> syncedAt = const Value.absent(),
                 Value<int> rowid = const Value.absent(),
               }) => NotesCompanion(
                 id: id,
                 title: title,
+                userId: userId,
                 blockIds: blockIds,
                 createdAt: createdAt,
                 updatedAt: updatedAt,
                 syncStatus: syncStatus,
-                isBlocksSynced: isBlocksSynced,
                 isDeleted: isDeleted,
-                syncedAt: syncedAt,
-                baseHash: baseHash,
-                mergedFromConflict: mergedFromConflict,
                 deletedAt: deletedAt,
-                syncVersion: syncVersion,
+                syncedAt: syncedAt,
                 rowid: rowid,
               ),
           createCompanionCallback:
               ({
                 required String id,
                 required String title,
+                Value<String?> userId = const Value.absent(),
                 Value<String> blockIds = const Value.absent(),
                 Value<DateTime> createdAt = const Value.absent(),
                 Value<DateTime> updatedAt = const Value.absent(),
                 Value<String> syncStatus = const Value.absent(),
-                Value<bool> isBlocksSynced = const Value.absent(),
                 Value<bool> isDeleted = const Value.absent(),
-                Value<DateTime?> syncedAt = const Value.absent(),
-                Value<String?> baseHash = const Value.absent(),
-                Value<bool> mergedFromConflict = const Value.absent(),
                 Value<DateTime?> deletedAt = const Value.absent(),
-                Value<int> syncVersion = const Value.absent(),
+                Value<DateTime?> syncedAt = const Value.absent(),
                 Value<int> rowid = const Value.absent(),
               }) => NotesCompanion.insert(
                 id: id,
                 title: title,
+                userId: userId,
                 blockIds: blockIds,
                 createdAt: createdAt,
                 updatedAt: updatedAt,
                 syncStatus: syncStatus,
-                isBlocksSynced: isBlocksSynced,
                 isDeleted: isDeleted,
-                syncedAt: syncedAt,
-                baseHash: baseHash,
-                mergedFromConflict: mergedFromConflict,
                 deletedAt: deletedAt,
-                syncVersion: syncVersion,
+                syncedAt: syncedAt,
                 rowid: rowid,
               ),
           withReferenceMapper: (p0) => p0
@@ -3561,6 +2910,7 @@ typedef $$BlocksTableCreateCompanionBuilder =
     BlocksCompanion Function({
       required String id,
       required String noteId,
+      Value<String?> userId,
       required String content,
       Value<DateTime> createdAt,
       Value<DateTime> updatedAt,
@@ -3571,6 +2921,7 @@ typedef $$BlocksTableUpdateCompanionBuilder =
     BlocksCompanion Function({
       Value<String> id,
       Value<String> noteId,
+      Value<String?> userId,
       Value<String> content,
       Value<DateTime> createdAt,
       Value<DateTime> updatedAt,
@@ -3630,6 +2981,11 @@ class $$BlocksTableFilterComposer
   });
   ColumnFilters<String> get id => $composableBuilder(
     column: $table.id,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get userId => $composableBuilder(
+    column: $table.userId,
     builder: (column) => ColumnFilters(column),
   );
 
@@ -3716,6 +3072,11 @@ class $$BlocksTableOrderingComposer
     builder: (column) => ColumnOrderings(column),
   );
 
+  ColumnOrderings<String> get userId => $composableBuilder(
+    column: $table.userId,
+    builder: (column) => ColumnOrderings(column),
+  );
+
   ColumnOrderings<String> get content => $composableBuilder(
     column: $table.content,
     builder: (column) => ColumnOrderings(column),
@@ -3771,6 +3132,9 @@ class $$BlocksTableAnnotationComposer
   });
   GeneratedColumn<String> get id =>
       $composableBuilder(column: $table.id, builder: (column) => column);
+
+  GeneratedColumn<String> get userId =>
+      $composableBuilder(column: $table.userId, builder: (column) => column);
 
   GeneratedColumn<String> get content =>
       $composableBuilder(column: $table.content, builder: (column) => column);
@@ -3865,6 +3229,7 @@ class $$BlocksTableTableManager
               ({
                 Value<String> id = const Value.absent(),
                 Value<String> noteId = const Value.absent(),
+                Value<String?> userId = const Value.absent(),
                 Value<String> content = const Value.absent(),
                 Value<DateTime> createdAt = const Value.absent(),
                 Value<DateTime> updatedAt = const Value.absent(),
@@ -3873,6 +3238,7 @@ class $$BlocksTableTableManager
               }) => BlocksCompanion(
                 id: id,
                 noteId: noteId,
+                userId: userId,
                 content: content,
                 createdAt: createdAt,
                 updatedAt: updatedAt,
@@ -3883,6 +3249,7 @@ class $$BlocksTableTableManager
               ({
                 required String id,
                 required String noteId,
+                Value<String?> userId = const Value.absent(),
                 required String content,
                 Value<DateTime> createdAt = const Value.absent(),
                 Value<DateTime> updatedAt = const Value.absent(),
@@ -3891,6 +3258,7 @@ class $$BlocksTableTableManager
               }) => BlocksCompanion.insert(
                 id: id,
                 noteId: noteId,
+                userId: userId,
                 content: content,
                 createdAt: createdAt,
                 updatedAt: updatedAt,
@@ -3980,6 +3348,7 @@ typedef $$BlocksTableProcessedTableManager =
 typedef $$LinksTableCreateCompanionBuilder =
     LinksCompanion Function({
       required String id,
+      Value<String?> userId,
       required String fromBlockId,
       required String toNoteId,
       Value<String?> toBlockId,
@@ -3989,6 +3358,7 @@ typedef $$LinksTableCreateCompanionBuilder =
 typedef $$LinksTableUpdateCompanionBuilder =
     LinksCompanion Function({
       Value<String> id,
+      Value<String?> userId,
       Value<String> fromBlockId,
       Value<String> toNoteId,
       Value<String?> toBlockId,
@@ -4046,6 +3416,11 @@ class $$LinksTableFilterComposer extends Composer<_$AppDatabase, $LinksTable> {
   });
   ColumnFilters<String> get id => $composableBuilder(
     column: $table.id,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get userId => $composableBuilder(
+    column: $table.userId,
     builder: (column) => ColumnFilters(column),
   );
 
@@ -4120,6 +3495,11 @@ class $$LinksTableOrderingComposer
     builder: (column) => ColumnOrderings(column),
   );
 
+  ColumnOrderings<String> get userId => $composableBuilder(
+    column: $table.userId,
+    builder: (column) => ColumnOrderings(column),
+  );
+
   ColumnOrderings<String> get toBlockId => $composableBuilder(
     column: $table.toBlockId,
     builder: (column) => ColumnOrderings(column),
@@ -4188,6 +3568,9 @@ class $$LinksTableAnnotationComposer
   });
   GeneratedColumn<String> get id =>
       $composableBuilder(column: $table.id, builder: (column) => column);
+
+  GeneratedColumn<String> get userId =>
+      $composableBuilder(column: $table.userId, builder: (column) => column);
 
   GeneratedColumn<String> get toBlockId =>
       $composableBuilder(column: $table.toBlockId, builder: (column) => column);
@@ -4271,6 +3654,7 @@ class $$LinksTableTableManager
           updateCompanionCallback:
               ({
                 Value<String> id = const Value.absent(),
+                Value<String?> userId = const Value.absent(),
                 Value<String> fromBlockId = const Value.absent(),
                 Value<String> toNoteId = const Value.absent(),
                 Value<String?> toBlockId = const Value.absent(),
@@ -4278,6 +3662,7 @@ class $$LinksTableTableManager
                 Value<int> rowid = const Value.absent(),
               }) => LinksCompanion(
                 id: id,
+                userId: userId,
                 fromBlockId: fromBlockId,
                 toNoteId: toNoteId,
                 toBlockId: toBlockId,
@@ -4287,6 +3672,7 @@ class $$LinksTableTableManager
           createCompanionCallback:
               ({
                 required String id,
+                Value<String?> userId = const Value.absent(),
                 required String fromBlockId,
                 required String toNoteId,
                 Value<String?> toBlockId = const Value.absent(),
@@ -4294,6 +3680,7 @@ class $$LinksTableTableManager
                 Value<int> rowid = const Value.absent(),
               }) => LinksCompanion.insert(
                 id: id,
+                userId: userId,
                 fromBlockId: fromBlockId,
                 toNoteId: toNoteId,
                 toBlockId: toBlockId,
@@ -4381,12 +3768,14 @@ typedef $$LinksTableProcessedTableManager =
 typedef $$TagsTableCreateCompanionBuilder =
     TagsCompanion Function({
       required String id,
+      Value<String?> userId,
       required String name,
       Value<int> rowid,
     });
 typedef $$TagsTableUpdateCompanionBuilder =
     TagsCompanion Function({
       Value<String> id,
+      Value<String?> userId,
       Value<String> name,
       Value<int> rowid,
     });
@@ -4425,6 +3814,11 @@ class $$TagsTableFilterComposer extends Composer<_$AppDatabase, $TagsTable> {
   });
   ColumnFilters<String> get id => $composableBuilder(
     column: $table.id,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get userId => $composableBuilder(
+    column: $table.userId,
     builder: (column) => ColumnFilters(column),
   );
 
@@ -4472,6 +3866,11 @@ class $$TagsTableOrderingComposer extends Composer<_$AppDatabase, $TagsTable> {
     builder: (column) => ColumnOrderings(column),
   );
 
+  ColumnOrderings<String> get userId => $composableBuilder(
+    column: $table.userId,
+    builder: (column) => ColumnOrderings(column),
+  );
+
   ColumnOrderings<String> get name => $composableBuilder(
     column: $table.name,
     builder: (column) => ColumnOrderings(column),
@@ -4489,6 +3888,9 @@ class $$TagsTableAnnotationComposer
   });
   GeneratedColumn<String> get id =>
       $composableBuilder(column: $table.id, builder: (column) => column);
+
+  GeneratedColumn<String> get userId =>
+      $composableBuilder(column: $table.userId, builder: (column) => column);
 
   GeneratedColumn<String> get name =>
       $composableBuilder(column: $table.name, builder: (column) => column);
@@ -4548,15 +3950,27 @@ class $$TagsTableTableManager
           updateCompanionCallback:
               ({
                 Value<String> id = const Value.absent(),
+                Value<String?> userId = const Value.absent(),
                 Value<String> name = const Value.absent(),
                 Value<int> rowid = const Value.absent(),
-              }) => TagsCompanion(id: id, name: name, rowid: rowid),
+              }) => TagsCompanion(
+                id: id,
+                userId: userId,
+                name: name,
+                rowid: rowid,
+              ),
           createCompanionCallback:
               ({
                 required String id,
+                Value<String?> userId = const Value.absent(),
                 required String name,
                 Value<int> rowid = const Value.absent(),
-              }) => TagsCompanion.insert(id: id, name: name, rowid: rowid),
+              }) => TagsCompanion.insert(
+                id: id,
+                userId: userId,
+                name: name,
+                rowid: rowid,
+              ),
           withReferenceMapper: (p0) => p0
               .map(
                 (e) =>
@@ -4606,12 +4020,14 @@ typedef $$TagsTableProcessedTableManager =
     >;
 typedef $$NoteTagsTableCreateCompanionBuilder =
     NoteTagsCompanion Function({
+      Value<String?> userId,
       required String noteId,
       required String tagId,
       Value<int> rowid,
     });
 typedef $$NoteTagsTableUpdateCompanionBuilder =
     NoteTagsCompanion Function({
+      Value<String?> userId,
       Value<String> noteId,
       Value<String> tagId,
       Value<int> rowid,
@@ -4666,6 +4082,11 @@ class $$NoteTagsTableFilterComposer
     super.$addJoinBuilderToRootComposer,
     super.$removeJoinBuilderFromRootComposer,
   });
+  ColumnFilters<String> get userId => $composableBuilder(
+    column: $table.userId,
+    builder: (column) => ColumnFilters(column),
+  );
+
   $$NotesTableFilterComposer get noteId {
     final $$NotesTableFilterComposer composer = $composerBuilder(
       composer: this,
@@ -4722,6 +4143,11 @@ class $$NoteTagsTableOrderingComposer
     super.$addJoinBuilderToRootComposer,
     super.$removeJoinBuilderFromRootComposer,
   });
+  ColumnOrderings<String> get userId => $composableBuilder(
+    column: $table.userId,
+    builder: (column) => ColumnOrderings(column),
+  );
+
   $$NotesTableOrderingComposer get noteId {
     final $$NotesTableOrderingComposer composer = $composerBuilder(
       composer: this,
@@ -4778,6 +4204,9 @@ class $$NoteTagsTableAnnotationComposer
     super.$addJoinBuilderToRootComposer,
     super.$removeJoinBuilderFromRootComposer,
   });
+  GeneratedColumn<String> get userId =>
+      $composableBuilder(column: $table.userId, builder: (column) => column);
+
   $$NotesTableAnnotationComposer get noteId {
     final $$NotesTableAnnotationComposer composer = $composerBuilder(
       composer: this,
@@ -4853,17 +4282,24 @@ class $$NoteTagsTableTableManager
               $$NoteTagsTableAnnotationComposer($db: db, $table: table),
           updateCompanionCallback:
               ({
+                Value<String?> userId = const Value.absent(),
                 Value<String> noteId = const Value.absent(),
                 Value<String> tagId = const Value.absent(),
                 Value<int> rowid = const Value.absent(),
-              }) =>
-                  NoteTagsCompanion(noteId: noteId, tagId: tagId, rowid: rowid),
+              }) => NoteTagsCompanion(
+                userId: userId,
+                noteId: noteId,
+                tagId: tagId,
+                rowid: rowid,
+              ),
           createCompanionCallback:
               ({
+                Value<String?> userId = const Value.absent(),
                 required String noteId,
                 required String tagId,
                 Value<int> rowid = const Value.absent(),
               }) => NoteTagsCompanion.insert(
+                userId: userId,
                 noteId: noteId,
                 tagId: tagId,
                 rowid: rowid,
@@ -5122,313 +4558,6 @@ typedef $$DailyNotesCountTableProcessedTableManager =
       DailyNotesCountData,
       PrefetchHooks Function()
     >;
-typedef $$SyncConflictsTableCreateCompanionBuilder =
-    SyncConflictsCompanion Function({
-      required String id,
-      required String note_id,
-      required String conflictType,
-      Value<String?> localData,
-      Value<String?> remoteData,
-      Value<String?> resolvedData,
-      Value<String> resolution,
-      Value<DateTime> createdAt,
-      Value<DateTime?> resolvedAt,
-      Value<String?> description,
-      Value<int> rowid,
-    });
-typedef $$SyncConflictsTableUpdateCompanionBuilder =
-    SyncConflictsCompanion Function({
-      Value<String> id,
-      Value<String> note_id,
-      Value<String> conflictType,
-      Value<String?> localData,
-      Value<String?> remoteData,
-      Value<String?> resolvedData,
-      Value<String> resolution,
-      Value<DateTime> createdAt,
-      Value<DateTime?> resolvedAt,
-      Value<String?> description,
-      Value<int> rowid,
-    });
-
-class $$SyncConflictsTableFilterComposer
-    extends Composer<_$AppDatabase, $SyncConflictsTable> {
-  $$SyncConflictsTableFilterComposer({
-    required super.$db,
-    required super.$table,
-    super.joinBuilder,
-    super.$addJoinBuilderToRootComposer,
-    super.$removeJoinBuilderFromRootComposer,
-  });
-  ColumnFilters<String> get id => $composableBuilder(
-    column: $table.id,
-    builder: (column) => ColumnFilters(column),
-  );
-
-  ColumnFilters<String> get note_id => $composableBuilder(
-    column: $table.note_id,
-    builder: (column) => ColumnFilters(column),
-  );
-
-  ColumnFilters<String> get conflictType => $composableBuilder(
-    column: $table.conflictType,
-    builder: (column) => ColumnFilters(column),
-  );
-
-  ColumnFilters<String> get localData => $composableBuilder(
-    column: $table.localData,
-    builder: (column) => ColumnFilters(column),
-  );
-
-  ColumnFilters<String> get remoteData => $composableBuilder(
-    column: $table.remoteData,
-    builder: (column) => ColumnFilters(column),
-  );
-
-  ColumnFilters<String> get resolvedData => $composableBuilder(
-    column: $table.resolvedData,
-    builder: (column) => ColumnFilters(column),
-  );
-
-  ColumnFilters<String> get resolution => $composableBuilder(
-    column: $table.resolution,
-    builder: (column) => ColumnFilters(column),
-  );
-
-  ColumnFilters<DateTime> get createdAt => $composableBuilder(
-    column: $table.createdAt,
-    builder: (column) => ColumnFilters(column),
-  );
-
-  ColumnFilters<DateTime> get resolvedAt => $composableBuilder(
-    column: $table.resolvedAt,
-    builder: (column) => ColumnFilters(column),
-  );
-
-  ColumnFilters<String> get description => $composableBuilder(
-    column: $table.description,
-    builder: (column) => ColumnFilters(column),
-  );
-}
-
-class $$SyncConflictsTableOrderingComposer
-    extends Composer<_$AppDatabase, $SyncConflictsTable> {
-  $$SyncConflictsTableOrderingComposer({
-    required super.$db,
-    required super.$table,
-    super.joinBuilder,
-    super.$addJoinBuilderToRootComposer,
-    super.$removeJoinBuilderFromRootComposer,
-  });
-  ColumnOrderings<String> get id => $composableBuilder(
-    column: $table.id,
-    builder: (column) => ColumnOrderings(column),
-  );
-
-  ColumnOrderings<String> get note_id => $composableBuilder(
-    column: $table.note_id,
-    builder: (column) => ColumnOrderings(column),
-  );
-
-  ColumnOrderings<String> get conflictType => $composableBuilder(
-    column: $table.conflictType,
-    builder: (column) => ColumnOrderings(column),
-  );
-
-  ColumnOrderings<String> get localData => $composableBuilder(
-    column: $table.localData,
-    builder: (column) => ColumnOrderings(column),
-  );
-
-  ColumnOrderings<String> get remoteData => $composableBuilder(
-    column: $table.remoteData,
-    builder: (column) => ColumnOrderings(column),
-  );
-
-  ColumnOrderings<String> get resolvedData => $composableBuilder(
-    column: $table.resolvedData,
-    builder: (column) => ColumnOrderings(column),
-  );
-
-  ColumnOrderings<String> get resolution => $composableBuilder(
-    column: $table.resolution,
-    builder: (column) => ColumnOrderings(column),
-  );
-
-  ColumnOrderings<DateTime> get createdAt => $composableBuilder(
-    column: $table.createdAt,
-    builder: (column) => ColumnOrderings(column),
-  );
-
-  ColumnOrderings<DateTime> get resolvedAt => $composableBuilder(
-    column: $table.resolvedAt,
-    builder: (column) => ColumnOrderings(column),
-  );
-
-  ColumnOrderings<String> get description => $composableBuilder(
-    column: $table.description,
-    builder: (column) => ColumnOrderings(column),
-  );
-}
-
-class $$SyncConflictsTableAnnotationComposer
-    extends Composer<_$AppDatabase, $SyncConflictsTable> {
-  $$SyncConflictsTableAnnotationComposer({
-    required super.$db,
-    required super.$table,
-    super.joinBuilder,
-    super.$addJoinBuilderToRootComposer,
-    super.$removeJoinBuilderFromRootComposer,
-  });
-  GeneratedColumn<String> get id =>
-      $composableBuilder(column: $table.id, builder: (column) => column);
-
-  GeneratedColumn<String> get note_id =>
-      $composableBuilder(column: $table.note_id, builder: (column) => column);
-
-  GeneratedColumn<String> get conflictType => $composableBuilder(
-    column: $table.conflictType,
-    builder: (column) => column,
-  );
-
-  GeneratedColumn<String> get localData =>
-      $composableBuilder(column: $table.localData, builder: (column) => column);
-
-  GeneratedColumn<String> get remoteData => $composableBuilder(
-    column: $table.remoteData,
-    builder: (column) => column,
-  );
-
-  GeneratedColumn<String> get resolvedData => $composableBuilder(
-    column: $table.resolvedData,
-    builder: (column) => column,
-  );
-
-  GeneratedColumn<String> get resolution => $composableBuilder(
-    column: $table.resolution,
-    builder: (column) => column,
-  );
-
-  GeneratedColumn<DateTime> get createdAt =>
-      $composableBuilder(column: $table.createdAt, builder: (column) => column);
-
-  GeneratedColumn<DateTime> get resolvedAt => $composableBuilder(
-    column: $table.resolvedAt,
-    builder: (column) => column,
-  );
-
-  GeneratedColumn<String> get description => $composableBuilder(
-    column: $table.description,
-    builder: (column) => column,
-  );
-}
-
-class $$SyncConflictsTableTableManager
-    extends
-        RootTableManager<
-          _$AppDatabase,
-          $SyncConflictsTable,
-          SyncConflict,
-          $$SyncConflictsTableFilterComposer,
-          $$SyncConflictsTableOrderingComposer,
-          $$SyncConflictsTableAnnotationComposer,
-          $$SyncConflictsTableCreateCompanionBuilder,
-          $$SyncConflictsTableUpdateCompanionBuilder,
-          (
-            SyncConflict,
-            BaseReferences<_$AppDatabase, $SyncConflictsTable, SyncConflict>,
-          ),
-          SyncConflict,
-          PrefetchHooks Function()
-        > {
-  $$SyncConflictsTableTableManager(_$AppDatabase db, $SyncConflictsTable table)
-    : super(
-        TableManagerState(
-          db: db,
-          table: table,
-          createFilteringComposer: () =>
-              $$SyncConflictsTableFilterComposer($db: db, $table: table),
-          createOrderingComposer: () =>
-              $$SyncConflictsTableOrderingComposer($db: db, $table: table),
-          createComputedFieldComposer: () =>
-              $$SyncConflictsTableAnnotationComposer($db: db, $table: table),
-          updateCompanionCallback:
-              ({
-                Value<String> id = const Value.absent(),
-                Value<String> note_id = const Value.absent(),
-                Value<String> conflictType = const Value.absent(),
-                Value<String?> localData = const Value.absent(),
-                Value<String?> remoteData = const Value.absent(),
-                Value<String?> resolvedData = const Value.absent(),
-                Value<String> resolution = const Value.absent(),
-                Value<DateTime> createdAt = const Value.absent(),
-                Value<DateTime?> resolvedAt = const Value.absent(),
-                Value<String?> description = const Value.absent(),
-                Value<int> rowid = const Value.absent(),
-              }) => SyncConflictsCompanion(
-                id: id,
-                note_id: note_id,
-                conflictType: conflictType,
-                localData: localData,
-                remoteData: remoteData,
-                resolvedData: resolvedData,
-                resolution: resolution,
-                createdAt: createdAt,
-                resolvedAt: resolvedAt,
-                description: description,
-                rowid: rowid,
-              ),
-          createCompanionCallback:
-              ({
-                required String id,
-                required String note_id,
-                required String conflictType,
-                Value<String?> localData = const Value.absent(),
-                Value<String?> remoteData = const Value.absent(),
-                Value<String?> resolvedData = const Value.absent(),
-                Value<String> resolution = const Value.absent(),
-                Value<DateTime> createdAt = const Value.absent(),
-                Value<DateTime?> resolvedAt = const Value.absent(),
-                Value<String?> description = const Value.absent(),
-                Value<int> rowid = const Value.absent(),
-              }) => SyncConflictsCompanion.insert(
-                id: id,
-                note_id: note_id,
-                conflictType: conflictType,
-                localData: localData,
-                remoteData: remoteData,
-                resolvedData: resolvedData,
-                resolution: resolution,
-                createdAt: createdAt,
-                resolvedAt: resolvedAt,
-                description: description,
-                rowid: rowid,
-              ),
-          withReferenceMapper: (p0) => p0
-              .map((e) => (e.readTable(table), BaseReferences(db, table, e)))
-              .toList(),
-          prefetchHooksCallback: null,
-        ),
-      );
-}
-
-typedef $$SyncConflictsTableProcessedTableManager =
-    ProcessedTableManager<
-      _$AppDatabase,
-      $SyncConflictsTable,
-      SyncConflict,
-      $$SyncConflictsTableFilterComposer,
-      $$SyncConflictsTableOrderingComposer,
-      $$SyncConflictsTableAnnotationComposer,
-      $$SyncConflictsTableCreateCompanionBuilder,
-      $$SyncConflictsTableUpdateCompanionBuilder,
-      (
-        SyncConflict,
-        BaseReferences<_$AppDatabase, $SyncConflictsTable, SyncConflict>,
-      ),
-      SyncConflict,
-      PrefetchHooks Function()
-    >;
 
 class $AppDatabaseManager {
   final _$AppDatabase _db;
@@ -5444,6 +4573,4 @@ class $AppDatabaseManager {
       $$NoteTagsTableTableManager(_db, _db.noteTags);
   $$DailyNotesCountTableTableManager get dailyNotesCount =>
       $$DailyNotesCountTableTableManager(_db, _db.dailyNotesCount);
-  $$SyncConflictsTableTableManager get syncConflicts =>
-      $$SyncConflictsTableTableManager(_db, _db.syncConflicts);
 }

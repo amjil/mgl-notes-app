@@ -11,17 +11,14 @@ part 'database.g.dart';
 class Notes extends Table {
   TextColumn get id => text()();
   TextColumn get title => text()();
+  TextColumn get userId => text().nullable()();
   TextColumn get blockIds => text().withDefault(const Constant('[]'))();
   DateTimeColumn get createdAt => dateTime().withDefault(currentDateAndTime)();
   DateTimeColumn get updatedAt => dateTime().withDefault(currentDateAndTime)();
   TextColumn get syncStatus => text().withDefault(const Constant('pending'))();
-  BoolColumn get isBlocksSynced => boolean().withDefault(const Constant(false))();
   BoolColumn get isDeleted => boolean().withDefault(const Constant(false))();
-  DateTimeColumn get syncedAt => dateTime().nullable()();
-  TextColumn get baseHash => text().nullable()();
-  BoolColumn get mergedFromConflict => boolean().withDefault(const Constant(false))();
   DateTimeColumn get deletedAt => dateTime().nullable()();
-  IntColumn get syncVersion => integer().withDefault(const Constant(0))();
+  DateTimeColumn get syncedAt => dateTime().nullable()();
 
   @override
   Set<Column> get primaryKey => {id};
@@ -31,6 +28,7 @@ class Notes extends Table {
 class Blocks extends Table {
   TextColumn get id => text()();
   TextColumn get noteId => text().references(Notes, #id, onDelete: KeyAction.cascade)();
+  TextColumn get userId => text().nullable()();
   TextColumn get content => text()();
   DateTimeColumn get createdAt => dateTime().withDefault(currentDateAndTime)();
   DateTimeColumn get updatedAt => dateTime().withDefault(currentDateAndTime)();
@@ -43,6 +41,7 @@ class Blocks extends Table {
 // Links table
 class Links extends Table {
   TextColumn get id => text()();
+  TextColumn get userId => text().nullable()();
   TextColumn get fromBlockId => text().references(Blocks, #id, onDelete: KeyAction.cascade)();
   TextColumn get toNoteId => text().references(Notes, #id, onDelete: KeyAction.cascade)();
   TextColumn get toBlockId => text().nullable()();
@@ -55,6 +54,7 @@ class Links extends Table {
 // Tags table
 class Tags extends Table {
   TextColumn get id => text()();
+  TextColumn get userId => text().nullable()();
   TextColumn get name => text().unique()();
 
   @override
@@ -63,6 +63,7 @@ class Tags extends Table {
 
 // Note-tag junction table
 class NoteTags extends Table {
+  TextColumn get userId => text().nullable()();
   TextColumn get noteId => text().references(Notes, #id, onDelete: KeyAction.cascade)();
   TextColumn get tagId => text().references(Tags, #id, onDelete: KeyAction.cascade)();
 
@@ -80,23 +81,6 @@ class DailyNotesCount extends Table {
   Set<Column> get primaryKey => {date};
 }
 
-// Sync conflicts table for handling synchronization conflicts
-class SyncConflicts extends Table {
-  TextColumn get id => text()();
-  TextColumn get note_id => text()(); // 'note'
-  TextColumn get conflictType => text()(); // 'version_conflict', 'deletion_conflict', 'merge_conflict'
-  TextColumn get localData => text().nullable()(); // JSON string of local data
-  TextColumn get remoteData => text().nullable()(); // JSON string of remote data
-  TextColumn get resolvedData => text().nullable()(); // JSON string of resolved data after conflict resolution
-  TextColumn get resolution => text().withDefault(const Constant('pending'))(); // 'pending', 'local_wins', 'remote_wins', 'merged'
-  DateTimeColumn get createdAt => dateTime().withDefault(currentDateAndTime)();
-  DateTimeColumn get resolvedAt => dateTime().nullable()();
-  TextColumn get description => text().nullable()(); // Human-readable description of the conflict
-
-  @override
-  Set<Column> get primaryKey => {id};
-}
-
 @DriftDatabase(
   tables: [
     Notes,
@@ -105,7 +89,6 @@ class SyncConflicts extends Table {
     Tags,
     NoteTags,
     DailyNotesCount,
-    SyncConflicts,
   ],
 )
 class AppDatabase extends _$AppDatabase {
@@ -141,30 +124,6 @@ class AppDatabase extends _$AppDatabase {
         // Handle database upgrade logic
         if (from < 2) {
           // Future upgrade logic can be added here
-        }
-        if (from < 5) {
-          await m.addColumn(notes, notes.isBlocksSynced);
-        }
-        if (from < 6) {
-          await m.addColumn(notes, notes.isDeleted);
-        }
-        if (from < 7) {
-          await m.createTable(syncConflicts);
-        }
-        if (from < 8) {
-          await m.addColumn(notes, notes.syncedAt);
-        }
-        if (from < 9) {
-          await m.addColumn(notes, notes.baseHash);
-        }
-        if (from < 9) {
-          await m.addColumn(notes, notes.mergedFromConflict);
-        }
-        if (from < 10) {
-          await m.addColumn(notes, notes.deletedAt);
-        }
-        if (from < 11) {
-          await m.addColumn(notes, notes.syncVersion);
         }
       },
     );
