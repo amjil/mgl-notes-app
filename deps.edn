@@ -2,16 +2,15 @@
  :deps {tensegritics/clojuredart
         {:git/url "https://github.com/tensegritics/ClojureDart.git"
          :sha "9385be3c88ab6593350fdda50d86af985224971b"}
-        amjil/mongol-menu-bar
-        {:git/url "https://github.com/amjil/mongol-menu-bar.git"
-         :sha "d070ea149db29bed57a77eee09af3f865462c4ac"}
         amjil/mongol-virtual-keyboard
         {:git/url "https://github.com/amjil/mongol-virtual-keyboard.git"
-         :sha "f409d7bd417017ecf52bc752ca347883c8ceae92"}
+         :sha "45db2c9989df0d1733dd36c1a74f199f84e499e7"}
         amjil/electric-sync
-        {:local/root "../electric-sync"}
+        {:git/url "https://github.com/amjil/electric-sync"
+         :sha "38ebc55014c56bd7120c48b4181934ec37bcfea5"}
         amjil/mongol-block-editor
-        {:local/root "../mongol-block-editor"}}
+        {:git/url "https://github.com/amjil/mongol-block-editor.git"
+         :sha "622cfff53a3fbe25939b5eb1f95df93f623d30ba"}}
  :aliases {:cljd {:main-opts ["-m" "cljd.build"]}}
  :cljd/opts {:kind :flutter
              :main notes-app.main}}

@@ -43,7 +43,6 @@ dependencies:
   vibration: ^3.1.3
   device_info_plus: ^11.4.0
   package_info_plus: ^8.3.0
-  diff_match_patch: ^0.4.1
   flutter_slidable: ^4.0.0
   flutter_styled_toast: ^2.2.1
   http: ^1.4.0
@@ -55,6 +54,7 @@ dependencies:
   drift: ^2.27.0
   sqlite3_flutter_libs: ^0.5.34
   path: ^1.9.0
+  archive: ^4.0.7
 
 dev_dependencies:
   flutter_test:
@@ -90,6 +90,8 @@ flutter:
   assets:
     - assets/data.zip
     - assets/next.zip
+    - assets/fonts/OyunQaganTig.ttf
+    - assets/fonts/OnonSoninSans.ttf
 
   # An image asset can refer to one or more resolution-specific "variants", see
   # https://flutter.dev/to/resolution-aware-images
@@ -106,6 +108,10 @@ flutter:
     - family: OnonSoninSans
       fonts:
         - asset: assets/fonts/OnonSoninSans.ttf
+    - family: OyunQaganTig
+      fonts:
+        - asset: assets/fonts/OyunQaganTig.ttf
+  #       - asset: fonts/Schyler-Italic.ttf
   # fonts:
   #   - family: Schyler
   #     fonts:
