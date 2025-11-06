@@ -1,0 +1,29 @@
+(ns notes-app.screens.editor
+  (:require 
+   ["package:flutter/material.dart" :as m]
+   ["package:lifecycle/lifecycle.dart" :as lifecycle]
+   [cljd.flutter :as f]
+   [notes-app.widgets.mgl-app-bar :as mgl-app-bar]
+   [notes-app.utils.note :as note-utils]
+   [block-editor.widgets.editor :as editor]
+   [notes-app.states.ui :as ui]))
+
+(def screen
+  (f/widget
+   :context ctx
+   :get [m/Navigator]
+   :let [theme (-> m/Theme (.of ctx))
+         color-scheme (.-colorScheme theme)]
+   (m/Scaffold
+    .backgroundColor (.-surface color-scheme)
+    .appBar (mgl-app-bar/mgl-editor-app-bar ctx navigator)
+    .body
+    (lifecycle/LifecycleWrapper
+     .onLifecycleEvent (fn [event]
+                         (condp = event
+                           lifecycle/LifecycleEvent.pop (note-utils/save-or-update-note! ctx)
+                           lifecycle/LifecycleEvent.invisible (note-utils/save-or-update-note! ctx)
+                           nil)
+                         (dart:core/print (str "onLifecycleEvent: " event)))
+     .child
+     (editor/editor)))))

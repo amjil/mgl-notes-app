@@ -1,0 +1,126 @@
+(ns notes-app.utils.note
+  (:require 
+   [clojure.string :as str]
+   [block-editor.state :as editor-state]
+   [block-editor.utils.block :as editor-util]
+   [notes-app.states.notes :as notes]
+   [notes-app.services.db :as db]
+   [notes-app.utils.toast :as toast]
+   [notes-app.utils.navigator :as navigator]
+   ["package:uuid/uuid.dart" :as uuid]))
+
+
+
+
+(defn build-content-from-blocks [ids blocks-map]
+  (->> ids
+       (map (fn [bid] (get blocks-map bid "")))
+       (str/join "\n")))
+
+(defn- to-id-set [coll]
+  (set (map (fn [b]
+              (or (:id b) (.-id b)))
+            coll)))
+
+(defn- to-content-map [coll]
+  (into {}
+        (map (fn [b]
+               (let [bid (or (:id b) (.-id b))
+                     content (or (:content b) (.-content b))]
+                 [bid content])))
+        coll))
+
+(defn- json-array-of-strings [xs]
+  (str "[" (str/join "," (map (fn [s] (str "\"" s "\"")) xs)) "]"))
+
+(defn save-blocks-for-note! [_ctx note-id]
+  (let [ids @editor-state/ids
+        ;; The first block is used as the note title and is not stored in the blocks table
+        body-ids (vec (rest ids))
+        blocks-map @editor-state/blocks]
+    (-> (db/get-blocks-by-note-id note-id)
+        (.then (fn [existing]
+                 (let [existing-ids (to-id-set existing)
+                       existing-content (to-content-map existing)
+                       current-ids (set body-ids)
+                       ;; Diff sets between editor state and database
+                       to-create (remove existing-ids body-ids)
+                       to-delete (remove current-ids existing-ids)
+                       to-update (filter (fn [bid]
+                                           (let [old (get existing-content bid)
+                                                 now (get blocks-map bid "")]
+                                             (not= (str old) (str now))))
+                                         (filter existing-ids body-ids))]
+                   ;; Create blocks using editor blockId as DB primary key to keep FTS and blockIds consistent
+                   (doseq [bid to-create]
+                     (db/create-block note-id (get blocks-map bid "") bid)
+                     (db/update-block-content bid (get blocks-map bid "")))
+                   ;; Update existing blocks
+                   (doseq [bid to-update]
+                     (db/update-block bid (get blocks-map bid ""))
+                     (db/update-block-content bid (get blocks-map bid "")))
+                   ;; Delete removed blocks
+                   (doseq [bid to-delete]
+                     (db/delete-block bid))
+                   ;; Update note.blockIds with editor order
+                   (db/update-note-blocks-synced note-id (json-array-of-strings body-ids))))))))
+                   
+(declare clear-note-editor)
+
+(defn load-note-to-editor! []
+  (let [current (notes/get-current-note)]
+    (if (nil? current)
+      (editor-util/clean)
+      (let [note-id (get current "id")
+            note-title (get current "title" "")]
+        (-> (db/get-blocks-by-note-id note-id)
+            (.then (fn [blocks]
+                     (editor-util/clean)
+                     (let [^uuid/Uuid uuid-instance (uuid/Uuid.)
+                           title-id (.v4 uuid-instance)
+                           block-ids (map (fn [b]
+                                            (or (:id b) (.-id b)))
+                                          blocks)
+                           blocks-map (into {}
+                                            (map (fn [b]
+                                                   (let [bid (or (:id b) (.-id b))
+                                                         content (or (:content b) (.-content b))]
+                                                     [bid content]))
+                                                 blocks))
+                           ;; Create IDs list with title as first block
+                           all-ids (vec (cons title-id block-ids))
+                           ;; Create blocks map with title as first block
+                           all-blocks-map (assoc blocks-map title-id note-title)]
+                       (dart:core/print "0--------------------")
+                       (dart:core/print all-ids)
+                       (dart:core/print all-blocks-map)
+                       (dart:core/print "0--------------------")
+                       ;; Set editor state
+                       (reset! editor-state/ids all-ids)
+                       (reset! editor-state/blocks all-blocks-map)))))))))
+
+(declare clear-note-editor)
+
+(defn save-or-update-note! [ctx]
+  (let [ids @editor-state/ids
+        blocks-map @editor-state/blocks
+        content (build-content-from-blocks ids blocks-map)
+        trimmed (some-> content str/trim)
+        current (notes/get-current-note)
+        ^uuid/Uuid uuid-instance (uuid/Uuid.)]
+    (if (or (nil? trimmed) (empty? trimmed))
+      (toast/show-toast ctx "Please enter a note")
+      (if (nil? current)
+        (let [new-id (.v4 uuid-instance)]
+          (-> (db/create-note-with-content content new-id)
+              (.then (fn [_]
+                       (save-blocks-for-note! ctx new-id)))))
+        (let [note-id (get current "id")]
+          (-> (notes/update-note-with-content! ctx note-id content)
+              (.then (fn [_]
+                       (save-blocks-for-note! ctx note-id)))))))
+    nil))
+
+(defn clear-note-editor []
+  (notes/set-current-note! nil)
+  (editor-util/clean))
