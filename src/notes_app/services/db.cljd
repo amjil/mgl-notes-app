@@ -244,9 +244,9 @@
      (.customSelect
       db
       "SELECT n.*, nfts.content as content FROM notes n 
-        LEFT JOIN (SELECT id, content FROM note_fts WHERE content MATCH ?) 
-                  nfts ON n.id = nfts.id 
+        LEFT JOIN note_fts nfts ON n.id = nfts.id  
         WHERE n.is_deleted = false
+           and n.id in (select id from note_fts where content match ?)
         ORDER BY n.updated_at DESC 
         LIMIT ? OFFSET ?"
       .variables [(d/Variable query) (d/Variable limit) (d/Variable offset)]))))
