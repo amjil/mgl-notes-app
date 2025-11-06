@@ -5,7 +5,6 @@
    [cljd.flutter :as f]
    [notes-app.screens.editor :as editor-screen]
    [notes-app.widgets.mgl-popup-menu :as popup-menu]
-   [notes-app.widgets.mgl-floating-editor :as floating-editor]
    [notes-app.utils.clipboard :as clipboard-utils]
    [notes-app.states.notes :as notes]
    [notes-app.states.ui :as ui]
@@ -13,13 +12,14 @@
    [notes-app.utils.navigator :as navigator]))
 
 ;; Create generic menu item function
-(defn create-note-menu-items [ctx note]
+(defn create-note-menu-items [navigator ctx note]
   [(popup-menu/mongol-menu-item
     {:label "Засах"
      :icon m/Icons.edit
      :on-selected (fn []
                     (notes/set-current-note! note)
-                    (floating-editor/show-floating-editor ctx))})
+                    (note-util/load-note-to-editor!)
+                    (navigator/navigate-to-screen navigator editor-screen/screen))})
    (popup-menu/mongol-menu-item
     {:label "Хуулах"
      :icon m/Icons.copy
@@ -34,8 +34,8 @@
                       (notes/delete-note! global-context (get note "id"))))})])
 
 ;; Function to show popup menu
-(defn show-note-popup-menu [ctx details note]
-  (let [menu-items (create-note-menu-items ctx note)]
+(defn show-note-popup-menu [navigator ctx details note]
+  (let [menu-items (create-note-menu-items navigator ctx note)]
     (popup-menu/show-menu
      {:context ctx
       :items menu-items
@@ -78,7 +78,7 @@
    (m/Column
     .children
     [(popup-menu/mongol-popup-menu-button
-      {:items (create-note-menu-items ctx item)
+      {:items (create-note-menu-items navigator ctx item)
        :on-selected (fn [menu-item]
                       (dart:core/print (str "Menu item selected: " (get menu-item :label))))})
 
@@ -86,7 +86,7 @@
      (m/Expanded
       .child
       (m/GestureDetector
-       .onLongPressStart (fn [details] (show-note-popup-menu ctx details item))
+       .onLongPressStart (fn [details] (show-note-popup-menu navigator ctx details item))
        .onDoubleTap (fn []
                       (dart:core/print (str "Note item double tapped: " note-id))
                       (notes/set-current-note! item)
