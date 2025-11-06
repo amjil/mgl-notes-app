@@ -53,15 +53,3 @@
   "Decode JSON string to data"
   [json-string]
   (convert/jsonDecode json-string)) 
-
-(defn calculate-base-hash
-  "Calculate base_hash value for note content, used for conflict detection"
-  [^String content]
-  (let [normalized-content (-> content
-                               (str/trim)
-                               (str/lower-case)
-                               (str/replace #"\s+" ""))]
-    (-> normalized-content
-        (convert/utf8.encode)
-        (crypto/sha256.convert)
-        (.toString))))

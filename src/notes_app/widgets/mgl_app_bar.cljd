@@ -1,9 +1,9 @@
 (ns notes-app.widgets.mgl-app-bar
   (:require
    ["package:flutter/material.dart" :as m]
-   [cljd.flutter :as f]
    [notes-app.states.ui :as db]
-   [notes-app.utils.navigator :as navigator]))
+   [notes-app.utils.navigator :as navigator]
+   [notes-app.utils.note :as note-utils]))
 
 (defn mgl-app-bar [navigator search-screen]
   (m/AppBar
@@ -23,3 +23,14 @@
    .leading (m/IconButton
              .icon (m/Icon m/Icons.arrow_back)
              .onPressed (fn [] (navigator/navigate-to-back navigator)))))
+
+(defn mgl-editor-app-bar [ctx navigator]
+  (m/AppBar
+   .backgroundColor m/Colors.transparent
+   .leading (m/IconButton
+             .icon (m/Icon m/Icons.arrow_back)
+             .onPressed (fn [] (navigator/navigate-to-back navigator)))
+   .actions [(m/IconButton
+              .icon (m/Icon m/Icons.save)
+              .onPressed (fn []
+                           (note-utils/save-or-update-note! ctx)))]))

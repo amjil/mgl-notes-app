@@ -3,11 +3,14 @@
    ["package:flutter/material.dart" :as m]
    ["package:mongol/mongol.dart" :as mgl]
    [cljd.flutter :as f]
+   [notes-app.screens.editor :as editor-screen]
    [notes-app.widgets.mgl-popup-menu :as popup-menu]
    [notes-app.widgets.mgl-floating-editor :as floating-editor]
    [notes-app.utils.clipboard :as clipboard-utils]
    [notes-app.states.notes :as notes]
-   [notes-app.states.ui :as ui]))
+   [notes-app.states.ui :as ui]
+   [notes-app.utils.note :as note-util]
+   [notes-app.utils.navigator :as navigator]))
 
 ;; Create generic menu item function
 (defn create-note-menu-items [ctx note]
@@ -43,6 +46,7 @@
 (defn note-item [item]
   (f/widget
    :context ctx
+   :get [m/Navigator]
    :let [theme (-> m/Theme (.of ctx))
          color-scheme (.-colorScheme theme)
          is-dark? (= (.-brightness color-scheme) m/Brightness.dark)
@@ -86,10 +90,13 @@
        .onDoubleTap (fn []
                       (dart:core/print (str "Note item double tapped: " note-id))
                       (notes/set-current-note! item)
-                      (floating-editor/show-floating-editor ctx))
+                      (note-util/load-note-to-editor!)
+                      (navigator/navigate-to-screen navigator editor-screen/screen))
        .onTap (fn []
                 (dart:core/print (str "Note item tapped: " note-id))
-                (notes/set-current-note! item))
+                (notes/set-current-note! item)
+                (note-util/load-note-to-editor!)
+                (navigator/navigate-to-screen navigator editor-screen/screen))
        .child
        (mgl/MongolListTile
         .title (when note-title

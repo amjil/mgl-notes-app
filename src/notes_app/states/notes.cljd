@@ -53,9 +53,9 @@
                  (swap! notes-state assoc :notes notes :loading false))))))
 
 ;; Create note
-(defn create-note! [ctx title]
+(defn create-note! [ctx id title]
   (helpers/with-success-toast! ctx notes-state
-    (-> (db/create-note (.v4 uuid-instance) title)
+    (-> (db/create-note id title)
         (.then (fn [success]
                  (when success
                    (load-notes-paginated! ctx 0))
@@ -87,16 +87,12 @@
 ;; Update note with content (4 steps)
 (defn update-note-with-content! [ctx id content & [operation]]
   (let [title (string-utils/extract-title-from-content content)]
-    (helpers/with-success-toast! ctx notes-state
-      (-> (db/update-note-with-content id title content)
-          (.then (fn [_]
-                   (load-notes-paginated! ctx (:current-page @notes-state))
-                   (tags-state/set-note-tags! id (tags-utils/extract-tags content))
-                   (let [note (notes/get-current-note)]
-                     (notes/set-current-note! note))
-                   (when operation
-                     (operation)))))
-      "Тэмдэглэл амжилттай шинэчлэгдлээ")))
+    (-> (db/update-note-with-content id title content)
+        (.then (fn [_]
+                 (load-notes-paginated! ctx (:current-page @notes-state))
+                 (tags-state/set-note-tags! id (tags-utils/extract-tags content))
+                 (when operation
+                   (operation)))))))
 
 ;; Delete note
 (defn delete-note! [ctx id]

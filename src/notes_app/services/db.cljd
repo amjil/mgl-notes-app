@@ -4,7 +4,7 @@
    ["package:cljd_mgl_notes_app/database/database.dart" :as drift]
    ["package:drift/drift.dart" :as d]
    ["package:uuid/uuid.dart" :as uuid]
-   [cljd.dart.isolates :as di]
+   
    [clojure.string :as str]
    [notes-app.utils.string :as string-utils]))
 
@@ -135,7 +135,7 @@
 
 (defn update-note
   "Update note title"
-  [id ^String title & {:keys [base-hash] :or {base-hash nil}}]
+  [id ^String title]
   (let [^drift/AppDatabase db @db
         query (doto (.update db (.-notes db))
                 (.where (fn [^drift/Notes tbl] (.equals (.-id tbl) id))))
@@ -145,7 +145,7 @@
 
 (defn update-note-blocks-synced
   "Update note blocks synchronization status"
-  [id block-ids]
+  [id ^String block-ids]
   (let [^drift/AppDatabase db @db
         query (doto (.update db (.-notes db))
                 (.where (fn [^drift/Notes tbl] (.equals (.-id tbl) id))))
@@ -278,15 +278,17 @@
 
 ;; ===== Blocks db functions =====
 
-(defn create-block [note-id content]
-  (let [id (.v4 uuid-instance)
-        ^drift/AppDatabase db @db]
-    (.insert
-     (.into db (.-blocks db))
-     (drift/BlocksCompanion.insert
-      .id id
-      .noteId note-id
-      .content content))))
+(defn create-block
+  ([note-id content]
+   (create-block note-id content (.v4 uuid-instance)))
+  ([note-id content id]
+   (let [^drift/AppDatabase db @db]
+     (.insert
+      (.into db (.-blocks db))
+      (drift/BlocksCompanion.insert
+       .id id
+       .noteId note-id
+       .content content)))))
 
 (defn get-block-by-id [id]
   (let [^drift/AppDatabase db @db]
@@ -301,16 +303,16 @@
        (.where (fn [^drift/Blocks tbl] (.equals (.-noteId tbl) note-id)))
        (.orderBy [(fn [^drift/Blocks tbl] (d/OrderingTerm. .expression (.-createdAt tbl) .mode d/OrderingMode.asc))])))))
 
-(defn update-block [id content]
+(defn update-block [id ^String content]
   (let [^drift/AppDatabase db @db
         query (doto (.update db (.-blocks db))
                 (.where (fn [^drift/Blocks tbl]
                           (.equals (.-id tbl) id))))
         companion (drift/BlocksCompanion.
-                   .content content)]
+                   .content (d/Value content))]
     (.write query companion)))
 
-(defn update-block-content [id content]
+(defn update-block-content [id ^String content]
   (let [^drift/AppDatabase db @db]
     (.customStatement db
                       "INSERT OR REPLACE INTO blocks_fts (id, content) VALUES (?, ?)"
