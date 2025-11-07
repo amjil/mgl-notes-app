@@ -3,6 +3,7 @@
    ["package:flutter/material.dart" :as m]
    ["package:mongol/mongol.dart" :as mgl]
    [cljd.flutter :as f]
+   [notes-app.widgets.mgl-popup-menu :as popup-menu]
    [notes-app.states.notes :as notes]
    [notes-app.utils.note :as note-util]
    [notes-app.utils.navigator :as navigator]
@@ -68,40 +69,41 @@
                               note-title (or (get note-data "title") "No title")]
                           (m/Container
                            .margin (m/EdgeInsets.symmetric .horizontal 8 .vertical 6)
-                           .child (m/Card
-                                   .color surface-color
-                                   .shape (m/RoundedRectangleBorder
-                                           .borderRadius (m/BorderRadius.circular 12)
-                                           .side (m/BorderSide .color outline-color .width 1))
-                                   .elevation (if is-dark? 2 3)
-                                   .shadowColor shadow-color
-                                   .child (m/InkWell
-                                           .onTap (fn []
-                                                    (-> m/Scaffold (.of ctx) .closeDrawer)
-                                                    (notes/set-current-note! note-data)
-                                                    (note-util/load-note-to-editor!)
-                                                    (navigator/navigate-to-screen navigator "/editor"))
-                                           .borderRadius (m/BorderRadius.circular 12)
-                                           .child (m/Padding
-                                                   .padding (m/EdgeInsets.all 16)
-                                                   .child (m/Column
-                                                           .crossAxisAlignment m/CrossAxisAlignment.start
-                                                           .mainAxisSize m/MainAxisSize.min
-                                                           .children
-                                                           [(m/Row
-                                                             .mainAxisAlignment m/MainAxisAlignment.start
-                                                             .children
-                                                             [(m/Icon m/Icons.star
-                                                                      .size 16
-                                                                      .color primary-color)
-                                                              (m/SizedBox .width 6)])
-                                                            (m/SizedBox .height 8)
-                                                            (mgl/MongolText
-                                                             note-title
-                                                             .maxLines 1
-                                                             .overflow m/TextOverflow.ellipsis
-                                                             .style (m/TextStyle
-                                                                     .fontSize 15
-                                                                     .fontWeight m/FontWeight.w500
-                                                                     .color on-surface-color
-                                                                     .height 1.3))]))))))))))])))
+                           .child
+                           (m/Card
+                            .color surface-color
+                            .shape (m/RoundedRectangleBorder
+                                    .borderRadius (m/BorderRadius.circular 12)
+                                    .side (m/BorderSide .color outline-color .width 1))
+                            .elevation (if is-dark? 2 3)
+                            .shadowColor shadow-color
+                            .child (m/InkWell
+                                    .onTap (fn []
+                                             (-> m/Scaffold (.of ctx) .closeDrawer)
+                                             (notes/set-current-note! note-data)
+                                             (note-util/load-note-to-editor!)
+                                             (navigator/navigate-to-screen navigator "/editor"))
+                                    .borderRadius (m/BorderRadius.circular 12)
+                                    .child (m/Padding
+                                            .padding (m/EdgeInsets.all 16)
+                                            .child (m/Column
+                                                    .crossAxisAlignment m/CrossAxisAlignment.start
+                                                    .mainAxisSize m/MainAxisSize.min
+                                                    .children
+                                                    [(m/Row
+                                                      .mainAxisAlignment m/MainAxisAlignment.start
+                                                      .children
+                                                      [(m/Icon m/Icons.star
+                                                               .size 16
+                                                               .color primary-color)
+                                                       (m/SizedBox .width 6)])
+                                                     (m/SizedBox .height 8)
+                                                     (mgl/MongolText
+                                                      note-title
+                                                      .maxLines 1
+                                                      .overflow m/TextOverflow.ellipsis
+                                                      .style (m/TextStyle
+                                                              .fontSize 15
+                                                              .fontWeight m/FontWeight.w500
+                                                              .color on-surface-color
+                                                              .height 1.3))]))))))))))])))

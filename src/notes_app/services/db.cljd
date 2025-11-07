@@ -71,8 +71,14 @@
     (.get
      (.customSelect
       db
-      "SELECT n.*, nfts.content as content FROM notes n 
+      "SELECT n.*, nfts.content as content, 
+        case 
+         when f.note_id is not null then true 
+         else false 
+        end as favorite
+        FROM notes n 
         LEFT JOIN note_fts nfts ON n.id = nfts.id 
+        LEFT JOIN favorite_notes f ON n.id = f.note_id
         WHERE n.is_deleted = false
         ORDER BY n.updated_at DESC 
         LIMIT ? OFFSET ?"
@@ -596,7 +602,6 @@
   [note-id]
   (let [^drift/AppDatabase db @db]
     (.go
-     (doto (.delete db (.-favoriteNotes db))
+     (doto
+      (.delete db (.-favoriteNotes db))
        (.where (fn [^drift/FavoriteNotes tbl] (.equals (.-noteId tbl) note-id)))))))
-
-

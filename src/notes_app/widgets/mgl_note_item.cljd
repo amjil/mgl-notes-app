@@ -25,10 +25,12 @@
                     (clipboard-utils/set-data ctx (get note "content")))})
    (popup-menu/mongol-menu-item-divider)
    (popup-menu/mongol-menu-item
-    {:label "Favorite"
+    {:label (if (zero? (get note "favorite")) "Favorite" "Unfavorite")
      :icon m/Icons.copy
      :on-selected (fn []
-                    (note-util/set-to-favorite (get note "id")))})
+                    (if (zero? (get note "favorite"))
+                      (note-util/favorite (get note "id"))
+                      (note-util/unfavorite (get note "id"))))})
    (popup-menu/mongol-menu-item-divider)
    (popup-menu/mongol-menu-item
     {:label "Устгах"

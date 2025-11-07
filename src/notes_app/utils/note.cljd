@@ -7,6 +7,7 @@
    [notes-app.services.db :as db]
    [notes-app.utils.toast :as toast]
    [notes-app.utils.navigator :as navigator]
+   [notes-app.utils.state-helpers :as helpers]
    ["package:uuid/uuid.dart" :as uuid]))
 
 
@@ -121,5 +122,18 @@
   (notes/set-current-note! nil)
   (editor-util/clean))
 
-(defn set-to-favorite [id]
-  (db/add-favorite-note id))
+(defn favorite [id]
+  (->
+   (db/add-favorite-note id)
+   (.then (fn [x]
+            (-> (db/get-notes-paginated 0 20)
+                (.then (fn [notes]
+                         (helpers/handle-pagination-result! notes/notes-state 0 notes 20))))))))
+
+(defn unfavorite [id]
+  (->
+   (db/remove-favorite-note id)
+   (.then (fn [x]
+            (-> (db/get-notes-paginated 0 20)
+                (.then (fn [notes]
+                         (helpers/handle-pagination-result! notes/notes-state 0 notes 20))))))))
