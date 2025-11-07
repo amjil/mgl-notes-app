@@ -4,7 +4,7 @@
          :sha "9385be3c88ab6593350fdda50d86af985224971b"}
         amjil/mongol-virtual-keyboard
         {:git/url "https://github.com/amjil/mongol-virtual-keyboard.git"
-         :sha "45db2c9989df0d1733dd36c1a74f199f84e499e7"}
+         :sha "c463242e8225774e9e67eb489fd85272be4fd703"}
         amjil/electric-sync
         {:git/url "https://github.com/amjil/electric-sync"
          :sha "38ebc55014c56bd7120c48b4181934ec37bcfea5"}

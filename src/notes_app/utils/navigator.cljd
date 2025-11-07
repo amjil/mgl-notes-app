@@ -1,12 +1,7 @@
-(ns notes-app.utils.navigator
-  (:require
-   ["package:flutter/material.dart" :as m]
-   [cljd.flutter :as f]))
+(ns notes-app.utils.navigator)
 
-(defn navigate-to-screen [navigator screen]
-  (.push navigator 
-         (#/(m/MaterialPageRoute Object) 
-          .builder (f/build screen))))
+(defn navigate-to-screen [navigator route-name]
+  (.pushNamed navigator route-name))
 
 (defn navigate-to-back [navigator]
   (.pop navigator))

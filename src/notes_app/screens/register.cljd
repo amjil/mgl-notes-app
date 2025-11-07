@@ -8,9 +8,8 @@
    [notes-app.utils.navigator :as navigator]
    [notes-app.utils.toast :as toast]))
 
-(def screen
+(defn ^m/Widget screen [ctx]
   (f/widget
-   :context ctx
    :get [m/Navigator]
    :let [theme (-> m/Theme (.of ctx))
          color-scheme (.-colorScheme theme)
@@ -18,7 +17,12 @@
          password (atom "")
          confirm (atom "")
          submitting (atom false)]
-   (m/Scaffold)
+   (m/Scaffold
+    .appBar (m/AppBar
+             .backgroundColor m/Colors.transparent
+             .leading (m/IconButton
+                       .icon (m/Icon m/Icons.arrow_back)
+                       .onPressed (fn [] (navigator/navigate-to-back navigator)))))
    .body
    (m/SafeArea)
    (m/Center)
@@ -72,7 +76,11 @@
                        .children [(m/SizedBox .width 16 .height 16 .child (m/CircularProgressIndicator .strokeWidth 2 .color (.-onPrimary color-scheme)))
                                   (m/SizedBox .height 8)
                                   (mgl/MongolText "Registering..." .style (m/TextStyle .color (.-onPrimary color-scheme)))])
-                      (mgl/MongolText "Register" .style (m/TextStyle .color (.-onPrimary color-scheme)))))]))))
+                      (mgl/MongolText "Register" .style (m/TextStyle .color (.-onPrimary color-scheme)))))
+            (m/SizedBox .width 12)
+            (m/TextButton
+             .onPressed (fn [] (navigator/navigate-to-screen navigator "/login"))
+             .child (mgl/MongolText "Login" .style (m/TextStyle .color (.-primary color-scheme))))]))))
        (keyboard/keyboard {})])
      (keyboard/candidates nil)])))
 

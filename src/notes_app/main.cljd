@@ -8,8 +8,11 @@
    [virtual-keyboard.keyboard-candidates :as kc]
    [virtual-keyboard.zip-utils :as zip-utils]
    [notes-app.screens.home :as home]
+   [notes-app.screens.login :as login]
+   [notes-app.screens.register :as register]
+   [notes-app.screens.editor :as editor]
+   [notes-app.screens.search :as search]
    [notes-app.services.db :as db]
-   [notes-app.states.ui :as ui]
    [notes-app.theme :as theme]))
 
 ;; Simplified main application entry point
@@ -43,5 +46,10 @@
      .debugShowCheckedModeBanner false
      .theme theme/light-theme
      .darkTheme theme/dark-theme
-     .home home/screen))))
+     .initialRoute "/"
+     .routes {"/" home/screen
+              "/login" login/screen
+              "/register" register/screen
+              "/editor" editor/screen
+              "/search" search/screen}))))
     

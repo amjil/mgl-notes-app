@@ -3,35 +3,32 @@
    ["package:flutter/material.dart" :as m]
    ["package:mongol/mongol.dart" :as mgl]
    [cljd.flutter :as f]
-   [notes-app.screens.editor :as editor-screen]
    [notes-app.widgets.mgl-popup-menu :as popup-menu]
    [notes-app.utils.clipboard :as clipboard-utils]
    [notes-app.states.notes :as notes]
-   [notes-app.states.ui :as ui]
    [notes-app.utils.note :as note-util]
    [notes-app.utils.navigator :as navigator]))
 
 ;; Create generic menu item function
 (defn create-note-menu-items [navigator ctx note]
-  [(popup-menu/mongol-menu-item
+   [(popup-menu/mongol-menu-item
     {:label "Засах"
      :icon m/Icons.edit
      :on-selected (fn []
                     (notes/set-current-note! note)
                     (note-util/load-note-to-editor!)
-                    (navigator/navigate-to-screen navigator editor-screen/screen))})
+                    (navigator/navigate-to-screen navigator "/editor"))})
    (popup-menu/mongol-menu-item
     {:label "Хуулах"
      :icon m/Icons.copy
      :on-selected (fn []
-                    (clipboard-utils/set-data (get note "content")))})
+                    (clipboard-utils/set-data ctx (get note "content")))})
    (popup-menu/mongol-menu-item-divider)
    (popup-menu/mongol-menu-item
     {:label "Устгах"
      :icon m/Icons.delete
      :on-selected (fn []
-                    (let [global-context (.-currentContext (ui/get-scaffold-key))]
-                      (notes/delete-note! global-context (get note "id"))))})])
+                    (notes/delete-note! ctx (get note "id")))})])
 
 ;; Function to show popup menu
 (defn show-note-popup-menu [navigator ctx details note]
@@ -91,12 +88,12 @@
                       (dart:core/print (str "Note item double tapped: " note-id))
                       (notes/set-current-note! item)
                       (note-util/load-note-to-editor!)
-                      (navigator/navigate-to-screen navigator editor-screen/screen))
+                      (navigator/navigate-to-screen navigator "/editor"))
        .onTap (fn []
                 (dart:core/print (str "Note item tapped: " note-id))
                 (notes/set-current-note! item)
                 (note-util/load-note-to-editor!)
-                (navigator/navigate-to-screen navigator editor-screen/screen))
+                (navigator/navigate-to-screen navigator "/editor"))
        .child
        (mgl/MongolListTile
         .title (when note-title

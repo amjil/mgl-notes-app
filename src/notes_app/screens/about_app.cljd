@@ -93,9 +93,8 @@
                            .color (.-onSurfaceVariant color-scheme)))
    color-scheme))
 
-(def screen
+(defn ^m/Widget screen [ctx]
   (f/widget
-   :context ctx
    :get [m/Navigator]
    :let [theme (-> m/Theme (.of ctx))
          color-scheme (.-colorScheme theme)]

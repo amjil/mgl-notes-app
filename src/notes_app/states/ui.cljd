@@ -131,7 +131,3 @@
                   :tag-on-edit false
                   :current-layout "mg"
                   :keyboard-height 0})))
-
-;; Get scaffold key
-(defn get-scaffold-key []
-  scaffold-key) 

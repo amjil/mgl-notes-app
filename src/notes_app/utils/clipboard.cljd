@@ -4,9 +4,8 @@
    [notes-app.utils.toast :as toast]
    [notes-app.states.ui :as ui]))
    
-(defn set-data [text]
-  (let [ctx (.-currentContext (ui/get-scaffold-key))]
-    (->
-     (services/Clipboard.setData (services/ClipboardData. .text text))
-     (.then (fn [x]
-              (toast/handle-success-with-toast ctx "Note copied to clipboard"))))))
+(defn set-data [ctx text]
+  (->
+   (services/Clipboard.setData (services/ClipboardData. .text text))
+   (.then (fn [x]
+            (toast/handle-success-with-toast ctx "Note copied to clipboard")))))

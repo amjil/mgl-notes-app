@@ -6,16 +6,13 @@
    [notes-app.widgets.mgl-app-bar :as mgl-app-bar]
    [notes-app.widgets.mgl-drawer :as mgl-drawer]
    [notes-app.states.ui :as ui]
-   [notes-app.states.notes :as notes]
-   [notes-app.screens.search :as search-screen]
-   [notes-app.screens.editor :as editor-screen]
    [notes-app.utils.navigator :as navigator]
    [notes-app.utils.note :as note-util]))
 
 ;; Main screen component
 ;; Provides the main interface of the application with notes list and FAB
 
-(def screen
+(defn ^m/Widget screen [_]
   (f/widget
    :context ctx
    :get [m/Navigator]
@@ -24,14 +21,14 @@
    (m/Scaffold
     .key ui/scaffold-key
     .backgroundColor (.-surface color-scheme)
-    .appBar (mgl-app-bar/mgl-app-bar navigator search-screen/screen)
+    .appBar (mgl-app-bar/mgl-app-bar navigator "/search")
     .drawer (mgl-drawer/mgl-left-drawer)
     .body (notes-list/notes-list-stream)
     .floatingActionButton (m/FloatingActionButton
                            .onPressed (fn []
                                         (dart:core/print "Floating action button pressed")
                                         (note-util/clear-note-editor)
-                                        (navigator/navigate-to-screen navigator editor-screen/screen))
+                                        (navigator/navigate-to-screen navigator "/editor"))
                            .backgroundColor (.-primary color-scheme)
                            .foregroundColor (.-onPrimary color-scheme)
                            .child (m/Icon m/Icons.add))

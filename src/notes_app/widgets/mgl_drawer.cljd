@@ -3,6 +3,7 @@
    ["package:flutter/material.dart" :as m]
    [notes-app.widgets.mgl-chip :as mgl-chip]
    [notes-app.states.search :as search]
+   [notes-app.utils.navigator :as navigator]
    [cljd.flutter :as f]))
 
 (declare often-used-tags often-search-query)
@@ -10,6 +11,7 @@
 (defn mgl-left-drawer []
   (f/widget
    :context ctx
+   :get [m/Navigator]
    :let [theme (-> m/Theme (.of ctx))
          color-scheme (-> theme .-colorScheme)
          bg-color (-> color-scheme .-primaryContainer)
@@ -38,7 +40,18 @@
                 .icon (m/Icon m/Icons.settings)
                 .onPressed (fn []
                              (dart:core/print "Open Settings")))]))
-     (m/Divider .height 1)])))
+    (m/Divider .height 1)
+    (m/ListTile
+     .leading (m/Icon m/Icons.login)
+     .title (m/Text "Login")
+     .onTap (fn []
+              (navigator/navigate-to-screen navigator "/login")))
+    (m/ListTile
+     .leading (m/Icon m/Icons.app_registration)
+     .title (m/Text "Register")
+     .onTap (fn []
+              (navigator/navigate-to-screen navigator "/register")))
+     ])))
 
 (defn often-used-tags []
   (f/widget
