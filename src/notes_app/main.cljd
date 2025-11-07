@@ -12,6 +12,8 @@
    [notes-app.screens.register :as register]
    [notes-app.screens.editor :as editor]
    [notes-app.screens.search :as search]
+   [notes-app.screens.about-app :as about]
+   [notes-app.screens.help-support :as help]
    [notes-app.services.db :as db]
    [notes-app.theme :as theme]))
 
@@ -51,5 +53,7 @@
               "/login" login/screen
               "/register" register/screen
               "/editor" editor/screen
-              "/search" search/screen}))))
+              "/search" search/screen
+              "/about" about/screen
+              "/help" help/screen}))))
     

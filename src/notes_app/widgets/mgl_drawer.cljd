@@ -61,7 +61,17 @@
              .leading (m/Icon m/Icons.login)
              .title (mgl/MongolText "Register")
              .onTap (fn []
-                      (navigator/navigate-to-screen navigator "/register")))])))
+                      (navigator/navigate-to-screen navigator "/register")))
+            (mgl/MongolListTile
+             .leading (m/Icon m/Icons.info_outline)
+             .title (mgl/MongolText "About")
+             .onTap (fn []
+                      (navigator/navigate-to-screen navigator "/about")))
+            (mgl/MongolListTile
+             .leading (m/Icon m/Icons.help_outline)
+             .title (mgl/MongolText "Help")
+             .onTap (fn []
+                      (navigator/navigate-to-screen navigator "/help")))])))
         (m/Divider .height 1)
         (m/Flexible
          .flex 2
