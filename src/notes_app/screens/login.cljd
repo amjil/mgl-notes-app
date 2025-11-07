@@ -1,0 +1,73 @@
+(ns notes-app.screens.login
+  (:require
+   ["package:flutter/material.dart" :as m]
+   ["package:mongol/mongol.dart" :as mgl]
+   [cljd.flutter :as f]
+   [virtual-keyboard.keyboard :as keyboard]
+   [notes-app.services.auth :as auth]
+   [notes-app.utils.navigator :as navigator]
+   [notes-app.utils.toast :as toast]))
+
+(def screen
+  (f/widget
+   :context ctx
+   :get [m/Navigator]
+   :let [theme (-> m/Theme (.of ctx))
+         color-scheme (.-colorScheme theme)
+         email (atom "")
+         password (atom "")
+         submitting (atom false)]
+   (m/Scaffold)
+   .body
+   (m/SafeArea)
+   (m/Center)
+   (m/Stack
+    .children
+    [(m/Column
+      .mainAxisAlignment m/MainAxisAlignment.spaceAround
+      .children
+      [(m/Expanded
+        .child
+        (m/Padding
+         .padding (m/EdgeInsets.all 16)
+         .child
+         (m/SingleChildScrollView
+          .scrollDirection m/Axis.horizontal
+          .child
+          (m/Row
+           .crossAxisAlignment m/CrossAxisAlignment.stretch
+           .children
+           [(mgl/MongolText "Login")
+            (m/SizedBox .width 18)
+            (mgl/MongolTextField
+             .decoration (m/InputDecoration .labelText "Email")
+             .autofocus true
+             .keyboardType m/TextInputType.emailAddress
+             .onChanged #(reset! email %))
+            (m/SizedBox .width 12)
+            (mgl/MongolTextField
+             .decoration (m/InputDecoration .labelText "Password")
+             .obscureText true
+             .onChanged #(reset! password %))
+            (m/SizedBox .width 24)
+            (m/ElevatedButton
+             .onPressed (fn []
+                          (when (not @submitting)
+                            (reset! submitting true)
+                            (let [ok (auth/login! ctx @email @password)]
+                              (reset! submitting false)
+                              (if ok
+                                (do (toast/show-toast ctx "Login successful" :success)
+                                    (navigator/navigate-to-back navigator))
+                                (toast/show-toast ctx "Login failed" :error)))))
+             .child (if @submitting
+                      (m/Column
+                       .mainAxisAlignment m/MainAxisAlignment.center
+                       .children [(m/SizedBox .width 16 .height 16 .child (m/CircularProgressIndicator .strokeWidth 2 .color (.-onPrimary color-scheme)))
+                                  (m/SizedBox .height 8)
+                                  (mgl/MongolText "Logging in..." .style (m/TextStyle .color (.-onPrimary color-scheme)))])
+                      (mgl/MongolText "Login" .style (m/TextStyle .color (.-onPrimary color-scheme)))))]))))
+       (keyboard/keyboard {})])
+     (keyboard/candidates nil)])))
+
+

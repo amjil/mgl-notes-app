@@ -1,0 +1,54 @@
+(ns notes-app.services.auth
+  (:require
+   [notes-app.utils.toast :as toast]))
+
+;; Description:
+;; This service acts as an adapter layer for electric-sync. Replace the stubbed
+;; implementations below with real electric-sync calls when available.
+;; Example:
+;; (ns notes-app.services.auth
+;;   (:require [electric-sync.core :as es]))
+;; And then call (es/login! email password) / (es/register! email password) below.
+
+(defn ^:private valid-email? [s]
+  (and (string? s)
+       (re-find #"^[^@\s]+@[^@\s]+\.[^@\s]+$" s)))
+
+(defn ^:private valid-password? [s]
+  (and (string? s)
+       (>= (count s) 6)))
+
+(defn login! [ctx email password]
+  (cond
+    (not (valid-email? email))
+    (toast/show-toast ctx "Invalid email format" :error)
+
+    (not (valid-password? password))
+    (toast/show-toast ctx "Password must be at least 6 characters" :warning)
+
+    :else
+    (do
+      ;; TODO: Replace with electric-sync login call
+      ;; Example: (await (es/login! email password))
+      (dart:core/print (str "[auth] login using electric-sync: " email))
+      true)))
+
+(defn register! [ctx email password confirm]
+  (cond
+    (not (valid-email? email))
+    (do (toast/show-toast ctx "Invalid email format" :error) false)
+
+    (not (valid-password? password))
+    (toast/show-toast ctx "Password must be at least 6 characters" :warning)
+
+    (not= password confirm)
+    (toast/show-toast ctx "Passwords do not match" :warning)
+
+    :else
+    (do
+      ;; TODO: Replace with electric-sync register call
+      ;; Example: (await (es/register! email password))
+      (dart:core/print (str "[auth] register using electric-sync: " email))
+      true)))
+
+
