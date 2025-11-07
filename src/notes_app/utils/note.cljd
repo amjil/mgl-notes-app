@@ -91,10 +91,6 @@
                            all-ids (vec (cons title-id block-ids))
                            ;; Create blocks map with title as first block
                            all-blocks-map (assoc blocks-map title-id note-title)]
-                       (dart:core/print "0--------------------")
-                       (dart:core/print all-ids)
-                       (dart:core/print all-blocks-map)
-                       (dart:core/print "0--------------------")
                        ;; Set editor state
                        (reset! editor-state/ids all-ids)
                        (reset! editor-state/blocks all-blocks-map)))))))))
