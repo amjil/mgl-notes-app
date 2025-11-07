@@ -11,7 +11,7 @@
 
 ;; Create generic menu item function
 (defn create-note-menu-items [navigator ctx note]
-   [(popup-menu/mongol-menu-item
+  [(popup-menu/mongol-menu-item
     {:label "Засах"
      :icon m/Icons.edit
      :on-selected (fn []
@@ -23,6 +23,12 @@
      :icon m/Icons.copy
      :on-selected (fn []
                     (clipboard-utils/set-data ctx (get note "content")))})
+   (popup-menu/mongol-menu-item-divider)
+   (popup-menu/mongol-menu-item
+    {:label "Favorite"
+     :icon m/Icons.copy
+     :on-selected (fn []
+                    (note-util/set-to-favorite (get note "id")))})
    (popup-menu/mongol-menu-item-divider)
    (popup-menu/mongol-menu-item
     {:label "Устгах"

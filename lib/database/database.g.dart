@@ -1585,6 +1585,273 @@ class NoteTagsCompanion extends UpdateCompanion<NoteTag> {
   }
 }
 
+class $FavoriteNotesTable extends FavoriteNotes
+    with TableInfo<$FavoriteNotesTable, FavoriteNote> {
+  @override
+  final GeneratedDatabase attachedDatabase;
+  final String? _alias;
+  $FavoriteNotesTable(this.attachedDatabase, [this._alias]);
+  static const VerificationMeta _userIdMeta = const VerificationMeta('userId');
+  @override
+  late final GeneratedColumn<String> userId = GeneratedColumn<String>(
+    'user_id',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _noteIdMeta = const VerificationMeta('noteId');
+  @override
+  late final GeneratedColumn<String> noteId = GeneratedColumn<String>(
+    'note_id',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+    defaultConstraints: GeneratedColumn.constraintIsAlways(
+      'REFERENCES notes (id) ON DELETE CASCADE',
+    ),
+  );
+  static const VerificationMeta _createdAtMeta = const VerificationMeta(
+    'createdAt',
+  );
+  @override
+  late final GeneratedColumn<DateTime> createdAt = GeneratedColumn<DateTime>(
+    'created_at',
+    aliasedName,
+    false,
+    type: DriftSqlType.dateTime,
+    requiredDuringInsert: false,
+    defaultValue: currentDateAndTime,
+  );
+  @override
+  List<GeneratedColumn> get $columns => [userId, noteId, createdAt];
+  @override
+  String get aliasedName => _alias ?? actualTableName;
+  @override
+  String get actualTableName => $name;
+  static const String $name = 'favorite_notes';
+  @override
+  VerificationContext validateIntegrity(
+    Insertable<FavoriteNote> instance, {
+    bool isInserting = false,
+  }) {
+    final context = VerificationContext();
+    final data = instance.toColumns(true);
+    if (data.containsKey('user_id')) {
+      context.handle(
+        _userIdMeta,
+        userId.isAcceptableOrUnknown(data['user_id']!, _userIdMeta),
+      );
+    }
+    if (data.containsKey('note_id')) {
+      context.handle(
+        _noteIdMeta,
+        noteId.isAcceptableOrUnknown(data['note_id']!, _noteIdMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_noteIdMeta);
+    }
+    if (data.containsKey('created_at')) {
+      context.handle(
+        _createdAtMeta,
+        createdAt.isAcceptableOrUnknown(data['created_at']!, _createdAtMeta),
+      );
+    }
+    return context;
+  }
+
+  @override
+  Set<GeneratedColumn> get $primaryKey => {noteId};
+  @override
+  FavoriteNote map(Map<String, dynamic> data, {String? tablePrefix}) {
+    final effectivePrefix = tablePrefix != null ? '$tablePrefix.' : '';
+    return FavoriteNote(
+      userId: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}user_id'],
+      ),
+      noteId: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}note_id'],
+      )!,
+      createdAt: attachedDatabase.typeMapping.read(
+        DriftSqlType.dateTime,
+        data['${effectivePrefix}created_at'],
+      )!,
+    );
+  }
+
+  @override
+  $FavoriteNotesTable createAlias(String alias) {
+    return $FavoriteNotesTable(attachedDatabase, alias);
+  }
+}
+
+class FavoriteNote extends DataClass implements Insertable<FavoriteNote> {
+  final String? userId;
+  final String noteId;
+  final DateTime createdAt;
+  const FavoriteNote({
+    this.userId,
+    required this.noteId,
+    required this.createdAt,
+  });
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    if (!nullToAbsent || userId != null) {
+      map['user_id'] = Variable<String>(userId);
+    }
+    map['note_id'] = Variable<String>(noteId);
+    map['created_at'] = Variable<DateTime>(createdAt);
+    return map;
+  }
+
+  FavoriteNotesCompanion toCompanion(bool nullToAbsent) {
+    return FavoriteNotesCompanion(
+      userId: userId == null && nullToAbsent
+          ? const Value.absent()
+          : Value(userId),
+      noteId: Value(noteId),
+      createdAt: Value(createdAt),
+    );
+  }
+
+  factory FavoriteNote.fromJson(
+    Map<String, dynamic> json, {
+    ValueSerializer? serializer,
+  }) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return FavoriteNote(
+      userId: serializer.fromJson<String?>(json['userId']),
+      noteId: serializer.fromJson<String>(json['noteId']),
+      createdAt: serializer.fromJson<DateTime>(json['createdAt']),
+    );
+  }
+  @override
+  Map<String, dynamic> toJson({ValueSerializer? serializer}) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return <String, dynamic>{
+      'userId': serializer.toJson<String?>(userId),
+      'noteId': serializer.toJson<String>(noteId),
+      'createdAt': serializer.toJson<DateTime>(createdAt),
+    };
+  }
+
+  FavoriteNote copyWith({
+    Value<String?> userId = const Value.absent(),
+    String? noteId,
+    DateTime? createdAt,
+  }) => FavoriteNote(
+    userId: userId.present ? userId.value : this.userId,
+    noteId: noteId ?? this.noteId,
+    createdAt: createdAt ?? this.createdAt,
+  );
+  FavoriteNote copyWithCompanion(FavoriteNotesCompanion data) {
+    return FavoriteNote(
+      userId: data.userId.present ? data.userId.value : this.userId,
+      noteId: data.noteId.present ? data.noteId.value : this.noteId,
+      createdAt: data.createdAt.present ? data.createdAt.value : this.createdAt,
+    );
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('FavoriteNote(')
+          ..write('userId: $userId, ')
+          ..write('noteId: $noteId, ')
+          ..write('createdAt: $createdAt')
+          ..write(')'))
+        .toString();
+  }
+
+  @override
+  int get hashCode => Object.hash(userId, noteId, createdAt);
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      (other is FavoriteNote &&
+          other.userId == this.userId &&
+          other.noteId == this.noteId &&
+          other.createdAt == this.createdAt);
+}
+
+class FavoriteNotesCompanion extends UpdateCompanion<FavoriteNote> {
+  final Value<String?> userId;
+  final Value<String> noteId;
+  final Value<DateTime> createdAt;
+  final Value<int> rowid;
+  const FavoriteNotesCompanion({
+    this.userId = const Value.absent(),
+    this.noteId = const Value.absent(),
+    this.createdAt = const Value.absent(),
+    this.rowid = const Value.absent(),
+  });
+  FavoriteNotesCompanion.insert({
+    this.userId = const Value.absent(),
+    required String noteId,
+    this.createdAt = const Value.absent(),
+    this.rowid = const Value.absent(),
+  }) : noteId = Value(noteId);
+  static Insertable<FavoriteNote> custom({
+    Expression<String>? userId,
+    Expression<String>? noteId,
+    Expression<DateTime>? createdAt,
+    Expression<int>? rowid,
+  }) {
+    return RawValuesInsertable({
+      if (userId != null) 'user_id': userId,
+      if (noteId != null) 'note_id': noteId,
+      if (createdAt != null) 'created_at': createdAt,
+      if (rowid != null) 'rowid': rowid,
+    });
+  }
+
+  FavoriteNotesCompanion copyWith({
+    Value<String?>? userId,
+    Value<String>? noteId,
+    Value<DateTime>? createdAt,
+    Value<int>? rowid,
+  }) {
+    return FavoriteNotesCompanion(
+      userId: userId ?? this.userId,
+      noteId: noteId ?? this.noteId,
+      createdAt: createdAt ?? this.createdAt,
+      rowid: rowid ?? this.rowid,
+    );
+  }
+
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    if (userId.present) {
+      map['user_id'] = Variable<String>(userId.value);
+    }
+    if (noteId.present) {
+      map['note_id'] = Variable<String>(noteId.value);
+    }
+    if (createdAt.present) {
+      map['created_at'] = Variable<DateTime>(createdAt.value);
+    }
+    if (rowid.present) {
+      map['rowid'] = Variable<int>(rowid.value);
+    }
+    return map;
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('FavoriteNotesCompanion(')
+          ..write('userId: $userId, ')
+          ..write('noteId: $noteId, ')
+          ..write('createdAt: $createdAt, ')
+          ..write('rowid: $rowid')
+          ..write(')'))
+        .toString();
+  }
+}
+
 abstract class _$AppDatabase extends GeneratedDatabase {
   _$AppDatabase(QueryExecutor e) : super(e);
   $AppDatabaseManager get managers => $AppDatabaseManager(this);
@@ -1592,6 +1859,7 @@ abstract class _$AppDatabase extends GeneratedDatabase {
   late final $BlocksTable blocks = $BlocksTable(this);
   late final $TagsTable tags = $TagsTable(this);
   late final $NoteTagsTable noteTags = $NoteTagsTable(this);
+  late final $FavoriteNotesTable favoriteNotes = $FavoriteNotesTable(this);
   @override
   Iterable<TableInfo<Table, Object?>> get allTables =>
       allSchemaEntities.whereType<TableInfo<Table, Object?>>();
@@ -1601,6 +1869,7 @@ abstract class _$AppDatabase extends GeneratedDatabase {
     blocks,
     tags,
     noteTags,
+    favoriteNotes,
   ];
   @override
   StreamQueryUpdateRules get streamUpdateRules => const StreamQueryUpdateRules([
@@ -1624,6 +1893,13 @@ abstract class _$AppDatabase extends GeneratedDatabase {
         limitUpdateKind: UpdateKind.delete,
       ),
       result: [TableUpdate('note_tags', kind: UpdateKind.delete)],
+    ),
+    WritePropagation(
+      on: TableUpdateQuery.onTableName(
+        'notes',
+        limitUpdateKind: UpdateKind.delete,
+      ),
+      result: [TableUpdate('favorite_notes', kind: UpdateKind.delete)],
     ),
   ]);
 }
@@ -1694,6 +1970,24 @@ final class $$NotesTableReferences
     ).filter((f) => f.noteId.id.sqlEquals($_itemColumn<String>('id')!));
 
     final cache = $_typedResult.readTableOrNull(_noteTagsRefsTable($_db));
+    return ProcessedTableManager(
+      manager.$state.copyWith(prefetchedData: cache),
+    );
+  }
+
+  static MultiTypedResultKey<$FavoriteNotesTable, List<FavoriteNote>>
+  _favoriteNotesRefsTable(_$AppDatabase db) => MultiTypedResultKey.fromTable(
+    db.favoriteNotes,
+    aliasName: $_aliasNameGenerator(db.notes.id, db.favoriteNotes.noteId),
+  );
+
+  $$FavoriteNotesTableProcessedTableManager get favoriteNotesRefs {
+    final manager = $$FavoriteNotesTableTableManager(
+      $_db,
+      $_db.favoriteNotes,
+    ).filter((f) => f.noteId.id.sqlEquals($_itemColumn<String>('id')!));
+
+    final cache = $_typedResult.readTableOrNull(_favoriteNotesRefsTable($_db));
     return ProcessedTableManager(
       manager.$state.copyWith(prefetchedData: cache),
     );
@@ -1799,6 +2093,31 @@ class $$NotesTableFilterComposer extends Composer<_$AppDatabase, $NotesTable> {
           }) => $$NoteTagsTableFilterComposer(
             $db: $db,
             $table: $db.noteTags,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return f(composer);
+  }
+
+  Expression<bool> favoriteNotesRefs(
+    Expression<bool> Function($$FavoriteNotesTableFilterComposer f) f,
+  ) {
+    final $$FavoriteNotesTableFilterComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.id,
+      referencedTable: $db.favoriteNotes,
+      getReferencedColumn: (t) => t.noteId,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$FavoriteNotesTableFilterComposer(
+            $db: $db,
+            $table: $db.favoriteNotes,
             $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
             joinBuilder: joinBuilder,
             $removeJoinBuilderFromRootComposer:
@@ -1959,6 +2278,31 @@ class $$NotesTableAnnotationComposer
     );
     return f(composer);
   }
+
+  Expression<T> favoriteNotesRefs<T extends Object>(
+    Expression<T> Function($$FavoriteNotesTableAnnotationComposer a) f,
+  ) {
+    final $$FavoriteNotesTableAnnotationComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.id,
+      referencedTable: $db.favoriteNotes,
+      getReferencedColumn: (t) => t.noteId,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$FavoriteNotesTableAnnotationComposer(
+            $db: $db,
+            $table: $db.favoriteNotes,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return f(composer);
+  }
 }
 
 class $$NotesTableTableManager
@@ -1974,7 +2318,11 @@ class $$NotesTableTableManager
           $$NotesTableUpdateCompanionBuilder,
           (Note, $$NotesTableReferences),
           Note,
-          PrefetchHooks Function({bool blocksRefs, bool noteTagsRefs})
+          PrefetchHooks Function({
+            bool blocksRefs,
+            bool noteTagsRefs,
+            bool favoriteNotesRefs,
+          })
         > {
   $$NotesTableTableManager(_$AppDatabase db, $NotesTable table)
     : super(
@@ -2045,43 +2393,77 @@ class $$NotesTableTableManager
                     (e.readTable(table), $$NotesTableReferences(db, table, e)),
               )
               .toList(),
-          prefetchHooksCallback: ({blocksRefs = false, noteTagsRefs = false}) {
-            return PrefetchHooks(
-              db: db,
-              explicitlyWatchedTables: [
-                if (blocksRefs) db.blocks,
-                if (noteTagsRefs) db.noteTags,
-              ],
-              addJoins: null,
-              getPrefetchedDataCallback: (items) async {
-                return [
-                  if (blocksRefs)
-                    await $_getPrefetchedData<Note, $NotesTable, Block>(
-                      currentTable: table,
-                      referencedTable: $$NotesTableReferences._blocksRefsTable(
-                        db,
-                      ),
-                      managerFromTypedResult: (p0) =>
-                          $$NotesTableReferences(db, table, p0).blocksRefs,
-                      referencedItemsForCurrentItem: (item, referencedItems) =>
-                          referencedItems.where((e) => e.noteId == item.id),
-                      typedResults: items,
-                    ),
-                  if (noteTagsRefs)
-                    await $_getPrefetchedData<Note, $NotesTable, NoteTag>(
-                      currentTable: table,
-                      referencedTable: $$NotesTableReferences
-                          ._noteTagsRefsTable(db),
-                      managerFromTypedResult: (p0) =>
-                          $$NotesTableReferences(db, table, p0).noteTagsRefs,
-                      referencedItemsForCurrentItem: (item, referencedItems) =>
-                          referencedItems.where((e) => e.noteId == item.id),
-                      typedResults: items,
-                    ),
-                ];
+          prefetchHooksCallback:
+              ({
+                blocksRefs = false,
+                noteTagsRefs = false,
+                favoriteNotesRefs = false,
+              }) {
+                return PrefetchHooks(
+                  db: db,
+                  explicitlyWatchedTables: [
+                    if (blocksRefs) db.blocks,
+                    if (noteTagsRefs) db.noteTags,
+                    if (favoriteNotesRefs) db.favoriteNotes,
+                  ],
+                  addJoins: null,
+                  getPrefetchedDataCallback: (items) async {
+                    return [
+                      if (blocksRefs)
+                        await $_getPrefetchedData<Note, $NotesTable, Block>(
+                          currentTable: table,
+                          referencedTable: $$NotesTableReferences
+                              ._blocksRefsTable(db),
+                          managerFromTypedResult: (p0) =>
+                              $$NotesTableReferences(db, table, p0).blocksRefs,
+                          referencedItemsForCurrentItem:
+                              (item, referencedItems) => referencedItems.where(
+                                (e) => e.noteId == item.id,
+                              ),
+                          typedResults: items,
+                        ),
+                      if (noteTagsRefs)
+                        await $_getPrefetchedData<Note, $NotesTable, NoteTag>(
+                          currentTable: table,
+                          referencedTable: $$NotesTableReferences
+                              ._noteTagsRefsTable(db),
+                          managerFromTypedResult: (p0) =>
+                              $$NotesTableReferences(
+                                db,
+                                table,
+                                p0,
+                              ).noteTagsRefs,
+                          referencedItemsForCurrentItem:
+                              (item, referencedItems) => referencedItems.where(
+                                (e) => e.noteId == item.id,
+                              ),
+                          typedResults: items,
+                        ),
+                      if (favoriteNotesRefs)
+                        await $_getPrefetchedData<
+                          Note,
+                          $NotesTable,
+                          FavoriteNote
+                        >(
+                          currentTable: table,
+                          referencedTable: $$NotesTableReferences
+                              ._favoriteNotesRefsTable(db),
+                          managerFromTypedResult: (p0) =>
+                              $$NotesTableReferences(
+                                db,
+                                table,
+                                p0,
+                              ).favoriteNotesRefs,
+                          referencedItemsForCurrentItem:
+                              (item, referencedItems) => referencedItems.where(
+                                (e) => e.noteId == item.id,
+                              ),
+                          typedResults: items,
+                        ),
+                    ];
+                  },
+                );
               },
-            );
-          },
         ),
       );
 }
@@ -2098,7 +2480,11 @@ typedef $$NotesTableProcessedTableManager =
       $$NotesTableUpdateCompanionBuilder,
       (Note, $$NotesTableReferences),
       Note,
-      PrefetchHooks Function({bool blocksRefs, bool noteTagsRefs})
+      PrefetchHooks Function({
+        bool blocksRefs,
+        bool noteTagsRefs,
+        bool favoriteNotesRefs,
+      })
     >;
 typedef $$BlocksTableCreateCompanionBuilder =
     BlocksCompanion Function({
@@ -3074,6 +3460,290 @@ typedef $$NoteTagsTableProcessedTableManager =
       NoteTag,
       PrefetchHooks Function({bool noteId, bool tagId})
     >;
+typedef $$FavoriteNotesTableCreateCompanionBuilder =
+    FavoriteNotesCompanion Function({
+      Value<String?> userId,
+      required String noteId,
+      Value<DateTime> createdAt,
+      Value<int> rowid,
+    });
+typedef $$FavoriteNotesTableUpdateCompanionBuilder =
+    FavoriteNotesCompanion Function({
+      Value<String?> userId,
+      Value<String> noteId,
+      Value<DateTime> createdAt,
+      Value<int> rowid,
+    });
+
+final class $$FavoriteNotesTableReferences
+    extends BaseReferences<_$AppDatabase, $FavoriteNotesTable, FavoriteNote> {
+  $$FavoriteNotesTableReferences(
+    super.$_db,
+    super.$_table,
+    super.$_typedResult,
+  );
+
+  static $NotesTable _noteIdTable(_$AppDatabase db) => db.notes.createAlias(
+    $_aliasNameGenerator(db.favoriteNotes.noteId, db.notes.id),
+  );
+
+  $$NotesTableProcessedTableManager get noteId {
+    final $_column = $_itemColumn<String>('note_id')!;
+
+    final manager = $$NotesTableTableManager(
+      $_db,
+      $_db.notes,
+    ).filter((f) => f.id.sqlEquals($_column));
+    final item = $_typedResult.readTableOrNull(_noteIdTable($_db));
+    if (item == null) return manager;
+    return ProcessedTableManager(
+      manager.$state.copyWith(prefetchedData: [item]),
+    );
+  }
+}
+
+class $$FavoriteNotesTableFilterComposer
+    extends Composer<_$AppDatabase, $FavoriteNotesTable> {
+  $$FavoriteNotesTableFilterComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnFilters<String> get userId => $composableBuilder(
+    column: $table.userId,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<DateTime> get createdAt => $composableBuilder(
+    column: $table.createdAt,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  $$NotesTableFilterComposer get noteId {
+    final $$NotesTableFilterComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.noteId,
+      referencedTable: $db.notes,
+      getReferencedColumn: (t) => t.id,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$NotesTableFilterComposer(
+            $db: $db,
+            $table: $db.notes,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return composer;
+  }
+}
+
+class $$FavoriteNotesTableOrderingComposer
+    extends Composer<_$AppDatabase, $FavoriteNotesTable> {
+  $$FavoriteNotesTableOrderingComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnOrderings<String> get userId => $composableBuilder(
+    column: $table.userId,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<DateTime> get createdAt => $composableBuilder(
+    column: $table.createdAt,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  $$NotesTableOrderingComposer get noteId {
+    final $$NotesTableOrderingComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.noteId,
+      referencedTable: $db.notes,
+      getReferencedColumn: (t) => t.id,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$NotesTableOrderingComposer(
+            $db: $db,
+            $table: $db.notes,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return composer;
+  }
+}
+
+class $$FavoriteNotesTableAnnotationComposer
+    extends Composer<_$AppDatabase, $FavoriteNotesTable> {
+  $$FavoriteNotesTableAnnotationComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  GeneratedColumn<String> get userId =>
+      $composableBuilder(column: $table.userId, builder: (column) => column);
+
+  GeneratedColumn<DateTime> get createdAt =>
+      $composableBuilder(column: $table.createdAt, builder: (column) => column);
+
+  $$NotesTableAnnotationComposer get noteId {
+    final $$NotesTableAnnotationComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.noteId,
+      referencedTable: $db.notes,
+      getReferencedColumn: (t) => t.id,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$NotesTableAnnotationComposer(
+            $db: $db,
+            $table: $db.notes,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return composer;
+  }
+}
+
+class $$FavoriteNotesTableTableManager
+    extends
+        RootTableManager<
+          _$AppDatabase,
+          $FavoriteNotesTable,
+          FavoriteNote,
+          $$FavoriteNotesTableFilterComposer,
+          $$FavoriteNotesTableOrderingComposer,
+          $$FavoriteNotesTableAnnotationComposer,
+          $$FavoriteNotesTableCreateCompanionBuilder,
+          $$FavoriteNotesTableUpdateCompanionBuilder,
+          (FavoriteNote, $$FavoriteNotesTableReferences),
+          FavoriteNote,
+          PrefetchHooks Function({bool noteId})
+        > {
+  $$FavoriteNotesTableTableManager(_$AppDatabase db, $FavoriteNotesTable table)
+    : super(
+        TableManagerState(
+          db: db,
+          table: table,
+          createFilteringComposer: () =>
+              $$FavoriteNotesTableFilterComposer($db: db, $table: table),
+          createOrderingComposer: () =>
+              $$FavoriteNotesTableOrderingComposer($db: db, $table: table),
+          createComputedFieldComposer: () =>
+              $$FavoriteNotesTableAnnotationComposer($db: db, $table: table),
+          updateCompanionCallback:
+              ({
+                Value<String?> userId = const Value.absent(),
+                Value<String> noteId = const Value.absent(),
+                Value<DateTime> createdAt = const Value.absent(),
+                Value<int> rowid = const Value.absent(),
+              }) => FavoriteNotesCompanion(
+                userId: userId,
+                noteId: noteId,
+                createdAt: createdAt,
+                rowid: rowid,
+              ),
+          createCompanionCallback:
+              ({
+                Value<String?> userId = const Value.absent(),
+                required String noteId,
+                Value<DateTime> createdAt = const Value.absent(),
+                Value<int> rowid = const Value.absent(),
+              }) => FavoriteNotesCompanion.insert(
+                userId: userId,
+                noteId: noteId,
+                createdAt: createdAt,
+                rowid: rowid,
+              ),
+          withReferenceMapper: (p0) => p0
+              .map(
+                (e) => (
+                  e.readTable(table),
+                  $$FavoriteNotesTableReferences(db, table, e),
+                ),
+              )
+              .toList(),
+          prefetchHooksCallback: ({noteId = false}) {
+            return PrefetchHooks(
+              db: db,
+              explicitlyWatchedTables: [],
+              addJoins:
+                  <
+                    T extends TableManagerState<
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic
+                    >
+                  >(state) {
+                    if (noteId) {
+                      state =
+                          state.withJoin(
+                                currentTable: table,
+                                currentColumn: table.noteId,
+                                referencedTable: $$FavoriteNotesTableReferences
+                                    ._noteIdTable(db),
+                                referencedColumn: $$FavoriteNotesTableReferences
+                                    ._noteIdTable(db)
+                                    .id,
+                              )
+                              as T;
+                    }
+
+                    return state;
+                  },
+              getPrefetchedDataCallback: (items) async {
+                return [];
+              },
+            );
+          },
+        ),
+      );
+}
+
+typedef $$FavoriteNotesTableProcessedTableManager =
+    ProcessedTableManager<
+      _$AppDatabase,
+      $FavoriteNotesTable,
+      FavoriteNote,
+      $$FavoriteNotesTableFilterComposer,
+      $$FavoriteNotesTableOrderingComposer,
+      $$FavoriteNotesTableAnnotationComposer,
+      $$FavoriteNotesTableCreateCompanionBuilder,
+      $$FavoriteNotesTableUpdateCompanionBuilder,
+      (FavoriteNote, $$FavoriteNotesTableReferences),
+      FavoriteNote,
+      PrefetchHooks Function({bool noteId})
+    >;
 
 class $AppDatabaseManager {
   final _$AppDatabase _db;
@@ -3085,4 +3755,6 @@ class $AppDatabaseManager {
   $$TagsTableTableManager get tags => $$TagsTableTableManager(_db, _db.tags);
   $$NoteTagsTableTableManager get noteTags =>
       $$NoteTagsTableTableManager(_db, _db.noteTags);
+  $$FavoriteNotesTableTableManager get favoriteNotes =>
+      $$FavoriteNotesTableTableManager(_db, _db.favoriteNotes);
 }

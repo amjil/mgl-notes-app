@@ -1,12 +1,10 @@
 (ns notes-app.widgets.mgl-drawer
   (:require
    ["package:flutter/material.dart" :as m]
-   [notes-app.widgets.mgl-chip :as mgl-chip]
-   [notes-app.states.search :as search]
+   ["package:mongol/mongol.dart" :as mgl]
    [notes-app.utils.navigator :as navigator]
+   [notes-app.services.db :as db]
    [cljd.flutter :as f]))
-
-(declare often-used-tags often-search-query)
 
 (defn mgl-left-drawer []
   (f/widget
@@ -40,35 +38,56 @@
                 .icon (m/Icon m/Icons.settings)
                 .onPressed (fn []
                              (dart:core/print "Open Settings")))]))
-    (m/Divider .height 1)
-    (m/ListTile
-     .leading (m/Icon m/Icons.login)
-     .title (m/Text "Login")
-     .onTap (fn []
-              (navigator/navigate-to-screen navigator "/login")))
-    (m/ListTile
-     .leading (m/Icon m/Icons.app_registration)
-     .title (m/Text "Register")
-     .onTap (fn []
-              (navigator/navigate-to-screen navigator "/register")))
-     ])))
-
-(defn often-used-tags []
-  (f/widget
-   :watch [{often-used-tags :often-used-tags} search/search-state]
-   (m/Wrap
-    .direction m/Axis.vertical
-    .spacing 8
-    .children (map (fn [s]
-                     (mgl-chip/mgl-chip s #(dart:core/print (str "suggestion: " s))))
-                   often-used-tags))))
-              
-(defn often-search-query []
-  (f/widget
-   :watch [{often-search-queries :often-search-queries} search/search-state]
-   (m/Wrap
-    .direction m/Axis.vertical
-    .spacing 8
-    .children (map (fn [s]
-                     (mgl-chip/mgl-chip s #(dart:core/print (str "suggestion: " s))))
-                   often-search-queries))))
+     (m/Divider .height 1)
+     (m/Expanded
+      .child
+      (m/Column
+       .children
+       [(m/Flexible
+         .flex 1
+         .child
+         (m/SingleChildScrollView
+          .scrollDirection m/Axis.horizontal
+          .child
+          (m/Row
+           .mainAxisAlignment m/MainAxisAlignment.start
+           .children
+           [(mgl/MongolListTile
+             .leading (m/Icon m/Icons.login)
+             .title (mgl/MongolText "Login")
+             .onTap (fn []
+                      (navigator/navigate-to-screen navigator "/login")))
+            (mgl/MongolListTile
+             .leading (m/Icon m/Icons.login)
+             .title (mgl/MongolText "Register")
+             .onTap (fn []
+                      (navigator/navigate-to-screen navigator "/register")))])))
+        (m/Divider .height 1)
+        (m/Flexible
+         .flex 2
+         .child
+         (f/widget
+          :context ctx
+          :watch [favorite-notes
+                  (stream
+                   (map (fn [notes] notes))
+                   (map (fn [[er st]] []))
+                   :as-values (db/get-favorite-notes))
+                  :default []]
+          (if (empty? favorite-notes)
+            (m/Center
+             .child (mgl/MongolText "No favorite notes"
+                                    .style (m/TextStyle
+                                            .fontSize 14
+                                            .color (-> (m/Theme.of ctx) .-colorScheme .-onSurfaceVariant))))
+            (m/ListView.builder
+             .scrollDirection m/Axis.horizontal
+             .itemCount (count favorite-notes)
+             .itemBuilder (fn [_ index]
+                            (let [note (nth favorite-notes index)]
+                              (m/Container
+                               .padding (m/EdgeInsets.symmetric .horizontal 8 .vertical 4)
+                               .child (mgl/MongolText (or (get (.-data note) "title") "No title")
+                                                      .style (m/TextStyle
+                                                              .fontSize 14
+                                                              .color (-> (m/Theme.of ctx) .-colorScheme .-onSurface))))))))))]))])))

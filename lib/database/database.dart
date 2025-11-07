@@ -58,19 +58,30 @@ class NoteTags extends Table {
   Set<Column> get primaryKey => {noteId, tagId};
 }
 
+// Favorite notes table
+class FavoriteNotes extends Table {
+  TextColumn get userId => text().nullable()();
+  TextColumn get noteId => text().references(Notes, #id, onDelete: KeyAction.cascade)();
+  DateTimeColumn get createdAt => dateTime().withDefault(currentDateAndTime)();
+
+  @override
+  Set<Column> get primaryKey => {noteId};
+}
+
 @DriftDatabase(
   tables: [
     Notes,
     Blocks,
     Tags,
     NoteTags,
+    FavoriteNotes,
   ],
 )
 class AppDatabase extends _$AppDatabase {
   AppDatabase(super.e);
 
   @override
-  int get schemaVersion => 11;
+  int get schemaVersion => 12;
 
   @override
   MigrationStrategy get migration {
@@ -99,6 +110,10 @@ class AppDatabase extends _$AppDatabase {
         // Handle database upgrade logic
         if (from < 2) {
           // Future upgrade logic can be added here
+        }
+        if (from < 12) {
+          // Add favorite_notes table
+          await m.createTable(favoriteNotes);
         }
       },
     );

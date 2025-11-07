@@ -124,3 +124,6 @@
 (defn clear-note-editor []
   (notes/set-current-note! nil)
   (editor-util/clean))
+
+(defn set-to-favorite [id]
+  (db/add-favorite-note id))

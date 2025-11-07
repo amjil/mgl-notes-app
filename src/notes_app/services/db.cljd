@@ -566,4 +566,37 @@
      (.customSelect db
                     "SELECT COUNT(*) as count FROM notes WHERE sync_status = 'synced'"))))
 
+;; =============================================================================
+;; Favorite Notes Operations
+;; =============================================================================
+(defn get-favorite-notes
+  "Get all favorite notes as a stream"
+  []
+  (let [^drift/AppDatabase db @db]
+    (.get
+     (.customSelect
+      db
+      "SELECT n.* FROM notes n
+       INNER JOIN favorite_notes fn ON n.id = fn.note_id
+       WHERE n.is_deleted = false
+       ORDER BY fn.created_at DESC"))))
+
+(defn add-favorite-note
+  "Add note to favorites"
+  [note-id]
+  (let [^drift/AppDatabase db @db]
+    (.insert
+     (.into db (.-favoriteNotes db))
+     (drift/FavoriteNotesCompanion.insert
+      .noteId note-id)
+     .mode (d/InsertMode.replace))))
+
+(defn remove-favorite-note
+  "Remove note from favorites"
+  [note-id]
+  (let [^drift/AppDatabase db @db]
+    (.go
+     (doto (.delete db (.-favoriteNotes db))
+       (.where (fn [^drift/FavoriteNotes tbl] (.equals (.-noteId tbl) note-id)))))))
+
 
