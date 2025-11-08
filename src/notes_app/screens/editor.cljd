@@ -5,6 +5,7 @@
    [cljd.flutter :as f]
    [notes-app.widgets.mgl-app-bar :as mgl-app-bar]
    [notes-app.utils.note :as note-utils]
+   [notes-app.services.db :as db]
    [block-editor.widgets.editor :as editor]))
 
 (defn ^m/Widget screen [ctx]
@@ -24,4 +25,4 @@
                            nil)
                          (dart:core/print (str "onLifecycleEvent: " event)))
      .child
-     (editor/editor)))))
+     (editor/editor {:on-search db/search-notes-by-title})))))
