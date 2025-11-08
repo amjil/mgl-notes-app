@@ -257,6 +257,19 @@
         LIMIT ? OFFSET ?"
       .variables [(d/Variable query) (d/Variable limit) (d/Variable offset)]))))
 
+(defn search-notes-by-title
+  "Search notes by title using LIKE query, returns id and title"
+  [title]
+  (let [^drift/AppDatabase db @db
+        title-pattern (str "%" title "%")]
+    (.get
+     (.customSelect
+      db
+      "SELECT n.id, n.title FROM notes n 
+        WHERE n.title LIKE ? AND n.is_deleted = false
+        ORDER BY n.updated_at DESC"
+      .variables [(d/Variable title-pattern)]))))
+
 (defn get-notes-count
   "Get total notes count"
   []
