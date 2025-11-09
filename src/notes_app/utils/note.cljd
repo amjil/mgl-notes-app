@@ -120,11 +120,11 @@
                                           link-ids-map (into {}
                                                              (map (fn [ref]
                                                                     (let [ref-id (or (get ref "id")
-                                                                                    (get ref :id)
-                                                                                    (.-id ref))
+                                                                                     (get ref :id)
+                                                                                     (.-id ref))
                                                                           ref-title (or (get ref "title")
-                                                                                       (get ref :title)
-                                                                                       (.-title ref))]
+                                                                                        (get ref :title)
+                                                                                        (.-title ref))]
                                                                       [ref-title ref-id]))
                                                                   refs))]
                                       (reset! editor-state/link-ids link-ids-map)))))))))))))

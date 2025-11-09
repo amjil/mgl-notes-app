@@ -4,8 +4,10 @@
    ["package:lifecycle/lifecycle.dart" :as lifecycle]
    [cljd.flutter :as f]
    [notes-app.widgets.mgl-app-bar :as mgl-app-bar]
-   [notes-app.utils.note :as note-utils]
+   [notes-app.utils.note :as note-util]
+   [notes-app.utils.navigator :as navigator]
    [notes-app.services.db :as db]
+   [notes-app.states.notes :as notes]
    [block-editor.widgets.editor :as editor]))
 
 (defn ^m/Widget screen [ctx]
@@ -20,10 +22,14 @@
     (lifecycle/LifecycleWrapper
      .onLifecycleEvent (fn [event]
                          (condp = event
-                           lifecycle/LifecycleEvent.pop (note-utils/save-or-update-note! ctx)
-                           lifecycle/LifecycleEvent.invisible (note-utils/save-or-update-note! ctx)
+                           lifecycle/LifecycleEvent.pop (note-util/save-or-update-note! ctx)
+                           lifecycle/LifecycleEvent.invisible (note-util/save-or-update-note! ctx)
                            nil)
                          (dart:core/print (str "onLifecycleEvent: " event)))
      .child
      (editor/editor {:on-search db/search-notes-by-title
-                     :on-note-tap #(dart:core/print %)})))))
+                     :on-note-tap (fn [item]
+                                    (dart:core/print "editor on-note-tap ----")
+                                    (notes/set-current-note! item)
+                                    (note-util/load-note-to-editor!)
+                                    (navigator/navigate-to-screen navigator "/editor"))})))))
