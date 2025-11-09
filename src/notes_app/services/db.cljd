@@ -618,3 +618,62 @@
      (doto
       (.delete db (.-favoriteNotes db))
        (.where (fn [^drift/FavoriteNotes tbl] (.equals (.-noteId tbl) note-id)))))))
+
+;; =============================================================================
+;; Note References Operations
+;; =============================================================================
+
+(defn create-note-reference
+  "Create note reference (save reference relationship)"
+  [note-id referenced-note-id]
+  (let [^drift/AppDatabase db @db]
+    (.insert
+     (.into db (.-noteReferences db))
+     (drift/NoteReferencesCompanion.insert
+      .noteId note-id
+      .referencedNoteId referenced-note-id)
+     .mode (d/InsertMode.replace))))
+
+(defn delete-note-reference
+  "Delete note reference (remove reference relationship)"
+  [note-id referenced-note-id]
+  (let [^drift/AppDatabase db @db]
+    (.go
+     (doto
+      (.delete db (.-noteReferences db))
+       (.where (fn [^drift/NoteReferences tbl]
+                 (and
+                  (.equals (.-noteId tbl) note-id)
+                  (.equals (.-referencedNoteId tbl) referenced-note-id))))))))
+
+(defn get-note-references
+  "Get note references for a note, returns list with id and title"
+  [note-id]
+  (let [^drift/AppDatabase db @db]
+    (.get
+     (.customSelect
+      db
+      "SELECT n.id, n.title FROM notes n
+       INNER JOIN note_references nr ON n.id = nr.referenced_note_id
+       WHERE nr.note_id = ? AND n.is_deleted = false
+       ORDER BY nr.created_at DESC"
+      .variables [(d/Variable note-id)]))))
+
+(defn get-note-reference-ids
+  "Get all referenced note IDs for a note, returns list of referenced note IDs"
+  [note-id]
+  (let [^drift/AppDatabase db @db]
+    (-> (.get
+         (.customSelect
+          db
+          "SELECT referenced_note_id FROM note_references WHERE note_id = ?"
+          .variables [(d/Variable note-id)]))
+        (.then (fn [rows]
+                 (if (empty? rows)
+                   []
+                   (map (fn [row]
+                          (let [row (.-data row)]
+                            (or (get row "referenced_note_id")
+                                (get row :referenced_note_id)
+                                (.-referencedNoteId row))))
+                        rows)))))))

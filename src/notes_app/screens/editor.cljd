@@ -25,4 +25,5 @@
                            nil)
                          (dart:core/print (str "onLifecycleEvent: " event)))
      .child
-     (editor/editor {:on-search db/search-notes-by-title})))))
+     (editor/editor {:on-search db/search-notes-by-title
+                     :on-note-tap #(dart:core/print %)})))))

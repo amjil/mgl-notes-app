@@ -1,12 +1,12 @@
 (ns notes-app.utils.note
   (:require 
    [clojure.string :as str]
+   [clojure.set :as set]
    [block-editor.state :as editor-state]
    [block-editor.utils.block :as editor-util]
    [notes-app.states.notes :as notes]
    [notes-app.services.db :as db]
    [notes-app.utils.toast :as toast]
-   [notes-app.utils.navigator :as navigator]
    [notes-app.utils.state-helpers :as helpers]
    ["package:uuid/uuid.dart" :as uuid]))
 
@@ -33,6 +33,23 @@
 
 (defn- json-array-of-strings [xs]
   (str "[" (str/join "," (map (fn [s] (str "\"" s "\"")) xs)) "]"))
+
+(defn- update-note-references!
+  "Update note references based on link-ids from editor state"
+  [note-id]
+  (let [current-link-ids (set (vals @editor-state/link-ids)) 
+        existing-refs-promise (db/get-note-reference-ids note-id)]
+    (-> existing-refs-promise
+        (.then (fn [existing-refs]
+                 (let [existing-ids (set existing-refs)
+                       to-remove (set/difference existing-ids current-link-ids)
+                       to-add (set/difference current-link-ids existing-ids)]
+                   ;; Delete removed references
+                   (doseq [ref-id to-remove]
+                     (db/delete-note-reference note-id ref-id))
+                   ;; Add new references
+                   (doseq [ref-id to-add]
+                     (db/create-note-reference note-id ref-id))))))))
 
 (defn save-blocks-for-note! [_ctx note-id]
   (let [ids @editor-state/ids
@@ -111,11 +128,13 @@
         (let [new-id (.v4 uuid-instance)]
           (-> (db/create-note-with-content content new-id)
               (.then (fn [_]
-                       (save-blocks-for-note! ctx new-id)))))
+                       (save-blocks-for-note! ctx new-id)
+                       (update-note-references! new-id)))))
         (let [note-id (get current "id")]
           (-> (notes/update-note-with-content! ctx note-id content)
               (.then (fn [_]
-                       (save-blocks-for-note! ctx note-id)))))))
+                       (save-blocks-for-note! ctx note-id)
+                       (update-note-references! note-id)))))))
     nil))
 
 (defn clear-note-editor []
