@@ -3,6 +3,7 @@
    ["package:flutter/material.dart" :as m]
    [notes-app.states.ui :as ui]
    [notes-app.utils.navigator :as navigator]
+   [block-editor.state :as editor-state]
    [notes-app.utils.note :as note-utils]))
 
 (defn mgl-app-bar [navigator search-route]

@@ -111,7 +111,23 @@
                            all-blocks-map (assoc blocks-map title-id note-title)]
                        ;; Set editor state
                        (reset! editor-state/ids all-ids)
-                       (reset! editor-state/blocks all-blocks-map)))))))))
+                       (reset! editor-state/blocks all-blocks-map)
+                       ;; Load note references and update link-ids
+                       ;; link-ids is a map with title as key and id as value
+                       (-> (db/get-note-references note-id)
+                           (.then (fn [refs]
+                                    (let [refs (map #(.-data %) refs)
+                                          link-ids-map (into {}
+                                                             (map (fn [ref]
+                                                                    (let [ref-id (or (get ref "id")
+                                                                                    (get ref :id)
+                                                                                    (.-id ref))
+                                                                          ref-title (or (get ref "title")
+                                                                                       (get ref :title)
+                                                                                       (.-title ref))]
+                                                                      [ref-title ref-id]))
+                                                                  refs))]
+                                      (reset! editor-state/link-ids link-ids-map)))))))))))))
 
 (declare clear-note-editor)
 
