@@ -3,8 +3,8 @@
    ["package:flutter/material.dart" :as m]
    [notes-app.states.ui :as ui]
    [notes-app.utils.navigator :as navigator]
-   [block-editor.state :as editor-state]
-   [notes-app.utils.note :as note-utils]))
+   [notes-app.utils.note :as note-utils]
+   [notes-app.states.notes :as notes]))
 
 (defn mgl-app-bar [navigator search-route]
   (m/AppBar
@@ -30,7 +30,12 @@
    .backgroundColor m/Colors.transparent
    .leading (m/IconButton
              .icon (m/Icon m/Icons.arrow_back)
-             .onPressed (fn [] (navigator/navigate-to-back navigator)))
+             .onPressed (fn []
+                          ;; Restore previous note from history if available
+                          (let [previous-note (notes/restore-previous-note!)]
+                            (when previous-note
+                              (note-utils/load-note-to-editor!))
+                            (navigator/navigate-to-back navigator))))
    .actions [(m/IconButton
               .icon (m/Icon m/Icons.save)
               .onPressed (fn []

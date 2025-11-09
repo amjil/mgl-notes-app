@@ -30,6 +30,6 @@
      (editor/editor {:on-search db/search-notes-by-title
                      :on-note-tap (fn [item]
                                     (dart:core/print "editor on-note-tap ----")
-                                    (notes/set-current-note! item)
+                                    (notes/set-current-note-with-history! item)
                                     (note-util/load-note-to-editor!)
                                     (navigator/navigate-to-screen navigator "/editor"))})))))

@@ -19,6 +19,8 @@
    (helpers/create-base-state
     {:notes []
      :current-note nil
+     ;; Note navigation history stack for back navigation
+     :note-history []
      ;; Filtering
      :filter-tag-id nil
      :filter-tag-name nil
@@ -153,9 +155,37 @@
 (defn set-current-note! [note]
   (swap! notes-state assoc :current-note note))
 
+;; Set current note and save previous note to history
+(defn set-current-note-with-history! [note]
+  (let [current (:current-note @notes-state)]
+    (when (and (not (nil? current)) (not (nil? note)))
+      ;; Save current note to history before switching
+      (swap! notes-state 
+             (fn [state]
+               (update state :note-history 
+                      (fn [history]
+                        (conj (vec history) current))))))
+    (swap! notes-state assoc :current-note note)))
+
+;; Restore previous note from history
+(defn restore-previous-note! []
+  (let [history (:note-history @notes-state)]
+    (if (empty? history)
+      nil
+      (let [previous-note (last history)
+            new-history (vec (butlast history))]
+        (swap! notes-state assoc 
+               :current-note previous-note
+               :note-history new-history)
+        previous-note))))
+
 ;; Clear current note
 (defn clear-current-note! []
   (swap! notes-state assoc :current-note nil))
+
+;; Clear note history
+(defn clear-note-history! []
+  (swap! notes-state assoc :note-history []))
 
 ;; Load more notes
 (defn load-more-notes! [ctx]
