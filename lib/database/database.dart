@@ -68,6 +68,16 @@ class FavoriteNotes extends Table {
   Set<Column> get primaryKey => {noteId};
 }
 
+// Note references table - stores note_id and referenced_note_id for note reference jump functionality
+class NoteReferences extends Table {
+  TextColumn get noteId => text().references(Notes, #id, onDelete: KeyAction.cascade)();
+  TextColumn get referencedNoteId => text().references(Notes, #id, onDelete: KeyAction.cascade)();
+  DateTimeColumn get createdAt => dateTime().withDefault(currentDateAndTime)();
+
+  @override
+  Set<Column> get primaryKey => {noteId, referencedNoteId};
+}
+
 @DriftDatabase(
   tables: [
     Notes,
@@ -75,13 +85,14 @@ class FavoriteNotes extends Table {
     Tags,
     NoteTags,
     FavoriteNotes,
+    NoteReferences,
   ],
 )
 class AppDatabase extends _$AppDatabase {
   AppDatabase(super.e);
 
   @override
-  int get schemaVersion => 12;
+  int get schemaVersion => 13;
 
   @override
   MigrationStrategy get migration {
@@ -114,6 +125,10 @@ class AppDatabase extends _$AppDatabase {
         if (from < 12) {
           // Add favorite_notes table
           await m.createTable(favoriteNotes);
+        }
+        if (from < 13) {
+          // Add note_references table for note reference jump functionality
+          await m.createTable(noteReferences);
         }
       },
     );
