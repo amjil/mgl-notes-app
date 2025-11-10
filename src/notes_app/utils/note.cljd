@@ -53,6 +53,54 @@
                    (doseq [ref-id to-add]
                      (db/create-note-reference note-id ref-id))))))))
 
+(defn- extract-note-links
+  "Extract note link titles from content (format: [[title]])"
+  [content]
+  (let [links (re-seq #"\[\[([^\]]+)\]\]" content)]
+    (->> links
+         (map second)
+         (map str/trim)
+         (filter #(not (str/blank? %)))
+         distinct)))
+
+(defn- update-note-references-from-content!
+  "Update note references based on links extracted from content"
+  [note-id content]
+  (let [current-link-titles (set (extract-note-links content))
+        existing-refs-promise (db/get-note-references note-id)]
+    (-> existing-refs-promise
+        (.then (fn [existing-refs]
+                 (let [existing-refs (map #(.-data %) existing-refs)
+                       existing-title-to-id (into {}
+                                                  (map (fn [ref]
+                                                         (let [ref-id (or (get ref "id")
+                                                                         (get ref :id)
+                                                                         (.-id ref))
+                                                               ref-title (or (get ref "title")
+                                                                            (get ref :title)
+                                                                            (.-title ref))]
+                                                           [ref-title ref-id]))
+                                                       existing-refs))
+                       existing-titles (set (keys existing-title-to-id))
+                       to-remove-titles (set/difference existing-titles current-link-titles)
+                       to-add-titles (set/difference current-link-titles existing-titles)]
+                   ;; Delete removed references
+                   (doseq [title to-remove-titles]
+                     (let [ref-id (get existing-title-to-id title)]
+                       (when ref-id
+                         (db/delete-note-reference note-id ref-id))))
+                   ;; Add new references by looking up notes by title
+                   (doseq [title to-add-titles]
+                     (-> (db/get-note-by-title title)
+                         (.then (fn [note]
+                                  (if note
+                                    (let [note-data (.-data note)
+                                          ref-id (or (get note-data "id")
+                                                     (get note-data :id)
+                                                     (.-id note-data))]
+                                      (db/create-note-reference note-id ref-id))
+                                    nil)))))))))))
+
 (defn- update-note-tags!
   "Update note tags based on tags extracted from content"
   [note-id content]
