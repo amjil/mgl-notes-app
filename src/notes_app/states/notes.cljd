@@ -102,7 +102,7 @@
     (-> (db/soft-delete-note id)
         (.then (fn [success]
                  (when success
-                   (load-notes-paginated! ctx (:current-page @notes-state)))
+                   (load-notes-paginated! ctx 0))
                  success)))
     "Тэмдэглэл амжилттай устгагдлаа"))
 

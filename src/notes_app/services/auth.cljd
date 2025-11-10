@@ -4,7 +4,8 @@
    [electric-sync.state :as es-state]
    [notes-app.utils.toast :as toast]
    [notes-app.services.env :as env]
-   [notes-app.services.db :as db]))
+   [notes-app.services.db :as db]
+   [notes-app.states.notes :as notes]))
 
 ;; Description:
 ;; This service acts as an adapter layer for electric-sync. Replace the stubbed
@@ -41,7 +42,9 @@
                      ;; Get uid from electric-sync token and update empty user_ids
                      (let [uid @es-state/uid]
                        (when-not (empty? uid)
-                         (db/update-empty-user-ids! uid))))
+                         (db/update-empty-user-ids! uid)))
+                     ;; Reload notes list after successful login
+                     (notes/load-notes-paginated! ctx 0))
                    (toast/show-toast ctx "Login failed" :error))))
         (.catchError (fn [error]
                        (toast/show-toast ctx (str "Login error: " (str error)) :error))))))

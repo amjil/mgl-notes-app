@@ -6,6 +6,7 @@
    [electric-sync.token :as token]
    [notes-app.utils.navigator :as navigator]
    [notes-app.widgets.mgl-favorite-list :as fal]
+   [notes-app.states.notes :as notes]
    [cljd.flutter :as f]))
 
 (defn mgl-left-drawer []
@@ -79,7 +80,9 @@
                .title (mgl/MongolText "Logout")
                .onTap (fn []
                         (-> m/Scaffold (.of ctx) .closeDrawer)
-                        (token/clean)))
+                        (token/clean)
+                        ;; Reload notes list after logout
+                        (notes/load-notes-paginated! ctx 0)))
               (m/SizedBox))])))
         (m/Divider .height 1)
         (m/Flexible

@@ -145,12 +145,16 @@
           (-> (db/create-note-with-content content new-id)
               (.then (fn [_]
                        (save-blocks-for-note! ctx new-id)
-                       (update-note-references! new-id)))))
+                       (update-note-references! new-id)
+                       ;; Reload notes list after creating note
+                       (notes/load-notes-paginated! ctx 0)))))
         (let [note-id (get current "id")]
           (-> (notes/update-note-with-content! ctx note-id content)
               (.then (fn [_]
                        (save-blocks-for-note! ctx note-id)
-                       (update-note-references! note-id)))))))
+                       (update-note-references! note-id)
+                       ;; Reload notes list after creating note
+                       (notes/load-notes-paginated! ctx 0)))))))
     nil))
 
 (defn clear-note-editor []
