@@ -39,7 +39,7 @@
                    (do
                      (toast/show-toast ctx "Login successful" :success)
                      ;; Get uid from electric-sync token and update empty user_ids
-                     (let [uid es-state/uid]
+                     (let [uid @es-state/uid]
                        (when-not (empty? uid)
                          (db/update-empty-user-ids! uid))))
                    (toast/show-toast ctx "Login failed" :error))))
@@ -66,7 +66,7 @@
                    (do
                      (toast/show-toast ctx "Registration successful" :success)
                      ;; Get uid from electric-sync token and update empty user_ids
-                     (let [uid es-state/uid]
+                     (let [uid @es-state/uid]
                        (when-not (empty? uid)
                          (db/update-empty-user-ids! uid))))
                    (toast/show-toast ctx "Registration failed" :error))))

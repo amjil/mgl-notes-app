@@ -33,7 +33,7 @@
 (defn ^:private get-user-id-if-available
   "Get user_id from electric-sync token if available and not empty"
   []
-  (let [uid es-state/uid]
+  (let [uid @es-state/uid]
     (when-not (empty? uid)
       uid)))
 
@@ -45,12 +45,13 @@
   "Create new note"
   [^String id ^String title]
   (let [^drift/AppDatabase db @db
+        ^String 
         user-id (get-user-id-if-available)
         companion (if user-id
                     (drift/NotesCompanion.insert
                      .id id
                      .title title
-                     .userId user-id)
+                     .userId (d/Value user-id))
                     (drift/NotesCompanion.insert
                      .id id
                      .title title))]
@@ -61,22 +62,34 @@
 (defn get-note-by-id
   "Get note basic information by ID"
   [id]
-  (let [^drift/AppDatabase db @db]
+  (let [^drift/AppDatabase db @db
+        user-id (get-user-id-if-available)]
     (await
      (.getSingleOrNull
       (doto (.select db (.-notes db))
-        (.where (fn [^drift/Notes tbl] (.equals (.-id tbl) id))))))))
+        (.where (fn [^drift/Notes tbl]
+                  (if user-id
+                    (and (.equals (.-id tbl) id)
+                         (.equals (.-userId tbl) user-id))
+                    (and (.equals (.-id tbl) id)
+                         (.isNull (.-userId tbl)))))))))))
 
 (defn get-note-with-content-by-id
   "Get note and its content by ID"
   [id]
-  (let [^drift/AppDatabase db @db]
+  (let [^drift/AppDatabase db @db
+        user-id (get-user-id-if-available)
+        user-filter (if user-id
+                      "AND n.user_id = ?"
+                      "AND n.user_id IS NULL")]
     (.getSingleOrNull
      (.customSelect db
-                    "SELECT n.*, nfts.content as content FROM notes n 
+                    (str "SELECT n.*, nfts.content as content FROM notes n 
                       LEFT JOIN note_fts nfts ON n.id = nfts.id 
-                      WHERE n.id = ? AND n.is_deleted = false"
-                    .variables [(d/Variable id)]))))
+                      WHERE n.id = ? AND n.is_deleted = false " user-filter)
+                    .variables (if user-id
+                                 [(d/Variable id) (d/Variable user-id)]
+                                 [(d/Variable id)])))))
 
 ;; =============================================================================
 ;; Note Query Operations
@@ -86,11 +99,15 @@
   "Get paginated note list"
   [page limit]
   (let [offset (* page limit)
-        ^drift/AppDatabase db @db]
+        ^drift/AppDatabase db @db
+        user-id (get-user-id-if-available)
+        user-filter (if user-id
+                      "AND n.user_id = ?"
+                      "AND n.user_id IS NULL")]
     (.get
      (.customSelect
       db
-      "SELECT n.*, nfts.content as content, 
+      (str "SELECT n.*, nfts.content as content, 
         case 
          when f.note_id is not null then true 
          else false 
@@ -98,60 +115,87 @@
         FROM notes n 
         LEFT JOIN note_fts nfts ON n.id = nfts.id 
         LEFT JOIN favorite_notes f ON n.id = f.note_id
-        WHERE n.is_deleted = false
+        WHERE n.is_deleted = false " user-filter "
         ORDER BY n.updated_at DESC 
-        LIMIT ? OFFSET ?"
-      .variables [(d/Variable limit) (d/Variable offset)]))))
+        LIMIT ? OFFSET ?")
+      .variables (if user-id
+                   [(d/Variable user-id) (d/Variable limit) (d/Variable offset)]
+                   [(d/Variable limit) (d/Variable offset)])))))
 
 (defn get-notes-by-tag
   "Get notes by tag with pagination"
   [tag-id page limit]
   (let [offset (* page limit)
-        ^drift/AppDatabase db @db]
+        ^drift/AppDatabase db @db
+        user-id (get-user-id-if-available)
+        user-filter (if user-id
+                      "AND n.user_id = ?"
+                      "AND n.user_id IS NULL")]
     (.get
      (.customSelect
       db
-      "SELECT n.*, nfts.content as content FROM notes n 
+      (str "SELECT n.*, nfts.content as content FROM notes n 
         LEFT JOIN note_fts nfts ON n.id = nfts.id 
         INNER JOIN note_tags nt ON n.id = nt.note_id
-        WHERE nt.tag_id = ? AND n.is_deleted = false
+        WHERE nt.tag_id = ? AND n.is_deleted = false " user-filter "
         ORDER BY n.updated_at DESC 
-        LIMIT ? OFFSET ?"
-      .variables [(d/Variable tag-id) (d/Variable limit) (d/Variable offset)]))))
+        LIMIT ? OFFSET ?")
+      .variables (if user-id
+                   [(d/Variable tag-id) (d/Variable user-id) (d/Variable limit) (d/Variable offset)]
+                   [(d/Variable tag-id) (d/Variable limit) (d/Variable offset)])))))
 
 (defn get-notes-by-date
   "Get notes by date with pagination"
   [date page limit]
   (let [offset (* page limit)
-        ^drift/AppDatabase db @db]
+        ^drift/AppDatabase db @db
+        user-id (get-user-id-if-available)
+        user-filter (if user-id
+                      "AND n.user_id = ?"
+                      "AND n.user_id IS NULL")]
     (.get
      (.customSelect
       db
-      "SELECT n.*, nfts.content as content FROM notes n 
+      (str "SELECT n.*, nfts.content as content FROM notes n 
         LEFT JOIN note_fts nfts ON n.id = nfts.id 
         WHERE CAST(strftime('%Y%m%d', created_at, 'unixepoch') AS INTEGER) = ? 
-             AND n.is_deleted = false
+             AND n.is_deleted = false " user-filter "
         ORDER BY n.updated_at DESC 
-        LIMIT ? OFFSET ?"
-      .variables [(d/Variable date) (d/Variable limit) (d/Variable offset)]))))
+        LIMIT ? OFFSET ?")
+      .variables (if user-id
+                   [(d/Variable date) (d/Variable user-id) (d/Variable limit) (d/Variable offset)]
+                   [(d/Variable date) (d/Variable limit) (d/Variable offset)])))))
 
 (defn get-notes-by-pending-sync
   "Get notes pending synchronization"
   []
-  (let [^drift/AppDatabase db @db]
+  (let [^drift/AppDatabase db @db
+        user-id (get-user-id-if-available)
+        user-filter (if user-id
+                      "AND n.user_id = ?"
+                      "AND n.user_id IS NULL")]
     (.get
      (.customSelect db
-                    "SELECT n.*, nfts.content as content FROM notes n 
+                    (str "SELECT n.*, nfts.content as content FROM notes n 
                      LEFT JOIN note_fts nfts ON n.id = nfts.id 
-                     WHERE n.sync_status = 'pending'"))))
+                     WHERE n.sync_status = 'pending' " user-filter)
+                    .variables (if user-id
+                                 [(d/Variable user-id)]
+                                 [])))))
 
 (defn get-all-notes
   "Get all notes"
   []
-  (let [^drift/AppDatabase db @db]
+  (let [^drift/AppDatabase db @db
+        user-id (get-user-id-if-available)]
     (.get
      (doto (.select db (.-notes db))
-       (.where (fn [^drift/Notes tbl] (.equals (.-isDeleted tbl) false)))
+       (.where (fn [^drift/Notes tbl]
+                 (if user-id
+                   (and (.equals (.-isDeleted tbl) false)
+                        (.equals (.-userId tbl) user-id))
+                   (and (.equals (.-isDeleted tbl) false)
+                        (.isNull (.-userId tbl))))))
        (.orderBy [(fn [^drift/Notes tbl] (d/OrderingTerm. .expression (.-updatedAt tbl) .mode d/OrderingMode.desc))])))))
 
 ;; =============================================================================
@@ -245,16 +289,22 @@
   "Get paginated deleted notes"
   [page limit]
   (let [offset (* page limit)
-        ^drift/AppDatabase db @db]
+        ^drift/AppDatabase db @db
+        user-id (get-user-id-if-available)
+        user-filter (if user-id
+                      "AND n.user_id = ?"
+                      "AND n.user_id IS NULL")]
     (.get
      (.customSelect
       db
-      "SELECT n.*, nfts.content as content FROM notes n 
+      (str "SELECT n.*, nfts.content as content FROM notes n 
         LEFT JOIN note_fts nfts ON n.id = nfts.id 
-        WHERE n.is_deleted = true
+        WHERE n.is_deleted = true " user-filter "
         ORDER BY n.updated_at DESC 
-        LIMIT ? OFFSET ?"
-      .variables [(d/Variable limit) (d/Variable offset)]))))
+        LIMIT ? OFFSET ?")
+      .variables (if user-id
+                   [(d/Variable user-id) (d/Variable limit) (d/Variable offset)]
+                   [(d/Variable limit) (d/Variable offset)])))))
 
 ;; =============================================================================
 ;; Note Search and Statistics
@@ -264,55 +314,87 @@
   "Search notes"
   [query page limit]
   (let [offset (* page limit)
-        ^drift/AppDatabase db @db]
+        ^drift/AppDatabase db @db
+        user-id (get-user-id-if-available)
+        user-filter (if user-id
+                      "AND n.user_id = ?"
+                      "AND n.user_id IS NULL")]
     (.get
      (.customSelect
       db
-      "SELECT n.*, nfts.content as content FROM notes n 
+      (str "SELECT n.*, nfts.content as content FROM notes n 
         LEFT JOIN note_fts nfts ON n.id = nfts.id  
         WHERE n.is_deleted = false
-           and n.id in (select id from note_fts where content match ?)
+           and n.id in (select id from note_fts where content match ?) " user-filter "
         ORDER BY n.updated_at DESC 
-        LIMIT ? OFFSET ?"
-      .variables [(d/Variable query) (d/Variable limit) (d/Variable offset)]))))
+        LIMIT ? OFFSET ?")
+      .variables (if user-id
+                   [(d/Variable query) (d/Variable user-id) (d/Variable limit) (d/Variable offset)]
+                   [(d/Variable query) (d/Variable limit) (d/Variable offset)])))))
 
 (defn search-notes-by-title
   "Search notes by title using LIKE query, returns id and title"
   [{:keys [query]}]
   (let [^drift/AppDatabase db @db
-        title-pattern (str "%" query "%")]
+        title-pattern (str "%" query "%")
+        user-id (get-user-id-if-available)
+        user-filter (if user-id
+                      "AND n.user_id = ?"
+                      "AND n.user_id IS NULL")]
     (.get
      (.customSelect
       db
-      "SELECT n.id, n.title FROM notes n 
-        WHERE n.title LIKE ? AND n.is_deleted = false
-        ORDER BY n.updated_at DESC"
-      .variables [(d/Variable title-pattern)]))))
+      (str "SELECT n.id, n.title FROM notes n 
+        WHERE n.title LIKE ? AND n.is_deleted = false " user-filter "
+        ORDER BY n.updated_at DESC")
+      .variables (if user-id
+                   [(d/Variable title-pattern) (d/Variable user-id)]
+                   [(d/Variable title-pattern)])))))
 
 (defn get-notes-count
   "Get total notes count"
   []
-  (let [^drift/AppDatabase db @db]
+  (let [^drift/AppDatabase db @db
+        user-id (get-user-id-if-available)
+        user-filter (if user-id
+                      "AND user_id = ?"
+                      "AND user_id IS NULL")]
     (.getSingle
      (.customSelect db
-                    "SELECT COUNT(*) as count FROM notes WHERE is_deleted = false"))))
+                    (str "SELECT COUNT(*) as count FROM notes WHERE is_deleted = false " user-filter)
+                    .variables (if user-id
+                                 [(d/Variable user-id)]
+                                 [])))))
 
 (defn get-notes-count-by-search [query]
-  (let [^drift/AppDatabase db @db]
+  (let [^drift/AppDatabase db @db
+        user-id (get-user-id-if-available)
+        user-filter (if user-id
+                      "AND n.user_id = ?"
+                      "AND n.user_id IS NULL")]
     (.getSingle
      (.customSelect db
-                    "SELECT COUNT(*) as count FROM notes n
+                    (str "SELECT COUNT(*) as count FROM notes n
                       INNER JOIN note_fts nfts ON n.id = nfts.id 
-                      WHERE nfts.content MATCH ? AND n.is_deleted = false"
-                    .variables [(d/Variable query)]))))
+                      WHERE nfts.content MATCH ? AND n.is_deleted = false " user-filter)
+                    .variables (if user-id
+                                 [(d/Variable query) (d/Variable user-id)]
+                                 [(d/Variable query)])))))
 
 (defn get-notes-blocks-not-synced []
-  (let [^drift/AppDatabase db @db]
+  (let [^drift/AppDatabase db @db
+        user-id (get-user-id-if-available)
+        user-filter (if user-id
+                      "AND n.user_id = ?"
+                      "AND n.user_id IS NULL")]
     (.get
      (.customSelect db
-                    "SELECT n.*, nfts.content as content FROM notes n 
+                    (str "SELECT n.*, nfts.content as content FROM notes n 
                      LEFT JOIN note_fts nfts ON n.id = nfts.id 
-                     WHERE n.is_blocks_synced = false AND n.is_deleted = false"))))
+                     WHERE n.is_blocks_synced = false AND n.is_deleted = false " user-filter)
+                    .variables (if user-id
+                                 [(d/Variable user-id)]
+                                 [])))))
 
 ;; ===== Blocks db functions =====
 
@@ -321,13 +403,14 @@
    (create-block note-id content (.v4 uuid-instance)))
   ([note-id content id]
    (let [^drift/AppDatabase db @db
+         ^String
          user-id (get-user-id-if-available)
          companion (if user-id
                      (drift/BlocksCompanion.insert
                       .id id
                       .noteId note-id
                       .content content
-                      .userId user-id)
+                      .userId (d/Value user-id))
                      (drift/BlocksCompanion.insert
                       .id id
                       .noteId note-id
@@ -399,12 +482,13 @@
 (defn create-tag [name & [id]]
   (let [id (or id (.v4 uuid-instance))
         ^drift/AppDatabase db @db
+        ^String 
         user-id (get-user-id-if-available)
         companion (if user-id
                     (drift/TagsCompanion.insert
                      .id id
                      .name name
-                     .userId user-id)
+                     .userId (d/Value user-id))
                     (drift/TagsCompanion.insert
                      .id id
                      .name name))]
@@ -413,28 +497,50 @@
      companion)))
 
 (defn get-tag-by-id [id]
-  (let [^drift/AppDatabase db @db]
+  (let [^drift/AppDatabase db @db
+        user-id (get-user-id-if-available)]
     (.getSingleOrNull
      (doto (.select db (.-tags db))
-       (.where (fn [^drift/Tags tbl] (.equals (.-id tbl) id)))))))
+       (.where (fn [^drift/Tags tbl]
+                 (if user-id
+                   (and (.equals (.-id tbl) id)
+                        (.equals (.-userId tbl) user-id))
+                   (and (.equals (.-id tbl) id)
+                        (.isNull (.-userId tbl))))))))))
 
 (defn get-tag-by-name [name]
-  (let [^drift/AppDatabase db @db]
+  (let [^drift/AppDatabase db @db
+        user-id (get-user-id-if-available)]
     (.getSingleOrNull
      (doto (.select db (.-tags db))
-       (.where (fn [^drift/Tags tbl] (.equals (.-name tbl) name)))))))
+       (.where (fn [^drift/Tags tbl]
+                 (if user-id
+                   (and (.equals (.-name tbl) name)
+                        (.equals (.-userId tbl) user-id))
+                   (and (.equals (.-name tbl) name)
+                        (.isNull (.-userId tbl))))))))))
 
 (defn get-all-tags []
-  (let [^drift/AppDatabase db @db]
+  (let [^drift/AppDatabase db @db
+        user-id (get-user-id-if-available)]
     (.get
      (doto (.select db (.-tags db))
+       (.where (fn [^drift/Tags tbl]
+                 (if user-id
+                   (.equals (.-userId tbl) user-id)
+                   (.isNull (.-userId tbl)))))
        (.orderBy [(fn [^drift/Tags tbl] (d/OrderingTerm. .expression (.-name tbl) .mode d/OrderingMode.asc))])))))
 
 (defn get-tags-paginated [page limit]
   (let [offset (* page limit)
-        ^drift/AppDatabase db @db]
+        ^drift/AppDatabase db @db
+        user-id (get-user-id-if-available)]
     (.get
      (doto (.select db (.-tags db))
+       (.where (fn [^drift/Tags tbl]
+                 (if user-id
+                   (.equals (.-userId tbl) user-id)
+                   (.isNull (.-userId tbl)))))
        (.orderBy [(fn [^drift/Tags tbl] (d/OrderingTerm. .expression (.-name tbl) .mode d/OrderingMode.asc))])
        (.limit limit .offset offset)))))
 
@@ -456,31 +562,45 @@
 
 (defn search-tags [query page limit]
   (let [offset (* page limit)
-        ^drift/AppDatabase db @db]
+        ^drift/AppDatabase db @db
+        user-id (get-user-id-if-available)
+        user-filter (if user-id
+                      "AND user_id = ?"
+                      "AND user_id IS NULL")]
     (.get
      (.customSelect db 
-                    " SELECT * FROM TAGS 
-                     WHERE NAME LIKE ?
+                    (str " SELECT * FROM TAGS 
+                     WHERE NAME LIKE ? " user-filter "
                      ORDER BY NAME ASC 
-                     LIMIT ? OFFSET ?"
-                    .variables [(d/Variable query) (d/Variable limit) (d/Variable offset)]))))
+                     LIMIT ? OFFSET ?")
+                    .variables (if user-id
+                                 [(d/Variable query) (d/Variable user-id) (d/Variable limit) (d/Variable offset)]
+                                 [(d/Variable query) (d/Variable limit) (d/Variable offset)])))))
 
 (defn get-tags-count []
-  (let [^drift/AppDatabase db @db]
+  (let [^drift/AppDatabase db @db
+        user-id (get-user-id-if-available)
+        user-filter (if user-id
+                      "WHERE user_id = ?"
+                      "WHERE user_id IS NULL")]
     (.getSingle
      (.customSelect db
-                    " SELECT COUNT (*) as count FROM tags "))))
+                    (str " SELECT COUNT (*) as count FROM tags " user-filter)
+                    .variables (if user-id
+                                 [(d/Variable user-id)]
+                                 [])))))
 
 ;; ===== NoteTags db functions =====
 
 (defn add-tag-to-note [note-id tag-id]
   (let [^drift/AppDatabase db @db
+        ^String
         user-id (get-user-id-if-available)
         companion (if user-id
                     (drift/NoteTagsCompanion.insert
                      .noteId note-id
                      .tagId tag-id
-                     .userId user-id)
+                     .userId (d/Value user-id))
                     (drift/NoteTagsCompanion.insert
                      .noteId note-id
                      .tagId tag-id))]
@@ -512,43 +632,61 @@
 
 (defn get-tagged-notes [tag-id page limit]
   (let [offset (* page limit)
-        ^drift/AppDatabase db @db]
+        ^drift/AppDatabase db @db
+        user-id (get-user-id-if-available)
+        user-filter (if user-id
+                      "AND n.user_id = ?"
+                      "AND n.user_id IS NULL")]
     (.get
      (.customSelect db
-                    " SELECT n.*, nfts.content as content FROM notes n
+                    (str " SELECT n.*, nfts.content as content FROM notes n
                       LEFT JOIN note_fts nfts ON n.id = nfts.id
                       INNER JOIN note_tags nt ON n.id = nt.note_id
-                      WHERE nt.tag_id = ? AND n.is_deleted = false
+                      WHERE nt.tag_id = ? AND n.is_deleted = false " user-filter "
                       ORDER BY n.updated_at DESC
-                      LIMIT ? OFFSET ? "
+                      LIMIT ? OFFSET ? ")
                     .variables
-                    [(d/Variable tag-id) (d/Variable limit) (d/Variable offset)]))))
+                    (if user-id
+                      [(d/Variable tag-id) (d/Variable user-id) (d/Variable limit) (d/Variable offset)]
+                      [(d/Variable tag-id) (d/Variable limit) (d/Variable offset)])))))
 
 (defn get-notes-by-tags [tag-ids page limit]
   (let [offset (* page limit)
         placeholders (clojure.string/join "," (repeat (count tag-ids) " ? "))
-        ^drift/AppDatabase db @db]
+        ^drift/AppDatabase db @db
+        user-id (get-user-id-if-available)
+        user-filter (if user-id
+                      "AND n.user_id = ?"
+                      "AND n.user_id IS NULL")]
     (.get
      (.customSelect db
                     (str " SELECT n.*, nfts.content as content FROM notes n
                            LEFT JOIN note_fts nfts ON n.id = nfts.id
                            INNER JOIN note_tags nt ON n.id = nt.note_id
-                           WHERE nt.tag_id IN (" placeholders ") AND n.is_deleted = false
+                           WHERE nt.tag_id IN (" placeholders ") AND n.is_deleted = false " user-filter "
                            GROUP BY n.id
                            HAVING COUNT (DISTINCT nt.tag_id) = ?
                            ORDER BY n.updated_at DESC
                            LIMIT ? OFFSET ? ")
                     .variables
-                    (concat (map d/Variable tag-ids) [(d/Variable (count tag-ids)) (d/Variable limit) (d/Variable offset)])))))
+                    (if user-id
+                      (concat (map d/Variable tag-ids) [(d/Variable user-id) (d/Variable (count tag-ids)) (d/Variable limit) (d/Variable offset)])
+                      (concat (map d/Variable tag-ids) [(d/Variable (count tag-ids)) (d/Variable limit) (d/Variable offset)]))))))
 
 (defn get-tagged-notes-count [tag-id]
-  (let [^drift/AppDatabase db @db]
+  (let [^drift/AppDatabase db @db
+        user-id (get-user-id-if-available)
+        user-filter (if user-id
+                      "AND n.user_id = ?"
+                      "AND n.user_id IS NULL")]
     (.getSingle
      (.customSelect db
-                    " SELECT COUNT (*) as count FROM note_tags nt
+                    (str " SELECT COUNT (*) as count FROM note_tags nt
                       INNER JOIN notes n ON nt.note_id = n.id
-                      WHERE nt.tag_id = ? AND n.is_deleted = false "
-                    .variables [(d/Variable tag-id)]))))
+                      WHERE nt.tag_id = ? AND n.is_deleted = false " user-filter)
+                    .variables (if user-id
+                                 [(d/Variable tag-id) (d/Variable user-id)]
+                                 [(d/Variable tag-id)])))))
 
 (defn delete-note-with-blocks [id]
   (-> (get-blocks-by-note-id id)
@@ -606,25 +744,45 @@
 
 ;; Get notes for synchronization
 (defn get-notes-for-sync []
-  (let [^drift/AppDatabase db @db]
+  (let [^drift/AppDatabase db @db
+        user-id (get-user-id-if-available)]
     (.get
      (doto (.select db (.-notes db))
-       (.where (fn [^drift/Notes tbl] (.equals (.-syncStatus tbl) "pending")))
+       (.where (fn [^drift/Notes tbl]
+                 (if user-id
+                   (and (.equals (.-syncStatus tbl) "pending")
+                        (.equals (.-userId tbl) user-id))
+                   (and (.equals (.-syncStatus tbl) "pending")
+                        (.isNull (.-userId tbl))))))
        (.orderBy [(fn [^drift/Notes tbl] (d/OrderingTerm. .expression (.-updatedAt tbl) .mode d/OrderingMode.asc))])))))
 
 ;; Get pending notes count
 (defn get-pending-notes-count []
-  (let [^drift/AppDatabase db @db]
+  (let [^drift/AppDatabase db @db
+        user-id (get-user-id-if-available)
+        user-filter (if user-id
+                      "AND user_id = ?"
+                      "AND user_id IS NULL")]
     (.getSingle
      (.customSelect db
-                    "SELECT COUNT(*) as count FROM notes WHERE sync_status = 'pending'"))))
+                    (str "SELECT COUNT(*) as count FROM notes WHERE sync_status = 'pending' " user-filter)
+                    .variables (if user-id
+                                 [(d/Variable user-id)]
+                                 [])))))
 
 ;; Get synced notes count
 (defn get-synced-notes-count []
-  (let [^drift/AppDatabase db @db]
+  (let [^drift/AppDatabase db @db
+        user-id (get-user-id-if-available)
+        user-filter (if user-id
+                      "AND user_id = ?"
+                      "AND user_id IS NULL")]
     (.getSingle
      (.customSelect db
-                    "SELECT COUNT(*) as count FROM notes WHERE sync_status = 'synced'"))))
+                    (str "SELECT COUNT(*) as count FROM notes WHERE sync_status = 'synced' " user-filter)
+                    .variables (if user-id
+                                 [(d/Variable user-id)]
+                                 [])))))
 
 ;; =============================================================================
 ;; Favorite Notes Operations
@@ -632,24 +790,32 @@
 (defn get-favorite-notes
   "Get all favorite notes as a stream"
   []
-  (let [^drift/AppDatabase db @db]
+  (let [^drift/AppDatabase db @db
+        user-id (get-user-id-if-available)
+        user-filter (if user-id
+                      "AND n.user_id = ?"
+                      "AND n.user_id IS NULL")]
     (.get
      (.customSelect
       db
-      "SELECT n.* FROM notes n
+      (str "SELECT n.* FROM notes n
        INNER JOIN favorite_notes fn ON n.id = fn.note_id
-       WHERE n.is_deleted = false
-       ORDER BY fn.created_at DESC"))))
+       WHERE n.is_deleted = false " user-filter "
+       ORDER BY fn.created_at DESC")
+      .variables (if user-id
+                   [(d/Variable user-id)]
+                   [])))))
 
 (defn add-favorite-note
   "Add note to favorites"
   [note-id]
   (let [^drift/AppDatabase db @db
+        ^String
         user-id (get-user-id-if-available)
         companion (if user-id
                     (drift/FavoriteNotesCompanion.insert
                      .noteId note-id
-                     .userId user-id)
+                     .userId (d/Value user-id))
                     (drift/FavoriteNotesCompanion.insert
                      .noteId note-id))]
     (.insert
@@ -674,12 +840,13 @@
   "Create note reference (save reference relationship)"
   [note-id referenced-note-id]
   (let [^drift/AppDatabase db @db
+        ^String
         user-id (get-user-id-if-available)
         companion (if user-id
                     (drift/NoteReferencesCompanion.insert
                      .noteId note-id
                      .referencedNoteId referenced-note-id
-                     .userId user-id)
+                     .userId (d/Value user-id))
                     (drift/NoteReferencesCompanion.insert
                      .noteId note-id
                      .referencedNoteId referenced-note-id))]
@@ -703,15 +870,21 @@
 (defn get-note-references
   "Get note references for a note, returns list with id and title"
   [note-id]
-  (let [^drift/AppDatabase db @db]
+  (let [^drift/AppDatabase db @db
+        user-id (get-user-id-if-available)
+        user-filter (if user-id
+                      "AND n.user_id = ?"
+                      "AND n.user_id IS NULL")]
     (.get
      (.customSelect
       db
-      "SELECT n.id, n.title FROM notes n
+      (str "SELECT n.id, n.title FROM notes n
        INNER JOIN note_references nr ON n.id = nr.referenced_note_id
-       WHERE nr.note_id = ? AND n.is_deleted = false
-       ORDER BY nr.created_at DESC"
-      .variables [(d/Variable note-id)]))))
+       WHERE nr.note_id = ? AND n.is_deleted = false " user-filter "
+       ORDER BY nr.created_at DESC")
+      .variables (if user-id
+                   [(d/Variable note-id) (d/Variable user-id)]
+                   [(d/Variable note-id)])))))
 
 (defn get-note-reference-ids
   "Get all referenced note IDs for a note, returns list of referenced note IDs"
