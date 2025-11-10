@@ -9,7 +9,6 @@
    [notes-app.utils.navigator :as navigator]
    [notes-app.services.db :as db]
    [notes-app.states.notes :as notes]
-   [notes-app.states.search :as search]
    [block-editor.widgets.editor :as editor]))
 
 (defn ^m/Widget screen [ctx]

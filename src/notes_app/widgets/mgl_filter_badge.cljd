@@ -13,7 +13,11 @@
    :let [theme (-> m/Theme (.of ctx))
          color-scheme (-> theme .-colorScheme)
          text-color (-> color-scheme .-primary)
-         bg-color (-> color-scheme .-primaryContainer)]
+         bg-color (-> color-scheme .-primaryContainer)
+         has-filter? (or (not-empty filter-tag-name) (not-empty filter-date))
+         clear-filter (fn []
+                       (note-state/clear-filter!)
+                       (note-state/load-notes-paginated! ctx 0))]
    (m/Container
     .padding (m/EdgeInsets.symmetric .vertical 1 .horizontal 1)
     .decoration (m/BoxDecoration
@@ -22,17 +26,31 @@
     (m/Column
      .mainAxisSize m/MainAxisSize.min
      .mainAxisAlignment m/MainAxisAlignment.start
-     .children [(m/Icon
-                 (m/Icons.filter_alt_rounded)
-                 .size 16
-                 .color text-color)
-                (mgl/MongolText  (cond
-                                   (not-empty filter-tag-name) filter-tag-name
-                                   (not-empty filter-date) filter-date
-                                   :else "Minii Notes")
-                                 .style (m/TextStyle .fontSize 12
-                                                     .fontWeight (m/FontWeight.w500)
-                                                     .color text-color))]))))
+     .crossAxisAlignment m/CrossAxisAlignment.center
+     .children [(m/Column
+                 .mainAxisSize m/MainAxisSize.min
+                 .mainAxisAlignment m/MainAxisAlignment.start
+                 .children [(m/Icon
+                             (m/Icons.filter_alt_rounded)
+                             .size 16
+                             .color text-color)
+                            (mgl/MongolText  (cond
+                                               (not-empty filter-tag-name) filter-tag-name
+                                               (not-empty filter-date) filter-date
+                                               :else "All Notes")
+                                             .style (m/TextStyle .fontSize 14
+                                                                 .fontWeight (m/FontWeight.w500)
+                                                                 .color text-color))])
+                (if has-filter?
+                  (m/GestureDetector
+                   .onTap clear-filter
+                   .child (m/Container
+                           .padding (m/EdgeInsets.all 4)
+                           .child (m/Icon
+                                   m/Icons.close
+                                   .size 16
+                                   .color text-color)))
+                  (m/SizedBox))]))))
 (defn positioned-filter-badge []
   (m/Positioned
    .top 0
