@@ -126,6 +126,24 @@
                                 "We'd love to hear your suggestions for improving the app." color-scheme)])
    color-scheme))
 
+(defn- create-user-account-section [color-scheme]
+  (create-info-card
+   "User Account & Data"
+   (m/Row
+    .crossAxisAlignment m.CrossAxisAlignment/start
+    .children [(create-help-item m/Icons.login "Login & Data Migration"
+                                "When you log in, all notes created in anonymous mode will automatically become part of your account. Your previous anonymous data will be transferred to your user account."
+                                color-scheme)
+               (m/Container .width 16)
+               (create-help-item m/Icons.logout "Logout & Data Access"
+                                "After logging out, you will not be able to access your notes. You must log in again to view and manage your data."
+                                color-scheme)
+               (m/Container .width 16)
+               (create-help-item m/Icons.person "User-Only Access"
+                                "All notes are tied to your user account. You must be logged in to create, view, search, and manage your notes."
+                                color-scheme)])
+   color-scheme))
+
 (defn- create-faq-section [color-scheme]
   (create-info-card
    "Frequently Asked Questions"
@@ -170,6 +188,8 @@
                    .children (concat
                               (create-help-header color-scheme)
                               [(create-getting-started-section color-scheme)
+                               (m/Container .width 20)
+                               (create-user-account-section color-scheme)
                                (m/Container .width 20)
                                (create-common-issues-section color-scheme)
                                (m/Container .width 20)
