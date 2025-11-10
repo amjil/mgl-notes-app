@@ -4,10 +4,13 @@ A modern Mongolian notes application built with ClojureDart and Flutter. It offe
 
 ## 🆕 Recent Changes
 
+- **Utils module**: Added a new `utils/` directory with helper functions for clipboard, date, file, navigator, note, state, string, tag, and toast operations.
+- **New screens**: Added `about_app.cljd` and `help_support.cljd` screens for app information and user support.
+- **New widget**: Added `mgl_chip.cljd` component for tag and filter display.
+- **Local dependency**: `mongol-block-editor`
 - **Editor upgrade**: Multi-block editing is powered by `amjil/mongol-block-editor` for better stability and maintainability.
 - **Auth basics**: Added login / registration and simple authentication flow (see `src/notes_app/screens/login.cljd` and `register.cljd`).
 - **Scope consolidation**: Removed the previous calendar/statistics modules and their links. The current focus is core notes, search, tags, recycle bin, and import/export.
-- **Dependency alignment**: README now matches `pubspec.yaml` and `deps.edn`. Removed non-existent dependencies and invalid references.
 
 ## 🚀 Features
 
@@ -110,9 +113,12 @@ mgl-notes-app/
 │   │   ├── search.cljd
 │   │   ├── import_export.cljd
 │   │   ├── login.cljd
-│   │   └── register.cljd
+│   │   ├── register.cljd
+│   │   ├── about_app.cljd
+│   │   └── help_support.cljd
 │   ├── widgets/
 │   │   ├── mgl_app_bar.cljd
+│   │   ├── mgl_chip.cljd
 │   │   ├── mgl_drawer.cljd
 │   │   ├── mgl_empty_state.cljd
 │   │   ├── mgl_favorite_list.cljd
@@ -135,15 +141,27 @@ mgl-notes-app/
 │   │   ├── search.cljd
 │   │   ├── tags.cljd
 │   │   └── ui.cljd
-│   └── services/
-│       ├── auth.cljd
-│       ├── common.cljd
-│       ├── db.cljd
-│       ├── env.cljd
-│       ├── import_export.cljd
-│       └── pref.cljd
+│   ├── services/
+│   │   ├── auth.cljd
+│   │   ├── common.cljd
+│   │   ├── db.cljd
+│   │   ├── env.cljd
+│   │   ├── import_export.cljd
+│   │   └── pref.cljd
+│   └── utils/
+│       ├── clipboard.cljd
+│       ├── date.cljd
+│       ├── file.cljd
+│       ├── navigator.cljd
+│       ├── note.cljd
+│       ├── state_helpers.cljd
+│       ├── string.cljd
+│       ├── tag.cljd
+│       └── toast.cljd
 ├── assets/
 │   ├── fonts/
+│   │   ├── OyunQaganTig.ttf
+│   │   └── OnonSoninSans.ttf
 │   ├── data.zip
 │   └── next.zip
 ├── pubspec.yaml
@@ -156,13 +174,13 @@ mgl-notes-app/
 - Create notes: tap “+” on Home.
 - Edit & reorder: add/remove blocks in the editor, long-press to reorder.
 - Tags/Search: filter in the search and tags panels.
--
 - Recycle bin: restore or permanently delete from the recycle page.
 - Import/Export: operate data packages in Settings / Import-Export.
 
 ## 🔧 Development
 
 - Business logic primarily lives in `src/notes_app/` under `states/` and `services/`.
+- Utility functions are organized in `src/notes_app/utils/` for reusable helpers.
 - Data access is centralized in `lib/database/` (Drift).
 - Build flow: run `clojure -M:cljd` first, then `flutter run`.
 
