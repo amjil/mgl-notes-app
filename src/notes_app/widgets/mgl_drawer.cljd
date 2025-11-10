@@ -2,6 +2,7 @@
   (:require
    ["package:flutter/material.dart" :as m]
    ["package:mongol/mongol.dart" :as mgl]
+   [electric-sync.state :as es-state]
    [notes-app.utils.navigator :as navigator]
    [notes-app.widgets.mgl-favorite-list :as fal]
    [cljd.flutter :as f]))
@@ -14,6 +15,7 @@
          color-scheme (-> theme .-colorScheme)
          bg-color (-> color-scheme .-primaryContainer)
          scaffold-bg-color (-> color-scheme .-surface)]
+   :watch [uid es-state/uid]
    (m/Drawer)
    (m/SafeArea)
    (m/Container
@@ -52,16 +54,14 @@
           (m/Row
            .mainAxisAlignment m/MainAxisAlignment.start
            .children
-           [(mgl/MongolListTile
-             .leading (m/Icon m/Icons.login)
-             .title (mgl/MongolText "Login")
-             .onTap (fn []
-                      (navigator/navigate-to-screen navigator "/login")))
-            (mgl/MongolListTile
-             .leading (m/Icon m/Icons.login)
-             .title (mgl/MongolText "Register")
-             .onTap (fn []
-                      (navigator/navigate-to-screen navigator "/register")))
+           [(if (nil? uid)
+              (mgl/MongolListTile
+               .leading (m/Icon m/Icons.login)
+               .title (mgl/MongolText "Login")
+               .onTap (fn []
+                        (-> m/Scaffold (.of ctx) .closeDrawer)
+                        (navigator/navigate-to-screen navigator "/login")))
+              (m/SizedBox))
             (mgl/MongolListTile
              .leading (m/Icon m/Icons.info_outline)
              .title (mgl/MongolText "About")

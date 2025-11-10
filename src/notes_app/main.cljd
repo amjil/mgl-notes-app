@@ -7,6 +7,7 @@
    [virtual-keyboard.input-control :as control]
    [virtual-keyboard.keyboard-candidates :as kc]
    [virtual-keyboard.zip-utils :as zip-utils]
+   [electric-sync.token :as token]
    [notes-app.screens.home :as home]
    [notes-app.screens.login :as login]
    [notes-app.screens.register :as register]
@@ -32,6 +33,9 @@
 
   (zip-utils/read-json-from-asset-zip kc/data "assets/data.zip")
   (zip-utils/read-json-from-asset-zip kc/next "assets/next.zip")
+
+  ;; Init The Token
+  (token/init)
 
   ;; Start Flutter application
   (f/run
