@@ -4,7 +4,9 @@
    [clojure.set :as set]
    [block-editor.state :as editor-state]
    [block-editor.utils.block :as editor-util]
+   [notes-app.utils.string :as string-utils]
    [notes-app.states.notes :as notes]
+   [notes-app.utils.tag :as tags-utils]
    [notes-app.services.db :as db]
    [notes-app.utils.toast :as toast]
    [notes-app.utils.state-helpers :as helpers]
@@ -50,6 +52,54 @@
                    ;; Add new references
                    (doseq [ref-id to-add]
                      (db/create-note-reference note-id ref-id))))))))
+
+(defn- update-note-tags!
+  "Update note tags based on tags extracted from content"
+  [note-id content]
+  (let [current-tag-names (set (tags-utils/extract-tags content))
+        existing-tags-promise (db/get-note-tags note-id)]
+    (-> existing-tags-promise
+        (.then (fn [existing-tags]
+                 (let [existing-tags (map #(.-data %) existing-tags)
+                       existing-tag-names (set (map (fn [tag]
+                                                      (or (get tag "name")
+                                                          (get tag :name)
+                                                          (.-name tag)))
+                                                    existing-tags))
+                       existing-tag-ids (into {}
+                                              (map (fn [tag]
+                                                     (let [tag-name (or (get tag "name")
+                                                                        (get tag :name)
+                                                                        (.-name tag))
+                                                           tag-id (or (get tag "id")
+                                                                      (get tag :id)
+                                                                      (.-id tag))]
+                                                       [tag-name tag-id]))
+                                                   existing-tags))
+                       to-remove-names (set/difference existing-tag-names current-tag-names)
+                       to-add-names (set/difference current-tag-names existing-tag-names)]
+                   ;; Delete removed tags
+                   (doseq [tag-name to-remove-names]
+                     (let [tag-id (get existing-tag-ids tag-name)]
+                       (when tag-id
+                         (db/remove-tag-from-note note-id tag-id))))
+                   ;; Add new tags
+                   (doseq [tag-name to-add-names]
+                     (-> (db/get-tag-by-name tag-name)
+                         (.then (fn [tag]
+                                  (if tag
+                                    ;; Tag exists, use its id
+                                    (let [tag (.-data tag)
+                                          tag-id (or (get tag "id")
+                                                     (get tag :id)
+                                                     (.-id tag))]
+                                      (db/add-tag-to-note note-id tag-id))
+                                    ;; Tag doesn't exist, create it first
+                                    (let [^uuid/Uuid uuid-instance (uuid/Uuid.)
+                                          new-id (.v4 uuid-instance)]
+                                      (-> (db/create-tag tag-name new-id)
+                                          (.then (fn [_]
+                                                   (db/add-tag-to-note note-id new-id))))))))))))))))
 
 (defn save-blocks-for-note! [_ctx note-id]
   (let [ids @editor-state/ids
@@ -146,13 +196,16 @@
               (.then (fn [_]
                        (save-blocks-for-note! ctx new-id)
                        (update-note-references! new-id)
+                       (update-note-tags! new-id content)
                        ;; Reload notes list after creating note
                        (notes/load-notes-paginated! ctx 0)))))
-        (let [note-id (get current "id")]
-          (-> (notes/update-note-with-content! ctx note-id content)
+        (let [note-id (get current "id")
+              title (string-utils/extract-title-from-content content)]
+          (-> (db/update-note-with-content note-id title content)
               (.then (fn [_]
                        (save-blocks-for-note! ctx note-id)
                        (update-note-references! note-id)
+                       (update-note-tags! note-id content)
                        ;; Reload notes list after creating note
                        (notes/load-notes-paginated! ctx 0)))))))
     nil))

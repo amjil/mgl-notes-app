@@ -511,15 +511,15 @@
 
 (defn get-tag-by-name [name]
   (let [^drift/AppDatabase db @db
-        user-id (get-user-id-if-available)]
+        user-id (get-user-id-if-available)
+        query (if-not (empty? user-id)
+                " SELECT * FROM tags WHERE name = ? AND user_id = ? LIMIT 1 "
+                " SELECT * FROM tags WHERE name = ? AND user_id IS NULL LIMIT 1 ")
+        variables (if-not (empty? user-id)
+                    [(d/Variable name) (d/Variable user-id)]
+                    [(d/Variable name)])]
     (.getSingleOrNull
-     (doto (.select db (.-tags db))
-       (.where (fn [^drift/Tags tbl]
-                 (if-not (empty? user-id)
-                   (and (.equals (.-name tbl) name)
-                        (.equals (.-userId tbl) user-id))
-                   (and (.equals (.-name tbl) name)
-                        (.isNull (.-userId tbl))))))))))
+     (.customSelect db query .variables variables))))
 
 (defn get-all-tags []
   (let [^drift/AppDatabase db @db

@@ -4,11 +4,7 @@
    [clojure.string :as str]
    [notes-app.services.db :as db]
    [notes-app.utils.state-helpers :as helpers]
-   [notes-app.utils.date :as date]
-   [notes-app.utils.string :as string-utils]
-   [notes-app.states.notes :as notes]
-   [notes-app.states.tags :as tags-state]
-   [notes-app.utils.tag :as tags-utils]))
+   [notes-app.utils.string :as string-utils]))
 
 ;; Notes State Management
 ;; Responsible for managing notes-related states, including notes list, current note, etc.
@@ -71,7 +67,6 @@
       (-> (db/create-note-with-content content id)
           (.then (fn [_]
                    (load-notes-paginated! ctx 0)
-                   (tags-state/set-note-tags! id (tags-utils/extract-tags content))
                    (when operation
                      (operation)))))
       "Тэмдэглэл амжилттай үүслээ")))
@@ -92,7 +87,6 @@
     (-> (db/update-note-with-content id title content)
         (.then (fn [_]
                  (load-notes-paginated! ctx (:current-page @notes-state))
-                 (tags-state/set-note-tags! id (tags-utils/extract-tags content))
                  (when operation
                    (operation)))))))
 
