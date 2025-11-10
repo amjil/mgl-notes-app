@@ -353,6 +353,23 @@
                    [(d/Variable title-pattern) (d/Variable user-id)]
                    [(d/Variable title-pattern)])))))
 
+(defn get-note-by-title
+  "Get note by exact title match, returns note with id and title"
+  [title]
+  (let [^drift/AppDatabase db @db
+        user-id (get-user-id-if-available)
+        user-filter (if-not (empty? user-id)
+                      "AND n.user_id = ?"
+                      "AND n.user_id IS NULL")]
+    (.getSingle
+     (.customSelect
+      db
+      (str "SELECT n.id, n.title FROM notes n 
+        WHERE n.title = ? AND n.is_deleted = false " user-filter)
+      .variables (if-not (empty? user-id)
+                   [(d/Variable title) (d/Variable user-id)]
+                   [(d/Variable title)])))))
+
 (defn get-notes-count
   "Get total notes count"
   []
