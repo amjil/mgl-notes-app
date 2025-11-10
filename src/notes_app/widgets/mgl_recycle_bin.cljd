@@ -8,7 +8,8 @@
    [notes-app.widgets.mgl-infinite-scroll :as infinite-scroll]
    [notes-app.widgets.mgl-popup-menu :as popup-menu]
    [notes-app.states.notes :as notes]
-   [notes-app.utils.navigator :as navigator]))
+   [notes-app.utils.navigator :as navigator]
+   [notes-app.widgets.mgl-page-title :as mgl-page-title]))
 
 ;; Recycle bin note menu (restore/permanently delete)
 (defn deleted-note-menu-items [ctx note]
@@ -158,4 +159,7 @@
            :loading-more? loading-more
            :has-more? has-more
            :load-more-indicator (infinite-scroll/load-more-indicator infinite-scroll/loading-more-text)
-           :all-loaded-indicator (infinite-scroll/all-loaded-indicator infinite-scroll/all-loaded-text)})))])))
+           :all-loaded-indicator (infinite-scroll/all-loaded-indicator infinite-scroll/all-loaded-text)})))
+     (m/Align
+      .alignment m/Alignment.topLeft
+      .child (mgl-page-title/mgl-page-title "Recycle Bin"))])))
