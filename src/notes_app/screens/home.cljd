@@ -19,7 +19,7 @@
    :let [theme (-> m/Theme (.of ctx))
          color-scheme (.-colorScheme theme)]
    (m/Scaffold
-    .key ui/scaffold-key
+    ;; .key ui/scaffold-key
     .backgroundColor (.-surface color-scheme)
     .appBar (mgl-app-bar/mgl-app-bar navigator "/search")
     .drawer (mgl-drawer/mgl-left-drawer)

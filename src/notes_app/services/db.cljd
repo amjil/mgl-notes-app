@@ -128,6 +128,7 @@
   [tag-id page limit]
   (let [offset (* page limit)
         ^drift/AppDatabase db @db
+        ^String
         user-id (get-user-id-if-available)
         user-filter (if-not (empty? user-id)
                       "AND n.user_id = ?"
