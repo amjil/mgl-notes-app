@@ -2,12 +2,13 @@
 
 A modern Mongolian notes application built with ClojureDart and Flutter. It offers multi-block editing, tags and search, recycle bin, import/export, and built-in Mongolian fonts and input.
 
+**Version**: 1.0.0+1
+
 ## 🆕 Recent Changes
 
 - **Utils module**: Added a new `utils/` directory with helper functions for clipboard, date, file, navigator, note, state, string, tag, and toast operations.
 - **New screens**: Added `about_app.cljd` and `help_support.cljd` screens for app information and user support.
-- **New widget**: Added `mgl_chip.cljd` component for tag and filter display.
-- **Local dependency**: `mongol-block-editor`
+- **New widgets**: Added `mgl_chip.cljd` and `mgl_filter_badge.cljd` components for tag and filter display.
 - **Editor upgrade**: Multi-block editing is powered by `amjil/mongol-block-editor` for better stability and maintainability.
 - **Auth basics**: Added login / registration and simple authentication flow (see `src/notes_app/screens/login.cljd` and `register.cljd`).
 - **Scope consolidation**: Removed the previous calendar/statistics modules and their links. The current focus is core notes, search, tags, recycle bin, and import/export.
@@ -30,9 +31,9 @@ A modern Mongolian notes application built with ClojureDart and Flutter. It offe
 - **Shared Preferences**: Local preferences storage.
 - **Electric Sync (optional)**: `amjil/electric-sync` as a foundation for sync if needed.
 
-## 📦 Dependencies (aligned with the project)
+## 📦 Dependencies
 
-### Dart/Flutter (excerpt)
+### Dart/Flutter
 - `mongol`: ^9.0.0
 - `mongol_code`: ^0.3.0
 - `flutter_dotenv`: ^5.2.1
@@ -64,32 +65,57 @@ A modern Mongolian notes application built with ClojureDart and Flutter. It offe
 1. **Dart SDK** ≥ 3.8.1 (see `environment.sdk` in `pubspec.yaml`)
 2. **Flutter** (stable channel)
 3. **ClojureDart** (see `https://github.com/Tensegritics/ClojureDart`)
+4. **Clojure CLI** (for building ClojureDart code)
 
 ### Install & Run
 
 1. Clone this repository and enter the directory
+   ```bash
+   git clone <repository-url>
+   cd mgl-notes-app
+   ```
+
 2. Install Flutter dependencies
    ```bash
    flutter pub get
    ```
-3. Build ClojureDart sources (outputs to `lib/cljd-out/`)
+
+3. Generate database code (Drift)
+   ```bash
+   flutter pub run build_runner build
+   ```
+
+4. Build ClojureDart sources (outputs to `lib/cljd-out/`)
    ```bash
    clojure -M:cljd
    ```
-4. Run the app
+
+5. Run the app
    ```bash
    flutter run
    ```
 
-### Common commands
+### Common Commands
 
 ```bash
+# Run the app
 flutter run
-flutter build apk
-flutter build ios
-flutter build web
+
+# Build the app
+flutter build apk          # Android APK
+flutter build appbundle   # Android App Bundle
+flutter build ios         # iOS
+flutter build web         # Web
+
+# Testing and analysis
 flutter test
 flutter analyze
+
+# Regenerate database code
+flutter pub run build_runner build --delete-conflicting-outputs
+
+# Rebuild ClojureDart code
+clojure -M:cljd
 ```
 
 ## 📁 Project Structure (simplified)
@@ -169,20 +195,34 @@ mgl-notes-app/
 └── README.md
 ```
 
-## 🎯 Usage (short)
+## 🎯 Usage
 
-- Create notes: tap “+” on Home.
-- Edit & reorder: add/remove blocks in the editor, long-press to reorder.
-- Tags/Search: filter in the search and tags panels.
-- Recycle bin: restore or permanently delete from the recycle page.
-- Import/Export: operate data packages in Settings / Import-Export.
+- **Create notes**: Tap "+" on Home.
+- **Edit & reorder**: Add/remove blocks in the editor, long-press to reorder.
+- **Tags/Search**: Filter in the search and tags panels.
+- **Recycle bin**: Restore or permanently delete from the recycle page.
+- **Import/Export**: Operate data packages in Settings / Import-Export.
 
 ## 🔧 Development
 
-- Business logic primarily lives in `src/notes_app/` under `states/` and `services/`.
-- Utility functions are organized in `src/notes_app/utils/` for reusable helpers.
-- Data access is centralized in `lib/database/` (Drift).
-- Build flow: run `clojure -M:cljd` first, then `flutter run`.
+### Project Structure
+
+- **Business logic**: Primarily lives in `src/notes_app/` under `states/` and `services/`.
+- **Utility functions**: Organized in `src/notes_app/utils/` for reusable helpers.
+- **Data access**: Centralized in `lib/database/` (Drift).
+- **UI components**: Located in `src/notes_app/widgets/` and `src/notes_app/screens/`.
+
+### Build Flow
+
+1. After modifying ClojureDart code, run `clojure -M:cljd` to generate Dart code
+2. If database structure is modified, run `flutter pub run build_runner build` to regenerate database code
+3. Run `flutter run` to start the app
+
+### Development Guidelines
+
+- Follow ClojureDart and Flutter community conventions
+- Use semantic naming; comment non-obvious logic
+- Add tests for new features
 
 ## 🧪 Testing
 
