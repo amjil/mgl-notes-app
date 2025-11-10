@@ -3,6 +3,7 @@
    ["package:flutter/material.dart" :as m]
    ["package:mongol/mongol.dart" :as mgl]
    [electric-sync.state :as es-state]
+   [electric-sync.token :as token]
    [notes-app.utils.navigator :as navigator]
    [notes-app.widgets.mgl-favorite-list :as fal]
    [cljd.flutter :as f]))
@@ -54,7 +55,7 @@
           (m/Row
            .mainAxisAlignment m/MainAxisAlignment.start
            .children
-           [(if (nil? uid)
+           [(if (empty? uid)
               (mgl/MongolListTile
                .leading (m/Icon m/Icons.login)
                .title (mgl/MongolText "Login")
@@ -71,7 +72,15 @@
              .leading (m/Icon m/Icons.help_outline)
              .title (mgl/MongolText "Help")
              .onTap (fn []
-                      (navigator/navigate-to-screen navigator "/help")))])))
+                      (navigator/navigate-to-screen navigator "/help")))
+            (if-not (empty? uid)
+              (mgl/MongolListTile
+               .leading (m/Icon m/Icons.logout)
+               .title (mgl/MongolText "Logout")
+               .onTap (fn []
+                        (-> m/Scaffold (.of ctx) .closeDrawer)
+                        (token/clean)))
+              (m/SizedBox))])))
         (m/Divider .height 1)
         (m/Flexible
          .flex 2

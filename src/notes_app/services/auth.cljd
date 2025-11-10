@@ -1,6 +1,8 @@
 (ns notes-app.services.auth
   (:require
-   [notes-app.utils.toast :as toast]))
+   [electric-sync.auth :as es-auth]
+   [notes-app.utils.toast :as toast]
+   [notes-app.services.env :as env]))
 
 ;; Description:
 ;; This service acts as an adapter layer for electric-sync. Replace the stubbed
@@ -27,11 +29,15 @@
     (toast/show-toast ctx "Password must be at least 6 characters" :warning)
 
     :else
-    (do
-      ;; TODO: Replace with electric-sync login call
-      ;; Example: (await (es/login! email password))
-      (dart:core/print (str "[auth] login using electric-sync: " email))
-      true)))
+    (-> (es-auth/login env/base-utl 
+                       {"email" email "password" password} 
+                       {:success (fn [_] true)})
+        (.then (fn [result]
+                 (if result
+                   (toast/show-toast ctx "Login successful" :success)
+                   (toast/show-toast ctx "Login failed" :error))))
+        (.catchError (fn [error]
+                       (toast/show-toast ctx (str "Login error: " (str error)) :error))))))
 
 (defn register! [ctx email password confirm]
   (cond
@@ -45,10 +51,15 @@
     (toast/show-toast ctx "Passwords do not match" :warning)
 
     :else
-    (do
-      ;; TODO: Replace with electric-sync register call
-      ;; Example: (await (es/register! email password))
-      (dart:core/print (str "[auth] register using electric-sync: " email))
-      true)))
+    (-> (es-auth/register env/base-utl 
+                          {"email" email "password" password} 
+                          {:success (fn [_] true)})
+        (.then (fn [result]
+                 (if result
+                   (toast/show-toast ctx "Registration successful" :success)
+                   (toast/show-toast ctx "Registration failed" :error))))
+        (.catchError (fn [error]
+                       (toast/show-toast ctx (str "Registration error: " (str error)) :error)
+                       false)))))
 
 
