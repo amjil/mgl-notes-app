@@ -70,6 +70,7 @@ class FavoriteNotes extends Table {
 
 // Note references table - stores note_id and referenced_note_id for note reference jump functionality
 class NoteReferences extends Table {
+  TextColumn get userId => text().nullable()();
   TextColumn get noteId => text().references(Notes, #id, onDelete: KeyAction.cascade)();
   TextColumn get referencedNoteId => text().references(Notes, #id, onDelete: KeyAction.cascade)();
   DateTimeColumn get createdAt => dateTime().withDefault(currentDateAndTime)();
@@ -92,7 +93,7 @@ class AppDatabase extends _$AppDatabase {
   AppDatabase(super.e);
 
   @override
-  int get schemaVersion => 13;
+  int get schemaVersion => 14;
 
   @override
   MigrationStrategy get migration {
@@ -129,6 +130,10 @@ class AppDatabase extends _$AppDatabase {
         if (from < 13) {
           // Add note_references table for note reference jump functionality
           await m.createTable(noteReferences);
+        }
+        if (from < 14) {
+          // Add user_id column to note_references table
+          await customStatement('ALTER TABLE note_references ADD COLUMN user_id TEXT');
         }
       },
     );

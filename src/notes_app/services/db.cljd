@@ -6,7 +6,8 @@
    ["package:uuid/uuid.dart" :as uuid]
    
    [clojure.string :as str]
-   [notes-app.utils.string :as string-utils]))
+   [notes-app.utils.string :as string-utils]
+   [electric-sync.state :as es-state]))
 
 ;; =============================================================================
 ;; Database Instance Management
@@ -26,18 +27,36 @@
   (reset! db (await (drift/initDriftDatabase))))
 
 ;; =============================================================================
+;; Helper Functions
+;; =============================================================================
+
+(defn ^:private get-user-id-if-available
+  "Get user_id from electric-sync token if available and not empty"
+  []
+  (let [uid es-state/uid]
+    (when-not (empty? uid)
+      uid)))
+
+;; =============================================================================
 ;; Basic Note Operations
 ;; =============================================================================
 
 (defn create-note
   "Create new note"
   [^String id ^String title]
-  (let [^drift/AppDatabase db @db]
+  (let [^drift/AppDatabase db @db
+        user-id (get-user-id-if-available)
+        companion (if user-id
+                    (drift/NotesCompanion.insert
+                     .id id
+                     .title title
+                     .userId user-id)
+                    (drift/NotesCompanion.insert
+                     .id id
+                     .title title))]
     (.insert
      (.into db (.-notes db))
-     (drift/NotesCompanion.insert
-      .id id
-      .title title))))
+     companion)))
 
 (defn get-note-by-id
   "Get note basic information by ID"
@@ -301,13 +320,21 @@
   ([note-id content]
    (create-block note-id content (.v4 uuid-instance)))
   ([note-id content id]
-   (let [^drift/AppDatabase db @db]
+   (let [^drift/AppDatabase db @db
+         user-id (get-user-id-if-available)
+         companion (if user-id
+                     (drift/BlocksCompanion.insert
+                      .id id
+                      .noteId note-id
+                      .content content
+                      .userId user-id)
+                     (drift/BlocksCompanion.insert
+                      .id id
+                      .noteId note-id
+                      .content content))]
      (.insert
       (.into db (.-blocks db))
-      (drift/BlocksCompanion.insert
-       .id id
-       .noteId note-id
-       .content content)))))
+      companion))))
 
 (defn get-block-by-id [id]
   (let [^drift/AppDatabase db @db]
@@ -371,12 +398,19 @@
 
 (defn create-tag [name & [id]]
   (let [id (or id (.v4 uuid-instance))
-        ^drift/AppDatabase db @db]
+        ^drift/AppDatabase db @db
+        user-id (get-user-id-if-available)
+        companion (if user-id
+                    (drift/TagsCompanion.insert
+                     .id id
+                     .name name
+                     .userId user-id)
+                    (drift/TagsCompanion.insert
+                     .id id
+                     .name name))]
     (.insert
      (.into db (.-tags db))
-     (drift/TagsCompanion.insert
-      .id id
-      .name name))))
+     companion)))
 
 (defn get-tag-by-id [id]
   (let [^drift/AppDatabase db @db]
@@ -440,12 +474,19 @@
 ;; ===== NoteTags db functions =====
 
 (defn add-tag-to-note [note-id tag-id]
-  (let [^drift/AppDatabase db @db]
+  (let [^drift/AppDatabase db @db
+        user-id (get-user-id-if-available)
+        companion (if user-id
+                    (drift/NoteTagsCompanion.insert
+                     .noteId note-id
+                     .tagId tag-id
+                     .userId user-id)
+                    (drift/NoteTagsCompanion.insert
+                     .noteId note-id
+                     .tagId tag-id))]
     (.insert
      (.into db (.-noteTags db))
-     (drift/NoteTagsCompanion.insert
-      .noteId note-id
-      .tagId tag-id))))
+     companion)))
 
 (defn remove-tag-from-note [note-id tag-id]
   (let [^drift/AppDatabase db @db]
@@ -603,11 +644,17 @@
 (defn add-favorite-note
   "Add note to favorites"
   [note-id]
-  (let [^drift/AppDatabase db @db]
+  (let [^drift/AppDatabase db @db
+        user-id (get-user-id-if-available)
+        companion (if user-id
+                    (drift/FavoriteNotesCompanion.insert
+                     .noteId note-id
+                     .userId user-id)
+                    (drift/FavoriteNotesCompanion.insert
+                     .noteId note-id))]
     (.insert
      (.into db (.-favoriteNotes db))
-     (drift/FavoriteNotesCompanion.insert
-      .noteId note-id)
+     companion
      .mode (d/InsertMode.replace))))
 
 (defn remove-favorite-note
@@ -626,12 +673,19 @@
 (defn create-note-reference
   "Create note reference (save reference relationship)"
   [note-id referenced-note-id]
-  (let [^drift/AppDatabase db @db]
+  (let [^drift/AppDatabase db @db
+        user-id (get-user-id-if-available)
+        companion (if user-id
+                    (drift/NoteReferencesCompanion.insert
+                     .noteId note-id
+                     .referencedNoteId referenced-note-id
+                     .userId user-id)
+                    (drift/NoteReferencesCompanion.insert
+                     .noteId note-id
+                     .referencedNoteId referenced-note-id))]
     (.insert
      (.into db (.-noteReferences db))
-     (drift/NoteReferencesCompanion.insert
-      .noteId note-id
-      .referencedNoteId referenced-note-id)
+     companion
      .mode (d/InsertMode.replace))))
 
 (defn delete-note-reference
@@ -677,3 +731,39 @@
                                 (get row :referenced_note_id)
                                 (.-referencedNoteId row))))
                         rows)))))))
+
+;; =============================================================================
+;; Update User ID for Drift Tables
+;; =============================================================================
+
+(defn update-empty-user-ids!
+  "Update all drift table records where user_id is null with the provided user_id"
+  [user-id]
+  (let [^drift/AppDatabase db @db]
+    (.transaction
+     db
+     (fn []
+       ;; Update Notes table
+       (.customStatement db
+                         "UPDATE notes SET user_id = ? WHERE user_id IS NULL"
+                         [user-id])
+       ;; Update Blocks table
+       (.customStatement db
+                         "UPDATE blocks SET user_id = ? WHERE user_id IS NULL"
+                         [user-id])
+       ;; Update Tags table
+       (.customStatement db
+                         "UPDATE tags SET user_id = ? WHERE user_id IS NULL"
+                         [user-id])
+       ;; Update NoteTags table
+       (.customStatement db
+                         "UPDATE note_tags SET user_id = ? WHERE user_id IS NULL"
+                         [user-id])
+       ;; Update FavoriteNotes table
+       (.customStatement db
+                         "UPDATE favorite_notes SET user_id = ? WHERE user_id IS NULL"
+                         [user-id])
+       ;; Update NoteReferences table
+       (.customStatement db
+                         "UPDATE note_references SET user_id = ? WHERE user_id IS NULL"
+                         [user-id])))))

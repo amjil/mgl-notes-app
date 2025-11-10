@@ -1,8 +1,10 @@
 (ns notes-app.services.auth
   (:require
    [electric-sync.auth :as es-auth]
+   [electric-sync.state :as es-state]
    [notes-app.utils.toast :as toast]
-   [notes-app.services.env :as env]))
+   [notes-app.services.env :as env]
+   [notes-app.services.db :as db]))
 
 ;; Description:
 ;; This service acts as an adapter layer for electric-sync. Replace the stubbed
@@ -34,7 +36,12 @@
                        {:success (fn [_] true)})
         (.then (fn [result]
                  (if result
-                   (toast/show-toast ctx "Login successful" :success)
+                   (do
+                     (toast/show-toast ctx "Login successful" :success)
+                     ;; Get uid from electric-sync token and update empty user_ids
+                     (let [uid es-state/uid]
+                       (when-not (empty? uid)
+                         (db/update-empty-user-ids! uid))))
                    (toast/show-toast ctx "Login failed" :error))))
         (.catchError (fn [error]
                        (toast/show-toast ctx (str "Login error: " (str error)) :error))))))
@@ -56,7 +63,12 @@
                           {:success (fn [_] true)})
         (.then (fn [result]
                  (if result
-                   (toast/show-toast ctx "Registration successful" :success)
+                   (do
+                     (toast/show-toast ctx "Registration successful" :success)
+                     ;; Get uid from electric-sync token and update empty user_ids
+                     (let [uid es-state/uid]
+                       (when-not (empty? uid)
+                         (db/update-empty-user-ids! uid))))
                    (toast/show-toast ctx "Registration failed" :error))))
         (.catchError (fn [error]
                        (toast/show-toast ctx (str "Registration error: " (str error)) :error)

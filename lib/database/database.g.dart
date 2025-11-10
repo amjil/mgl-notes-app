@@ -1858,6 +1858,15 @@ class $NoteReferencesTable extends NoteReferences
   final GeneratedDatabase attachedDatabase;
   final String? _alias;
   $NoteReferencesTable(this.attachedDatabase, [this._alias]);
+  static const VerificationMeta _userIdMeta = const VerificationMeta('userId');
+  @override
+  late final GeneratedColumn<String> userId = GeneratedColumn<String>(
+    'user_id',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
   static const VerificationMeta _noteIdMeta = const VerificationMeta('noteId');
   @override
   late final GeneratedColumn<String> noteId = GeneratedColumn<String>(
@@ -1897,7 +1906,12 @@ class $NoteReferencesTable extends NoteReferences
     defaultValue: currentDateAndTime,
   );
   @override
-  List<GeneratedColumn> get $columns => [noteId, referencedNoteId, createdAt];
+  List<GeneratedColumn> get $columns => [
+    userId,
+    noteId,
+    referencedNoteId,
+    createdAt,
+  ];
   @override
   String get aliasedName => _alias ?? actualTableName;
   @override
@@ -1910,6 +1924,12 @@ class $NoteReferencesTable extends NoteReferences
   }) {
     final context = VerificationContext();
     final data = instance.toColumns(true);
+    if (data.containsKey('user_id')) {
+      context.handle(
+        _userIdMeta,
+        userId.isAcceptableOrUnknown(data['user_id']!, _userIdMeta),
+      );
+    }
     if (data.containsKey('note_id')) {
       context.handle(
         _noteIdMeta,
@@ -1944,6 +1964,10 @@ class $NoteReferencesTable extends NoteReferences
   NoteReference map(Map<String, dynamic> data, {String? tablePrefix}) {
     final effectivePrefix = tablePrefix != null ? '$tablePrefix.' : '';
     return NoteReference(
+      userId: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}user_id'],
+      ),
       noteId: attachedDatabase.typeMapping.read(
         DriftSqlType.string,
         data['${effectivePrefix}note_id'],
@@ -1966,10 +1990,12 @@ class $NoteReferencesTable extends NoteReferences
 }
 
 class NoteReference extends DataClass implements Insertable<NoteReference> {
+  final String? userId;
   final String noteId;
   final String referencedNoteId;
   final DateTime createdAt;
   const NoteReference({
+    this.userId,
     required this.noteId,
     required this.referencedNoteId,
     required this.createdAt,
@@ -1977,6 +2003,9 @@ class NoteReference extends DataClass implements Insertable<NoteReference> {
   @override
   Map<String, Expression> toColumns(bool nullToAbsent) {
     final map = <String, Expression>{};
+    if (!nullToAbsent || userId != null) {
+      map['user_id'] = Variable<String>(userId);
+    }
     map['note_id'] = Variable<String>(noteId);
     map['referenced_note_id'] = Variable<String>(referencedNoteId);
     map['created_at'] = Variable<DateTime>(createdAt);
@@ -1985,6 +2014,9 @@ class NoteReference extends DataClass implements Insertable<NoteReference> {
 
   NoteReferencesCompanion toCompanion(bool nullToAbsent) {
     return NoteReferencesCompanion(
+      userId: userId == null && nullToAbsent
+          ? const Value.absent()
+          : Value(userId),
       noteId: Value(noteId),
       referencedNoteId: Value(referencedNoteId),
       createdAt: Value(createdAt),
@@ -1997,6 +2029,7 @@ class NoteReference extends DataClass implements Insertable<NoteReference> {
   }) {
     serializer ??= driftRuntimeOptions.defaultSerializer;
     return NoteReference(
+      userId: serializer.fromJson<String?>(json['userId']),
       noteId: serializer.fromJson<String>(json['noteId']),
       referencedNoteId: serializer.fromJson<String>(json['referencedNoteId']),
       createdAt: serializer.fromJson<DateTime>(json['createdAt']),
@@ -2006,6 +2039,7 @@ class NoteReference extends DataClass implements Insertable<NoteReference> {
   Map<String, dynamic> toJson({ValueSerializer? serializer}) {
     serializer ??= driftRuntimeOptions.defaultSerializer;
     return <String, dynamic>{
+      'userId': serializer.toJson<String?>(userId),
       'noteId': serializer.toJson<String>(noteId),
       'referencedNoteId': serializer.toJson<String>(referencedNoteId),
       'createdAt': serializer.toJson<DateTime>(createdAt),
@@ -2013,16 +2047,19 @@ class NoteReference extends DataClass implements Insertable<NoteReference> {
   }
 
   NoteReference copyWith({
+    Value<String?> userId = const Value.absent(),
     String? noteId,
     String? referencedNoteId,
     DateTime? createdAt,
   }) => NoteReference(
+    userId: userId.present ? userId.value : this.userId,
     noteId: noteId ?? this.noteId,
     referencedNoteId: referencedNoteId ?? this.referencedNoteId,
     createdAt: createdAt ?? this.createdAt,
   );
   NoteReference copyWithCompanion(NoteReferencesCompanion data) {
     return NoteReference(
+      userId: data.userId.present ? data.userId.value : this.userId,
       noteId: data.noteId.present ? data.noteId.value : this.noteId,
       referencedNoteId: data.referencedNoteId.present
           ? data.referencedNoteId.value
@@ -2034,6 +2071,7 @@ class NoteReference extends DataClass implements Insertable<NoteReference> {
   @override
   String toString() {
     return (StringBuffer('NoteReference(')
+          ..write('userId: $userId, ')
           ..write('noteId: $noteId, ')
           ..write('referencedNoteId: $referencedNoteId, ')
           ..write('createdAt: $createdAt')
@@ -2042,28 +2080,32 @@ class NoteReference extends DataClass implements Insertable<NoteReference> {
   }
 
   @override
-  int get hashCode => Object.hash(noteId, referencedNoteId, createdAt);
+  int get hashCode => Object.hash(userId, noteId, referencedNoteId, createdAt);
   @override
   bool operator ==(Object other) =>
       identical(this, other) ||
       (other is NoteReference &&
+          other.userId == this.userId &&
           other.noteId == this.noteId &&
           other.referencedNoteId == this.referencedNoteId &&
           other.createdAt == this.createdAt);
 }
 
 class NoteReferencesCompanion extends UpdateCompanion<NoteReference> {
+  final Value<String?> userId;
   final Value<String> noteId;
   final Value<String> referencedNoteId;
   final Value<DateTime> createdAt;
   final Value<int> rowid;
   const NoteReferencesCompanion({
+    this.userId = const Value.absent(),
     this.noteId = const Value.absent(),
     this.referencedNoteId = const Value.absent(),
     this.createdAt = const Value.absent(),
     this.rowid = const Value.absent(),
   });
   NoteReferencesCompanion.insert({
+    this.userId = const Value.absent(),
     required String noteId,
     required String referencedNoteId,
     this.createdAt = const Value.absent(),
@@ -2071,12 +2113,14 @@ class NoteReferencesCompanion extends UpdateCompanion<NoteReference> {
   }) : noteId = Value(noteId),
        referencedNoteId = Value(referencedNoteId);
   static Insertable<NoteReference> custom({
+    Expression<String>? userId,
     Expression<String>? noteId,
     Expression<String>? referencedNoteId,
     Expression<DateTime>? createdAt,
     Expression<int>? rowid,
   }) {
     return RawValuesInsertable({
+      if (userId != null) 'user_id': userId,
       if (noteId != null) 'note_id': noteId,
       if (referencedNoteId != null) 'referenced_note_id': referencedNoteId,
       if (createdAt != null) 'created_at': createdAt,
@@ -2085,12 +2129,14 @@ class NoteReferencesCompanion extends UpdateCompanion<NoteReference> {
   }
 
   NoteReferencesCompanion copyWith({
+    Value<String?>? userId,
     Value<String>? noteId,
     Value<String>? referencedNoteId,
     Value<DateTime>? createdAt,
     Value<int>? rowid,
   }) {
     return NoteReferencesCompanion(
+      userId: userId ?? this.userId,
       noteId: noteId ?? this.noteId,
       referencedNoteId: referencedNoteId ?? this.referencedNoteId,
       createdAt: createdAt ?? this.createdAt,
@@ -2101,6 +2147,9 @@ class NoteReferencesCompanion extends UpdateCompanion<NoteReference> {
   @override
   Map<String, Expression> toColumns(bool nullToAbsent) {
     final map = <String, Expression>{};
+    if (userId.present) {
+      map['user_id'] = Variable<String>(userId.value);
+    }
     if (noteId.present) {
       map['note_id'] = Variable<String>(noteId.value);
     }
@@ -2119,6 +2168,7 @@ class NoteReferencesCompanion extends UpdateCompanion<NoteReference> {
   @override
   String toString() {
     return (StringBuffer('NoteReferencesCompanion(')
+          ..write('userId: $userId, ')
           ..write('noteId: $noteId, ')
           ..write('referencedNoteId: $referencedNoteId, ')
           ..write('createdAt: $createdAt, ')
@@ -4038,6 +4088,7 @@ typedef $$FavoriteNotesTableProcessedTableManager =
     >;
 typedef $$NoteReferencesTableCreateCompanionBuilder =
     NoteReferencesCompanion Function({
+      Value<String?> userId,
       required String noteId,
       required String referencedNoteId,
       Value<DateTime> createdAt,
@@ -4045,6 +4096,7 @@ typedef $$NoteReferencesTableCreateCompanionBuilder =
     });
 typedef $$NoteReferencesTableUpdateCompanionBuilder =
     NoteReferencesCompanion Function({
+      Value<String?> userId,
       Value<String> noteId,
       Value<String> referencedNoteId,
       Value<DateTime> createdAt,
@@ -4106,6 +4158,11 @@ class $$NoteReferencesTableFilterComposer
     super.$addJoinBuilderToRootComposer,
     super.$removeJoinBuilderFromRootComposer,
   });
+  ColumnFilters<String> get userId => $composableBuilder(
+    column: $table.userId,
+    builder: (column) => ColumnFilters(column),
+  );
+
   ColumnFilters<DateTime> get createdAt => $composableBuilder(
     column: $table.createdAt,
     builder: (column) => ColumnFilters(column),
@@ -4167,6 +4224,11 @@ class $$NoteReferencesTableOrderingComposer
     super.$addJoinBuilderToRootComposer,
     super.$removeJoinBuilderFromRootComposer,
   });
+  ColumnOrderings<String> get userId => $composableBuilder(
+    column: $table.userId,
+    builder: (column) => ColumnOrderings(column),
+  );
+
   ColumnOrderings<DateTime> get createdAt => $composableBuilder(
     column: $table.createdAt,
     builder: (column) => ColumnOrderings(column),
@@ -4228,6 +4290,9 @@ class $$NoteReferencesTableAnnotationComposer
     super.$addJoinBuilderToRootComposer,
     super.$removeJoinBuilderFromRootComposer,
   });
+  GeneratedColumn<String> get userId =>
+      $composableBuilder(column: $table.userId, builder: (column) => column);
+
   GeneratedColumn<DateTime> get createdAt =>
       $composableBuilder(column: $table.createdAt, builder: (column) => column);
 
@@ -4308,11 +4373,13 @@ class $$NoteReferencesTableTableManager
               $$NoteReferencesTableAnnotationComposer($db: db, $table: table),
           updateCompanionCallback:
               ({
+                Value<String?> userId = const Value.absent(),
                 Value<String> noteId = const Value.absent(),
                 Value<String> referencedNoteId = const Value.absent(),
                 Value<DateTime> createdAt = const Value.absent(),
                 Value<int> rowid = const Value.absent(),
               }) => NoteReferencesCompanion(
+                userId: userId,
                 noteId: noteId,
                 referencedNoteId: referencedNoteId,
                 createdAt: createdAt,
@@ -4320,11 +4387,13 @@ class $$NoteReferencesTableTableManager
               ),
           createCompanionCallback:
               ({
+                Value<String?> userId = const Value.absent(),
                 required String noteId,
                 required String referencedNoteId,
                 Value<DateTime> createdAt = const Value.absent(),
                 Value<int> rowid = const Value.absent(),
               }) => NoteReferencesCompanion.insert(
+                userId: userId,
                 noteId: noteId,
                 referencedNoteId: referencedNoteId,
                 createdAt: createdAt,
