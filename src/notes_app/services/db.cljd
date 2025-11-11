@@ -147,7 +147,7 @@
     (.get
      (.customSelect db
                     (str "SELECT n.* FROM notes n 
-                     WHERE n.sync_status = 'pending' " user-filter)
+                     WHERE n.sync_status = 'pending' and is_deleted = false " user-filter)
                     .variables (if-not (empty? user-id)
                                  [(d/Variable user-id)]
                                  [])))))

@@ -1,0 +1,44 @@
+(ns notes-app.utils.sync
+  (:require
+   ["dart:core" :as dart-core]
+   [electric-sync.push :as es-push]
+   [notes-app.services.db :as db]
+   [notes-app.services.env :as env]))
+
+(defn- ensure-iso8601 [timestamp]
+  (cond
+    (nil? timestamp) nil
+    (number? timestamp)
+    (let [millis (* 1000 (.toInt timestamp))]
+      (.toIso8601String (dart-core/DateTime.fromMillisecondsSinceEpoch millis .isUtc true)))
+    
+    :else
+    nil))
+
+(defn upload-pending-note!
+  [target-note]
+  (let [note-data (.-data target-note)
+        note-id (get note-data "id")
+        note-payload {"id" (get note-data "id")
+                      "title" (get note-data "title")
+                      "block_ids" (get note-data "block_ids")
+                      "created_at" (ensure-iso8601 (get note-data "created_at"))
+                      "updated_at" (ensure-iso8601 (get note-data "updated_at"))
+                      "is_deleted" (get note-data "is_deleted")}]
+    (es-push/push-data env/base-utl
+                       "notes"
+                       note-payload
+                       {:success (fn [result]
+                                   ;; return result is {"ok": true}
+                                   (when (true? (get result "ok"))
+                                     (dart:core/print (str "Note uploaded successfully: " note-id))
+                                     (db/mark-note-as-synced note-id)))})))
+
+(defn upload-pending-notes!
+  "Upload all pending notes to the server"
+  []
+  (-> (db/get-pending-notes)
+      (.then (fn [notes]
+               (when-not (empty? notes)
+                 (doseq [note notes]
+                   (upload-pending-note! note)))))))
