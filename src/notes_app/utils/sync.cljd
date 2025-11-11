@@ -34,6 +34,23 @@
                                      (dart:core/print (str "Note uploaded successfully: " note-id))
                                      (db/mark-note-as-synced note-id)))})))
 
+(defn upload-pending-block!
+  [target-block]
+  (let [block-data (.-data target-block)
+        block-id (get block-data "id")
+        block-payload {"id" (get block-data "id")
+                       "note_id" (get block-data "note_id")
+                       "content" (get block-data "content")
+                       "created_at" (ensure-iso8601 (get block-data "created_at"))
+                       "updated_at" (ensure-iso8601 (get block-data "updated_at"))}]
+    (es-push/push-data env/base-utl
+                       "blocks"
+                       block-payload
+                       {:success (fn [result]
+                                   (when (true? (get result "ok"))
+                                     (dart:core/print (str "Block uploaded successfully: " block-id))
+                                     (db/mark-block-as-synced block-id)))})))
+
 (defn upload-pending-notes!
   "Upload all pending notes to the server"
   []
@@ -42,3 +59,12 @@
                (when-not (empty? notes)
                  (doseq [note notes]
                    (upload-pending-note! note)))))))
+
+(defn upload-pending-blocks!
+  "Upload all pending blocks to the server"
+  []
+  (-> (db/get-pending-blocks)
+      (.then (fn [blocks]
+               (when-not (empty? blocks)
+                 (doseq [block blocks]
+                   (upload-pending-block! block)))))))

@@ -404,6 +404,23 @@
        (.where (fn [^drift/Blocks tbl] (.equals (.-noteId tbl) note-id)))
        (.orderBy [(fn [^drift/Blocks tbl] (d/OrderingTerm. .expression (.-createdAt tbl) .mode d/OrderingMode.asc))])))))
 
+(defn get-pending-blocks
+  "Get blocks pending synchronization"
+  []
+  (let [^drift/AppDatabase db @db
+        user-id (get-user-id-if-available)
+        user-filter (if-not (empty? user-id)
+                      "AND b.user_id = ?"
+                      "AND b.user_id IS NULL")]
+    (.get
+     (.customSelect db
+                    (str "SELECT b.* FROM blocks b 
+                     INNER JOIN notes n ON b.note_id = n.id
+                     WHERE b.sync_status = 'pending' and n.id is not null and n.is_deleted = false " user-filter)
+                    .variables (if-not (empty? user-id)
+                                 [(d/Variable user-id)]
+                                 [])))))
+
 (defn update-block [id ^String content]
   (let [^drift/AppDatabase db @db
         query (doto (.update db (.-blocks db))
