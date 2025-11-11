@@ -14,7 +14,7 @@
 ;; Database Instance Management
 ;; =============================================================================
 
-(declare get-blocks-by-note-id)
+(declare get-blocks-by-note-id update-block-content)
 
 ;; Database instance reference
 (def db (atom nil))
@@ -82,6 +82,28 @@
                          user-id
                          "synced"
                          updated-at]))))
+                   
+(defn upsert-remote-block!
+  "Insert or replace block record with data pulled from remote"
+  [{:keys [id note_id content created_at updated_at user_id]}]
+  (when (and id note_id)
+    (let [^drift/AppDatabase db @db
+          created-at (to-timestamp created_at)
+          updated-at (or (to-timestamp updated_at) created-at)
+          user-id (when (and user_id (not (str/blank? user_id))) user_id)
+          block-content (or content "")]
+      (.customStatement db
+                        "INSERT OR REPLACE INTO blocks 
+                         (id, note_id, content, created_at, updated_at, user_id, sync_status)
+                         VALUES (?, ?, ?, ?, ?, ?, ?)"
+                        [id
+                         note_id
+                         block-content
+                         created-at
+                         updated-at
+                         user-id
+                         "synced"])
+      (update-block-content id block-content))))
 
 ;; =============================================================================
 ;; Basic Note Operations

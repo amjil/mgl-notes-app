@@ -103,4 +103,39 @@
                          true)
 
                        :else
-                       true)))))}))
+                       true)))
+                 true))}))
+
+(defn pull-blocks-from-server!
+  "Pull blocks from server to local"
+  []
+  (es-pull/fetch-data
+   env/base-utl
+   "blocks"
+   {:success (fn [result]
+               (when-not (empty? result)
+                ;;  (dart:core/print (str "Blocks pulled successfully: " result))
+                 (doseq [item result]
+                   (let [headers (get item "headers")
+                         operation (when (map? headers) (get headers "operation"))
+                         raw-value (get item "value")
+                         block {:id (get raw-value "id")
+                                :note_id (get raw-value "note_id")
+                                :content (get raw-value "content")
+                                :created_at (get raw-value "created_at")
+                                :updated_at (get raw-value "updated_at")
+                                :user_id (get raw-value "user_id")}]
+                     (cond
+                       (and block (= "delete" operation))
+                       (do
+                         (db/delete-block (:id block))
+                         true)
+
+                       block
+                       (do
+                         (db/upsert-remote-block! block)
+                         true)
+
+                       :else
+                       true)))
+                 true))}))
