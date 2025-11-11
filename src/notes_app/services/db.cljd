@@ -48,10 +48,6 @@
           timestamp (int (/ (.millisecondsSinceEpoch utc-dt) 1000))]
       timestamp)))
 
-(defn- datetime->sql-param [^dart-core/DateTime dt]
-  (when dt
-    (.toIso8601String dt)))
-
 (defn upsert-remote-note!
   "Insert or replace note record with data pulled from remote"
   [{:keys [id title block_ids created_at updated_at deleted_at is_deleted user_id]}]
@@ -784,48 +780,6 @@
         companion (drift/NotesCompanion.
                    .syncStatus (d/Value "synced"))]
     (.write query companion)))
-
-;; Get notes for synchronization
-(defn get-notes-for-sync []
-  (let [^drift/AppDatabase db @db
-        user-id (get-user-id-if-available)]
-    (.get
-     (doto (.select db (.-notes db))
-       (.where (fn [^drift/Notes tbl]
-                 (if-not (empty? user-id)
-                   (and (.equals (.-syncStatus tbl) "pending")
-                        (.equals (.-userId tbl) user-id))
-                   (and (.equals (.-syncStatus tbl) "pending")
-                        (.isNull (.-userId tbl))))))
-       (.orderBy [(fn [^drift/Notes tbl] (d/OrderingTerm. .expression (.-updatedAt tbl) .mode d/OrderingMode.asc))])))))
-
-;; Get pending notes count
-(defn get-pending-notes-count []
-  (let [^drift/AppDatabase db @db
-        user-id (get-user-id-if-available)
-        user-filter (if-not (empty? user-id)
-                      "AND user_id = ?"
-                      "AND user_id IS NULL")]
-    (.getSingle
-     (.customSelect db
-                    (str "SELECT COUNT(*) as count FROM notes WHERE sync_status = 'pending' " user-filter)
-                    .variables (if-not (empty? user-id)
-                                 [(d/Variable user-id)]
-                                 [])))))
-
-;; Get synced notes count
-(defn get-synced-notes-count []
-  (let [^drift/AppDatabase db @db
-        user-id (get-user-id-if-available)
-        user-filter (if-not (empty? user-id)
-                      "AND user_id = ?"
-                      "AND user_id IS NULL")]
-    (.getSingle
-     (.customSelect db
-                    (str "SELECT COUNT(*) as count FROM notes WHERE sync_status = 'synced' " user-filter)
-                    .variables (if-not (empty? user-id)
-                                 [(d/Variable user-id)]
-                                 [])))))
 
 ;; =============================================================================
 ;; Favorite Notes Operations
