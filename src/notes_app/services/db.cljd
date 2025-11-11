@@ -462,6 +462,16 @@
                    .syncStatus (d/Value "pending"))]
     (.write query companion)))
 
+;; Mark block as synced
+(defn mark-block-as-synced [id]
+  (let [^drift/AppDatabase db @db
+        query (doto (.update db (.-blocks db))
+                (.where (fn [^drift/Blocks tbl]
+                          (.equals (.-id tbl) id))))
+        companion (drift/BlocksCompanion.
+                   .syncStatus (d/Value "synced"))]
+    (.write query companion)))
+
 (defn update-block-content [id ^String content]
   (let [^drift/AppDatabase db @db]
     (.customStatement db
@@ -761,6 +771,15 @@
       (.customStatement db
                         "UPDATE notes SET sync_status = ?, synced_at = now() WHERE id = ?"
                         [status id]))))
+
+;; Mark note as synced
+(defn mark-note-as-synced [id]
+  (let [^drift/AppDatabase db @db
+        query (doto (.update db (.-notes db))
+                (.where (fn [^drift/Notes tbl] (.equals (.-id tbl) id))))
+        companion (drift/NotesCompanion.
+                   .syncStatus (d/Value "synced"))]
+    (.write query companion)))
 
 ;; Get notes for synchronization
 (defn get-notes-for-sync []
