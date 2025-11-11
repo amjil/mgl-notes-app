@@ -179,7 +179,7 @@
                    (doseq [bid to-delete]
                      (db/delete-block bid))
                    ;; Update note.blockIds with editor order
-                   (db/update-note-blocks-synced note-id (json-array-of-strings body-ids))))))))
+                   (db/update-note-block-ids note-id (json-array-of-strings body-ids))))))))
                    
 (declare clear-note-editor)
 

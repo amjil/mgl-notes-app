@@ -211,10 +211,11 @@
         query (doto (.update db (.-notes db))
                 (.where (fn [^drift/Notes tbl] (.equals (.-id tbl) id))))
         companion (drift/NotesCompanion.
-                     .title (d/Value title))]
+                     .title (d/Value title)
+                     .syncStatus (d/Value "pending"))]
     (.write query companion)))
 
-(defn update-note-blocks-synced
+(defn update-note-block-ids
   "Update note blocks synchronization status"
   [id ^String block-ids]
   (let [^drift/AppDatabase db @db
@@ -457,7 +458,8 @@
                 (.where (fn [^drift/Blocks tbl]
                           (.equals (.-id tbl) id))))
         companion (drift/BlocksCompanion.
-                   .content (d/Value content))]
+                   .content (d/Value content)
+                   .syncStatus (d/Value "pending"))]
     (.write query companion)))
 
 (defn update-block-content [id ^String content]
@@ -731,7 +733,6 @@
 
 ;; Update note with content (4 steps: note, note_fts, blocks, block_ids)
 (defn update-note-with-content [^String id ^String title ^String content]
-  (dart:core/print (str "update-note-with-content id = " id " title = " title " content = " content))
   (let [^drift/AppDatabase db @db]
     (.transaction
      db

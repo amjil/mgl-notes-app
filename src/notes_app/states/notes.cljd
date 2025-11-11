@@ -187,23 +187,6 @@
     (fn [page page-size]
       (db/get-notes-paginated page page-size))))
 
-(defn sync-note-blocks! [note]
-  (let [content (get (get note "data") "content")
-        note-id (.-id note)]
-    (-> (db/get-blocks-by-note-id note-id)
-        (.then (fn [blocks]
-                 (let [blocks (map #(get % "data") blocks)
-                       block-ids (str "[" (str/join "," (map #(str "\"" % "\"") (map :id blocks)))
-                                      "]")]
-                   (db/update-note-blocks-synced note-id block-ids)
-                   (dart:core/print (str "Note blocks synced: " note-id))))))))
-
-(defn sync-notes-blocks! []
-  (-> (db/get-notes-blocks-not-synced)
-      (.then (fn [notes]
-               (doseq [note notes]
-                 (sync-note-blocks! note))))))
-
 ;; ===== Notes State Queries =====
 
 ;; Get notes state
