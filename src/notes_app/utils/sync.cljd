@@ -2,6 +2,7 @@
   (:require
    ["dart:core" :as dart-core]
    [electric-sync.push :as es-push]
+   [electric-sync.pull :as es-pull]
    [notes-app.services.db :as db]
    [notes-app.services.env :as env]))
 
@@ -68,3 +69,38 @@
                (when-not (empty? blocks)
                  (doseq [block blocks]
                    (upload-pending-block! block)))))))
+
+(defn pull-notes-from-server!
+  "Pull notes from server to local"
+  []
+  (es-pull/fetch-data
+   env/base-utl
+   "notes"
+   {:success (fn [result]
+               (when-not (empty? result)
+                 ;; (dart:core/print (str "Notes pulled successfully: " result))
+                 (doseq [item result]
+                   (let [headers (get item "headers")
+                         operation (when (map? headers) (get headers "operation"))
+                         raw-value (get item "value")
+                         note {:id (get raw-value "id")
+                               :title (get raw-value "title")
+                               :block_ids (get raw-value "block_ids")
+                               :created_at (get raw-value "created_at")
+                               :updated_at (get raw-value "updated_at")
+                               :deleted_at (get raw-value "deleted_at")
+                               :is_deleted (get raw-value "is_deleted")
+                               :user_id (get raw-value "user_id")}]
+                     (cond
+                       (and note (= "delete" operation))
+                       (do
+                         (db/upsert-remote-note! (assoc note :is_deleted true))
+                         true)
+
+                       note
+                       (do
+                         (db/upsert-remote-note! note)
+                         true)
+
+                       :else
+                       true)))))}))

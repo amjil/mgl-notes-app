@@ -1,6 +1,7 @@
 (ns notes-app.services.db
   "Database service - provides abstract interface for all database operations"
   (:require
+   ["dart:core" :as dart-core]
    ["package:cljd_mgl_notes_app/database/database.dart" :as drift]
    ["package:drift/drift.dart" :as d]
    ["package:uuid/uuid.dart" :as uuid]
@@ -37,6 +38,50 @@
     (if (empty? uid)
       ""
       uid)))
+
+(defn to-timestamp [time-str]
+  ;; Replace space with "T" because DateTime.parse requires ISO8601 format
+  (when-not (empty? time-str)
+    (let [iso-str (.replaceAll time-str " " "T")
+          dt (dart-core/DateTime.parse iso-str)
+          utc-dt (.toUtc dt)
+          timestamp (int (/ (.millisecondsSinceEpoch utc-dt) 1000))]
+      timestamp)))
+
+(defn- datetime->sql-param [^dart-core/DateTime dt]
+  (when dt
+    (.toIso8601String dt)))
+
+(defn upsert-remote-note!
+  "Insert or replace note record with data pulled from remote"
+  [{:keys [id title block_ids created_at updated_at deleted_at is_deleted user_id]}]
+  (dart:core/print (str "start upsert-remote-note! id = " id " title = " title " block_ids = " block_ids " created_at = " created_at " updated_at = " updated_at " deleted_at = " deleted_at " is_deleted = " is_deleted " user_id = " user_id))
+  (when id
+    (dart:core/print (str "id111 = " id))
+    (let [^drift/AppDatabase db @db
+          block-ids (or block_ids "[]")
+          created-at (to-timestamp created_at)
+          updated-at (or (to-timestamp updated_at) created-at)
+          deleted-at (to-timestamp deleted_at)
+          is-deleted (if (boolean? is_deleted)
+                       is_deleted
+                       (= "true" (str/lower-case (str is_deleted))))
+          user-id (when (and user_id (not (str/blank? user_id))) user_id)]
+      (dart:core/print (str "upsert-remote-note! id = " id " title = " title " block_ids = " block_ids " created_at = " created_at " updated_at = " updated_at " deleted_at = " deleted_at " is_deleted = " is_deleted " user_id = " user_id))
+      (.customStatement db
+                        "INSERT OR REPLACE INTO notes 
+                         (id, title, block_ids, created_at, updated_at, is_deleted, deleted_at, user_id, sync_status, synced_at)
+                         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)"
+                        [id
+                         (or title "")
+                         block-ids
+                         created-at
+                         updated-at
+                         is-deleted
+                         deleted-at
+                         user-id
+                         "synced"
+                         updated-at]))))
 
 ;; =============================================================================
 ;; Basic Note Operations
