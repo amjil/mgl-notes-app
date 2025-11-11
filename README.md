@@ -1,266 +1,128 @@
 # MGL Notes App
 
-A modern Mongolian notes application built with ClojureDart and Flutter. It offers multi-block editing, tags and search, recycle bin, import/export, and built-in Mongolian fonts and input.
+A Mongolian-first note-taking experience built with ClojureDart and Flutter. The app combines vertical Mongolian typography, a block-based editor, sync-ready persistence, and modern UX patterns to help writers collect, organize, and revisit ideas.
 
-**Version**: 1.0.0+1
+## Highlights (2025-11)
 
-## 🆕 Recent Changes
+- **Favorite shelf**: horizontal favorites list in the drawer with quick navigation and unfavorite actions.
+- **Inline note references**: `[[Linked Note]]` titles now form references that open inside the editor and keep cross-note relationships in sync.
+- **Automatic tag extraction**: hashtags inside blocks are promoted to structured tags, reused across search and filtering.
+- **Upgraded search surface**: unified panel (notes + tags), suggestions, infinite scroll, and filter badges for tag/date context.
+- **Electric Sync adapters**: upload / pull helpers (`notes_app/utils/sync.cljd`) plus login & registration hooks ready to integrate with an Electric backend.
+- **State helpers refresh**: pagination, toast, and loading primitives reused across lists for consistent feedback.
 
-- **Utils module**: Added a new `utils/` directory with helper functions for clipboard, date, file, navigator, note, state, string, tag, and toast operations.
-- **New screens**: Added `about_app.cljd` and `help_support.cljd` screens for app information and user support.
-- **New widgets**: Added `mgl_chip.cljd` and `mgl_filter_badge.cljd` components for tag and filter display.
-- **Editor upgrade**: Multi-block editing is powered by `amjil/mongol-block-editor` for better stability and maintainability.
-- **Auth basics**: Added login / registration and simple authentication flow (see `src/notes_app/screens/login.cljd` and `register.cljd`).
-- **Scope consolidation**: Removed the previous calendar/statistics modules and their links. The current focus is core notes, search, tags, recycle bin, and import/export.
+## Feature Overview
 
-## 🚀 Features
+- **Block-based editor** with Mongolian vertical input, reordering, and block-level persistence.
+- **Favorites** pinned inside the app drawer for one-tap recall.
+- **Tagging** via inline `#hashtags`, automatic creation, and tag-note associations.
+- **Search workspace** covering notes, tags, and suggestions with pagination and custom keyboard support.
+- **Recycle Bin** for soft delete + restore with paginated history.
+- **Import / Export** JSON snapshots with quick share/delete actions.
+- **Authentication screens** (login & register) wired to Electric Sync auth APIs.
+- **Offline-first storage** using Drift, with sync markers to reconcile local ↔ remote.
+- **Custom Mongolian keyboard & fonts** bundled for vertical script typing on any platform.
 
-- **Multi-block editor**: Smooth writing and reordering with Mongolian vertical input and fonts.
-- **Tags and search**: Quickly find notes by tags and keywords.
-- **Recycle bin**: Soft delete and restore to recover accidentally deleted notes.
-- **Import/Export**: Use bundled datasets and import/export to back up or migrate data.
-- **Mongolian input & fonts**: Custom virtual keyboard and bundled fonts.
-- **Basic account screens**: Login/registration, About, and Help pages.
+## Tech Stack
 
-## 🛠 Tech Stack
+- **Flutter** UI with Material 3 theming and lifecycle hooks.
+- **ClojureDart** business logic compiled to Dart (`lib/cljd-out/`).
+- **Drift** for local relational storage, FTS indices, and reactive queries.
+- **Electric Sync** integration points (auth, token, push/pull) for multi-device sync.
+- **Mongol / mongol_code** packages for vertical text components.
+- **Shared Preferences & Path Provider** for lightweight persistence and file IO.
 
-- **ClojureDart**: Main business logic written in ClojureDart, output to `lib/cljd-out/`.
-- **Flutter**: Cross‑platform UI.
-- **Mongol**: Mongolian components and input handling.
-- **Drift**: Local database persistence (`lib/database/`).
-- **Shared Preferences**: Local preferences storage.
-- **Electric Sync (optional)**: `amjil/electric-sync` as a foundation for sync if needed.
-
-## 📦 Dependencies
-
-### Dart/Flutter
-- `mongol`: ^9.0.0
-- `mongol_code`: ^0.3.0
-- `flutter_dotenv`: ^5.2.1
-- `shared_preferences`: ^2.5.3
-- `lifecycle`: ^0.10.0
-- `uuid`: ^4.5.1
-- `vibration`: ^3.1.3
-- `device_info_plus`: ^11.4.0
-- `package_info_plus`: ^8.3.0
-- `flutter_slidable`: ^4.0.0
-- `flutter_styled_toast`: ^2.2.1
-- `http`: ^1.4.0
-- `path_provider`: ^2.1.4
-- `drift`: ^2.27.0
-- `sqlite3_flutter_libs`: ^0.5.34
-- `path`: ^1.9.0
-- `archive`: ^4.0.7
-
-### ClojureDart (`deps.edn`)
-- `tensegritics/clojuredart`
-- `amjil/mongol-virtual-keyboard`
-- `amjil/electric-sync`
-- `amjil/mongol-block-editor`
-
-## 🚀 Getting Started
+## Getting Started
 
 ### Prerequisites
 
-1. **Dart SDK** ≥ 3.8.1 (see `environment.sdk` in `pubspec.yaml`)
-2. **Flutter** (stable channel)
-3. **ClojureDart** (see `https://github.com/Tensegritics/ClojureDart`)
-4. **Clojure CLI** (for building ClojureDart code)
+1. Dart SDK ≥ 3.8.1
+2. Flutter (stable channel)
+3. Clojure CLI & ClojureDart toolchain (`clojure -M:cljd`)
+4. macOS/Linux shell capable of running the above tools
 
-### Install & Run
-
-1. Clone this repository and enter the directory
-   ```bash
-   git clone <repository-url>
-   cd mgl-notes-app
-   ```
-
-2. Install Flutter dependencies
-   ```bash
-   flutter pub get
-   ```
-
-3. Generate database code (Drift)
-   ```bash
-   flutter pub run build_runner build
-   ```
-
-4. Build ClojureDart sources (outputs to `lib/cljd-out/`)
-   ```bash
-   clojure -M:cljd
-   ```
-
-5. Run the app
-   ```bash
-   flutter run
-   ```
-
-### Common Commands
+### Installation
 
 ```bash
-# Run the app
-flutter run
-
-# Build the app
-flutter build apk          # Android APK
-flutter build appbundle   # Android App Bundle
-flutter build ios         # iOS
-flutter build web         # Web
-
-# Testing and analysis
-flutter test
-flutter analyze
-
-# Regenerate database code
-flutter pub run build_runner build --delete-conflicting-outputs
-
-# Rebuild ClojureDart code
+git clone <repository-url>
+cd mgl-notes-app
+flutter pub get
 clojure -M:cljd
+flutter pub run build_runner build
+flutter run
 ```
 
-## 📁 Project Structure (simplified)
+> Tip: run `flutter pub run build_runner build --delete-conflicting-outputs` after schema changes.
+
+### Environment Variables
+
+`src/notes_app/services/env.cljd` exposes `base-utl` for Electric endpoints. If you switch to `.env` files, load them via `flutter_dotenv` before bootstrapping the app.
+
+## Common Workflows
+
+- **Develop**: `flutter run` (emulator or device).
+- **Unit test**: `flutter test`.
+- **Analyze**: `flutter analyze`.
+- **Build release**:
+  - Android APK: `flutter build apk --release`
+  - Android App Bundle: `flutter build appbundle --release`
+  - iOS: `flutter build ios --release`
+  - Web: `flutter build web --release`
+- **Regenerate ClojureDart output**: `clojure -M:cljd`.
+- **Regenerate Drift artifacts**: `flutter pub run build_runner build`.
+
+## Synchronization Hooks
+
+`notes_app/utils/sync.cljd` provides four entry points:
+- `upload-pending-notes!`
+- `upload-pending-blocks!`
+- `pull-notes-from-server!`
+- `pull-blocks-from-server!`
+
+Pair these with scheduling (app lifecycle, background isolates, or manual triggers) once an Electric Sync backend is live. Successful pushes mark rows as `synced` and keep block FTS tables updated.
+
+Authentication helpers in `notes_app/services/auth.cljd` call `electric-sync.auth` for login/registration, update local user IDs, and refresh note feeds post-auth.
+
+## Import & Export
+
+`notes_app/services/import_export.cljd` exports complete note bundles—blocks, tags, metadata—to JSON files under `~/Documents/exports`. UI actions in `mgl_import_export.cljd` allow sharing or deleting those bundles. Import routines handle recreating notes, blocks, and tag associations.
+
+## Project Structure (snapshot)
 
 ```
 mgl-notes-app/
 ├── lib/
 │   ├── main.dart
-│   ├── cljd-out/                 # Generated by `clojure -M:cljd`
-│   └── database/
-│       ├── database.dart
-│       ├── database.g.dart
-│       └── connection/
+│   ├── cljd-out/            # Generated Dart from Clojure sources
+│   └── database/            # Drift database + generated files
 ├── src/notes_app/
-│   ├── main.cljd
-│   ├── theme.cljd
-│   ├── screens/
-│   │   ├── home.cljd
-│   │   ├── editor.cljd
-│   │   ├── recycle.cljd
-│   │   ├── search.cljd
-│   │   ├── import_export.cljd
-│   │   ├── login.cljd
-│   │   ├── register.cljd
-│   │   ├── about_app.cljd
-│   │   └── help_support.cljd
-│   ├── widgets/
-│   │   ├── mgl_app_bar.cljd
-│   │   ├── mgl_chip.cljd
-│   │   ├── mgl_drawer.cljd
-│   │   ├── mgl_empty_state.cljd
-│   │   ├── mgl_favorite_list.cljd
-│   │   ├── mgl_filter_badge.cljd
-│   │   ├── mgl_import_export.cljd
-│   │   ├── mgl_infinite_scroll.cljd
-│   │   ├── mgl_keyboard.cljd
-│   │   ├── mgl_loading_state.cljd
-│   │   ├── mgl_note_item.cljd
-│   │   ├── mgl_notes_list.cljd
-│   │   ├── mgl_popup_menu.cljd
-│   │   ├── mgl_recycle_bin.cljd
-│   │   ├── mgl_search_panel.cljd
-│   │   ├── mgl_setting.cljd
-│   │   ├── mgl_suggestion_panel.cljd
-│   │   └── mgl_text_input.cljd
-│   ├── states/
-│   │   ├── blocks.cljd
-│   │   ├── notes.cljd
-│   │   ├── search.cljd
-│   │   ├── tags.cljd
-│   │   └── ui.cljd
-│   ├── services/
-│   │   ├── auth.cljd
-│   │   ├── common.cljd
-│   │   ├── db.cljd
-│   │   ├── env.cljd
-│   │   ├── import_export.cljd
-│   │   └── pref.cljd
-│   └── utils/
-│       ├── clipboard.cljd
-│       ├── date.cljd
-│       ├── file.cljd
-│       ├── navigator.cljd
-│       ├── note.cljd
-│       ├── state_helpers.cljd
-│       ├── string.cljd
-│       ├── tag.cljd
-│       └── toast.cljd
+│   ├── main.cljd            # App entry + route table
+│   ├── theme.cljd           # Light/Dark theme definitions
+│   ├── screens/             # Home, editor, search, recycle, auth, about, help
+│   ├── widgets/             # Mongolian UI components (chips, lists, favorites, etc.)
+│   ├── states/              # Atoms & pagination helpers for notes/search/tags/ui
+│   ├── services/            # DB, auth, env, import/export
+│   └── utils/               # Blocks, tags, clipboard, navigator, sync, toast
 ├── assets/
-│   ├── fonts/
-│   │   ├── OyunQaganTig.ttf
-│   │   └── OnonSoninSans.ttf
-│   ├── data.zip
-│   └── next.zip
-├── pubspec.yaml
-├── deps.edn
+│   ├── fonts/               # Mongolian fonts bundled in pubspec
+│   ├── data.zip             # Keyboard dictionary
+│   └── next.zip             # Next-candidate dictionary
+├── pubspec.yaml             # Flutter + Dart dependencies
+├── deps.edn                 # ClojureDart dependencies
 └── README.md
 ```
 
-## 🎯 Usage
+## Development Guidelines
 
-- **Create notes**: Tap "+" on Home.
-- **Edit & reorder**: Add/remove blocks in the editor, long-press to reorder.
-- **Tags/Search**: Filter in the search and tags panels.
-- **Recycle bin**: Restore or permanently delete from the recycle page.
-- **Import/Export**: Operate data packages in Settings / Import-Export.
+- Favor semantic naming in both ClojureDart and Dart outputs.
+- Keep long-running operations async and wrap UI mutations with loading/toast helpers.
+- Add drift migrations/tests when evolving persistent models.
+- Contributions: fork → branch → commit (`feat: ...`) → PR.
 
-## 🔧 Development
+## License
 
-### Project Structure
-
-- **Business logic**: Primarily lives in `src/notes_app/` under `states/` and `services/`.
-- **Utility functions**: Organized in `src/notes_app/utils/` for reusable helpers.
-- **Data access**: Centralized in `lib/database/` (Drift).
-- **UI components**: Located in `src/notes_app/widgets/` and `src/notes_app/screens/`.
-
-### Build Flow
-
-1. After modifying ClojureDart code, run `clojure -M:cljd` to generate Dart code
-2. If database structure is modified, run `flutter pub run build_runner build` to regenerate database code
-3. Run `flutter run` to start the app
-
-### Development Guidelines
-
-- Follow ClojureDart and Flutter community conventions
-- Use semantic naming; comment non-obvious logic
-- Add tests for new features
-
-## 🧪 Testing
-
-```bash
-flutter test
-```
-
-## 📱 Production Builds
-
-```bash
-flutter build apk --release
-flutter build appbundle --release
-flutter build ios --release
-flutter build web --release
-```
-
-## 🤝 Contributing
-
-1. Fork this repo
-2. Create a branch (`git checkout -b feature/your-feature`)
-3. Commit (`git commit -m 'feat: your feature'`)
-4. Push and open a PR
-
-### Code Style
-
-- Follow ClojureDart and Flutter community conventions
-- Semantic naming; comment non-obvious logic
-- Add tests for new features
-
-## 📄 License
-
-MIT (see [LICENSE](LICENSE))
-
-## 🙏 Acknowledgments
-
-- ClojureDart and Flutter communities
-- Maintainers of Mongol-related components
+MIT License. See `LICENSE` for the full text.
 
 ---
 
-Built for Mongolian users ❤️
+Built for Mongolian note-takers with ❤️.
