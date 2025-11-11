@@ -60,38 +60,6 @@
      (.into db (.-notes db))
      companion)))
 
-(defn get-note-by-id
-  "Get note basic information by ID"
-  [id]
-  (let [^drift/AppDatabase db @db
-        user-id (get-user-id-if-available)]
-    (await
-     (.getSingleOrNull
-      (doto (.select db (.-notes db))
-        (.where (fn [^drift/Notes tbl]
-                  (if-not (empty? user-id)
-                    (and (.equals (.-id tbl) id)
-                         (.equals (.-userId tbl) user-id))
-                    (and (.equals (.-id tbl) id)
-                         (.isNull (.-userId tbl)))))))))))
-
-(defn get-note-with-content-by-id
-  "Get note and its content by ID"
-  [id]
-  (let [^drift/AppDatabase db @db
-        user-id (get-user-id-if-available)
-        user-filter (if-not (empty? user-id)
-                      "AND n.user_id = ?"
-                      "AND n.user_id IS NULL")]
-    (.getSingleOrNull
-     (.customSelect db
-                    (str "SELECT n.*, nfts.content as content FROM notes n 
-                      LEFT JOIN note_fts nfts ON n.id = nfts.id 
-                      WHERE n.id = ? AND n.is_deleted = false " user-filter)
-                    .variables (if-not (empty? user-id)
-                                 [(d/Variable id) (d/Variable user-id)]
-                                 [(d/Variable id)])))))
-
 ;; =============================================================================
 ;; Note Query Operations
 ;; =============================================================================
@@ -168,7 +136,7 @@
                    [(d/Variable date) (d/Variable user-id) (d/Variable limit) (d/Variable offset)]
                    [(d/Variable date) (d/Variable limit) (d/Variable offset)])))))
 
-(defn get-notes-by-pending-sync
+(defn get-pending-notes
   "Get notes pending synchronization"
   []
   (let [^drift/AppDatabase db @db
@@ -178,8 +146,7 @@
                       "AND n.user_id IS NULL")]
     (.get
      (.customSelect db
-                    (str "SELECT n.*, nfts.content as content FROM notes n 
-                     LEFT JOIN note_fts nfts ON n.id = nfts.id 
+                    (str "SELECT n.* FROM notes n 
                      WHERE n.sync_status = 'pending' " user-filter)
                     .variables (if-not (empty? user-id)
                                  [(d/Variable user-id)]
@@ -400,21 +367,6 @@
                     .variables (if-not (empty? user-id)
                                  [(d/Variable query) (d/Variable user-id)]
                                  [(d/Variable query)])))))
-
-(defn get-notes-blocks-not-synced []
-  (let [^drift/AppDatabase db @db
-        user-id (get-user-id-if-available)
-        user-filter (if-not (empty? user-id)
-                      "AND n.user_id = ?"
-                      "AND n.user_id IS NULL")]
-    (.get
-     (.customSelect db
-                    (str "SELECT n.*, nfts.content as content FROM notes n 
-                     LEFT JOIN note_fts nfts ON n.id = nfts.id 
-                     WHERE n.is_blocks_synced = false AND n.is_deleted = false " user-filter)
-                    .variables (if-not (empty? user-id)
-                                 [(d/Variable user-id)]
-                                 [])))))
 
 ;; ===== Blocks db functions =====
 
@@ -719,16 +671,6 @@
                                  [(d/Variable tag-id) (d/Variable user-id)]
                                  [(d/Variable tag-id)])))))
 
-(defn delete-note-with-blocks [id]
-  (-> (get-blocks-by-note-id id)
-      (.then (fn [blocks]
-               ;; Step 1: Delete all blocks
-               (-> (doseq [block blocks]
-                     (delete-block (:id block)))
-                   (.then (fn [_]
-                            ;; Step 3: Delete note_fts and note
-                            (soft-delete-note id))))))))
-
 ;; Create note with content (4 steps: note, note_fts, blocks, block_ids)
 (defn create-note-with-content [^String content & [id]]
   (let [^String id (or id (.v4 uuid-instance))
@@ -749,28 +691,6 @@
      (fn []
        (update-note id title)
        (update-note-content id content)))))
-
-(defn create-note-from-server [server-note]
-  (let [^String id (get server-note "id")
-        ^String content (get server-note "content")]
-    (create-note-with-content content id)))
-
-(defn update-note-from-server [server-note]
-  (let [^String id (get server-note "id")
-        ^String title (string-utils/extract-title-from-content (get server-note "content"))
-        ^String content (get server-note "content")]
-    (update-note-with-content id title content)))
-
-;; Update note sync status
-(defn update-note-sync-status [id status & {:keys [synced-at] :or {synced-at nil}}]
-  (let [^drift/AppDatabase db @db]
-    (if synced-at
-      (.customStatement db
-                        "UPDATE notes SET sync_status = ?, synced_at = ? WHERE id = ?"
-                        [status synced-at id])
-      (.customStatement db
-                        "UPDATE notes SET sync_status = ?, synced_at = now() WHERE id = ?"
-                        [status id]))))
 
 ;; Mark note as synced
 (defn mark-note-as-synced [id]
