@@ -248,7 +248,6 @@
                        (save-blocks-for-note! ctx new-id)
                        (update-note-references! new-id)
                        (update-note-tags! new-id content)
-                       (dart:core/print "Created note")
                        ;; Reload notes list after creating note
                        (notes/load-notes-paginated! ctx 0)
                        (async/Future.value true)))))
@@ -259,7 +258,6 @@
                        (save-blocks-for-note! ctx note-id)
                        (update-note-references! note-id)
                        (update-note-tags! note-id content)
-                       (dart:core/print "Updated note")
                        ;; Reload notes list after creating note
                        (notes/load-notes-paginated! ctx 0)
                        (async/Future.value true)))))))))

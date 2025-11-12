@@ -37,7 +37,6 @@
                               ;; Save current note, then restore previous and navigate back
                               (-> (note-utils/save-or-update-note! ctx)
                                   (.then (fn [_]
-                                           (dart:core/print "Saved current note")
                                            (let [previous-note (notes/restore-previous-note!)]
                                              (when previous-note
                                                (note-utils/load-note-to-editor!))
