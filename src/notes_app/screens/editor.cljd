@@ -9,13 +9,17 @@
    [notes-app.utils.navigator :as navigator]
    [notes-app.services.db :as db]
    [notes-app.states.notes :as notes]
+   [notes-app.states.font :as font-state]
    [block-editor.widgets.editor :as editor]))
 
 (defn ^m/Widget screen [ctx]
   (f/widget
    :get [m/Navigator]
+   :watch [_font-state font-state/font-state]
    :let [theme (-> m/Theme (.of ctx))
-         color-scheme (.-colorScheme theme)]
+         color-scheme (.-colorScheme theme)
+         font-family (font-state/get-font-family)
+         font-size (font-state/get-font-size)]
    (m/Scaffold
     .backgroundColor (.-surface color-scheme)
     .appBar (mgl-app-bar/mgl-editor-app-bar ctx navigator)
@@ -44,4 +48,6 @@
                                         (let [tag (.-data tag)]
                                           (notes/set-filter-tag! tag)
                                           (notes/load-notes-paginated! ctx 0)))))
-                           (navigator/navigate-to-home navigator))))}))))) 
+                           (navigator/navigate-to-home navigator))))
+                     :font-family font-family
+                     :font-size font-size}))))) 
