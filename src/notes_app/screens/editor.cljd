@@ -15,11 +15,11 @@
 (defn ^m/Widget screen [ctx]
   (f/widget
    :get [m/Navigator]
-   :watch [_font-state font-state/font-state]
+   :watch [_note-font-state font-state/note-font-state]
    :let [theme (-> m/Theme (.of ctx))
          color-scheme (.-colorScheme theme)
-         font-family (font-state/get-font-family)
-         font-size (font-state/get-font-size)]
+         font-family (font-state/get-note-font-family)
+         font-size (font-state/get-note-font-size)]
    (m/Scaffold
     .backgroundColor (.-surface color-scheme)
     .appBar (mgl-app-bar/mgl-editor-app-bar ctx navigator)

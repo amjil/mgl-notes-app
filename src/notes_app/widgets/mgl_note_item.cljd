@@ -53,7 +53,7 @@
   (f/widget
    :context ctx
    :get [m/Navigator]
-   :watch [_font-state font-state/font-state]
+   :watch [_note-font-state font-state/note-font-state]
    :let [theme (-> m/Theme (.of ctx))
          color-scheme (.-colorScheme theme)
          is-dark? (= (.-brightness color-scheme) m/Brightness.dark)
@@ -62,8 +62,8 @@
          preview-color (.-onSurfaceVariant color-scheme)
          border-color (.-outline color-scheme)
          shadow-color (.-shadow color-scheme)
-         font-family (font-state/get-font-family)
-         font-size (font-state/get-font-size)
+         font-family (font-state/get-note-font-family)
+         font-size (font-state/get-note-font-size)
          item (.-data item)
          note-id (get item "id")
          note-title (get item "title")

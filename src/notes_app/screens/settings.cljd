@@ -49,15 +49,14 @@
 
 (defn- create-app-settings-items [_navigator ctx]
   (let [current-mode (theme-state/get-theme-mode)
-        theme-subtitle (get-theme-subtitle current-mode)
-        font-subtitle (font-state/get-font-subtitle)]
+        theme-subtitle (get-theme-subtitle current-mode)]
     [{:leading m/Icons.palette
       :title "Theme"
       :subtitle (str "Current: " theme-subtitle)
       :on-tap (fn [] (theme-dialog/show-theme-dialog ctx))}
      {:leading m/Icons.font_download
-      :title "Font"
-      :subtitle font-subtitle
+      :title "Fonts"
+      :subtitle "App & Note fonts"
       :on-tap (fn [] (font-dialog/show-font-dialog ctx))}
      {:leading m/Icons.notifications
       :title "Notifications"
@@ -110,7 +109,8 @@
   (f/widget
    :get [m/Navigator]
    :watch [_theme-mode theme-state/theme-state
-           _font-state font-state/font-state]
+           _app-font-state font-state/app-font-state
+           _note-font-state font-state/note-font-state]
    :let [theme (-> m/Theme (.of ctx))
          color-scheme (.-colorScheme theme)
          app-settings-items (create-app-settings-items navigator ctx)]

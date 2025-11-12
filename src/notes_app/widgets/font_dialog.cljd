@@ -5,14 +5,86 @@
    [cljd.flutter :as f]
    [notes-app.states.font :as font-state]))
 
+(defn- create-font-section [title current-family current-size set-family-fn set-size-fn color-scheme]
+  (m/Row
+   .mainAxisSize m/MainAxisSize.min
+   .crossAxisAlignment m/CrossAxisAlignment.start
+   .children
+   [(mgl/MongolText title
+                   .style (m/TextStyle
+                           .fontSize 18
+                           .fontWeight m/FontWeight.bold
+                           .color (.-onSurface color-scheme)))
+    (m/Container .height 8)
+    (m/Row
+     .mainAxisSize m/MainAxisSize.min
+     .children
+     (map (fn [family]
+            (m/RotatedBox
+             .quarterTurns 1
+             .child (m/RadioListTile
+                     .title (m/Text family)
+                     .value family
+                     .groupValue current-family
+                     .onChanged (fn [value]
+                                  (set-family-fn value)))))
+          font-state/available-font-families))
+    (m/Container .height 16)
+    (m/Row
+     .mainAxisSize m/MainAxisSize.min
+     .crossAxisAlignment m/CrossAxisAlignment.start
+     .children
+     [(mgl/MongolText "Font Size"
+                     .style (m/TextStyle
+                             .fontSize 16
+                             .fontWeight m/FontWeight.w500
+                             .color (.-onSurface color-scheme)))
+      (m/Container .height 8)
+      (m/Container
+       .width 200
+       .child (m/Row
+               .mainAxisSize m/MainAxisSize.min
+               .children
+               [(m/RotatedBox
+                 .quarterTurns 1
+                 .child
+                 (m/Slider
+                  .value (double current-size)
+                  .min (double (first font-state/available-font-sizes))
+                  .max (double (last font-state/available-font-sizes))
+                  .divisions (- (count font-state/available-font-sizes) 1)
+                  .label (str current-size "pt")
+                  .onChanged (fn [value]
+                               (set-size-fn (int value)))))
+                (m/Container .height 8)
+                (m/Column
+                 .mainAxisAlignment m/MainAxisAlignment.spaceBetween
+                 .children
+                 [(m/Text (str (first font-state/available-font-sizes) "pt")
+                          .style (m/TextStyle
+                                  .fontSize 12
+                                  .color (.-onSurfaceVariant color-scheme)))
+                  (m/Text (str current-size "pt")
+                          .style (m/TextStyle
+                                  .fontSize 14
+                                  .fontWeight m/FontWeight.bold
+                                  .color (.-primary color-scheme)))
+                  (m/Text (str (last font-state/available-font-sizes) "pt")
+                          .style (m/TextStyle
+                                  .fontSize 12
+                                  .color (.-onSurfaceVariant color-scheme)))])]))])]))
+
 (defn font-dialog [_context]
   (f/widget
    :context ctx
-   :watch [_font-state font-state/font-state]
+   :watch [_app-font-state font-state/app-font-state
+           _note-font-state font-state/note-font-state]
    :let [theme (-> m/Theme (.of ctx))
          color-scheme (.-colorScheme theme)
-         current-family (font-state/get-font-family)
-         current-size (font-state/get-font-size)]
+         app-family (font-state/get-app-font-family)
+         app-size (font-state/get-app-font-size)
+         note-family (font-state/get-note-font-family)
+         note-size (font-state/get-note-font-size)]
    (m/AlertDialog
     .content
     (m/SingleChildScrollView
@@ -22,71 +94,19 @@
       .mainAxisSize m/MainAxisSize.min
       .crossAxisAlignment m/CrossAxisAlignment.start
       .children
-      [(mgl/MongolText "Font Family"
-                      .style (m/TextStyle
-                              .fontSize 18
-                              .fontWeight m/FontWeight.bold
-                              .color (.-onSurface color-scheme)))
-       (m/Container .height 8)
-       (m/Row
-        .mainAxisSize m/MainAxisSize.min
-        .children
-        (map (fn [family]
-               (m/RotatedBox
-                .quarterTurns 1
-                .child (m/RadioListTile
-                        .title (m/Text family)
-                        .value family
-                        .groupValue current-family
-                        .onChanged (fn [value]
-                                     (font-state/set-font-family! value)
-                                     (m/Navigator.pop ctx)))))
-             font-state/available-font-families))
-       (m/Container .height 24)
-       (m/Row
-        .mainAxisSize m/MainAxisSize.min
-        .crossAxisAlignment m/CrossAxisAlignment.start
-        .children
-        [(mgl/MongolText "Font Size"
-                         .style (m/TextStyle
-                                 .fontSize 18
-                                 .fontWeight m/FontWeight.bold
-                                 .color (.-onSurface color-scheme)))
-         (m/Container .height 8)
-         (m/Container
-          .width 200
-          .child (m/Row
-                  .mainAxisSize m/MainAxisSize.min
-                  .children
-                  [(m/RotatedBox
-                    .quarterTurns 1
-                    .child
-                    (m/Slider
-                     .value (double current-size)
-                     .min (double (first font-state/available-font-sizes))
-                     .max (double (last font-state/available-font-sizes))
-                     .divisions (- (count font-state/available-font-sizes) 1)
-                     .label (str current-size "pt")
-                     .onChanged (fn [value]
-                                  (font-state/set-font-size! (int value)))))
-                   (m/Container .height 8)
-                   (m/Column
-                    .mainAxisAlignment m/MainAxisAlignment.spaceBetween
-                    .children
-                    [(m/Text (str (first font-state/available-font-sizes) "pt")
-                             .style (m/TextStyle
-                                     .fontSize 12
-                                     .color (.-onSurfaceVariant color-scheme)))
-                     (m/Text (str current-size "pt")
-                             .style (m/TextStyle
-                                     .fontSize 14
-                                     .fontWeight m/FontWeight.bold
-                                     .color (.-primary color-scheme)))
-                     (m/Text (str (last font-state/available-font-sizes) "pt")
-                             .style (m/TextStyle
-                                     .fontSize 12
-                                     .color (.-onSurfaceVariant color-scheme)))])]))
-         ])]))
+      [(create-font-section "App Font"
+                           app-family
+                           app-size
+                           font-state/set-app-font-family!
+                           font-state/set-app-font-size!
+                           color-scheme)
+       (m/Container .width 32)
+       (create-font-section "Note Font"
+                           note-family
+                           note-size
+                           font-state/set-note-font-family!
+                           font-state/set-note-font-size!
+                           color-scheme)]))
     .actions
     [(m/TextButton
       .onPressed (fn [] (m/Navigator.pop ctx))

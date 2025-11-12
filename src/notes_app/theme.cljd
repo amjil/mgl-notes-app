@@ -84,8 +84,8 @@
 
 ;; Get light theme with font settings
 (defn get-light-theme []
-  (let [font-family (font-state/get-font-family)
-        font-size (font-state/get-font-size)
+  (let [font-family (font-state/get-app-font-family)
+        font-size (font-state/get-app-font-size)
         base-theme (-> m/ThemeData .light)
         text-theme (create-text-theme (.-textTheme base-theme) font-family font-size)]
     (m/ThemeData
@@ -102,8 +102,8 @@
 
 ;; Get dark theme with font settings
 (defn get-dark-theme []
-  (let [font-family (font-state/get-font-family)
-        font-size (font-state/get-font-size)
+  (let [font-family (font-state/get-app-font-family)
+        font-size (font-state/get-app-font-size)
         base-theme (-> m/ThemeData .dark)
         text-theme (create-text-theme (.-textTheme base-theme) font-family font-size)]
     (m/ThemeData

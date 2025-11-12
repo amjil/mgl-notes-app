@@ -14,7 +14,7 @@
   (f/widget
    :context ctx
    :get [m/Navigator]
-   :watch [_font-state font-state/font-state
+   :watch [_app-font-state font-state/app-font-state
            favorite-notes
            (stream
             (map (fn [notes] notes))
@@ -30,8 +30,8 @@
          primary-color (-> color-scheme .-primary)
          outline-color (-> color-scheme .-outline)
          shadow-color (-> color-scheme .-shadow)
-         font-family (font-state/get-font-family)
-         font-size (font-state/get-font-size)]
+         font-family (font-state/get-app-font-family)
+         font-size (font-state/get-app-font-size)]
    (m/Row
     .children
     [(m/Container
