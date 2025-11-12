@@ -6,6 +6,7 @@
    [notes-app.widgets.mgl-popup-menu :as popup-menu]
    [notes-app.utils.clipboard :as clipboard-utils]
    [notes-app.states.notes :as notes]
+   [notes-app.states.font :as font-state]
    [notes-app.utils.note :as note-util]
    [notes-app.utils.navigator :as navigator]))
 
@@ -52,6 +53,7 @@
   (f/widget
    :context ctx
    :get [m/Navigator]
+   :watch [_font-state font-state/font-state]
    :let [theme (-> m/Theme (.of ctx))
          color-scheme (.-colorScheme theme)
          is-dark? (= (.-brightness color-scheme) m/Brightness.dark)
@@ -60,6 +62,8 @@
          preview-color (.-onSurfaceVariant color-scheme)
          border-color (.-outline color-scheme)
          shadow-color (.-shadow color-scheme)
+         font-family (font-state/get-font-family)
+         font-size (font-state/get-font-size)
          item (.-data item)
          note-id (get item "id")
          note-title (get item "title")
@@ -107,7 +111,8 @@
         .title (when note-title
                  (mgl/MongolText note-title
                                  .style (m/TextStyle
-                                         .fontSize 18
+                                         .fontFamily font-family
+                                         .fontSize font-size
                                          .fontWeight m/FontWeight.bold
                                          .color title-color
                                          .height 1.2)))
@@ -115,6 +120,7 @@
                     (mgl/MongolText note-content
                                     .maxLines 3
                                     .style (m/TextStyle
-                                            .fontSize 14
+                                            .fontFamily font-family
+                                            .fontSize (- font-size 4)
                                             .color preview-color
                                             .height 1.4))))))])))

@@ -80,6 +80,7 @@
              .leading (m/Icon m/Icons.settings)
              .title (mgl/MongolText "Settings")
              .onTap (fn []
+                      (-> m/Scaffold (.of ctx) .closeDrawer)
                       (navigator/navigate-to-screen navigator "/settings")))
             (if-not (empty? uid)
               (mgl/MongolListTile
