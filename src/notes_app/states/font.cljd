@@ -1,0 +1,58 @@
+(ns notes-app.states.font
+  (:require
+   [notes-app.services.pref :as pref]))
+
+;; Font family preference keys
+(def font-family-preference-key "font_family")
+(def font-size-preference-key "font_size")
+
+;; Default values
+(def default-font-family "OyunQaganTig")
+(def default-font-size 18)
+
+;; Available font families
+(def available-font-families
+  ["OnonSoninSans" "OyunQaganTig"])
+
+;; Available font sizes
+(def available-font-sizes
+  [12 14 16 18 20 22 24 26 28 30])
+
+;; Font state atom
+(def font-state
+  (atom {:family default-font-family
+         :size default-font-size}))
+
+;; Initialize font settings from preferences
+(defn init-font-settings! []
+  (let [saved-family (await (pref/get-string font-family-preference-key))
+        saved-size (await (pref/get-int font-size-preference-key))
+        family (or saved-family default-font-family)
+        size (or saved-size default-font-size)]
+    (swap! font-state assoc :family family :size size)
+    {:family family :size size}))
+
+;; Get current font family
+(defn get-font-family []
+  (:family @font-state))
+
+;; Get current font size
+(defn get-font-size []
+  (:size @font-state))
+
+;; Set font family and save to preferences
+(defn set-font-family! [family]
+  (swap! font-state assoc :family family)
+  (await (pref/set-string font-family-preference-key family)))
+
+;; Set font size and save to preferences
+(defn set-font-size! [size]
+  (swap! font-state assoc :size size)
+  (await (pref/set-int font-size-preference-key size)))
+
+;; Get font subtitle for display
+(defn get-font-subtitle []
+  (let [family (get-font-family)
+        size (get-font-size)]
+    (str family " - " size "pt")))
+

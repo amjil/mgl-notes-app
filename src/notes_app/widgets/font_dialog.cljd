@@ -1,0 +1,98 @@
+(ns notes-app.widgets.font-dialog
+  (:require
+   ["package:flutter/material.dart" :as m]
+   ["package:mongol/mongol.dart" :as mgl]
+   [cljd.flutter :as f]
+   [notes-app.states.font :as font-state]))
+
+(defn font-dialog [_context]
+  (f/widget
+   :context ctx
+   :watch [_font-state font-state/font-state]
+   :let [theme (-> m/Theme (.of ctx))
+         color-scheme (.-colorScheme theme)
+         current-family (font-state/get-font-family)
+         current-size (font-state/get-font-size)]
+   (m/AlertDialog
+    .content
+    (m/SingleChildScrollView
+     .scrollDirection m/Axis.horizontal
+     .child
+     (m/Row
+      .mainAxisSize m/MainAxisSize.min
+      .crossAxisAlignment m/CrossAxisAlignment.start
+      .children
+      [(mgl/MongolText "Font Family"
+                      .style (m/TextStyle
+                              .fontSize 18
+                              .fontWeight m/FontWeight.bold
+                              .color (.-onSurface color-scheme)))
+       (m/Container .height 8)
+       (m/Row
+        .mainAxisSize m/MainAxisSize.min
+        .children
+        (map (fn [family]
+               (m/RotatedBox
+                .quarterTurns 1
+                .child (m/RadioListTile
+                        .title (m/Text family)
+                        .value family
+                        .groupValue current-family
+                        .onChanged (fn [value]
+                                     (font-state/set-font-family! value)
+                                     (m/Navigator.pop ctx)))))
+             font-state/available-font-families))
+       (m/Container .height 24)
+       (m/Row
+        .mainAxisSize m/MainAxisSize.min
+        .crossAxisAlignment m/CrossAxisAlignment.start
+        .children
+        [(mgl/MongolText "Font Size"
+                         .style (m/TextStyle
+                                 .fontSize 18
+                                 .fontWeight m/FontWeight.bold
+                                 .color (.-onSurface color-scheme)))
+         (m/Container .height 8)
+         (m/Container
+          .width 200
+          .child (m/Row
+                  .mainAxisSize m/MainAxisSize.min
+                  .children
+                  [(m/RotatedBox
+                    .quarterTurns 1
+                    .child
+                    (m/Slider
+                     .value (double current-size)
+                     .min (double (first font-state/available-font-sizes))
+                     .max (double (last font-state/available-font-sizes))
+                     .divisions (- (count font-state/available-font-sizes) 1)
+                     .label (str current-size "pt")
+                     .onChanged (fn [value]
+                                  (font-state/set-font-size! (int value)))))
+                   (m/Container .height 8)
+                   (m/Column
+                    .mainAxisAlignment m/MainAxisAlignment.spaceBetween
+                    .children
+                    [(m/Text (str (first font-state/available-font-sizes) "pt")
+                             .style (m/TextStyle
+                                     .fontSize 12
+                                     .color (.-onSurfaceVariant color-scheme)))
+                     (m/Text (str current-size "pt")
+                             .style (m/TextStyle
+                                     .fontSize 14
+                                     .fontWeight m/FontWeight.bold
+                                     .color (.-primary color-scheme)))
+                     (m/Text (str (last font-state/available-font-sizes) "pt")
+                             .style (m/TextStyle
+                                     .fontSize 12
+                                     .color (.-onSurfaceVariant color-scheme)))])]))
+         ])]))
+    .actions
+    [(m/TextButton
+      .onPressed (fn [] (m/Navigator.pop ctx))
+      .child (mgl/MongolText "Close"))])))
+
+(defn show-font-dialog [context]
+  (m/showDialog
+   .context context
+   .builder (fn [ctx] (font-dialog ctx))))
