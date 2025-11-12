@@ -60,6 +60,7 @@
          bg-color (.-surface color-scheme)
          title-color (.-onSurface color-scheme)
          preview-color (.-onSurfaceVariant color-scheme)
+         border-color (.-outline color-scheme)
          shadow-color (.-shadow color-scheme)
          font-family (font-state/get-note-font-family)
          font-size (font-state/get-note-font-size)
@@ -72,78 +73,54 @@
                        (.indexOf note-content "\n"))
          note-content (if (> title-index 0)
                         (subs note-content title-index)
-                        nil)
-         has-content? (and note-content (> (count note-content) 0))]
-   (m/Container
-    .margin (m/EdgeInsets.symmetric .horizontal 12 .vertical 8)
-    .child
-    (m/Card
-     .color bg-color
-     .margin (m/EdgeInsets.zero)
-     .shape (m/RoundedRectangleBorder 
-              .borderRadius (m/BorderRadius.circular 20)
-              .side (m/BorderSide 
-                     .color (if is-dark? 
-                             (m/Color.fromRGBO 255 255 255 0.08)
-                             (m/Color.fromRGBO 0 0 0 0.06))
-                     .width 1))
-     .elevation (if is-dark? 3 6)
-     .shadowColor shadow-color
-     .child
-     (m/InkWell
-      .onTap (fn []
-               (dart:core/print (str "Note item tapped: " note-id))
-               (notes/set-current-note! item)
-               (note-util/load-note-to-editor!)
-               (navigator/navigate-to-screen navigator "/editor"))
-      .onLongPressStart (fn [details] (show-note-popup-menu navigator ctx details item))
-      .onDoubleTap (fn []
-                     (dart:core/print (str "Note item double tapped: " note-id))
-                     (notes/set-current-note! item)
-                     (note-util/load-note-to-editor!)
-                     (navigator/navigate-to-screen navigator "/editor"))
-      .borderRadius (m/BorderRadius.circular 20)
+                        nil)]
+   (m/Card
+    .color bg-color
+    .margin (m/EdgeInsets.all 8)
+    .shape (m/RoundedRectangleBorder
+            .borderRadius (m/BorderRadius.circular 16)
+            .side (m/BorderSide .color border-color .width 1))
+    .elevation (if is-dark? 2 4)
+    .shadowColor shadow-color)
+   (m/Padding
+    .padding (m/EdgeInsets.all 12))
+   (m/Column
+    .children
+    [(popup-menu/mongol-popup-menu-button
+      {:items (create-note-menu-items navigator ctx item)
+       :on-selected (fn [menu-item]
+                      (dart:core/print (str "Menu item selected: " (get menu-item :label))))})
+
+     (m/SizedBox .width 8)
+     (m/Expanded
       .child
-      (m/Padding
-       .padding (m/EdgeInsets.all 16)
+      (m/GestureDetector
+       .onLongPressStart (fn [details] (show-note-popup-menu navigator ctx details item))
+       .onDoubleTap (fn []
+                      (dart:core/print (str "Note item double tapped: " note-id))
+                      (notes/set-current-note! item)
+                      (note-util/load-note-to-editor!)
+                      (navigator/navigate-to-screen navigator "/editor"))
+       .onTap (fn []
+                (dart:core/print (str "Note item tapped: " note-id))
+                (notes/set-current-note! item)
+                (note-util/load-note-to-editor!)
+                (navigator/navigate-to-screen navigator "/editor"))
        .child
-       (m/Row
-        .crossAxisAlignment m/CrossAxisAlignment.start
-        .children
-        [(m/Expanded
-          .child
-          (m/Column
-           .crossAxisAlignment m/CrossAxisAlignment.start
-           .mainAxisSize m/MainAxisSize.min
-           .children
-           (let [title-widget (when note-title
-                                (m/Container
-                                 .padding (m/EdgeInsets.only .bottom (if has-content? 8 0))
-                                 .child
-                                 (mgl/MongolText note-title
-                                                 .style (m/TextStyle
-                                                         .fontFamily font-family
-                                                         .fontSize (+ font-size 2)
-                                                         .fontWeight m/FontWeight.w600
-                                                         .color title-color
-                                                         .height 1.3
-                                                         .letterSpacing 0.2))))
-                 content-widget (when has-content?
-                                 (m/Container
-                                  .padding (m/EdgeInsets.only .top 4)
-                                  .child
-                                  (mgl/MongolText note-content
-                                                  .maxLines 4
-                                                  .overflow m/TextOverflow.ellipsis
-                                                  .style (m/TextStyle
-                                                          .fontFamily font-family
-                                                          .fontSize (- font-size 2)
-                                                          .color preview-color
-                                                          .height 1.5
-                                                          .letterSpacing 0.1))))]
-             (vec (filter some? [title-widget content-widget])))))
-         (m/SizedBox .width 8)
-         (popup-menu/mongol-popup-menu-button
-          {:items (create-note-menu-items navigator ctx item)
-           :on-selected (fn [menu-item]
-                          (dart:core/print (str "Menu item selected: " (get menu-item :label))))})])))))))
+       (mgl/MongolListTile
+        .title (when note-title
+                 (mgl/MongolText note-title
+                                 .style (m/TextStyle
+                                         .fontFamily font-family
+                                         .fontSize font-size
+                                         .fontWeight m/FontWeight.bold
+                                         .color title-color
+                                         .height 1.2)))
+        .subtitle (when note-content
+                    (mgl/MongolText note-content
+                                    .maxLines 3
+                                    .style (m/TextStyle
+                                            .fontFamily font-family
+                                            .fontSize (- font-size 4)
+                                            .color preview-color
+                                            .height 1.4))))))])))
