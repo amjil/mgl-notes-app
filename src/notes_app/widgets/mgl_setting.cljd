@@ -9,44 +9,95 @@
 (defn settings-group [items]
   (f/widget
    :context ctx
+   :let [theme (-> m/Theme (.of ctx))
+         color-scheme (.-colorScheme theme)
+         is-dark? (= (.-brightness color-scheme) m/Brightness.dark)
+         card-color (.-cardColor theme)
+         outline-color (.-outline color-scheme)
+         shadow-color (.-shadow color-scheme)]
    (m/Container
     .margin (m.EdgeInsets/only .left 20)
     .decoration (m/BoxDecoration
-                 .color (-> m/Theme (.of ctx) .-cardColor)
-                 .borderRadius (m.BorderRadius/circular 15))
+                 .color card-color
+                 .borderRadius (m.BorderRadius/circular 15)
+                 .border (m/Border.all
+                          .color outline-color
+                          .width 1)
+                 .boxShadow [(m/BoxShadow
+                              .color shadow-color
+                              .blurRadius (if is-dark? 4 8)
+                              .offset (m/Offset 0 2)
+                              .spreadRadius 0)])
     .child (if (empty? items)
-             (m/Center
-              .child (mgl/MongolText "No settings available"))
-             (m.ListView/separated
-              .scrollDirection m.Axis/horizontal
-              .separatorBuilder (fn [context i]
-                                  (m/VerticalDivider))
-              .itemCount (count items)
-              .itemBuilder (fn [context i]
-                             (settings-item (get items i)))
-              .shrinkWrap true
-              .padding m.EdgeInsets/zero
-              .physics (m/ScrollPhysics))))))
+             (m/Container
+              .padding (m.EdgeInsets/all 24)
+              .child (m/Center
+                      .child (mgl/MongolText "No settings available"
+                                             .style (m/TextStyle
+                                                     .fontSize 16
+                                                     .color (.-onSurfaceVariant color-scheme)))))
+             (m/Container
+              .padding (m.EdgeInsets/symmetric .vertical 8 .horizontal 4)
+              .child (m/ListView.separated
+                      .scrollDirection m.Axis/horizontal
+                      .separatorBuilder (fn [_context _i]
+                                          (m/Container
+                                           .width 1
+                                           .margin (m.EdgeInsets/symmetric .vertical 8)
+                                           .color outline-color))
+                      .itemCount (count items)
+                      .itemBuilder (fn [_context i]
+                                     (settings-item (get items i)))
+                      .shrinkWrap true
+                      .padding m.EdgeInsets/zero
+                      .physics (m/ScrollPhysics)))))))
 
 (defn settings-item-content [item]
   (f/widget
    :context ctx
-   (m/ClipRRect
-    .borderRadius (m.BorderRadius/circular 15)
+   :let [theme (-> m/Theme (.of ctx))
+         color-scheme (.-colorScheme theme)
+         primary-color (.-primary color-scheme)
+         on-surface-color (.-onSurface color-scheme)
+         on-surface-variant-color (.-onSurfaceVariant color-scheme)]
+   (m/Container
+    .padding (m.EdgeInsets/symmetric .vertical 12 .horizontal 10)
+    .constraints (m/BoxConstraints .minWidth 140 .maxWidth 160)
     .child (mgl/MongolListTile
+            .contentPadding m.EdgeInsets/zero
             .leading (when (:leading item)
-                       (m/Padding
-                        .padding (m.EdgeInsets/all 5)
-                        .child (m/Icon (:leading item))))
-            .title (mgl/MongolText (or (:title item) "Untitled"))
+                       (m/Container
+                        .padding (m.EdgeInsets/all 8)
+                        .decoration (m/BoxDecoration
+                                     .color (-> primary-color (.withOpacity 0.1))
+                                     .borderRadius (m.BorderRadius/circular 8))
+                        .child (m/Icon (:leading item)
+                                       .size 24
+                                       .color primary-color)))
+            .title (mgl/MongolText (or (:title item) "Untitled")
+                                  .style (m/TextStyle
+                                          .fontSize 16
+                                          .fontWeight m/FontWeight.w600
+                                          .color on-surface-color
+                                          .height 1.3))
             .subtitle (when (:subtitle item)
-                        (mgl/MongolText (:subtitle item)))
+                        (mgl/MongolText (:subtitle item)
+                                       .style (m/TextStyle
+                                               .fontSize 14
+                                               .color on-surface-variant-color
+                                               .height 1.4)))
             .trailing (:trailing item)))))
 
 (defn settings-item [item]
   (when item
     (if (:on-tap item)
-      (m/GestureDetector
-       .onTap (fn [] ((:on-tap item)))
-       .child (settings-item-content item))
+      (f/widget
+       :context ctx
+       :let [color-scheme (-> m/Theme (.of ctx) .-colorScheme)]
+       (m/InkWell
+        .onTap (fn [] ((:on-tap item)))
+        .borderRadius (m.BorderRadius/circular 12)
+        .splashColor (-> (.-primary color-scheme) (.withOpacity 0.1))
+        .highlightColor (-> (.-primary color-scheme) (.withOpacity 0.05))
+        .child (settings-item-content item)))
       (settings-item-content item))))
