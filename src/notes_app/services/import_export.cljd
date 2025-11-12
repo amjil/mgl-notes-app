@@ -1,6 +1,5 @@
 (ns notes-app.services.import-export
   (:require
-   ["package:flutter/material.dart" :as m]
    ["package:path_provider/path_provider.dart" :as path-provider]
    ["dart:io" :as io]
    ["dart:convert" :as convert]
@@ -102,7 +101,7 @@
             tags (.-tags note-data)]
         
         ;; Create note
-        (db/create-note note-id title :is-blocks-synced is-blocks-synced)
+        (db/create-note note-id title)
         
         ;; Create blocks
         (doseq [block-data blocks]

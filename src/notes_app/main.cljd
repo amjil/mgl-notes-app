@@ -16,6 +16,8 @@
    [notes-app.screens.recycle :as recycle]
    [notes-app.screens.about-app :as about]
    [notes-app.screens.help-support :as help]
+   [notes-app.screens.settings :as settings]
+   [notes-app.screens.import-export :as import-export]
    [notes-app.services.db :as db]
    [notes-app.theme :as theme]))
 
@@ -61,5 +63,7 @@
               "/search" search/screen
               "/recycle" recycle/screen
               "/about" about/screen
-              "/help" help/screen}))))
+              "/help" help/screen
+              "/settings" settings/screen
+              "/import-export" import-export/screen}))))
     

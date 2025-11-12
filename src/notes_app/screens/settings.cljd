@@ -1,0 +1,118 @@
+(ns notes-app.screens.settings
+  (:require 
+   ["package:flutter/material.dart" :as m]
+   ["package:mongol/mongol.dart" :as mgl]
+   [cljd.flutter :as f]
+   [notes-app.widgets.mgl-app-bar :as mgl-app-bar]
+   [notes-app.widgets.mgl-setting :as mgl-setting]
+   [notes-app.utils.navigator :as navigator]))
+
+(defn- create-settings-header [color-scheme]
+  [(m/Container
+    .width 120
+    .height 120
+    .decoration (m/BoxDecoration
+                 .color (.-primary color-scheme)
+                 .shape m.BoxShape/circle)
+    .child (m/Icon
+            m/Icons.settings
+            .size 60
+            .color (.-onPrimary color-scheme)))
+   
+   (m/Container .width 10)
+   
+   (m/Row
+    .crossAxisAlignment m.CrossAxisAlignment/start
+    .children [(mgl/MongolText "Settings"
+                            .style (m/TextStyle
+                                    .fontSize 28
+                                    .fontWeight m.FontWeight/bold
+                                    .color (.-onSurface color-scheme)))
+               (m/Container .width 8)
+               (mgl/MongolText "Configure your app preferences"
+                               .style (m/TextStyle
+                                       .fontSize 16
+                                       .color (.-onSurfaceVariant color-scheme)))])
+   
+   (m/Container .width 30)])
+
+(defn- create-app-settings-items [_navigator]
+  [{:leading m/Icons.palette
+    :title "Theme"
+    :subtitle "Change app theme (light/dark mode)"
+    :on-tap (fn [] (dart:core/print "Theme settings tapped"))}
+   {:leading m/Icons.font_download
+    :title "Font"
+    :subtitle "Adjust font size and family"
+    :on-tap (fn [] (dart:core/print "Font settings tapped"))}
+   {:leading m/Icons.notifications
+    :title "Notifications"
+    :subtitle "Manage notification preferences"
+    :on-tap (fn [] (dart:core/print "Notification settings tapped"))}])
+
+(defn- create-data-management-items [navigator]
+  [{:leading m/Icons.backup
+    :title "Backup & Restore"
+    :subtitle "Export or import your notes"
+    :on-tap (fn [] (navigator/navigate-to-screen navigator "/import-export"))}
+   {:leading m/Icons.delete_sweep
+    :title "Clear Data"
+    :subtitle "Clear cache and temporary files"
+    :on-tap (fn [] (dart:core/print "Clear data tapped"))}
+   {:leading m/Icons.storage
+    :title "Storage"
+    :subtitle "View storage usage and manage space"
+    :on-tap (fn [] (dart:core/print "Storage settings tapped"))}])
+
+(defn- create-account-items [_navigator]
+  [{:leading m/Icons.person
+    :title "Profile"
+    :subtitle "View and edit your profile"
+    :on-tap (fn [] (dart:core/print "Profile tapped"))}
+   {:leading m/Icons.sync
+    :title "Sync"
+    :subtitle "Manage data synchronization"
+    :on-tap (fn [] (dart:core/print "Sync settings tapped"))}
+   {:leading m/Icons.security
+    :title "Privacy"
+    :subtitle "Privacy and security settings"
+    :on-tap (fn [] (dart:core/print "Privacy settings tapped"))}])
+
+(defn- create-about-items [navigator]
+  [{:leading m/Icons.info
+    :title "About App"
+    :subtitle "App version and information"
+    :on-tap (fn [] (navigator/navigate-to-screen navigator "/about"))}
+   {:leading m/Icons.help
+    :title "Help & Support"
+    :subtitle "Get help and contact support"
+    :on-tap (fn [] (navigator/navigate-to-screen navigator "/help"))}
+   {:leading m/Icons.rate_review
+    :title "Rate App"
+    :subtitle "Rate and review on app store"
+    :on-tap (fn [] (dart:core/print "Rate app tapped"))}])
+
+(defn ^m/Widget screen [ctx]
+  (f/widget
+   :get [m/Navigator]
+   :let [theme (-> m/Theme (.of ctx))
+         color-scheme (.-colorScheme theme)]
+   (m/Scaffold
+    .backgroundColor (.-surface color-scheme)
+    .appBar (mgl-app-bar/mgl-search-app-bar navigator)
+    .body (m/SingleChildScrollView
+           .scrollDirection m.Axis/horizontal
+           .padding (m.EdgeInsets/all 20)
+           .child (m/Row
+                   .crossAxisAlignment m.CrossAxisAlignment/start
+                   .children (concat
+                              (create-settings-header color-scheme)
+                              [(mgl-setting/settings-group (create-app-settings-items navigator))
+                               (m/Container .width 20)
+                               (mgl-setting/settings-group (create-data-management-items navigator))
+                               (m/Container .width 20)
+                               (mgl-setting/settings-group (create-account-items navigator))
+                               (m/Container .width 20)
+                               (mgl-setting/settings-group (create-about-items navigator))
+                               (m/Container .width 30)]))))))
+

@@ -77,10 +77,10 @@
                       (notes/load-deleted-notes! ctx 0 20)
                       (navigator/navigate-to-screen navigator "/recycle")))
             (mgl/MongolListTile
-             .leading (m/Icon m/Icons.help_outline)
-             .title (mgl/MongolText "Help")
+             .leading (m/Icon m/Icons.settings)
+             .title (mgl/MongolText "Settings")
              .onTap (fn []
-                      (navigator/navigate-to-screen navigator "/help")))
+                      (navigator/navigate-to-screen navigator "/settings")))
             (if-not (empty? uid)
               (mgl/MongolListTile
                .leading (m/Icon m/Icons.logout)
