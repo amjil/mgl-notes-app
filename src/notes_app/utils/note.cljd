@@ -248,8 +248,10 @@
                        (save-blocks-for-note! ctx new-id)
                        (update-note-references! new-id)
                        (update-note-tags! new-id content)
+                       (dart:core/print "Created note")
                        ;; Reload notes list after creating note
-                       (notes/load-notes-paginated! ctx 0)))))
+                       (notes/load-notes-paginated! ctx 0)
+                       (async/Future.value true)))))
         (let [note-id (get current "id")
               title (string-utils/extract-title-from-content content)]
           (-> (db/update-note-with-content note-id title content)
@@ -257,9 +259,10 @@
                        (save-blocks-for-note! ctx note-id)
                        (update-note-references! note-id)
                        (update-note-tags! note-id content)
+                       (dart:core/print "Updated note")
                        ;; Reload notes list after creating note
-                       (notes/load-notes-paginated! ctx 0)))))))
-    (async/Future.value true)))
+                       (notes/load-notes-paginated! ctx 0)
+                       (async/Future.value true)))))))))
 
 (defn clear-note-editor []
   (notes/set-current-note! nil)
