@@ -73,7 +73,7 @@
   (m/ListView.builder
    .controller scroll-controller
    .scrollDirection (or scroll-direction m/Axis.horizontal)
-   .padding (or padding (m/EdgeInsets.symmetric .horizontal 16))
+   .padding (or padding (m/EdgeInsets.symmetric .horizontal 4 .vertical 8))
    .itemCount (inc (count items))
    .itemBuilder (fn [_ index]
                   (if (= index (count items))
