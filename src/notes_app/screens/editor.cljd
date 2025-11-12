@@ -27,8 +27,8 @@
     (lifecycle/LifecycleWrapper
      .onLifecycleEvent (fn [event]
                          (condp = event
-                           lifecycle/LifecycleEvent.pop (note-util/save-or-update-note! ctx)
-                           ;;  lifecycle/LifecycleEvent.invisible (note-util/save-or-update-note! ctx)
+                           ;;  lifecycle/LifecycleEvent.pop (note-util/save-or-update-note! ctx)
+                           lifecycle/LifecycleEvent.invisible (note-util/save-or-update-note! ctx)
                            nil)
                          (dart:core/print (str "onLifecycleEvent: " event)))
      .child
