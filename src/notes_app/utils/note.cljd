@@ -10,7 +10,8 @@
    [notes-app.services.db :as db]
    [notes-app.utils.toast :as toast]
    [notes-app.utils.state-helpers :as helpers]
-   ["package:uuid/uuid.dart" :as uuid]))
+   ["package:uuid/uuid.dart" :as uuid]
+   ["dart:async" :as async]))
 
 
 
@@ -237,7 +238,9 @@
         current (notes/get-current-note)
         ^uuid/Uuid uuid-instance (uuid/Uuid.)]
     (if (or (nil? trimmed) (empty? trimmed))
-      (toast/show-toast ctx "Please enter a note")
+      (do
+        (toast/show-toast ctx "Please enter a note")
+        (async/Future.value false))
       (if (nil? current)
         (let [new-id (.v4 uuid-instance)]
           (-> (db/create-note-with-content content new-id)
@@ -256,7 +259,7 @@
                        (update-note-tags! note-id content)
                        ;; Reload notes list after creating note
                        (notes/load-notes-paginated! ctx 0)))))))
-    nil))
+    (async/Future.value true)))
 
 (defn clear-note-editor []
   (notes/set-current-note! nil)

@@ -31,11 +31,22 @@
    .leading (m/IconButton
              .icon (m/Icon m/Icons.arrow_back)
              .onPressed (fn []
-                          ;; Restore previous note from history if available
-                          (let [previous-note (notes/restore-previous-note!)]
-                            (when previous-note
-                              (note-utils/load-note-to-editor!))
-                            (navigator/navigate-to-back navigator))))
+                          ;; Save current note first, then restore previous note from history if available
+                          (let [current-note (notes/get-current-note)]
+                            (if current-note
+                              ;; Save current note, then restore previous and navigate back
+                              (-> (note-utils/save-or-update-note! ctx)
+                                  (.then (fn [_]
+                                           (dart:core/print "Saved current note")
+                                           (let [previous-note (notes/restore-previous-note!)]
+                                             (when previous-note
+                                               (note-utils/load-note-to-editor!))
+                                             (navigator/navigate-to-back navigator)))))
+                              ;; No current note, just navigate back
+                              (let [previous-note (notes/restore-previous-note!)]
+                                (when previous-note
+                                  (note-utils/load-note-to-editor!))
+                                (navigator/navigate-to-back navigator))))))
    .actions [(m/IconButton
               .icon (m/Icon m/Icons.save)
               .onPressed (fn []
