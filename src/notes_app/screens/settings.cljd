@@ -5,7 +5,9 @@
    [cljd.flutter :as f]
    [notes-app.widgets.mgl-app-bar :as mgl-app-bar]
    [notes-app.widgets.mgl-setting :as mgl-setting]
-   [notes-app.utils.navigator :as navigator]))
+   [notes-app.widgets.theme-dialog :as theme-dialog]
+   [notes-app.utils.navigator :as navigator]
+   [notes-app.states.theme :as theme-state]))
 
 (defn- create-settings-header [color-scheme]
   [(m/Container
@@ -36,19 +38,28 @@
    
    (m/Container .width 30)])
 
-(defn- create-app-settings-items [_navigator]
-  [{:leading m/Icons.palette
-    :title "Theme"
-    :subtitle "Change app theme (light/dark mode)"
-    :on-tap (fn [] (dart:core/print "Theme settings tapped"))}
-   {:leading m/Icons.font_download
-    :title "Font"
-    :subtitle "Adjust font size and family"
-    :on-tap (fn [] (dart:core/print "Font settings tapped"))}
-   {:leading m/Icons.notifications
-    :title "Notifications"
-    :subtitle "Manage notification preferences"
-    :on-tap (fn [] (dart:core/print "Notification settings tapped"))}])
+(defn- get-theme-subtitle [theme-mode]
+  (condp = theme-mode
+    theme-state/theme-mode-light "Light Mode"
+    theme-state/theme-mode-dark "Dark Mode"
+    theme-state/theme-mode-system "Follow System"
+    "Not Set"))
+
+(defn- create-app-settings-items [_navigator ctx]
+  (let [current-mode (theme-state/get-theme-mode)
+        theme-subtitle (get-theme-subtitle current-mode)]
+    [{:leading m/Icons.palette
+      :title "Theme"
+      :subtitle (str "Current: " theme-subtitle)
+      :on-tap (fn [] (theme-dialog/show-theme-dialog ctx))}
+     {:leading m/Icons.font_download
+      :title "Font"
+      :subtitle "Adjust font size and family"
+      :on-tap (fn [] (dart:core/print "Font settings tapped"))}
+     {:leading m/Icons.notifications
+      :title "Notifications"
+      :subtitle "Manage notification preferences"
+      :on-tap (fn [] (dart:core/print "Notification settings tapped"))}]))
 
 (defn- create-data-management-items [navigator]
   [{:leading m/Icons.backup
@@ -95,8 +106,10 @@
 (defn ^m/Widget screen [ctx]
   (f/widget
    :get [m/Navigator]
+   :watch [_theme-mode theme-state/theme-state]
    :let [theme (-> m/Theme (.of ctx))
-         color-scheme (.-colorScheme theme)]
+         color-scheme (.-colorScheme theme)
+         app-settings-items (create-app-settings-items navigator ctx)]
    (m/Scaffold
     .backgroundColor (.-surface color-scheme)
     .appBar (mgl-app-bar/mgl-search-app-bar navigator)
@@ -107,7 +120,7 @@
                    .crossAxisAlignment m.CrossAxisAlignment/start
                    .children (concat
                               (create-settings-header color-scheme)
-                              [(mgl-setting/settings-group (create-app-settings-items navigator))
+                              [(mgl-setting/settings-group app-settings-items)
                                (m/Container .width 20)
                                (mgl-setting/settings-group (create-data-management-items navigator))
                                (m/Container .width 20)

@@ -1,0 +1,69 @@
+(ns notes-app.widgets.theme-dialog
+  (:require
+   ["package:flutter/material.dart" :as m]
+   ["package:mongol/mongol.dart" :as mgl]
+   [cljd.flutter :as f]
+   [notes-app.states.theme :as theme-state]))
+
+(defn theme-dialog [_context]
+  (f/widget
+   :context ctx
+   :watch [_theme-mode theme-state/theme-state]
+   :let [theme (-> m/Theme (.of ctx))
+         color-scheme (.-colorScheme theme)
+         current-mode (theme-state/get-theme-mode)]
+   (m/AlertDialog
+    ;; .title 
+    .content
+    (m/Row
+     .children
+     [(mgl/MongolText "Select Theme"
+                      .style (m/TextStyle
+                              .fontSize 20
+                              .fontWeight m/FontWeight.bold
+                              .color (.-onSurface color-scheme)))
+      (m/Container
+       ;; .width 300
+       .child (m/SingleChildScrollView
+               .scrollDirection m/Axis.horizontal
+               .child
+               (m/Row
+                .mainAxisSize m/MainAxisSize.min
+                .children
+                [(m/RotatedBox
+                  .quarterTurns 1
+                  .child (m/RadioListTile
+                          .title (m/Text "Light Mode")
+                          .value theme-state/theme-mode-light
+                          .groupValue current-mode
+                          .onChanged (fn [value]
+                                       (theme-state/set-theme-mode! value)
+                                       (m/Navigator.pop ctx))))
+                 (m/RotatedBox
+                  .quarterTurns 1
+                  .child (m/RadioListTile
+                          .title (m/Text "Dark Mode")
+                          .value theme-state/theme-mode-dark
+                          .groupValue current-mode
+                          .onChanged (fn [value]
+                                       (theme-state/set-theme-mode! value)
+                                       (m/Navigator.pop ctx))))
+                 (m/RotatedBox
+                  .quarterTurns 1
+                  .child (m/RadioListTile
+                          .title (m/Text "Follow System")
+                          .value theme-state/theme-mode-system
+                          .groupValue current-mode
+                          .onChanged (fn [value]
+                                       (theme-state/set-theme-mode! value)
+                                       (m/Navigator.pop ctx))))])))])
+    .actions
+    [(m/TextButton
+      .onPressed (fn [] (m/Navigator.pop ctx))
+      .child (mgl/MongolText "Close"))])))
+
+(defn show-theme-dialog [context]
+  (m/showDialog
+   .context context
+   .builder (fn [ctx] (theme-dialog ctx))))
+

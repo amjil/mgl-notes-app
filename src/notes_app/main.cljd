@@ -19,7 +19,8 @@
    [notes-app.screens.settings :as settings]
    [notes-app.screens.import-export :as import-export]
    [notes-app.services.db :as db]
-   [notes-app.theme :as theme]))
+   [notes-app.theme :as theme]
+   [notes-app.states.theme :as theme-state]))
 
 ;; Simplified main application entry point
 ;; Uses unified state management, reducing complexity
@@ -40,6 +41,9 @@
   ;; Init The Token
   (await (token/init)) 
 
+  ;; Initialize theme mode from preferences
+  (await (theme-state/init-theme-mode!))
+
   ;; Start Flutter application
   (f/run
    (f/widget
@@ -49,12 +53,14 @@
                        :keyboard/key-container-color m/Colors.grey.shade500
                        :keyboard/mongol-font-family "OnonSoninSans"})]
     :bind {:info info}
+    :watch [_theme-mode theme-state/theme-state]
     (m/MaterialApp
      .navigatorObservers [lifecycle/defaultLifecycleObserver]
      .title "Mongol Notes App"
      .debugShowCheckedModeBanner false
      .theme theme/light-theme
      .darkTheme theme/dark-theme
+     .themeMode (theme-state/get-theme-mode-enum)
      .initialRoute "/"
      .routes {"/" home/screen
               "/login" login/screen
