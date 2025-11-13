@@ -351,7 +351,9 @@
         user-id (get-user-id-if-available)
         user-filter (if-not (empty? user-id)
                       "AND n.user_id = ?"
-                      "AND n.user_id IS NULL")]
+                      "AND n.user_id IS NULL")
+        fts-query (or (string-utils/sanitize-fts-query query)
+                      (str/trim (or query "")))]
     (.get
      (.customSelect
       db
@@ -362,8 +364,8 @@
         ORDER BY n.updated_at DESC 
         LIMIT ? OFFSET ?")
       .variables (if-not (empty? user-id)
-                   [(d/Variable query) (d/Variable user-id) (d/Variable limit) (d/Variable offset)]
-                   [(d/Variable query) (d/Variable limit) (d/Variable offset)])))))
+                   [(d/Variable fts-query) (d/Variable user-id) (d/Variable limit) (d/Variable offset)]
+                   [(d/Variable fts-query) (d/Variable limit) (d/Variable offset)])))))
 
 (defn search-notes-by-title
   "Search notes by title using LIKE query, returns id and title"

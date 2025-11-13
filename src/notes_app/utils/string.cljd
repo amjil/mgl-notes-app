@@ -1,8 +1,7 @@
 (ns notes-app.utils.string
   (:require
    [clojure.string :as str]
-   ["dart:convert" :as convert]
-   ["package:crypto/crypto.dart" :as crypto]))
+   ["dart:convert" :as convert]))
 
 ;; Extract first line from content as title
 (defn extract-title-from-content [content]
@@ -39,6 +38,38 @@
     (if (<= padding-needed 0)
       s
       (str (str/join (repeat padding-needed pad-char)) s))))
+
+;; =============================================================================
+;; FTS Query Utilities
+;; =============================================================================
+
+(def ^:private fts-logical-operators
+  #{"AND" "OR" "NOT" "NEAR"})
+
+(defn ^:private sanitize-fts-token [token]
+  (let [trimmed (str/trim token)]
+    (cond
+      (str/blank? trimmed) nil
+      (contains? fts-logical-operators (str/upper-case trimmed)) (str/upper-case trimmed)
+      :else (let [has-wildcard (and (> (count trimmed) 1) (str/ends-with? trimmed "*"))
+                  base (if has-wildcard (subs trimmed 0 (dec (count trimmed))) trimmed)
+                  needs-quote (boolean (re-find #"[^0-9A-Za-z_]" base))
+                  escaped-base (str/replace base #"\"" "\"\"")
+                  literal (if needs-quote
+                            (str "\"" escaped-base "\"")
+                            escaped-base)]
+              (str literal (when has-wildcard "*"))))))
+
+(defn sanitize-fts-query
+  "Escape special characters in an FTS query string so user input is treated as literals.
+   Preserves logical operators (AND, OR, NOT, NEAR) and trailing wildcards."
+  [query]
+  (let [trimmed (str/trim (or query ""))]
+    (when-not (str/blank? trimmed)
+      (->> (str/split trimmed #"\s+")
+           (map sanitize-fts-token)
+           (remove str/blank?)
+           (str/join " ")))))
 
 ;; =============================================================================
 ;; JSON Utilities
