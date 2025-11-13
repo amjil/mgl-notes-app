@@ -154,7 +154,12 @@
   (let [ids @editor-state/ids
         ;; The first block is used as the note title and is not stored in the blocks table
         body-ids (vec (rest ids))
-        blocks-map @editor-state/blocks]
+        blocks-map @editor-state/blocks
+        levels @editor-state/levels
+        block-content-with-indent (fn [bid]
+                                    (let [level (or (get levels bid) 0)
+                                          content (str (get blocks-map bid ""))]
+                                      (str (apply str (repeat level "\t")) content)))]
     (-> (db/get-blocks-by-note-id note-id)
         (.then (fn [existing]
                  (let [existing-ids (to-id-set existing)
@@ -165,17 +170,19 @@
                        to-delete (remove current-ids existing-ids)
                        to-update (filter (fn [bid]
                                            (let [old (get existing-content bid)
-                                                 now (get blocks-map bid "")]
+                                                 now (block-content-with-indent bid)]
                                              (not= (str old) (str now))))
                                          (filter existing-ids body-ids))]
                    ;; Create blocks using editor blockId as DB primary key to keep FTS and blockIds consistent
                    (doseq [bid to-create]
-                     (db/create-block note-id (get blocks-map bid "") bid)
-                     (db/update-block-content bid (get blocks-map bid "")))
+                     (let [content (block-content-with-indent bid)]
+                       (db/create-block note-id content bid)
+                       (db/update-block-content bid content)))
                    ;; Update existing blocks
                    (doseq [bid to-update]
-                     (db/update-block bid (get blocks-map bid ""))
-                     (db/update-block-content bid (get blocks-map bid "")))
+                     (let [content (block-content-with-indent bid)]
+                       (db/update-block bid content)
+                       (db/update-block-content bid content)))
                    ;; Delete removed blocks
                    (doseq [bid to-delete]
                      (db/delete-block bid))
@@ -195,22 +202,30 @@
                      (editor-util/clean)
                      (let [^uuid/Uuid uuid-instance (uuid/Uuid.)
                            title-id (.v4 uuid-instance)
-                           block-ids (map (fn [b]
-                                            (or (:id b) (.-id b)))
+                           parsed (reduce (fn [{:keys [block-ids blocks-map levels-map]} b]
+                                            (let [bid (or (:id b) (.-id b))
+                                                  raw-content (str (or (:content b) (.-content b) ""))
+                                                  leading-tabs (count (re-find #"^\t*" raw-content))
+                                                  content-without-tabs (subs raw-content leading-tabs)
+                                                  trimmed-content (str/trim content-without-tabs)]
+                                              {:block-ids (conj block-ids bid)
+                                               :blocks-map (assoc blocks-map bid trimmed-content)
+                                               :levels-map (assoc levels-map bid leading-tabs)}))
+                                          {:block-ids [] :blocks-map {} :levels-map {}}
                                           blocks)
-                           blocks-map (into {}
-                                            (map (fn [b]
-                                                   (let [bid (or (:id b) (.-id b))
-                                                         content (or (:content b) (.-content b))]
-                                                     [bid content]))
-                                                 blocks))
+                           block-ids (:block-ids parsed)
+                           blocks-map (:blocks-map parsed)
+                           levels-map (:levels-map parsed)
                            ;; Create IDs list with title as first block
                            all-ids (vec (cons title-id block-ids))
                            ;; Create blocks map with title as first block
-                           all-blocks-map (assoc blocks-map title-id note-title)]
+                           all-blocks-map (assoc blocks-map title-id (str/trim (or note-title "")))
+                           ;; Create levels map with title level set to 0
+                           all-levels-map (assoc levels-map title-id 0)]
                        ;; Set editor state
                        (reset! editor-state/ids all-ids)
                        (reset! editor-state/blocks all-blocks-map)
+                       (reset! editor-state/levels all-levels-map)
                        ;; Load note references and update link-ids
                        ;; link-ids is a map with title as key and id as value
                        (-> (db/get-note-references note-id)
