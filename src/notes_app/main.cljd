@@ -18,10 +18,12 @@
    [notes-app.screens.help-support :as help]
    [notes-app.screens.settings :as settings]
    [notes-app.screens.import-export :as import-export]
+   [notes-app.screens.unlock :as unlock]
    [notes-app.services.db :as db]
    [notes-app.theme :as theme]
    [notes-app.states.theme :as theme-state]
-   [notes-app.states.font :as font-state]))
+   [notes-app.states.font :as font-state]
+   [notes-app.states.security :as security]))
 
 ;; Simplified main application entry point
 ;; Uses unified state management, reducing complexity
@@ -40,17 +42,21 @@
   (zip-utils/read-json-from-asset-zip kc/next "assets/next.zip")
 
   ;; Init The Token
-  (await (token/init)) 
+  (await (token/init))
 
   ;; Initialize theme mode from preferences
   (await (theme-state/init-theme-mode!))
-  
+
   ;; Initialize font settings from preferences
   (await (font-state/init-font-settings!))
+
+  ;; Initialize security and app lock state
+  (await (security/init-security!))
 
   ;; Start Flutter application
   (f/run
    (f/widget
+    :context ctx
     :let [info (merge keyboard-options/keyboard-option
                       {:keyboard/key-cap-border-radius 6
                        :keyboard/font-size 18
@@ -59,22 +65,35 @@
     :bind {:info info}
     :watch [_theme-mode theme-state/theme-state
             _font-state font-state/font-state]
-    (m/MaterialApp
-     .navigatorObservers [lifecycle/defaultLifecycleObserver]
-     .title "Mongol Notes App"
-     .debugShowCheckedModeBanner false
-     .theme (theme/get-light-theme)
-     .darkTheme (theme/get-dark-theme)
-     .themeMode (theme-state/get-theme-mode-enum)
-     .initialRoute "/"
-     .routes {"/" home/screen
-              "/login" login/screen
-              "/register" register/screen
-              "/editor" editor/screen
-              "/search" search/screen
-              "/recycle" recycle/screen
-              "/about" about/screen
-              "/help" help/screen
-              "/settings" settings/screen
-              "/import-export" import-export/screen}))))
+
+    (lifecycle/LifecycleWrapper
+     .onLifecycleEvent (fn [event] (security/handle-lifecycle-event! event))
+     .child
+     (m/Listener
+      .behavior m/HitTestBehavior.deferToChild
+      .onPointerDown (fn [_]
+                       (security/mark-active!))
+      .child
+      (m/MaterialApp
+       .navigatorKey security/navigator-key
+       .navigatorObservers [lifecycle/defaultLifecycleObserver]
+       .title "Mongol Notes App"
+       .debugShowCheckedModeBanner false
+       .theme (theme/get-light-theme)
+       .darkTheme (theme/get-dark-theme)
+       .themeMode (theme-state/get-theme-mode-enum)
+       .initialRoute "/"
+       ;; .builder (fn [_ctx child]
+       ;;            (app-lock-overlay/wrap-with-lock _ctx child))
+       .routes {"/" home/screen
+                "/login" login/screen
+                "/register" register/screen
+                "/editor" editor/screen
+                "/search" search/screen
+                "/recycle" recycle/screen
+                "/about" about/screen
+                "/help" help/screen
+                "/settings" settings/screen
+                "/unlock" unlock/screen
+                "/import-export" import-export/screen}))))))
     

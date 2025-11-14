@@ -1,0 +1,162 @@
+(ns notes-app.screens.unlock
+  (:require
+   ["package:flutter/material.dart" :as m]
+   ["package:mongol/mongol.dart" :as mgl]
+   [cljd.flutter :as f]
+   [clojure.string :as str]
+   [virtual_keyboard.keyboard :as keyboard]
+   [notes-app.states.security :as security]
+   [notes-app.utils.toast :as toast]
+   [notes-app.utils.navigator :as navigator]))
+
+(defn- lock-message [state]
+  (case (:lock-reason state)
+    :timeout "The app has been locked due to inactivity. Please enter your lock screen password to continue."
+    :resume "Verification required when the app returns to foreground. Please enter your lock screen password."
+    :invalid-credentials "Incorrect password, please try again."
+    :manual "The app is locked. Please enter your lock screen password to unlock."
+    "Please enter your lock screen password to unlock the app."))
+
+(defn- lock-header [color-scheme]
+  (m/Column
+   .mainAxisSize m/MainAxisSize.min
+   .children
+   [(m/Container
+     .padding (m.EdgeInsets/all 24)
+     .decoration (m/BoxDecoration
+                  .color (-> (.-primary color-scheme) (.withOpacity 0.1))
+                  .shape m.BoxShape/circle)
+     .child (m/Icon m/Icons.lock
+                    .size 36
+                    .color (.-primary color-scheme)))
+    (m/SizedBox .height 16)
+    (mgl/MongolText "App Locked"
+                    .style (m/TextStyle
+                            .fontSize 22
+                            .fontWeight m/FontWeight.bold
+                            .color (.-onSurface color-scheme)))]))
+
+(defn ^m/Widget screen [ctx]
+  (let [password (atom "")
+        error (atom nil)
+        submitting (atom false)]
+    (f/widget
+     :get [m/Navigator]
+     :watch [state security/security-state
+             msg error]
+     :let [failed (:failed-attempts state)
+           theme (-> m/Theme (.of ctx))
+           color-scheme (.-colorScheme theme)
+           screen-width (.-width (.-size (m/MediaQuery.of ctx)))
+           screen-height (.-height (.-size (m/MediaQuery.of ctx)))
+
+           handle-submit (fn []
+                           (let [input (str/trim (str @password))]
+                             (dart:core/print (str "input: " input))
+                             (cond
+                               (str/blank? input)
+                               (reset! error "Password cannot be empty.")
+
+                               (< (count input) security/min-password-length)
+                               (reset! error (str "Password must be at least " security/min-password-length " characters."))
+
+                               :else
+                               (do
+                                 (reset! submitting true)
+                                 (let [result (security/attempt-unlock! input)]
+                                   (reset! submitting false)
+                                   (if (:success? result)
+                                     (do
+                                       (toast/show-toast ctx "Unlock successful" :success)
+                                       (reset! password "")
+                                       (reset! error nil)
+                                       (navigator/navigate-to-home navigator))
+                                     (do
+                                       (reset! error "Incorrect password, please try again."))))))))]
+     (m/PopScope
+      .canPop false)
+     (m/Scaffold)
+     .body
+     (m/SafeArea)
+     (m/Container
+      .width screen-width
+      .height screen-height
+      .color (-> m/Colors.black (.withOpacity 0.65)))
+     (m/Container
+      .width screen-width
+      .height (* screen-height 0.9))
+     (m/Column
+      .mainAxisAlignment m/MainAxisAlignment.spaceAround
+      .children
+      [(m/Expanded
+        .child
+        (m/Padding
+         .padding (m/EdgeInsets.all 16)
+         .child
+         (m/SingleChildScrollView
+          .scrollDirection m/Axis.horizontal
+          .child
+          (m/Row
+           .mainAxisSize m/MainAxisSize.min
+           .crossAxisAlignment m/CrossAxisAlignment.start
+           .children
+           [(lock-header color-scheme)
+            (m/SizedBox .width 16)
+            (mgl/MongolText (lock-message state)
+                            .textAlign mgl/MongolTextAlign.center
+                            .style (m/TextStyle
+                                    .fontSize 16
+                                    .color (.-onSurfaceVariant color-scheme)))
+            (if (pos? failed)
+              (m/Container
+               .margin (m/EdgeInsets.only .left 12)
+               .child (mgl/MongolText (str "Consecutive error attempts: " failed)
+                                      .style (m/TextStyle
+                                              .fontSize 14
+                                              .color (.-error color-scheme))))
+              (m/SizedBox))
+            (m/SizedBox .width 20)
+            (mgl/MongolTextField
+             .obscureText true
+             .autofocus true
+             .textInputAction m/TextInputAction.done
+             .onChanged #(reset! password %)
+             .onSubmitted (fn [_] (handle-submit))
+             .decoration (m/InputDecoration
+                          .labelText "Lock Screen Password"))
+            (if (some? msg)
+              (m/Container
+               .margin (m/EdgeInsets.only .left 12)
+               .child (mgl/MongolText msg
+                                      .style (m/TextStyle
+                                              .color (.-error color-scheme)
+                                              .fontSize 14)))
+              (m/SizedBox))
+            (m/SizedBox .width 24)
+            (m/Column
+             .mainAxisAlignment m/MainAxisAlignment.spaceBetween
+             .children
+             [(mgl/MongolElevatedButton
+               .onPressed (fn []
+                            (reset! password "")
+                            (reset! error nil))
+               .child (mgl/MongolText "Clear"))
+              (mgl/MongolElevatedButton
+               .onPressed (fn [] (handle-submit))
+               .style (m/ButtonStyle
+                       .minimumSize (m/MaterialStateProperty.all (m/Size 48 120)))
+               .child (if @submitting
+                        (m/SizedBox
+                         .width 20
+                         .height 20
+                         .child (m/CircularProgressIndicator
+                                 .strokeWidth 2
+                                 .color (.-onPrimary color-scheme)))
+                        (mgl/MongolText "Unlock"
+                                        .style (m/TextStyle
+                                                .fontSize 16
+                                                .color (.-onPrimary color-scheme)))))])]))))
+       (m/Card
+        .child
+        (keyboard/keyboard {:custom-fns {}}))]))))
+
