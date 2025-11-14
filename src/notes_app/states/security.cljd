@@ -1,0 +1,238 @@
+(ns notes-app.states.security
+  (:require
+   ["dart:async" :as dart-async]
+   ["package:lifecycle/lifecycle.dart" :as lifecycle]
+   ["package:flutter/material.dart" :as m]
+   [notes-app.utils.navigator :as navigator]
+   [clojure.string :as str]
+   [notes-app.services.pref :as pref]))
+
+(def default-timeout-minutes 5)
+(def min-password-length 4)
+
+(def ^:private lock-enabled-pref-key "app_lock_enabled")
+(def ^:private lock-timeout-pref-key "app_lock_timeout_minutes")
+(def ^:private lock-password-pref-key "app_lock_password")
+
+;; GlobalKey for Navigator to safely access Navigator from async callbacks
+;; (defonce ^#/(m/GlobalKey m/NavigatorState) navigator-key (m/GlobalKey.new))
+(def ^#/(m/GlobalKey m/NavigatorState) navigator-key (#/(m/GlobalKey m/NavigatorState)))
+
+(declare lock!)
+
+(def security-state
+  (atom {:enabled? false
+         :locked? false
+         :password nil
+         :timeout-minutes default-timeout-minutes
+         :last-active nil
+         :last-background nil
+         :timer nil
+         :failed-attempts 0
+         :lock-reason nil}))
+
+(defn- password-present?
+  ([state]
+   (let [password (:password state)]
+     (and (some? password)
+          (not (str/blank? password)))))
+  ([]
+   (password-present? @security-state)))
+
+(defn locked? []
+  (:locked? @security-state))
+
+(defn lock-enabled? []
+  (:enabled? @security-state))
+
+(defn timeout-minutes []
+  (:timeout-minutes @security-state))
+
+(defn lock-reason []
+  (:lock-reason @security-state))
+
+(defn failed-attempts []
+  (:failed-attempts @security-state))
+
+(defn password-set? []
+  (password-present?))
+
+(defn- cancel-timer! []
+  (when-let [^dart-async/Timer timer (:timer @security-state)]
+    (.cancel timer))
+  (swap! security-state assoc :timer nil))
+
+(defn- schedule-lock-timer! []
+  (cancel-timer!)
+  (let [state @security-state
+        minutes (:timeout-minutes state)]
+    (when (and (:enabled? state)
+               (password-present? state)
+               (not (:locked? state))
+               (pos? minutes))
+      (swap! security-state assoc
+             :timer (dart-async/Timer.
+                     (Duration .minutes minutes)
+                     (fn []
+                       (lock! :timeout)))))))
+
+(defn- update-last-active! []
+  (swap! security-state assoc :last-active (DateTime/now)))
+
+(defn- update-last-background! []
+  (swap! security-state assoc :last-background (DateTime/now)))
+
+(defn lock!
+  ([reason]
+   (cancel-timer!)
+   (swap! security-state
+          (fn [state]
+            (if (and (:enabled? state) (password-present? state))
+              (-> state
+                  (assoc :locked? true
+                         :lock-reason reason))
+              state)))
+
+   ;; Use GlobalKey to safely get Navigator, even from async callbacks
+   (dart:core/print (str "navigator-key: " navigator-key))
+   (dart:core/print (str "navigator-key: " navigator-key))
+   (when-let [navigator-state (.-currentState navigator-key)]
+     (dart:core/print (str "navigator-state: " navigator-state))
+     (navigator/navigate-to-screen navigator-state "/unlock"))
+   (:locked? @security-state))
+  ([]
+   (lock! :manual)))
+
+(defn unlock! []
+  (swap! security-state
+         (fn [state]
+           (-> state
+               (assoc :locked? false
+                      :lock-reason nil
+                      :failed-attempts 0
+                      :last-active (DateTime/now)))))
+  (schedule-lock-timer!)
+  true)
+
+(defn mark-active! []
+  (swap! security-state
+         (fn [state]
+           (if (and (:enabled? state)
+                    (password-present? state)
+                    (not (:locked? state)))
+             (assoc state :last-active (DateTime/now))
+             state)))
+  (schedule-lock-timer!))
+
+(defn set-lock-enabled! [enabled?]
+  (swap! security-state
+         (fn [state]
+           (-> state
+               (assoc :enabled? enabled?)
+               (cond-> (not enabled?)
+                 (assoc :locked? false
+                        :lock-reason nil
+                        :failed-attempts 0)))))
+  (await (pref/set-bool lock-enabled-pref-key enabled?))
+  (if enabled?
+    (when (password-present?)
+      (update-last-active!)
+      (schedule-lock-timer!))
+    (cancel-timer!)))
+
+(defn set-timeout-minutes! [minutes]
+  (let [minutes (max 1 minutes)]
+    (swap! security-state assoc :timeout-minutes minutes)
+    (await (pref/set-int lock-timeout-pref-key minutes))
+    (schedule-lock-timer!)))
+
+(defn set-password! [password]
+  (let [clean (some-> password str str/trim)]
+    (swap! security-state assoc :password clean)
+    (if (password-present?)
+      (await (pref/set-string lock-password-pref-key clean))
+      (await (pref/remove-value lock-password-pref-key))))
+  (update-last-active!)
+  (schedule-lock-timer!))
+
+(defn clear-password! []
+  (swap! security-state assoc :password nil)
+  (await (pref/remove-value lock-password-pref-key))
+  (cancel-timer!)
+  (swap! security-state assoc :locked? false :lock-reason nil :failed-attempts 0))
+
+(defn attempt-unlock! [password]
+  (let [input (some-> password str str/trim)
+        state @security-state
+        stored (:password state)]
+    (cond
+      (not (password-present? state))
+      {:success? false :reason :no-password}
+
+      (= stored input)
+      (do
+        (unlock!)
+        {:success? true})
+
+      :else
+      (let [new-state (swap! security-state
+                             (fn [s]
+                               (-> s
+                                   (update :failed-attempts inc)
+                                   (assoc :lock-reason :invalid-credentials))))]
+        {:success? false
+         :reason :invalid-password
+         :failed-attempts (:failed-attempts new-state)}))))
+
+(defn password-valid? [password]
+  (let [input (some-> password str str/trim)
+        state @security-state
+        stored (:password state)]
+    (and (password-present? state)
+         (= stored input))))
+
+(defn handle-lifecycle-event! [event]
+  (cond
+    (= event lifecycle/LifecycleEvent.visible)
+    (let [state @security-state
+          last-background (:last-background state)
+          minutes (:timeout-minutes state)]
+      (update-last-active!)
+      (if (and last-background minutes (pos? minutes))
+        (let [delta (.-inMilliseconds (.difference (DateTime/now) last-background))
+              threshold (* minutes 60000)]
+          (if (>= delta threshold)
+            (lock! :resume)
+            (schedule-lock-timer!)))
+        (schedule-lock-timer!)))
+
+    (= event lifecycle/LifecycleEvent.invisible)
+    (do
+      (update-last-background!)
+      (cancel-timer!))
+
+    :else
+    nil))
+
+(defn init-security! []
+  (let [enabled? (boolean (await (pref/get-bool lock-enabled-pref-key)))
+        saved-timeout (await (pref/get-int lock-timeout-pref-key))
+        timeout (if (and saved-timeout (pos? saved-timeout))
+                  saved-timeout
+                  default-timeout-minutes)
+        password (await (pref/get-string lock-password-pref-key))
+        clean-password (some-> password str str/trim)]
+    (swap! security-state assoc
+           :enabled? enabled?
+           :timeout-minutes timeout
+           :password clean-password
+           :locked? false
+           :lock-reason nil
+           :failed-attempts 0
+           :last-active (DateTime/now)
+           :last-background nil)
+    (if (and enabled? (password-present?))
+      (schedule-lock-timer!)
+      (cancel-timer!)))
+  true)
+
