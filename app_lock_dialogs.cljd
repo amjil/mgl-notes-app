@@ -1,0 +1,372 @@
+(ns notes-app.widgets.app-lock-dialogs
+  (:require
+   ["package:flutter/material.dart" :as m]
+   ["package:mongol/mongol.dart" :as mgl]
+   [cljd.flutter :as f]
+   [clojure.string :as str]
+   [virtual_keyboard.keyboard :as keyboard]
+   [notes-app.states.security :as security]
+   [notes-app.utils.toast :as toast]))
+
+(def ^:private timeout-options [1 3 5 10 15 30])
+
+(defn- close-dialog!
+  ([ctx]
+   (close-dialog! ctx nil))
+  ([ctx result]
+   (m/Navigator.pop ctx result)))
+
+(defn show-set-password-dialog [context]
+  (m/showDialog
+   .context context
+   .barrierDismissible false
+   .builder
+   (fn [_ctx]
+     (f/widget
+      :context ctx
+      :let [theme (-> m/Theme (.of ctx))
+            color-scheme (.-colorScheme theme)
+            screen-width (.-width (.-size (m/MediaQuery.of ctx)))
+            screen-height (.-height (.-size (m/MediaQuery.of ctx)))
+            password (atom "")
+            confirm (atom "")
+            error (atom nil)
+            submitting (atom false)
+            submit! (fn []
+                      (let [pw (str/trim @password)
+                            cf (str/trim @confirm)]
+                        (cond
+                          (str/blank? pw)
+                          (reset! error "Password cannot be empty.")
+
+                          (< (count pw) security/min-password-length)
+                          (reset! error (str "Password must be at least " security/min-password-length " characters."))
+
+                          (not= pw cf)
+                          (reset! error "Passwords do not match.")
+
+                          :else
+                          (do
+                            (reset! submitting true)
+                            (security/set-password! pw)
+                            (security/set-lock-enabled! true)
+                            (reset! submitting false)
+                            (toast/show-toast context "App lock enabled" :success)
+                            (close-dialog! ctx true)))))]
+      (m/Dialog
+       .insetPadding (m/EdgeInsets.zero)
+       .child
+       (m/Container
+        .width screen-width
+        .height (* screen-height 0.9)
+        .child
+        (m/Stack
+         .children
+         [(m/Column
+           .mainAxisAlignment m/MainAxisAlignment.spaceAround
+           .children
+           [(m/Expanded
+             .child
+             (m/Padding
+              .padding (m/EdgeInsets.all 16)
+              .child
+              (m/SingleChildScrollView
+               .scrollDirection m/Axis.horizontal
+               .child
+               (m/Row
+                .mainAxisSize m/MainAxisSize.min
+                .crossAxisAlignment m/CrossAxisAlignment.start
+                .children
+                [(mgl/MongolText "Set App Lock Password"
+                                 .style (m/TextStyle
+                                         .fontSize 20
+                                         .fontWeight m/FontWeight.bold))
+                 (mgl/MongolTextField
+                  .obscureText true
+                  .autofocus true
+                  .decoration (m/InputDecoration
+                               .labelText "New Password")
+                  .onChanged #(reset! password %))
+                 (m/SizedBox .width 16)
+                 (mgl/MongolTextField
+                  .obscureText true
+                  .decoration (m/InputDecoration
+                               .labelText "Confirm New Password")
+                  .onChanged #(reset! confirm %))
+                 (if-let [msg @error]
+                   (m/Container
+                    .margin (m/EdgeInsets.only .left 12)
+                    .child (m/Text msg
+                                   .style (m/TextStyle
+                                           .color (.-error color-scheme)
+                                           .fontSize 14)))
+                   (m/SizedBox))
+                 (m/SizedBox .width 16)
+                 (m/Column
+                  .mainAxisAlignment m/MainAxisAlignment.spaceBetween
+                  .children
+                  [(mgl/MongolElevatedButton
+                    .onPressed (fn [] (close-dialog! ctx false))
+                    .child (mgl/MongolText "Cancel"))
+                   (mgl/MongolElevatedButton
+                    .onPressed (fn [] (submit!))
+                    .child (if @submitting
+                             (m/SizedBox
+                              .width 18
+                              .height 18
+                              .child (m/CircularProgressIndicator
+                                      .strokeWidth 2
+                                      .color (.-onPrimary color-scheme)))
+                             (mgl/MongolText "Save")))])]))))
+           (keyboard/keyboard {:custom-fns {}})])
+          (keyboard/candidates nil)])))))))
+
+(defn show-change-password-dialog [context]
+  (m/showDialog
+   .context context
+   .builder
+   (fn [_ctx]
+     (f/widget
+      :context ctx
+      :let [theme (-> m/Theme (.of ctx))
+            color-scheme (.-colorScheme theme)
+            screen-width (.-width (.-size (m/MediaQuery.of ctx)))
+            screen-height (.-height (.-size (m/MediaQuery.of ctx)))
+            current (atom "")
+            new-pass (atom "")
+            confirm (atom "")
+            error (atom nil)
+            submitting (atom false)
+            submit! (fn []
+                      (let [curr (str/trim @current)
+                            newp (str/trim @new-pass)
+                            conf (str/trim @confirm)]
+                        (cond
+                          (not (security/password-set?))
+                          (reset! error "Screen lock password not set.")
+
+                          (not (security/password-valid? curr))
+                          (reset! error "Current password is incorrect.")
+
+                          (str/blank? newp)
+                          (reset! error "New password cannot be empty.")
+
+                          (< (count newp) security/min-password-length)
+                          (reset! error (str "Password must be at least " security/min-password-length " characters."))
+
+                          (not= newp conf)
+                          (reset! error "Passwords do not match.")
+
+                          :else
+                          (do
+                            (reset! submitting true)
+                            (security/set-password! newp)
+                            (reset! submitting false)
+                            (toast/show-toast context "Screen lock password updated" :success)
+                            (close-dialog! ctx true)))))]
+      (m/Dialog
+       .insetPadding (m/EdgeInsets.zero))
+      (m/Container
+       .width screen-width
+       .height (* screen-height 0.9))
+      (m/Stack
+       .children
+       [(m/Column
+         .mainAxisAlignment m/MainAxisAlignment.spaceAround
+         .children
+         [(m/Expanded
+           .child
+           (m/Padding
+            .padding (m/EdgeInsets.all 16)
+            .child
+            (m/SingleChildScrollView
+             .scrollDirection m/Axis.horizontal
+             .child
+             (m/Row
+              .mainAxisSize m/MainAxisSize.min
+              .crossAxisAlignment m/CrossAxisAlignment.start
+              .children
+              [(mgl/MongolText "Change Screen Lock Password"
+                               .style (m/TextStyle
+                                       .fontSize 20
+                                       .fontWeight m/FontWeight.bold))
+               (mgl/MongolTextField
+                .obscureText true
+                .decoration (m/InputDecoration
+                             .labelText "Current Password")
+                .onChanged #(reset! current %))
+               (m/SizedBox .width 16)
+               (mgl/MongolTextField
+                .obscureText true
+                .decoration (m/InputDecoration
+                             .labelText "New Password")
+                .onChanged #(reset! new-pass %))
+               (m/SizedBox .width 16)
+               (mgl/MongolTextField
+                .obscureText true
+                .decoration (m/InputDecoration
+                             .labelText "Confirm New Password")
+                .onChanged #(reset! confirm %))
+               (if-let [msg @error]
+                 (m/Container
+                  .margin (m/EdgeInsets.only .left 12)
+                  .child (m/Text msg
+                                 .style (m/TextStyle
+                                         .color (.-error color-scheme)
+                                         .fontSize 14)))
+                 (m/SizedBox))
+               (m/SizedBox .width 16)
+               (m/Column
+                .mainAxisAlignment m/MainAxisAlignment.spaceBetween
+                .children
+                [(mgl/MongolElevatedButton
+                  .onPressed (fn [] (close-dialog! ctx false))
+                  .child (mgl/MongolText "Cancel"))
+                 (mgl/MongolElevatedButton
+                  .onPressed (fn [] (submit!))
+                  .child (if @submitting
+                           (m/SizedBox
+                            .width 18
+                            .height 18
+                            .child (m/CircularProgressIndicator
+                                    .strokeWidth 2
+                                    .color (.-onPrimary color-scheme)))
+                           (mgl/MongolText "Save")))])]))))
+          (keyboard/keyboard {:custom-fns {}})])
+        (keyboard/candidates nil)])))))
+
+(defn show-disable-lock-dialog [context]
+  (m/showDialog
+   .context context
+   .builder
+   (fn [_ctx]
+     (f/widget
+      :context ctx
+      :let [theme (-> m/Theme (.of ctx))
+            color-scheme (.-colorScheme theme)
+            screen-width (.-width (.-size (m/MediaQuery.of ctx)))
+            screen-height (.-height (.-size (m/MediaQuery.of ctx)))
+            password (atom "")
+            error (atom nil)
+            submit! (fn []
+                      (let [input (str/trim @password)]
+                        (cond
+                          (str/blank? input)
+                          (reset! error "Please enter password to disable lock screen.")
+
+                          (not (security/password-valid? input))
+                          (reset! error "Password is incorrect.")
+
+                          :else
+                          (do
+                            (security/set-lock-enabled! false)
+                            (toast/show-toast context "App lock disabled" :info)
+                            (close-dialog! ctx true)))))]
+      (m/Dialog
+       .insetPadding (m/EdgeInsets.zero)
+       .child
+       (m/Container
+        .width screen-width
+        .height (* screen-height 0.9)
+        .child
+        (m/Stack
+         .children
+         [(m/Column
+           .mainAxisAlignment m/MainAxisAlignment.spaceAround
+           .children
+           [(m/Expanded
+             .child
+             (m/Padding
+              .padding (m/EdgeInsets.all 16)
+              .child
+              (m/SingleChildScrollView
+               .scrollDirection m/Axis.horizontal
+               .child
+               (m/Row
+                .mainAxisSize m/MainAxisSize.min
+                .crossAxisAlignment m/CrossAxisAlignment.start
+                .children
+                [(mgl/MongolText "Disable App Lock"
+                                 .style (m/TextStyle
+                                         .fontSize 20
+                                         .fontWeight m/FontWeight.bold))
+                 (mgl/MongolText "After disabling lock, the app will not automatically require a password when idle."
+                                 .style (m/TextStyle
+                                         .color (.-onSurfaceVariant color-scheme)
+                                         .fontSize 14))
+                 (m/SizedBox .width 16)
+                 (mgl/MongolTextField
+                  .obscureText true
+                  .autofocus true
+                  .decoration (m/InputDecoration
+                               .labelText "Current Password")
+                  .onChanged #(reset! password %))
+                 (if-let [msg @error]
+                   (m/Container
+                    .margin (m/EdgeInsets.only .left 12)
+                    .child (m/Text msg
+                                   .style (m/TextStyle
+                                           .color (.-error color-scheme)
+                                           .fontSize 14)))
+                   (m/SizedBox))
+                 (m/SizedBox .width 16)
+                 (m/Column
+                  .mainAxisAlignment m/MainAxisAlignment.spaceBetween
+                  .children
+                  [(mgl/MongolElevatedButton
+                    .onPressed (fn [] (close-dialog! ctx false))
+                    .child (mgl/MongolText "Cancel"))
+                   (mgl/MongolElevatedButton
+                    .onPressed (fn [] (submit!))
+                    .child (mgl/MongolText "Disable"))])]))))
+           (keyboard/keyboard {:custom-fns {}})])
+          (keyboard/candidates nil)])))))))
+
+(defn show-timeout-dialog [context]
+  (m/showDialog
+   .context context
+   .builder
+   (fn [dialog-ctx]
+     (f/widget
+      :context ctx
+      :let [theme (-> m/Theme (.of ctx))
+            color-scheme (.-colorScheme theme)
+            current (security/timeout-minutes)]
+      (m/RotatedBox
+       .quarterTurns 1)
+      (m/SimpleDialog
+       ;;    .title (mgl/MongolText "Select Auto Lock Time")
+       .children
+       (mapv
+        (fn [minutes]
+          (m/SimpleDialogOption
+           .onPressed (fn []
+                        (security/set-timeout-minutes! minutes)
+                        (toast/show-toast context (str "Auto lock time updated to " minutes " minutes") :success)
+                        (close-dialog! ctx minutes))
+           .child
+           (m/Row
+            .mainAxisAlignment m/MainAxisAlignment.spaceBetween
+            .children
+            [(m/Text (str minutes " minutes")
+                     .style (m/TextStyle
+                             .fontSize 16
+                             .color (.-onSurface color-scheme)))
+             (if (= minutes current)
+               (m/RotatedBox
+                .quarterTurns -1
+                .child
+                (m/Icon m/Icons.check
+                        .color (.-primary color-scheme)))
+               (m/SizedBox))])))
+        (reverse timeout-options)))))))
+
+(defn lock-status-subtitle []
+  (let [enabled? (security/lock-enabled?)
+        timeout (security/timeout-minutes)]
+    (cond
+      (not enabled?) (if (security/password-set?)
+                       "Not enabled (password set)"
+                       "Not enabled")
+      :else (str "Enabled · Timeout " timeout " minutes"))))
+
