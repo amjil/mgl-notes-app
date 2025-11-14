@@ -5,6 +5,7 @@
    [cljd.flutter :as f]
    [clojure.string :as str]
    [virtual_keyboard.keyboard :as keyboard]
+   [virtual-keyboard.input-control :as input-control]
    [notes-app.states.security :as security]
    [notes-app.utils.toast :as toast]
    [notes-app.utils.navigator :as navigator]))
@@ -139,6 +140,7 @@
              [(mgl/MongolElevatedButton
                .onPressed (fn []
                             (reset! password "")
+                            (input-control/reset-text "")
                             (reset! error nil))
                .child (mgl/MongolText "Clear"))
               (mgl/MongolElevatedButton
