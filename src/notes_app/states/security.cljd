@@ -3,6 +3,7 @@
    ["dart:async" :as dart-async]
    ["package:lifecycle/lifecycle.dart" :as lifecycle]
    ["package:flutter/material.dart" :as m]
+   ["package:flutter/scheduler.dart" :as scheduler]
    [notes-app.utils.navigator :as navigator]
    [clojure.string :as str]
    [notes-app.services.pref :as pref]))
@@ -13,6 +14,7 @@
 (def ^:private lock-enabled-pref-key "app_lock_enabled")
 (def ^:private lock-timeout-pref-key "app_lock_timeout_minutes")
 (def ^:private lock-password-pref-key "app_lock_password")
+(def ^:private lock-state-pref-key "app_locked")
 
 ;; GlobalKey for Navigator to safely access Navigator from async callbacks
 ;; (defonce ^#/(m/GlobalKey m/NavigatorState) navigator-key (m/GlobalKey.new))
@@ -92,12 +94,13 @@
                   (assoc :locked? true
                          :lock-reason reason))
               state)))
+   
+   ;; Save lock state to preferences
+   (when (:locked? @security-state)
+     (await (pref/set-bool lock-state-pref-key true)))
 
    ;; Use GlobalKey to safely get Navigator, even from async callbacks
-   (dart:core/print (str "navigator-key: " navigator-key))
-   (dart:core/print (str "navigator-key: " navigator-key))
    (when-let [navigator-state (.-currentState navigator-key)]
-     (dart:core/print (str "navigator-state: " navigator-state))
      (navigator/navigate-to-screen navigator-state "/unlock"))
    (:locked? @security-state))
   ([]
@@ -111,6 +114,8 @@
                       :lock-reason nil
                       :failed-attempts 0
                       :last-active (DateTime/now)))))
+  ;; Clear lock state preference
+  (await (pref/set-bool lock-state-pref-key false))
   (schedule-lock-timer!)
   true)
 
@@ -134,6 +139,9 @@
                         :lock-reason nil
                         :failed-attempts 0)))))
   (await (pref/set-bool lock-enabled-pref-key enabled?))
+  (when (not enabled?)
+    ;; Clear lock state when disabling lock
+    (await (pref/set-bool lock-state-pref-key false)))
   (if enabled?
     (when (password-present?)
       (update-last-active!)
@@ -159,7 +167,9 @@
   (swap! security-state assoc :password nil)
   (await (pref/remove-value lock-password-pref-key))
   (cancel-timer!)
-  (swap! security-state assoc :locked? false :lock-reason nil :failed-attempts 0))
+  (swap! security-state assoc :locked? false :lock-reason nil :failed-attempts 0)
+  ;; Clear lock state preference
+  (await (pref/set-bool lock-state-pref-key false)))
 
 (defn attempt-unlock! [password]
   (let [input (some-> password str str/trim)
@@ -221,18 +231,29 @@
                   saved-timeout
                   default-timeout-minutes)
         password (await (pref/get-string lock-password-pref-key))
-        clean-password (some-> password str str/trim)]
+        clean-password (some-> password str str/trim)
+        saved-locked? (boolean (await (pref/get-bool lock-state-pref-key)))]
     (swap! security-state assoc
            :enabled? enabled?
            :timeout-minutes timeout
            :password clean-password
-           :locked? false
-           :lock-reason nil
+           :locked? (and saved-locked? enabled? password)
+           :lock-reason (when (and saved-locked? enabled? password) :manual)
            :failed-attempts 0
            :last-active (DateTime/now)
            :last-background nil)
     (if (and enabled? (password-present?))
-      (schedule-lock-timer!)
+      (if (:locked? @security-state)
+        ;; If app is locked, use SchedulerBinding to ensure navigation after framework build completes
+        (scheduler/SchedulerBinding.instance.addPostFrameCallback
+         (fn [_]
+           (dart-async.Future/delayed
+            (Duration .milliseconds 100)
+            (fn []
+              (when-let [navigator-state (.-currentState navigator-key)]
+                (navigator/navigate-to-screen navigator-state "/unlock"))))
+           nil))
+        (schedule-lock-timer!))
       (cancel-timer!)))
   true)
 

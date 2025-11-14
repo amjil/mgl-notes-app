@@ -53,7 +53,6 @@
 
            handle-submit (fn []
                            (let [input (str/trim (str @password))]
-                             (dart:core/print (str "input: " input))
                              (cond
                                (str/blank? input)
                                (reset! error "Password cannot be empty.")
