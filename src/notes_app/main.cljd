@@ -56,7 +56,6 @@
   ;; Start Flutter application
   (f/run
    (f/widget
-    :context ctx
     :let [info (merge keyboard-options/keyboard-option
                       {:keyboard/key-cap-border-radius 6
                        :keyboard/font-size 18

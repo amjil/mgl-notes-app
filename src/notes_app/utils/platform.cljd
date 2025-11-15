@@ -1,0 +1,27 @@
+(ns notes-app.utils.platform
+  (:require
+   ["package:flutter/foundation.dart" :as foundation]))
+
+;; Platform detection utilities
+;; Used to detect the current running platform and determine if it's a desktop platform
+
+(defn is-desktop?
+  "Check if running on desktop platform (Windows, Linux, macOS)"
+  []
+  (let [target-platform (foundation/defaultTargetPlatform)]
+    (or (= target-platform foundation/TargetPlatform.windows)
+        (= target-platform foundation/TargetPlatform.linux)
+        (= target-platform foundation/TargetPlatform.macOS))))
+
+(defn is-mobile?
+  "Check if running on mobile platform (iOS, Android)"
+  []
+  (let [target-platform (foundation/defaultTargetPlatform)]
+    (or (= target-platform foundation/TargetPlatform.iOS)
+        (= target-platform foundation/TargetPlatform.android))))
+
+(defn is-web?
+  "Check if running on web platform"
+  []
+  (= (foundation/defaultTargetPlatform) foundation/TargetPlatform.web))
+
