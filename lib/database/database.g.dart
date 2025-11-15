@@ -650,6 +650,17 @@ class $BlocksTable extends Blocks with TableInfo<$BlocksTable, Block> {
     type: DriftSqlType.string,
     requiredDuringInsert: true,
   );
+  static const VerificationMeta _metaDataMeta = const VerificationMeta(
+    'metaData',
+  );
+  @override
+  late final GeneratedColumn<String> metaData = GeneratedColumn<String>(
+    'meta_data',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
   static const VerificationMeta _createdAtMeta = const VerificationMeta(
     'createdAt',
   );
@@ -692,6 +703,7 @@ class $BlocksTable extends Blocks with TableInfo<$BlocksTable, Block> {
     noteId,
     userId,
     content,
+    metaData,
     createdAt,
     updatedAt,
     syncStatus,
@@ -734,6 +746,12 @@ class $BlocksTable extends Blocks with TableInfo<$BlocksTable, Block> {
       );
     } else if (isInserting) {
       context.missing(_contentMeta);
+    }
+    if (data.containsKey('meta_data')) {
+      context.handle(
+        _metaDataMeta,
+        metaData.isAcceptableOrUnknown(data['meta_data']!, _metaDataMeta),
+      );
     }
     if (data.containsKey('created_at')) {
       context.handle(
@@ -778,6 +796,10 @@ class $BlocksTable extends Blocks with TableInfo<$BlocksTable, Block> {
         DriftSqlType.string,
         data['${effectivePrefix}content'],
       )!,
+      metaData: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}meta_data'],
+      ),
       createdAt: attachedDatabase.typeMapping.read(
         DriftSqlType.dateTime,
         data['${effectivePrefix}created_at'],
@@ -804,6 +826,7 @@ class Block extends DataClass implements Insertable<Block> {
   final String noteId;
   final String? userId;
   final String content;
+  final String? metaData;
   final DateTime createdAt;
   final DateTime updatedAt;
   final String syncStatus;
@@ -812,6 +835,7 @@ class Block extends DataClass implements Insertable<Block> {
     required this.noteId,
     this.userId,
     required this.content,
+    this.metaData,
     required this.createdAt,
     required this.updatedAt,
     required this.syncStatus,
@@ -825,6 +849,9 @@ class Block extends DataClass implements Insertable<Block> {
       map['user_id'] = Variable<String>(userId);
     }
     map['content'] = Variable<String>(content);
+    if (!nullToAbsent || metaData != null) {
+      map['meta_data'] = Variable<String>(metaData);
+    }
     map['created_at'] = Variable<DateTime>(createdAt);
     map['updated_at'] = Variable<DateTime>(updatedAt);
     map['sync_status'] = Variable<String>(syncStatus);
@@ -839,6 +866,9 @@ class Block extends DataClass implements Insertable<Block> {
           ? const Value.absent()
           : Value(userId),
       content: Value(content),
+      metaData: metaData == null && nullToAbsent
+          ? const Value.absent()
+          : Value(metaData),
       createdAt: Value(createdAt),
       updatedAt: Value(updatedAt),
       syncStatus: Value(syncStatus),
@@ -855,6 +885,7 @@ class Block extends DataClass implements Insertable<Block> {
       noteId: serializer.fromJson<String>(json['noteId']),
       userId: serializer.fromJson<String?>(json['userId']),
       content: serializer.fromJson<String>(json['content']),
+      metaData: serializer.fromJson<String?>(json['metaData']),
       createdAt: serializer.fromJson<DateTime>(json['createdAt']),
       updatedAt: serializer.fromJson<DateTime>(json['updatedAt']),
       syncStatus: serializer.fromJson<String>(json['syncStatus']),
@@ -868,6 +899,7 @@ class Block extends DataClass implements Insertable<Block> {
       'noteId': serializer.toJson<String>(noteId),
       'userId': serializer.toJson<String?>(userId),
       'content': serializer.toJson<String>(content),
+      'metaData': serializer.toJson<String?>(metaData),
       'createdAt': serializer.toJson<DateTime>(createdAt),
       'updatedAt': serializer.toJson<DateTime>(updatedAt),
       'syncStatus': serializer.toJson<String>(syncStatus),
@@ -879,6 +911,7 @@ class Block extends DataClass implements Insertable<Block> {
     String? noteId,
     Value<String?> userId = const Value.absent(),
     String? content,
+    Value<String?> metaData = const Value.absent(),
     DateTime? createdAt,
     DateTime? updatedAt,
     String? syncStatus,
@@ -887,6 +920,7 @@ class Block extends DataClass implements Insertable<Block> {
     noteId: noteId ?? this.noteId,
     userId: userId.present ? userId.value : this.userId,
     content: content ?? this.content,
+    metaData: metaData.present ? metaData.value : this.metaData,
     createdAt: createdAt ?? this.createdAt,
     updatedAt: updatedAt ?? this.updatedAt,
     syncStatus: syncStatus ?? this.syncStatus,
@@ -897,6 +931,7 @@ class Block extends DataClass implements Insertable<Block> {
       noteId: data.noteId.present ? data.noteId.value : this.noteId,
       userId: data.userId.present ? data.userId.value : this.userId,
       content: data.content.present ? data.content.value : this.content,
+      metaData: data.metaData.present ? data.metaData.value : this.metaData,
       createdAt: data.createdAt.present ? data.createdAt.value : this.createdAt,
       updatedAt: data.updatedAt.present ? data.updatedAt.value : this.updatedAt,
       syncStatus: data.syncStatus.present
@@ -912,6 +947,7 @@ class Block extends DataClass implements Insertable<Block> {
           ..write('noteId: $noteId, ')
           ..write('userId: $userId, ')
           ..write('content: $content, ')
+          ..write('metaData: $metaData, ')
           ..write('createdAt: $createdAt, ')
           ..write('updatedAt: $updatedAt, ')
           ..write('syncStatus: $syncStatus')
@@ -925,6 +961,7 @@ class Block extends DataClass implements Insertable<Block> {
     noteId,
     userId,
     content,
+    metaData,
     createdAt,
     updatedAt,
     syncStatus,
@@ -937,6 +974,7 @@ class Block extends DataClass implements Insertable<Block> {
           other.noteId == this.noteId &&
           other.userId == this.userId &&
           other.content == this.content &&
+          other.metaData == this.metaData &&
           other.createdAt == this.createdAt &&
           other.updatedAt == this.updatedAt &&
           other.syncStatus == this.syncStatus);
@@ -947,6 +985,7 @@ class BlocksCompanion extends UpdateCompanion<Block> {
   final Value<String> noteId;
   final Value<String?> userId;
   final Value<String> content;
+  final Value<String?> metaData;
   final Value<DateTime> createdAt;
   final Value<DateTime> updatedAt;
   final Value<String> syncStatus;
@@ -956,6 +995,7 @@ class BlocksCompanion extends UpdateCompanion<Block> {
     this.noteId = const Value.absent(),
     this.userId = const Value.absent(),
     this.content = const Value.absent(),
+    this.metaData = const Value.absent(),
     this.createdAt = const Value.absent(),
     this.updatedAt = const Value.absent(),
     this.syncStatus = const Value.absent(),
@@ -966,6 +1006,7 @@ class BlocksCompanion extends UpdateCompanion<Block> {
     required String noteId,
     this.userId = const Value.absent(),
     required String content,
+    this.metaData = const Value.absent(),
     this.createdAt = const Value.absent(),
     this.updatedAt = const Value.absent(),
     this.syncStatus = const Value.absent(),
@@ -978,6 +1019,7 @@ class BlocksCompanion extends UpdateCompanion<Block> {
     Expression<String>? noteId,
     Expression<String>? userId,
     Expression<String>? content,
+    Expression<String>? metaData,
     Expression<DateTime>? createdAt,
     Expression<DateTime>? updatedAt,
     Expression<String>? syncStatus,
@@ -988,6 +1030,7 @@ class BlocksCompanion extends UpdateCompanion<Block> {
       if (noteId != null) 'note_id': noteId,
       if (userId != null) 'user_id': userId,
       if (content != null) 'content': content,
+      if (metaData != null) 'meta_data': metaData,
       if (createdAt != null) 'created_at': createdAt,
       if (updatedAt != null) 'updated_at': updatedAt,
       if (syncStatus != null) 'sync_status': syncStatus,
@@ -1000,6 +1043,7 @@ class BlocksCompanion extends UpdateCompanion<Block> {
     Value<String>? noteId,
     Value<String?>? userId,
     Value<String>? content,
+    Value<String?>? metaData,
     Value<DateTime>? createdAt,
     Value<DateTime>? updatedAt,
     Value<String>? syncStatus,
@@ -1010,6 +1054,7 @@ class BlocksCompanion extends UpdateCompanion<Block> {
       noteId: noteId ?? this.noteId,
       userId: userId ?? this.userId,
       content: content ?? this.content,
+      metaData: metaData ?? this.metaData,
       createdAt: createdAt ?? this.createdAt,
       updatedAt: updatedAt ?? this.updatedAt,
       syncStatus: syncStatus ?? this.syncStatus,
@@ -1031,6 +1076,9 @@ class BlocksCompanion extends UpdateCompanion<Block> {
     }
     if (content.present) {
       map['content'] = Variable<String>(content.value);
+    }
+    if (metaData.present) {
+      map['meta_data'] = Variable<String>(metaData.value);
     }
     if (createdAt.present) {
       map['created_at'] = Variable<DateTime>(createdAt.value);
@@ -1054,6 +1102,7 @@ class BlocksCompanion extends UpdateCompanion<Block> {
           ..write('noteId: $noteId, ')
           ..write('userId: $userId, ')
           ..write('content: $content, ')
+          ..write('metaData: $metaData, ')
           ..write('createdAt: $createdAt, ')
           ..write('updatedAt: $updatedAt, ')
           ..write('syncStatus: $syncStatus, ')
@@ -2834,6 +2883,7 @@ typedef $$BlocksTableCreateCompanionBuilder =
       required String noteId,
       Value<String?> userId,
       required String content,
+      Value<String?> metaData,
       Value<DateTime> createdAt,
       Value<DateTime> updatedAt,
       Value<String> syncStatus,
@@ -2845,6 +2895,7 @@ typedef $$BlocksTableUpdateCompanionBuilder =
       Value<String> noteId,
       Value<String?> userId,
       Value<String> content,
+      Value<String?> metaData,
       Value<DateTime> createdAt,
       Value<DateTime> updatedAt,
       Value<String> syncStatus,
@@ -2894,6 +2945,11 @@ class $$BlocksTableFilterComposer
 
   ColumnFilters<String> get content => $composableBuilder(
     column: $table.content,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get metaData => $composableBuilder(
+    column: $table.metaData,
     builder: (column) => ColumnFilters(column),
   );
 
@@ -2960,6 +3016,11 @@ class $$BlocksTableOrderingComposer
     builder: (column) => ColumnOrderings(column),
   );
 
+  ColumnOrderings<String> get metaData => $composableBuilder(
+    column: $table.metaData,
+    builder: (column) => ColumnOrderings(column),
+  );
+
   ColumnOrderings<DateTime> get createdAt => $composableBuilder(
     column: $table.createdAt,
     builder: (column) => ColumnOrderings(column),
@@ -3016,6 +3077,9 @@ class $$BlocksTableAnnotationComposer
 
   GeneratedColumn<String> get content =>
       $composableBuilder(column: $table.content, builder: (column) => column);
+
+  GeneratedColumn<String> get metaData =>
+      $composableBuilder(column: $table.metaData, builder: (column) => column);
 
   GeneratedColumn<DateTime> get createdAt =>
       $composableBuilder(column: $table.createdAt, builder: (column) => column);
@@ -3084,6 +3148,7 @@ class $$BlocksTableTableManager
                 Value<String> noteId = const Value.absent(),
                 Value<String?> userId = const Value.absent(),
                 Value<String> content = const Value.absent(),
+                Value<String?> metaData = const Value.absent(),
                 Value<DateTime> createdAt = const Value.absent(),
                 Value<DateTime> updatedAt = const Value.absent(),
                 Value<String> syncStatus = const Value.absent(),
@@ -3093,6 +3158,7 @@ class $$BlocksTableTableManager
                 noteId: noteId,
                 userId: userId,
                 content: content,
+                metaData: metaData,
                 createdAt: createdAt,
                 updatedAt: updatedAt,
                 syncStatus: syncStatus,
@@ -3104,6 +3170,7 @@ class $$BlocksTableTableManager
                 required String noteId,
                 Value<String?> userId = const Value.absent(),
                 required String content,
+                Value<String?> metaData = const Value.absent(),
                 Value<DateTime> createdAt = const Value.absent(),
                 Value<DateTime> updatedAt = const Value.absent(),
                 Value<String> syncStatus = const Value.absent(),
@@ -3113,6 +3180,7 @@ class $$BlocksTableTableManager
                 noteId: noteId,
                 userId: userId,
                 content: content,
+                metaData: metaData,
                 createdAt: createdAt,
                 updatedAt: updatedAt,
                 syncStatus: syncStatus,

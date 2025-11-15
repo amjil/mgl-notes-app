@@ -30,6 +30,7 @@ class Blocks extends Table {
   TextColumn get noteId => text().references(Notes, #id, onDelete: KeyAction.cascade)();
   TextColumn get userId => text().nullable()();
   TextColumn get content => text()();
+  TextColumn get metaData => text().nullable()();
   DateTimeColumn get createdAt => dateTime().withDefault(currentDateAndTime)();
   DateTimeColumn get updatedAt => dateTime().withDefault(currentDateAndTime)();
   TextColumn get syncStatus => text().withDefault(const Constant('pending'))();
@@ -93,7 +94,7 @@ class AppDatabase extends _$AppDatabase {
   AppDatabase(super.e);
 
   @override
-  int get schemaVersion => 14;
+  int get schemaVersion => 15;
 
   @override
   MigrationStrategy get migration {
@@ -134,6 +135,10 @@ class AppDatabase extends _$AppDatabase {
         if (from < 14) {
           // Add user_id column to note_references table
           await customStatement('ALTER TABLE note_references ADD COLUMN user_id TEXT');
+        }
+        if (from < 15) {
+          // Add meta_data column to blocks table
+          await customStatement('ALTER TABLE blocks ADD COLUMN meta_data TEXT');
         }
       },
     );
