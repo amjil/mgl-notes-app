@@ -2,6 +2,7 @@
   (:require 
    [clojure.string :as str]
    [clojure.set :as set]
+   [virtual-keyboard.keyboard-action :as keyboard-action]
    [block-editor.state :as editor-state]
    [block-editor.utils.block :as editor-util]
    [notes-app.utils.string :as string-utils]
@@ -160,6 +161,7 @@
                                     (let [level (or (get levels bid) 0)
                                           content (str (get blocks-map bid ""))]
                                       (str (apply str (repeat level "\t")) content)))]
+    (keyboard-action/clear-candidates)
     (-> (db/get-blocks-by-note-id note-id)
         (.then (fn [existing]
                  (let [existing-ids (to-id-set existing)
