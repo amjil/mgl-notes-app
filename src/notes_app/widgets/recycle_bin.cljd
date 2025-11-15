@@ -1,15 +1,15 @@
-(ns notes-app.widgets.mgl-recycle-bin
+(ns notes-app.widgets.recycle-bin
   (:require
    ["package:flutter/material.dart" :as m]
    ["package:mongol/mongol.dart" :as mgl]
    [cljd.flutter :as f]
-   [notes-app.widgets.mgl-empty-state :as empty-state]
-   [notes-app.widgets.mgl-loading-state :as loading-state]
-   [notes-app.widgets.mgl-infinite-scroll :as infinite-scroll]
-   [notes-app.widgets.mgl-popup-menu :as popup-menu]
+   [notes-app.widgets.empty-state :as empty-state]
+   [notes-app.widgets.loading-state :as loading-state]
+   [notes-app.widgets.infinite-scroll :as infinite-scroll]
+   [notes-app.widgets.popup-menu :as popup-menu]
    [notes-app.states.notes :as notes]
    [notes-app.utils.navigator :as navigator]
-   [notes-app.widgets.mgl-page-title :as mgl-page-title]))
+   [notes-app.widgets.page-title :as page-title]))
 
 ;; Recycle bin note menu (restore/permanently delete)
 (defn deleted-note-menu-items [ctx note]
@@ -162,4 +162,4 @@
            :all-loaded-indicator (infinite-scroll/all-loaded-indicator infinite-scroll/all-loaded-text)})))
      (m/Align
       .alignment m/Alignment.topLeft
-      .child (mgl-page-title/mgl-page-title "Recycle Bin"))])))
+      .child (page-title/mgl-page-title "Recycle Bin"))])))

@@ -1,4 +1,4 @@
-(ns notes-app.widgets.mgl-chip
+(ns notes-app.widgets.chip
   (:require
    ["package:flutter/material.dart" :as m]
    [cljd.flutter :as f]))

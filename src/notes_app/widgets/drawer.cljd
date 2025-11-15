@@ -1,11 +1,11 @@
-(ns notes-app.widgets.mgl-drawer
+(ns notes-app.widgets.drawer
   (:require
    ["package:flutter/material.dart" :as m]
    ["package:mongol/mongol.dart" :as mgl]
    [electric-sync.state :as es-state]
    [electric-sync.token :as token]
    [notes-app.utils.navigator :as navigator]
-   [notes-app.widgets.mgl-favorite-list :as fal]
+   [notes-app.widgets.favorite-list :as fal]
    [notes-app.states.notes :as notes]
    [cljd.flutter :as f]))
 

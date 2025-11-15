@@ -2,8 +2,8 @@
   (:require
    ["package:flutter/material.dart" :as m]
    [cljd.flutter :as f]
-   [notes-app.widgets.mgl-search-panel :as search-panel]
-   [notes-app.widgets.mgl-app-bar :as mgl-app-bar]))
+   [notes-app.widgets.search-panel :as search-panel]
+   [notes-app.widgets.app-bar :as app-bar]))
 
 (defn ^m/Widget screen [ctx]
   (f/widget
@@ -12,5 +12,5 @@
          color-scheme (.-colorScheme theme)]
    (m/Scaffold
     .backgroundColor (.-surface color-scheme)
-    .appBar (mgl-app-bar/mgl-search-app-bar navigator)
+    .appBar (app-bar/mgl-search-app-bar navigator)
     .body (search-panel/search-panel))))

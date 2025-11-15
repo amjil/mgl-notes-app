@@ -1,4 +1,4 @@
-(ns notes-app.widgets.mgl-text-input
+(ns notes-app.widgets.text-input
   (:require
    ["package:flutter/material.dart" :as m]
    ["package:mongol/mongol.dart" :as mgl]

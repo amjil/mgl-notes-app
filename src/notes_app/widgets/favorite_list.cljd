@@ -1,4 +1,4 @@
-(ns notes-app.widgets.mgl-favorite-list
+(ns notes-app.widgets.favorite-list
   (:require 
    ["package:flutter/material.dart" :as m]
    ["package:mongol/mongol.dart" :as mgl]

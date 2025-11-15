@@ -1,13 +1,13 @@
-(ns notes-app.widgets.mgl-import-export
+(ns notes-app.widgets.import-export
   (:require
    ["package:flutter/material.dart" :as m]
    ["package:mongol/mongol.dart" :as mgl]
    [cljd.flutter :as f]
    [notes-app.services.import-export :as import-export]
-   [notes-app.widgets.mgl-setting :as mgl-setting]
-   [notes-app.widgets.mgl-popup-menu :as popup-menu]
+   [notes-app.widgets.setting :as setting]
+   [notes-app.widgets.popup-menu :as popup-menu]
    [notes-app.utils.toast :as toast]
-   [notes-app.widgets.mgl-empty-state :as empty-state]
+   [notes-app.widgets.empty-state :as empty-state]
    [notes-app.utils.file :as file]))
 
 ;; Import/Export settings widget
@@ -51,7 +51,7 @@
 
 
 (defn import-export-settings-item [ctx]
-  (mgl-setting/settings-item
+  (setting/settings-item
    {:title "Import/Export"
     :subtitle "Manage your notes data"
     :leading m/Icons.import_export

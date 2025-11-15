@@ -1,4 +1,4 @@
-(ns notes-app.widgets.mgl-page-title
+(ns notes-app.widgets.page-title
   (:require 
    ["package:flutter/material.dart" :as m]
    ["package:mongol/mongol.dart" :as mgl]

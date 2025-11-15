@@ -85,7 +85,7 @@ Authentication helpers in `notes_app/services/auth.cljd` call `electric-sync.aut
 
 ## Import & Export
 
-`notes_app/services/import_export.cljd` exports complete note bundles—blocks, tags, metadata—to JSON files under `~/Documents/exports`. UI actions in `mgl_import_export.cljd` allow sharing or deleting those bundles. Import routines handle recreating notes, blocks, and tag associations.
+`notes_app/services/import_export.cljd` exports complete note bundles—blocks, tags, metadata—to JSON files under `~/Documents/exports`. UI actions in `import_export.cljd` allow sharing or deleting those bundles. Import routines handle recreating notes, blocks, and tag associations.
 
 ## Project Structure (snapshot)
 

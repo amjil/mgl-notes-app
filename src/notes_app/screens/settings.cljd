@@ -3,8 +3,8 @@
    ["package:flutter/material.dart" :as m]
    ["package:mongol/mongol.dart" :as mgl]
    [cljd.flutter :as f]
-   [notes-app.widgets.mgl-app-bar :as mgl-app-bar]
-   [notes-app.widgets.mgl-setting :as mgl-setting]
+   [notes-app.widgets.app-bar :as app-bar]
+   [notes-app.widgets.setting :as setting]
    [notes-app.widgets.theme-dialog :as theme-dialog]
    [notes-app.widgets.font-dialog :as font-dialog]
    [notes-app.widgets.app-lock-dialogs :as app-lock-dialogs]
@@ -159,7 +159,7 @@
          security-items (create-security-items ctx)]
    (m/Scaffold
     .backgroundColor (.-surface color-scheme)
-    .appBar (mgl-app-bar/mgl-search-app-bar navigator)
+    .appBar (app-bar/mgl-search-app-bar navigator)
     .body (m/SingleChildScrollView
            .scrollDirection m.Axis/horizontal
            .padding (m.EdgeInsets/all 20)
@@ -167,14 +167,14 @@
                    .crossAxisAlignment m.CrossAxisAlignment/start
                    .children (concat
                               (create-settings-header color-scheme)
-                              [(mgl-setting/settings-group app-settings-items)
+                              [(setting/settings-group app-settings-items)
                                (m/Container .width 20)
-                               (mgl-setting/settings-group security-items)
+                               (setting/settings-group security-items)
                                (m/Container .width 20)
-                               (mgl-setting/settings-group (create-data-management-items navigator))
+                               (setting/settings-group (create-data-management-items navigator))
                                (m/Container .width 20)
-                               (mgl-setting/settings-group (create-account-items navigator))
+                               (setting/settings-group (create-account-items navigator))
                                (m/Container .width 20)
-                               (mgl-setting/settings-group (create-about-items navigator))
+                               (setting/settings-group (create-about-items navigator))
                                (m/Container .width 30)]))))))
 

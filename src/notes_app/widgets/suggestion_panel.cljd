@@ -1,10 +1,10 @@
-(ns notes-app.widgets.mgl-suggestion-panel
+(ns notes-app.widgets.suggestion-panel
   (:require
    ["package:flutter/material.dart" :as m]
    ["package:mongol/mongol.dart" :as mgl]
    [cljd.flutter :as f]
    [notes-app.states.search :as search-state]
-   [notes-app.widgets.mgl-chip :as chip]))
+   [notes-app.widgets.chip :as chip]))
 
 (defn suggestion-panel []
   (f/widget

@@ -2,9 +2,9 @@
   (:require
    ["package:flutter/material.dart" :as m]
    [cljd.flutter :as f]
-   [notes-app.widgets.mgl-notes-list :as notes-list]
-   [notes-app.widgets.mgl-app-bar :as mgl-app-bar]
-   [notes-app.widgets.mgl-drawer :as mgl-drawer]
+   [notes-app.widgets.notes-list :as notes-list]
+   [notes-app.widgets.app-bar :as app-bar]
+   [notes-app.widgets.drawer :as drawer]
    [notes-app.states.ui :as ui]
    [notes-app.utils.navigator :as navigator]
    [notes-app.utils.note :as note-util]))
@@ -21,8 +21,8 @@
    (m/Scaffold
     .key ui/scaffold-key
     .backgroundColor (.-surface color-scheme)
-    .appBar (mgl-app-bar/mgl-app-bar navigator "/search")
-    .drawer (mgl-drawer/mgl-left-drawer)
+    .appBar (app-bar/mgl-app-bar navigator "/search")
+    .drawer (drawer/mgl-left-drawer)
     .body (notes-list/notes-list-stream)
     .floatingActionButton (m/FloatingActionButton
                            .onPressed (fn []

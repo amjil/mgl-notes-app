@@ -1,4 +1,4 @@
-(ns notes-app.widgets.mgl-setting
+(ns notes-app.widgets.setting
   (:require 
    ["package:flutter/material.dart" :as m]
    ["package:mongol/mongol.dart" :as mgl]

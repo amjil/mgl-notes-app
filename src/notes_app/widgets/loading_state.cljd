@@ -1,4 +1,4 @@
-(ns notes-app.widgets.mgl-loading-state
+(ns notes-app.widgets.loading-state
   (:require
    ["package:flutter/material.dart" :as m]
    [cljd.flutter :as f]))

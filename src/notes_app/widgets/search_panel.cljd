@@ -1,15 +1,15 @@
-(ns notes-app.widgets.mgl-search-panel
+(ns notes-app.widgets.search-panel
   (:require
    ["package:flutter/material.dart" :as m]
    ["package:mongol/mongol.dart" :as mgl]
    [clojure.string :as str]
-   [notes-app.widgets.mgl-keyboard :as keyboard]
-   [notes-app.widgets.mgl-suggestion-panel :as suggestion-panel]
-   [notes-app.widgets.mgl-note-item :as note-item]
-   [notes-app.widgets.mgl-infinite-scroll :as infinite-scroll]
-   [notes-app.widgets.mgl-text-input :as text-input]
-   [notes-app.widgets.mgl-empty-state :as empty-state]
-   [notes-app.widgets.mgl-chip :as chip]
+   [notes-app.widgets.keyboard :as keyboard]
+   [notes-app.widgets.suggestion-panel :as suggestion-panel]
+   [notes-app.widgets.note-item :as note-item]
+   [notes-app.widgets.infinite-scroll :as infinite-scroll]
+   [notes-app.widgets.text-input :as text-input]
+   [notes-app.widgets.empty-state :as empty-state]
+   [notes-app.widgets.chip :as chip]
    [notes-app.states.ui :as ui]
    [notes-app.states.search :as search-state]
    [notes-app.states.notes :as notes-state]

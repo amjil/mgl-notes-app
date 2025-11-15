@@ -1,4 +1,4 @@
-(ns notes-app.widgets.mgl-app-bar
+(ns notes-app.widgets.app-bar
   (:require
    ["package:flutter/material.dart" :as m]
    [notes-app.states.ui :as ui]

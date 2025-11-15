@@ -1,4 +1,4 @@
-(ns notes-app.widgets.mgl-empty-state
+(ns notes-app.widgets.empty-state
   (:require
    ["package:flutter/material.dart" :as m]
    ["package:mongol/mongol.dart" :as mgl]

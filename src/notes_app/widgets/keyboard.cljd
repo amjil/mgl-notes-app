@@ -1,4 +1,4 @@
-(ns notes-app.widgets.mgl-keyboard
+(ns notes-app.widgets.keyboard
   (:require
    [virtual-keyboard.keyboard :as keyboard]))
    

@@ -4,7 +4,7 @@
    ["package:mongol/mongol.dart" :as mgl]
    [cljd.flutter :as f]
    [notes-app.services.import-export :as import-export-service]
-   [notes-app.widgets.mgl-import-export :as import-export]
+   [notes-app.widgets.import-export :as import-export]
    [notes-app.utils.file :as file]
    [notes-app.utils.toast :as toast]))
 

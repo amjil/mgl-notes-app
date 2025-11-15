@@ -1,4 +1,4 @@
-(ns notes-app.widgets.mgl-infinite-scroll
+(ns notes-app.widgets.infinite-scroll
   (:require
    ["package:flutter/material.dart" :as m]
    ["package:mongol/mongol.dart" :as mgl]

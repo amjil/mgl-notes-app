@@ -1,4 +1,4 @@
-(ns notes-app.widgets.mgl-filter-badge
+(ns notes-app.widgets.filter-badge
   (:require
    ["package:flutter/material.dart" :as m]
    ["package:mongol/mongol.dart" :as mgl]

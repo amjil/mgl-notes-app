@@ -1,9 +1,9 @@
-(ns notes-app.widgets.mgl-note-item
+(ns notes-app.widgets.note-item
   (:require
    ["package:flutter/material.dart" :as m]
    ["package:mongol/mongol.dart" :as mgl]
    [cljd.flutter :as f]
-   [notes-app.widgets.mgl-popup-menu :as popup-menu]
+   [notes-app.widgets.popup-menu :as popup-menu]
    [notes-app.utils.clipboard :as clipboard-utils]
    [notes-app.states.notes :as notes]
    [notes-app.states.font :as font-state]

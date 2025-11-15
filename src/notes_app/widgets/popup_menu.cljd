@@ -1,4 +1,4 @@
-(ns notes-app.widgets.mgl-popup-menu
+(ns notes-app.widgets.popup-menu
   (:require
    [cljd.flutter :as f]
    ["package:mongol/mongol.dart" :as mgl]
