@@ -65,7 +65,7 @@
          (filter #(not (str/blank? %)))
          distinct)))
 
-(defn- update-note-references-from-content!
+(defn update-note-references-from-content!
   "Update note references based on links extracted from content"
   [note-id content]
   (let [current-link-titles (set (extract-note-links content))
@@ -228,22 +228,27 @@
                        (reset! editor-state/ids all-ids)
                        (reset! editor-state/blocks all-blocks-map)
                        (reset! editor-state/levels all-levels-map)
-                       ;; Load note references and update link-ids
-                       ;; link-ids is a map with title as key and id as value
-                       (-> (db/get-note-references note-id)
-                           (.then (fn [refs]
-                                    (let [refs (map #(.-data %) refs)
-                                          link-ids-map (into {}
-                                                             (map (fn [ref]
-                                                                    (let [ref-id (or (get ref "id")
-                                                                                     (get ref :id)
-                                                                                     (.-id ref))
-                                                                          ref-title (or (get ref "title")
-                                                                                        (get ref :title)
-                                                                                        (.-title ref))]
-                                                                      [ref-title ref-id]))
-                                                                  refs))]
-                                      (reset! editor-state/link-ids link-ids-map)))))))))))))
+                       ;; Build content from blocks to check for note links
+                       (let [content (build-content-from-blocks all-ids all-blocks-map)]
+                         ;; Load note references and update link-ids
+                         ;; Update note references based on content
+                         (update-note-references-from-content! note-id content)
+                         ;; link-ids is a map with title as key and id as value
+                         (-> (db/get-note-references note-id)
+                             (.then (fn [refs]
+                                      (let [refs (map #(.-data %) refs)
+                                            link-ids-map (into {}
+                                                               (map (fn [ref]
+                                                                      (let [ref-id (or (get ref "id")
+                                                                                       (get ref :id)
+                                                                                       (.-id ref))
+                                                                            ref-title (or (get ref "title")
+                                                                                          (get ref :title)
+                                                                                          (.-title ref))]
+                                                                        [ref-title ref-id]))
+                                                                    refs))]
+                                        (reset! editor-state/link-ids link-ids-map)
+                                        nil)))))))))))))
 
 (declare clear-note-editor)
 
