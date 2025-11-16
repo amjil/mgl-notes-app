@@ -156,12 +156,12 @@
         ;; The first block is used as the note title and is not stored in the blocks table
         body-ids (vec (rest ids))
         blocks-map @editor-state/blocks
+        blocks-meta @editor-state/block-meta
         levels @editor-state/levels
         block-content-with-indent (fn [bid]
                                     (let [level (or (get levels bid) 0)
                                           content (str (get blocks-map bid ""))]
                                       (str (apply str (repeat level "\t")) content)))]
-    (keyboard-action/clear-candidates)
     (-> (db/get-blocks-by-note-id note-id)
         (.then (fn [existing]
                  (let [existing-ids (to-id-set existing)
@@ -177,13 +177,15 @@
                                          (filter existing-ids body-ids))]
                    ;; Create blocks using editor blockId as DB primary key to keep FTS and blockIds consistent
                    (doseq [bid to-create]
-                     (let [content (block-content-with-indent bid)]
-                       (db/create-block note-id content bid)
+                     (let [content (block-content-with-indent bid)
+                           block-meta (string-utils/json-encode (get blocks-meta bid ))]
+                       (db/create-block note-id content bid block-meta)
                        (db/update-block-content bid content)))
                    ;; Update existing blocks
                    (doseq [bid to-update]
-                     (let [content (block-content-with-indent bid)]
-                       (db/update-block bid content)
+                     (let [content (block-content-with-indent bid)
+                           block-meta (string-utils/json-encode (get blocks-meta bid ))]
+                       (db/update-block bid content block-meta)
                        (db/update-block-content bid content)))
                    ;; Delete removed blocks
                    (doseq [bid to-delete]
@@ -204,30 +206,37 @@
                      (editor-util/clean)
                      (let [^uuid/Uuid uuid-instance (uuid/Uuid.)
                            title-id (.v4 uuid-instance)
+                           title-meta (string-utils/json-decode (get current "metaData"))
                            parsed (reduce (fn [{:keys [block-ids blocks-map levels-map]} b]
                                             (let [bid (or (:id b) (.-id b))
                                                   raw-content (str (or (:content b) (.-content b) ""))
                                                   leading-tabs (count (re-find #"^\t*" raw-content))
                                                   content-without-tabs (subs raw-content leading-tabs)
-                                                  trimmed-content (str/trim content-without-tabs)]
+                                                  trimmed-content (str/trim content-without-tabs)
+                                                  block-meta (string-utils/json-decode (or (:metaData b) (.-metaData b)))]
                                               {:block-ids (conj block-ids bid)
                                                :blocks-map (assoc blocks-map bid trimmed-content)
-                                               :levels-map (assoc levels-map bid leading-tabs)}))
-                                          {:block-ids [] :blocks-map {} :levels-map {}}
+                                               :levels-map (assoc levels-map bid leading-tabs)
+                                               :block-meta (assoc block-meta bid block-meta)}))
+                                          {:block-ids [] :blocks-map {} :levels-map {} :block-meta {}}
                                           blocks)
                            block-ids (:block-ids parsed)
                            blocks-map (:blocks-map parsed)
                            levels-map (:levels-map parsed)
+                           block-meta (:block-meta parsed)
                            ;; Create IDs list with title as first block
                            all-ids (vec (cons title-id block-ids))
                            ;; Create blocks map with title as first block
                            all-blocks-map (assoc blocks-map title-id (str/trim (or note-title "")))
                            ;; Create levels map with title level set to 0
-                           all-levels-map (assoc levels-map title-id 0)]
+                           all-levels-map (assoc levels-map title-id 0)
+                           ;; Create block meta map with title as first block
+                           all-block-meta (assoc block-meta title-id title-meta)]
                        ;; Set editor state
                        (reset! editor-state/ids all-ids)
                        (reset! editor-state/blocks all-blocks-map)
                        (reset! editor-state/levels all-levels-map)
+                       (reset! editor-state/block-meta all-block-meta)
                        ;; Build content from blocks to check for note links
                        (let [content (build-content-from-blocks all-ids all-blocks-map)]
                          ;; Load note references and update link-ids
@@ -255,17 +264,22 @@
 (defn save-or-update-note! [ctx]
   (let [ids @editor-state/ids
         blocks-map @editor-state/blocks
+        block-meta @editor-state/block-meta
         content (build-content-from-blocks ids blocks-map)
         trimmed (some-> content str/trim)
         current (notes/get-current-note)
-        ^uuid/Uuid uuid-instance (uuid/Uuid.)]
+        ^uuid/Uuid uuid-instance (uuid/Uuid.)
+        title-id (first ids)
+        title-meta-raw (get block-meta title-id)
+        title-meta (string-utils/json-encode title-meta-raw)]
+    (keyboard-action/clear-candidates)
     (if (or (nil? trimmed) (empty? trimmed))
       (do
         (toast/show-toast ctx "Please enter a note")
         (async/Future.value false))
       (if (nil? current)
         (let [new-id (.v4 uuid-instance)]
-          (-> (db/create-note-with-content content new-id)
+          (-> (db/create-note-with-content content new-id title-meta)
               (.then (fn [_]
                        (save-blocks-for-note! ctx new-id)
                        (update-note-references! new-id)
@@ -275,7 +289,7 @@
                        (async/Future.value true)))))
         (let [note-id (get current "id")
               title (string-utils/extract-title-from-content content)]
-          (-> (db/update-note-with-content note-id title content)
+          (-> (db/update-note-with-content note-id title content title-meta)
               (.then (fn [_]
                        (save-blocks-for-note! ctx note-id)
                        (update-note-references! note-id)

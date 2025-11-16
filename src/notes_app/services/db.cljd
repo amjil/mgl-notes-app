@@ -107,7 +107,7 @@
 
 (defn create-note
   "Create new note"
-  [^String id ^String title]
+  [^String id ^String title ^String meta-data]
   (let [^drift/AppDatabase db @db
         ^String 
         user-id (get-user-id-if-available)
@@ -115,10 +115,12 @@
                     (drift/NotesCompanion.insert
                      .id id
                      .title title
+                     .metaData (d/Value meta-data)
                      .userId (d/Value user-id))
                     (drift/NotesCompanion.insert
                      .id id
-                     .title title))]
+                     .title title
+                     .metaData (d/Value meta-data)))]
     (.insert
      (.into db (.-notes db))
      companion)))
@@ -236,12 +238,13 @@
 
 (defn update-note
   "Update note title"
-  [id ^String title]
+  [id ^String title ^String meta-data]
   (let [^drift/AppDatabase db @db
         query (doto (.update db (.-notes db))
                 (.where (fn [^drift/Notes tbl] (.equals (.-id tbl) id))))
         companion (drift/NotesCompanion.
                      .title (d/Value title)
+                     .metaData (d/Value meta-data)
                      .syncStatus (d/Value "pending"))]
     (.write query companion)))
 
@@ -436,9 +439,9 @@
 ;; ===== Blocks db functions =====
 
 (defn create-block
-  ([note-id content]
+  ([note-id content block-meta]
    (create-block note-id content (.v4 uuid-instance)))
-  ([note-id content id]
+  ([note-id content id block-meta]
    (let [^drift/AppDatabase db @db
          ^String
          user-id (get-user-id-if-available)
@@ -486,13 +489,14 @@
                                  [(d/Variable user-id)]
                                  [])))))
 
-(defn update-block [id ^String content]
+(defn update-block [id ^String content ^String block-meta]
   (let [^drift/AppDatabase db @db
         query (doto (.update db (.-blocks db))
                 (.where (fn [^drift/Blocks tbl]
                           (.equals (.-id tbl) id))))
         companion (drift/BlocksCompanion.
                    .content (d/Value content)
+                   .metaData (d/Value block-meta)
                    .syncStatus (d/Value "pending"))]
     (.write query companion)))
 
@@ -754,7 +758,7 @@
                                  [(d/Variable tag-id)])))))
 
 ;; Create note with content (4 steps: note, note_fts, blocks, block_ids)
-(defn create-note-with-content [^String content & [id]]
+(defn create-note-with-content [^String content id ^String meta-data]
   (let [^String id (or id (.v4 uuid-instance))
         ^drift/AppDatabase db @db
         ^String
@@ -762,16 +766,16 @@
     (.transaction
      db
      (fn []
-       (create-note id title)
+       (create-note id title meta-data)
        (create-note-content id content)))))
 
 ;; Update note with content (4 steps: note, note_fts, blocks, block_ids)
-(defn update-note-with-content [^String id ^String title ^String content]
+(defn update-note-with-content [^String id ^String title ^String content ^String meta-data]
   (let [^drift/AppDatabase db @db]
     (.transaction
      db
      (fn []
-       (update-note id title)
+       (update-note id title meta-data)
        (update-note-content id content)))))
 
 ;; Mark note as synced

@@ -13,6 +13,7 @@ class Notes extends Table {
   TextColumn get title => text()();
   TextColumn get userId => text().nullable()();
   TextColumn get blockIds => text().withDefault(const Constant('[]'))();
+  TextColumn get metaData => text().nullable()();
   DateTimeColumn get createdAt => dateTime().withDefault(currentDateAndTime)();
   DateTimeColumn get updatedAt => dateTime().withDefault(currentDateAndTime)();
   TextColumn get syncStatus => text().withDefault(const Constant('pending'))();
@@ -94,7 +95,7 @@ class AppDatabase extends _$AppDatabase {
   AppDatabase(super.e);
 
   @override
-  int get schemaVersion => 15;
+  int get schemaVersion => 16;
 
   @override
   MigrationStrategy get migration {
@@ -139,6 +140,10 @@ class AppDatabase extends _$AppDatabase {
         if (from < 15) {
           // Add meta_data column to blocks table
           await customStatement('ALTER TABLE blocks ADD COLUMN meta_data TEXT');
+        }
+        if (from < 16) {
+          // Add meta_data column to notes table
+          await customStatement('ALTER TABLE notes ADD COLUMN meta_data TEXT');
         }
       },
     );
