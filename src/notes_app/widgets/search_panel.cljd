@@ -124,17 +124,17 @@
    :context ctx
    :managed [controller (m/TextEditingController.)]
    (m/SafeArea)
-   (m/Stack
+   (m/Column
     .children
-    [(m/Column
-      .children
-      [(m/Expanded
-        .child
-        (m/Row
+    [(m/Expanded
+      .child
+      (m/Stack
+       .children
+       [(m/Row
          .crossAxisAlignment m/CrossAxisAlignment.stretch
          .children
          [(text-input/search-text-field controller (partial handle-search-change ctx) handle-search-tap)
           (m/Expanded
-           .child (search-result-panel))]))
-       (keyboard/keyboard)])
-     (keyboard/candidates-panel)]))) 
+           .child (search-result-panel))])
+        (keyboard/candidates-panel)]))
+     (keyboard/keyboard)]))) 

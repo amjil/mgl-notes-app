@@ -4,13 +4,13 @@
          :sha "9385be3c88ab6593350fdda50d86af985224971b"}
         amjil/mongol-virtual-keyboard
         {:git/url "https://github.com/amjil/mongol-virtual-keyboard.git"
-         :sha "c463242e8225774e9e67eb489fd85272be4fd703"}
+         :sha "4e9633bc80fe10882fb0844a995981669e5f65ec"}
         amjil/electric-sync
         {:git/url "https://github.com/amjil/electric-sync"
          :sha "6d5fc716cf7f2e68b1a9a2a729c8f9bb4951f869"}
         amjil/mongol-block-editor
         {:git/url "https://github.com/amjil/mongol-block-editor.git"
-         :sha "de9bec98649f70d5e5fbfaf3b59dce9e75a9a1c8"}}
+         :sha "db7e37ef7eac715b7dedc0d21656dfdea45430af"}}
  :aliases {:cljd {:main-opts ["-m" "cljd.build"]}}
  :cljd/opts {:kind :flutter
              :main notes-app.main}}
