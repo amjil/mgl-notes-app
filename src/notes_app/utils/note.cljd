@@ -35,6 +35,14 @@
                  [bid content])))
         coll))
 
+(defn- to-meta-map [coll]
+  (into {}
+        (map (fn [b]
+               (let [bid (or (:id b) (.-id b))
+                     meta (or (:metaData b) (.-metaData b))]
+                 [bid meta])))
+        coll))
+
 (defn- json-array-of-strings [xs]
   (str "[" (str/join "," (map (fn [s] (str "\"" s "\"")) xs)) "]"))
 
@@ -166,25 +174,29 @@
         (.then (fn [existing]
                  (let [existing-ids (to-id-set existing)
                        existing-content (to-content-map existing)
+                       existing-meta (to-meta-map existing)
                        current-ids (set body-ids)
                        ;; Diff sets between editor state and database
                        to-create (remove existing-ids body-ids)
                        to-delete (remove current-ids existing-ids)
                        to-update (filter (fn [bid]
                                            (let [old (get existing-content bid)
-                                                 now (block-content-with-indent bid)]
-                                             (not= (str old) (str now))))
+                                                 now (block-content-with-indent bid)
+                                                 old-meta (get existing-meta bid)
+                                                 meta (get blocks-meta bid)]
+                                             (or (not= (str old) (str now))
+                                                 (not= (str old-meta) (string-utils/json-encode meta)))))
                                          (filter existing-ids body-ids))]
                    ;; Create blocks using editor blockId as DB primary key to keep FTS and blockIds consistent
                    (doseq [bid to-create]
                      (let [content (block-content-with-indent bid)
-                           block-meta (string-utils/json-encode (get blocks-meta bid ))]
+                           block-meta (string-utils/json-encode (get blocks-meta bid))]
                        (db/create-block note-id content bid block-meta)
                        (db/update-block-content bid content)))
                    ;; Update existing blocks
                    (doseq [bid to-update]
                      (let [content (block-content-with-indent bid)
-                           block-meta (string-utils/json-encode (get blocks-meta bid ))]
+                           block-meta (string-utils/json-encode (get blocks-meta bid))]
                        (db/update-block bid content block-meta)
                        (db/update-block-content bid content)))
                    ;; Delete removed blocks
@@ -206,18 +218,20 @@
                      (editor-util/clean)
                      (let [^uuid/Uuid uuid-instance (uuid/Uuid.)
                            title-id (.v4 uuid-instance)
-                           title-meta (string-utils/json-decode (get current "metaData"))
-                           parsed (reduce (fn [{:keys [block-ids blocks-map levels-map]} b]
+                           meta-data (get current "metaData")
+                           title-meta (if (nil? meta-data) {} (string-utils/json-decode meta-data))
+                           parsed (reduce (fn [{:keys [block-ids blocks-map levels-map block-meta]} b]
                                             (let [bid (or (:id b) (.-id b))
                                                   raw-content (str (or (:content b) (.-content b) ""))
                                                   leading-tabs (count (re-find #"^\t*" raw-content))
                                                   content-without-tabs (subs raw-content leading-tabs)
                                                   trimmed-content (str/trim content-without-tabs)
-                                                  block-meta (string-utils/json-decode (or (:metaData b) (.-metaData b)))]
+                                                  meta-data (or (:metaData b) (.-metaData b))
+                                                  meta (if (nil? meta-data) {} (into {} (string-utils/json-decode meta-data)))]
                                               {:block-ids (conj block-ids bid)
                                                :blocks-map (assoc blocks-map bid trimmed-content)
                                                :levels-map (assoc levels-map bid leading-tabs)
-                                               :block-meta (assoc block-meta bid block-meta)}))
+                                               :block-meta (assoc block-meta bid meta)}))
                                           {:block-ids [] :blocks-map {} :levels-map {} :block-meta {}}
                                           blocks)
                            block-ids (:block-ids parsed)
@@ -232,6 +246,7 @@
                            all-levels-map (assoc levels-map title-id 0)
                            ;; Create block meta map with title as first block
                            all-block-meta (assoc block-meta title-id title-meta)]
+                       (dart:core/print (str "block-meta = " all-block-meta))
                        ;; Set editor state
                        (reset! editor-state/ids all-ids)
                        (reset! editor-state/blocks all-blocks-map)

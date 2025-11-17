@@ -97,16 +97,18 @@
             sync-status (.-syncStatus note-data)
             is-blocks-synced (.-isBlocksSynced note-data)
             is-deleted (.-isDeleted note-data)
+            meta-data (.-metaData note-data)
             blocks (.-blocks note-data)
             tags (.-tags note-data)]
         
         ;; Create note
-        (db/create-note note-id title)
+        (db/create-note note-id title meta-data)
         
         ;; Create blocks
         (doseq [block-data blocks]
-          (let [content (.-content block-data)]
-            (db/create-block note-id content)))
+          (let [content (.-content block-data)
+                meta-data (.-metaData block-data)]
+            (db/create-block note-id content meta-data)))
         
         ;; Create tags and associations
         (doseq [tag-data tags]

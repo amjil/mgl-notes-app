@@ -10,7 +10,7 @@
          :sha "6d5fc716cf7f2e68b1a9a2a729c8f9bb4951f869"}
         amjil/mongol-block-editor
         {:git/url "https://github.com/amjil/mongol-block-editor.git"
-         :sha "db7e37ef7eac715b7dedc0d21656dfdea45430af"}}
+         :sha "32d61a1cd8289e9d304a895249140ea216fb27a9"}}
  :aliases {:cljd {:main-opts ["-m" "cljd.build"]}}
  :cljd/opts {:kind :flutter
              :main notes-app.main}}
