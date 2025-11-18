@@ -31,6 +31,15 @@
   "languageMongolianTraditional": "Уламжлалт монгол бичиг",
   "languageChinese": "Хятад",
   "languageEnglish": "Англи",
-  "dialogClose": "Хаах"
+  "dialogClose": "Хаах",
+  "aboutFeaturesTitle": "Боломжууд",
+  "aboutFeatureCreateEdit": "Тэмдэглэл үүсгэж засах",
+  "aboutFeatureOrganize": "Тэмдэглэлийг ангиллаар зохион байгуулах",
+  "aboutFeatureUi": "Үзэмжтэй, ойлгомжтой интерфейс",
+  "aboutDescriptionTitle": "Аппын тайлбар",
+  "aboutDescriptionBody": "Flutter ба ClojureDart ашиглан бүтээсэн орчин үеийн тэмдэглэлийн апп. Тэмдэглэл үүсгэх, засах, ангилж зохион байгуулах боломжийг санал болгодог.",
+  "aboutDeveloperTitle": "Хөгжүүлэгч",
+  "aboutDeveloperBody": "Flutter ба ClojureDart ашиглан хайртайгаар бүтээлээ",
+  "aboutVersionLabel": "Хувилбар 1.0.0"
 }
 

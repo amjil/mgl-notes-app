@@ -49,7 +49,16 @@
    :language/mongolian-traditional "Traditional Mongolian"
    :language/chinese "Chinese"
    :language/english "English"
-   :dialog/close "Close"})
+   :dialog/close "Close"
+   :about/features-title "Features"
+   :about/feature-create-edit "Create and edit notes"
+   :about/feature-organize "Organize notes by categories"
+   :about/feature-ui "Beautiful and intuitive UI"
+   :about/description-title "App Description"
+   :about/description-body "A modern note-taking application built with Flutter and ClojureDart. Features include creating, editing, and organizing notes with a beautiful user interface."
+   :about/developer-title "Developer"
+   :about/developer-body "Built with ❤️ using Flutter and ClojureDart"
+   :about/version-label "Version 1.0.0"})
 
 (def ^:private key->getter
   {:app/title (fn [strings] (.-appTitle strings))
@@ -83,7 +92,16 @@
    :language/mongolian-traditional (fn [strings] (.-languageMongolianTraditional strings))
    :language/chinese (fn [strings] (.-languageChinese strings))
    :language/english (fn [strings] (.-languageEnglish strings))
-   :dialog/close (fn [strings] (.-dialogClose strings))})
+   :dialog/close (fn [strings] (.-dialogClose strings))
+   :about/features-title (fn [strings] (.-aboutFeaturesTitle strings))
+   :about/feature-create-edit (fn [strings] (.-aboutFeatureCreateEdit strings))
+   :about/feature-organize (fn [strings] (.-aboutFeatureOrganize strings))
+   :about/feature-ui (fn [strings] (.-aboutFeatureUi strings))
+   :about/description-title (fn [strings] (.-aboutDescriptionTitle strings))
+   :about/description-body (fn [strings] (.-aboutDescriptionBody strings))
+   :about/developer-title (fn [strings] (.-aboutDeveloperTitle strings))
+   :about/developer-body (fn [strings] (.-aboutDeveloperBody strings))
+   :about/version-label (fn [strings] (.-aboutVersionLabel strings))})
 
 (defn- fallback [k]
   (get fallback-strings k (name k)))

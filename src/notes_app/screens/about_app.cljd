@@ -3,6 +3,7 @@
    ["package:flutter/material.dart" :as m]
    ["package:mongol/mongol.dart" :as mgl]
    [cljd.flutter :as f]
+   [notes-app.utils.i18n :as i18n]
    [notes-app.widgets.app-bar :as app-bar]))
 
 ;; Helper functions for better code organization
@@ -33,7 +34,7 @@
                                       .fontSize 14
                                       .color (.-onSurfaceVariant color-scheme)))]))
 
-(defn- create-app-header [color-scheme]
+(defn- create-app-header [color-scheme app-title version-label]
   [(m/Container
     .width 120
     .height 120
@@ -49,45 +50,45 @@
    
    (m/Column
     .crossAxisAlignment m.CrossAxisAlignment/start
-    .children [(mgl/MongolText "Notes App"
+    .children [(mgl/MongolText app-title
                             .style (m/TextStyle
                                     .fontSize 28
                                     .fontWeight m.FontWeight/bold
                                     .color (.-onSurface color-scheme)))
                (m/Container .height 8)
-               (mgl/MongolText "Version 1.0.0"
+               (mgl/MongolText version-label
                                .style (m/TextStyle
                                        .fontSize 16
                                        .color (.-onSurfaceVariant color-scheme)))])
    
    (m/Container .width 30)])
 
-(defn- create-features-section [color-scheme]
+(defn- create-features-section [color-scheme features-title feature-create feature-organize feature-ui]
   (create-info-card
-   "Features"
+   features-title
    (m/Row
     .crossAxisAlignment m.CrossAxisAlignment/start
-    .children [(create-feature-item "Create and edit notes" color-scheme)
+    .children [(create-feature-item feature-create color-scheme)
                (m/Container .width 4)
-               (create-feature-item "Organize notes by categories" color-scheme)
+               (create-feature-item feature-organize color-scheme)
                (m/Container .width 4)
-               (create-feature-item "Beautiful and intuitive UI" color-scheme)])
+               (create-feature-item feature-ui color-scheme)])
    color-scheme))
 
-(defn- create-app-description [color-scheme]
+(defn- create-app-description [color-scheme description-title description-body]
   (create-info-card
-   "App Description"
-   (mgl/MongolText "A modern note-taking application built with Flutter and ClojureDart. Features include creating, editing, and organizing notes with a beautiful user interface."
+   description-title
+   (mgl/MongolText description-body
                    .style (m/TextStyle
                            .fontSize 14
                            .color (.-onSurfaceVariant color-scheme)
                            .height 1.5))
    color-scheme))
 
-(defn- create-developer-info [color-scheme]
+(defn- create-developer-info [color-scheme developer-title developer-body]
   (create-info-card
-   "Developer"
-   (mgl/MongolText "Built with ❤️ using Flutter and ClojureDart"
+   developer-title
+   (mgl/MongolText developer-body
                    .style (m/TextStyle
                            .fontSize 14
                            .color (.-onSurfaceVariant color-scheme)))
@@ -97,7 +98,17 @@
   (f/widget
    :get [m/Navigator]
    :let [theme (-> m/Theme (.of ctx))
-         color-scheme (.-colorScheme theme)]
+         color-scheme (.-colorScheme theme)
+         app-title (i18n/t ctx :app/title)
+         version-label (i18n/t ctx :about/version-label)
+         features-title (i18n/t ctx :about/features-title)
+         feature-create (i18n/t ctx :about/feature-create-edit)
+         feature-organize (i18n/t ctx :about/feature-organize)
+         feature-ui (i18n/t ctx :about/feature-ui)
+         description-title (i18n/t ctx :about/description-title)
+         description-body (i18n/t ctx :about/description-body)
+         developer-title (i18n/t ctx :about/developer-title)
+         developer-body (i18n/t ctx :about/developer-body)]
    (m/Scaffold
     .backgroundColor (.-surface color-scheme)
     .appBar (app-bar/mgl-search-app-bar navigator)
@@ -107,10 +118,10 @@
            .child (m/Row
                    .crossAxisAlignment m.CrossAxisAlignment/start
                    .children (concat
-                              (create-app-header color-scheme)
-                              [(create-app-description color-scheme)
+                              (create-app-header color-scheme app-title version-label)
+                              [(create-app-description color-scheme description-title description-body)
                                (m/Container .width 20)
-                               (create-features-section color-scheme)
+                               (create-features-section color-scheme features-title feature-create feature-organize feature-ui)
                                (m/Container .width 20)
-                               (create-developer-info color-scheme)
+                               (create-developer-info color-scheme developer-title developer-body)
                                (m/Container .width 30)]))))))

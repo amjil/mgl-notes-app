@@ -292,6 +292,60 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Close'**
   String get dialogClose;
+
+  /// No description provided for @aboutFeaturesTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Features'**
+  String get aboutFeaturesTitle;
+
+  /// No description provided for @aboutFeatureCreateEdit.
+  ///
+  /// In en, this message translates to:
+  /// **'Create and edit notes'**
+  String get aboutFeatureCreateEdit;
+
+  /// No description provided for @aboutFeatureOrganize.
+  ///
+  /// In en, this message translates to:
+  /// **'Organize notes by categories'**
+  String get aboutFeatureOrganize;
+
+  /// No description provided for @aboutFeatureUi.
+  ///
+  /// In en, this message translates to:
+  /// **'Beautiful and intuitive UI'**
+  String get aboutFeatureUi;
+
+  /// No description provided for @aboutDescriptionTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'App Description'**
+  String get aboutDescriptionTitle;
+
+  /// No description provided for @aboutDescriptionBody.
+  ///
+  /// In en, this message translates to:
+  /// **'A modern note-taking application built with Flutter and ClojureDart. Features include creating, editing, and organizing notes with a beautiful user interface.'**
+  String get aboutDescriptionBody;
+
+  /// No description provided for @aboutDeveloperTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Developer'**
+  String get aboutDeveloperTitle;
+
+  /// No description provided for @aboutDeveloperBody.
+  ///
+  /// In en, this message translates to:
+  /// **'Built with ❤️ using Flutter and ClojureDart'**
+  String get aboutDeveloperBody;
+
+  /// No description provided for @aboutVersionLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'Version 1.0.0'**
+  String get aboutVersionLabel;
 }
 
 class _AppLocalizationsDelegate

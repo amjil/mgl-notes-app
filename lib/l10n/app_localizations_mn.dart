@@ -103,6 +103,35 @@ class AppLocalizationsMn extends AppLocalizations {
 
   @override
   String get dialogClose => 'Хаах';
+
+  @override
+  String get aboutFeaturesTitle => 'Боломжууд';
+
+  @override
+  String get aboutFeatureCreateEdit => 'Тэмдэглэл үүсгэж засах';
+
+  @override
+  String get aboutFeatureOrganize => 'Тэмдэглэлийг ангиллаар зохион байгуулах';
+
+  @override
+  String get aboutFeatureUi => 'Үзэмжтэй, ойлгомжтой интерфейс';
+
+  @override
+  String get aboutDescriptionTitle => 'Аппын тайлбар';
+
+  @override
+  String get aboutDescriptionBody =>
+      'Flutter ба ClojureDart ашиглан бүтээсэн орчин үеийн тэмдэглэлийн апп. Тэмдэглэл үүсгэх, засах, ангилж зохион байгуулах боломжийг санал болгодог.';
+
+  @override
+  String get aboutDeveloperTitle => 'Хөгжүүлэгч';
+
+  @override
+  String get aboutDeveloperBody =>
+      'Flutter ба ClojureDart ашиглан хайртайгаар бүтээлээ';
+
+  @override
+  String get aboutVersionLabel => 'Хувилбар 1.0.0';
 }
 
 /// The translations for Mongolian, using the Mongolian script (`mn_Mong`).
@@ -204,4 +233,32 @@ class AppLocalizationsMnMong extends AppLocalizationsMn {
 
   @override
   String get dialogClose => 'ᠬᠠᠭᠠᠬᠤ';
+
+  @override
+  String get aboutFeaturesTitle => 'ᠪᠣᠯᠤᠮᠵᠢ ᠎ᠤᠳ ';
+
+  @override
+  String get aboutFeatureCreateEdit => 'ᠲᠡᠮᠳᠡᠭᠯᠡᠯ ᠡᠭᠦᠰᠬᠡᠬᠦ ᠵᠠᠰᠠᠬᠤ ';
+
+  @override
+  String get aboutFeatureOrganize => 'ᠲᠡᠮᠳᠡᠭᠯᠡᠯ ᠠᠩᠭᠢᠯᠠᠬᠤ ';
+
+  @override
+  String get aboutFeatureUi => 'ᠦᠵᠡᠮᠵᠢ ᠎ᠲᠡᠢ ᠣᠢᠯᠭᠠᠮᠵᠢ ᠎ᠲᠠᠢ ᠳᠡᠯᠭᠡᠴᠡ ';
+
+  @override
+  String get aboutDescriptionTitle => 'ᠠᠫᠫ ᠎ᠶᠢᠨ ᠲᠠᠢᠯᠪᠤᠷᠢ ';
+
+  @override
+  String get aboutDescriptionBody =>
+      'Flutter ᠪᠠ ClojureDart ᠠᠰᠢᠭᠯᠠᠨ ᠪᠦᠲᠦᠭᠡᠭᠰᠡᠨ ᠣᠷᠴᠢᠨ ᠦᠶ᠎ᠡ ᠎ᠶᠢᠨ ᠲᠡᠮᠳᠡᠭᠯᠡᠯ ᠎ᠦᠨ ᠠᠫᠫ        а᠃ ᠲᠡᠮᠳᠡᠭᠯᠡᠯ ᠡᠭᠦᠰᠬᠡᠬᠦ ᠂ ᠵᠠᠰᠠᠬᠤ ᠂ ᠠᠩᠭᠢᠯᠠᠨ ᠵᠣᠬᠢᠶᠠᠨ ᠪᠠᠢᠭᠤᠯᠬᠤ ᠪᠣᠯᠤᠮᠵᠢ ᠎ᠲᠠᠢ ᠃';
+
+  @override
+  String get aboutDeveloperTitle => 'ᠬᠥᠭᠵᠢᠭᠦᠯᠬᠦ ';
+
+  @override
+  String get aboutDeveloperBody => 'Flutter ᠪᠠ ClojureDart ᠠᠰᠢᠭᠯᠠᠨ ᠪᠦᠲᠦᠭᠡᠯ᠎ᠡ ';
+
+  @override
+  String get aboutVersionLabel => 'ᠬᠤᠪᠢᠯᠪᠤᠷᠢ  1.0.0';
 }

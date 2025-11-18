@@ -37,6 +37,15 @@
   "languageMongolianTraditional": "Traditional Mongolian",
   "languageChinese": "Chinese",
   "languageEnglish": "English",
-  "dialogClose": "Close"
+  "dialogClose": "Close",
+  "aboutFeaturesTitle": "Features",
+  "aboutFeatureCreateEdit": "Create and edit notes",
+  "aboutFeatureOrganize": "Organize notes by categories",
+  "aboutFeatureUi": "Beautiful and intuitive UI",
+  "aboutDescriptionTitle": "App Description",
+  "aboutDescriptionBody": "A modern note-taking application built with Flutter and ClojureDart. Features include creating, editing, and organizing notes with a beautiful user interface.",
+  "aboutDeveloperTitle": "Developer",
+  "aboutDeveloperBody": "Built with ❤️ using Flutter and ClojureDart",
+  "aboutVersionLabel": "Version 1.0.0"
 }
 

@@ -31,6 +31,15 @@
   "languageMongolianTraditional": "传统蒙古文",
   "languageChinese": "中文",
   "languageEnglish": "英语",
-  "dialogClose": "关闭"
+  "dialogClose": "关闭",
+  "aboutFeaturesTitle": "功能亮点",
+  "aboutFeatureCreateEdit": "创建并编辑笔记",
+  "aboutFeatureOrganize": "按类别整理笔记",
+  "aboutFeatureUi": "精美直观的界面",
+  "aboutDescriptionTitle": "应用简介",
+  "aboutDescriptionBody": "这是一款使用 Flutter 与 ClojureDart 构建的现代笔记应用，支持创建、编辑与分类整理笔记，界面优雅易用。",
+  "aboutDeveloperTitle": "开发者",
+  "aboutDeveloperBody": "由 Flutter 与 ClojureDart 倾心打造",
+  "aboutVersionLabel": "版本 1.0.0"
 }
 

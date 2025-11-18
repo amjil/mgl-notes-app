@@ -31,6 +31,14 @@
   "languageMongolianTraditional": "ᠤᠯᠠᠮᠵᠢᠯᠠᠯᠲᠤ ᠮᠣᠩᠭᠣᠯ ",
   "languageChinese": "ᠬᠢᠲᠠᠳ ",
   "languageEnglish": "ᠠᠩᠭᠯᠢ ",
-  "dialogClose": "ᠬᠠᠭᠠᠬᠤ"
+  "dialogClose": "ᠬᠠᠭᠠᠬᠤ",
+  "aboutFeaturesTitle": "ᠪᠣᠯᠤᠮᠵᠢ ᠎ᠤᠳ ",
+  "aboutFeatureCreateEdit": "ᠲᠡᠮᠳᠡᠭᠯᠡᠯ ᠡᠭᠦᠰᠬᠡᠬᠦ ᠵᠠᠰᠠᠬᠤ ",
+  "aboutFeatureOrganize": "ᠲᠡᠮᠳᠡᠭᠯᠡᠯ ᠠᠩᠭᠢᠯᠠᠬᠤ ",
+  "aboutFeatureUi": "ᠦᠵᠡᠮᠵᠢ ᠎ᠲᠡᠢ ᠣᠢᠯᠭᠠᠮᠵᠢ ᠎ᠲᠠᠢ ᠳᠡᠯᠭᠡᠴᠡ ",
+  "aboutDescriptionTitle": "ᠠᠫᠫ ᠎ᠶᠢᠨ ᠲᠠᠢᠯᠪᠤᠷᠢ ",
+  "aboutDescriptionBody": "Flutter ᠪᠠ ClojureDart ᠠᠰᠢᠭᠯᠠᠨ ᠪᠦᠲᠦᠭᠡᠭᠰᠡᠨ ᠣᠷᠴᠢᠨ ᠦᠶ᠎ᠡ ᠎ᠶᠢᠨ ᠲᠡᠮᠳᠡᠭᠯᠡᠯ ᠎ᠦᠨ ᠠᠫᠫ        а᠃ ᠲᠡᠮᠳᠡᠭᠯᠡᠯ ᠡᠭᠦᠰᠬᠡᠬᠦ ᠂ ᠵᠠᠰᠠᠬᠤ ᠂ ᠠᠩᠭᠢᠯᠠᠨ ᠵᠣᠬᠢᠶᠠᠨ ᠪᠠᠢᠭᠤᠯᠬᠤ ᠪᠣᠯᠤᠮᠵᠢ ᠎ᠲᠠᠢ ᠃",
+  "aboutDeveloperTitle": "ᠬᠥᠭᠵᠢᠭᠦᠯᠬᠦ ",
+  "aboutDeveloperBody": "Flutter ᠪᠠ ClojureDart ᠠᠰᠢᠭᠯᠠᠨ ᠪᠦᠲᠦᠭᠡᠯ᠎ᠡ ",
+  "aboutVersionLabel": "ᠬᠤᠪᠢᠯᠪᠤᠷᠢ  1.0.0"
 }
-

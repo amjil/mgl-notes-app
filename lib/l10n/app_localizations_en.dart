@@ -103,4 +103,33 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get dialogClose => 'Close';
+
+  @override
+  String get aboutFeaturesTitle => 'Features';
+
+  @override
+  String get aboutFeatureCreateEdit => 'Create and edit notes';
+
+  @override
+  String get aboutFeatureOrganize => 'Organize notes by categories';
+
+  @override
+  String get aboutFeatureUi => 'Beautiful and intuitive UI';
+
+  @override
+  String get aboutDescriptionTitle => 'App Description';
+
+  @override
+  String get aboutDescriptionBody =>
+      'A modern note-taking application built with Flutter and ClojureDart. Features include creating, editing, and organizing notes with a beautiful user interface.';
+
+  @override
+  String get aboutDeveloperTitle => 'Developer';
+
+  @override
+  String get aboutDeveloperBody =>
+      'Built with ❤️ using Flutter and ClojureDart';
+
+  @override
+  String get aboutVersionLabel => 'Version 1.0.0';
 }

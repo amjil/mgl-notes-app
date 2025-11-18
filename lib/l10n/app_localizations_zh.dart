@@ -103,4 +103,32 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get dialogClose => '关闭';
+
+  @override
+  String get aboutFeaturesTitle => '功能亮点';
+
+  @override
+  String get aboutFeatureCreateEdit => '创建并编辑笔记';
+
+  @override
+  String get aboutFeatureOrganize => '按类别整理笔记';
+
+  @override
+  String get aboutFeatureUi => '精美直观的界面';
+
+  @override
+  String get aboutDescriptionTitle => '应用简介';
+
+  @override
+  String get aboutDescriptionBody =>
+      '这是一款使用 Flutter 与 ClojureDart 构建的现代笔记应用，支持创建、编辑与分类整理笔记，界面优雅易用。';
+
+  @override
+  String get aboutDeveloperTitle => '开发者';
+
+  @override
+  String get aboutDeveloperBody => '由 Flutter 与 ClojureDart 倾心打造';
+
+  @override
+  String get aboutVersionLabel => '版本 1.0.0';
 }
