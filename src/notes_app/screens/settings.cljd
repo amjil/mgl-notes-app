@@ -81,14 +81,17 @@
     :on-tap (fn [] (dart:core/print "Storage settings tapped"))}])
 
 (defn- lock-toggle-switch [ctx enabled?]
-  (m/Switch
-   .value enabled?
-   .onChanged (fn [value]
-                (if value
-                  (if (security/password-set?)
-                    (do
-                      (security/set-lock-enabled! true)
-                      (toast/show-toast ctx "App lock enabled" :success))
+  (m/RotatedBox
+   .quarterTurns -1
+   .child
+   (m/Switch
+    .value enabled?
+    .onChanged (fn [value]
+                 (if value
+                   (if (security/password-set?)
+                     (do
+                       (security/set-lock-enabled! true)
+                       (toast/show-toast ctx "App lock enabled" :success))
                      (-> (app-lock-dialogs/show-set-password-dialog ctx)
                          (.then (fn [result]
                                   (when-not result
@@ -96,7 +99,7 @@
                    (-> (app-lock-dialogs/show-disable-lock-dialog ctx)
                        (.then (fn [result]
                                 (when-not result
-                                  (security/set-lock-enabled! true)))))))))
+                                  (security/set-lock-enabled! true))))))))))
 
 (defn- create-security-items [ctx]
   (let [enabled? (security/lock-enabled?)

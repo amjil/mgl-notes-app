@@ -60,17 +60,17 @@
         .width screen-width
         .height (* screen-height 0.9)
         .child
-        (m/Stack
+        (m/Column
+         .mainAxisAlignment m/MainAxisAlignment.spaceAround
          .children
-         [(m/Column
-           .mainAxisAlignment m/MainAxisAlignment.spaceAround
-           .children
-           [(m/Expanded
-             .child
-             (m/Padding
-              .padding (m/EdgeInsets.all 16)
-              .child
-              (m/SingleChildScrollView
+         [(m/Expanded
+           .child
+           (m/Padding
+            .padding (m/EdgeInsets.all 16)
+            .child
+            (m/Stack
+             .children
+             [(m/SingleChildScrollView
                .scrollDirection m/Axis.horizontal
                .child
                (m/Row
@@ -117,9 +117,9 @@
                               .child (m/CircularProgressIndicator
                                       .strokeWidth 2
                                       .color (.-onPrimary color-scheme)))
-                             (mgl/MongolText "Save")))])]))))
-           (keyboard/keyboard {:custom-fns {}})])
-          (keyboard/candidates nil)])))))))
+                             (mgl/MongolText "Save")))])]))
+              (keyboard/candidates nil)])))
+          (keyboard/keyboard {:custom-fns {}})])))))))
 
 (defn show-change-password-dialog [context]
   (m/showDialog
@@ -169,17 +169,17 @@
       (m/Container
        .width screen-width
        .height (* screen-height 0.9))
-      (m/Stack
+      (m/Column
+       .mainAxisAlignment m/MainAxisAlignment.spaceAround
        .children
-       [(m/Column
-         .mainAxisAlignment m/MainAxisAlignment.spaceAround
-         .children
-         [(m/Expanded
-           .child
-           (m/Padding
-            .padding (m/EdgeInsets.all 16)
-            .child
-            (m/SingleChildScrollView
+       [(m/Expanded
+         .child
+         (m/Padding
+          .padding (m/EdgeInsets.all 16)
+          .child
+          (m/Stack
+           .children
+           [(m/SingleChildScrollView
              .scrollDirection m/Axis.horizontal
              .child
              (m/Row
@@ -231,9 +231,9 @@
                             .child (m/CircularProgressIndicator
                                     .strokeWidth 2
                                     .color (.-onPrimary color-scheme)))
-                           (mgl/MongolText "Save")))])]))))
-          (keyboard/keyboard {:custom-fns {}})])
-        (keyboard/candidates nil)])))))
+                           (mgl/MongolText "Save")))])]))
+            (keyboard/candidates nil)])))
+        (keyboard/keyboard {:custom-fns {}})])))))
 
 (defn show-disable-lock-dialog [context]
   (m/showDialog
@@ -269,17 +269,17 @@
         .width screen-width
         .height (* screen-height 0.9)
         .child
-        (m/Stack
+        (m/Column
+         .mainAxisAlignment m/MainAxisAlignment.spaceAround
          .children
-         [(m/Column
-           .mainAxisAlignment m/MainAxisAlignment.spaceAround
-           .children
-           [(m/Expanded
-             .child
-             (m/Padding
-              .padding (m/EdgeInsets.all 16)
-              .child
-              (m/SingleChildScrollView
+         [(m/Expanded
+           .child
+           (m/Padding
+            .padding (m/EdgeInsets.all 16)
+            .child
+            (m/Stack
+             .children
+             [(m/SingleChildScrollView
                .scrollDirection m/Axis.horizontal
                .child
                (m/Row
@@ -318,9 +318,9 @@
                     .child (mgl/MongolText "Cancel"))
                    (mgl/MongolElevatedButton
                     .onPressed (fn [] (submit!))
-                    .child (mgl/MongolText "Disable"))])]))))
-           (keyboard/keyboard {:custom-fns {}})])
-          (keyboard/candidates nil)])))))))
+                    .child (mgl/MongolText "Disable"))])]))
+              (keyboard/candidates nil)])))
+          (keyboard/keyboard {:custom-fns {}})])))))))
 
 (defn show-timeout-dialog [context]
   (m/showDialog
