@@ -8,6 +8,7 @@
 (def supported-locales
   [(m/Locale. "en")
    (m/Locale. "mn")
+   (m/Locale.fromSubtags :languageCode "mn" :scriptCode "Mong")
    (m/Locale. "zh")])
 
 (def localization-delegates
@@ -45,6 +46,7 @@
    :language/dialog-title "Select language"
    :language/system "Follow system"
    :language/mongolian "Mongolian"
+   :language/mongolian-traditional "Traditional Mongolian"
    :language/chinese "Chinese"
    :language/english "English"
    :dialog/close "Close"})
@@ -78,6 +80,7 @@
    :language/dialog-title (fn [strings] (.-languageDialogTitle strings))
    :language/system (fn [strings] (.-languageSystem strings))
    :language/mongolian (fn [strings] (.-languageMongolian strings))
+   :language/mongolian-traditional (fn [strings] (.-languageMongolianTraditional strings))
    :language/chinese (fn [strings] (.-languageChinese strings))
    :language/english (fn [strings] (.-languageEnglish strings))
    :dialog/close (fn [strings] (.-dialogClose strings))})
@@ -99,9 +102,22 @@
       (fallback k))
     (fallback k)))
 
+(defn- locale-signature [loc]
+  (when loc
+    [(.-languageCode loc)
+     (or (.-scriptCode loc) "")
+     (or (.-countryCode loc) "")]))
+
 (defn resolve-locale [locale _supported]
-  (let [requested (some-> locale .-languageCode keyword)
-        available (into {} (map (fn [l] [(keyword (.-languageCode l)) l]) supported-locales))]
-    (or (get available requested)
-        (first supported-locales))))
+  (let [requested (locale-signature locale)
+        matches (some (fn [loc]
+                        (when (= requested (locale-signature loc))
+                          loc))
+                      supported-locales)
+        language-match (some (fn [loc]
+                               (when (and requested (= (first requested)
+                                                       (first (locale-signature loc))))
+                                 loc))
+                             supported-locales)]
+    (or matches language-match (first supported-locales))))
 

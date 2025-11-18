@@ -4,10 +4,11 @@
    ["package:mongol/mongol.dart" :as mgl]
    [electric-sync.state :as es-state]
    [electric-sync.token :as token]
-   [notes-app.utils.navigator :as navigator]
+  [notes-app.utils.navigator :as navigator]
    [notes-app.widgets.favorite-list :as fal]
    [notes-app.states.notes :as notes]
-   [cljd.flutter :as f]))
+  [cljd.flutter :as f]
+  [notes-app.utils.i18n :as i18n]))
 
 (defn mgl-left-drawer []
   (f/widget
@@ -59,33 +60,33 @@
            [(if (empty? uid)
               (mgl/MongolListTile
                .leading (m/Icon m/Icons.login)
-               .title (mgl/MongolText "Login")
+               .title (mgl/MongolText (i18n/t ctx :drawer/login))
                .onTap (fn []
                         (-> m/Scaffold (.of ctx) .closeDrawer)
                         (navigator/navigate-to-screen navigator "/login")))
               (m/SizedBox))
             (mgl/MongolListTile
              .leading (m/Icon m/Icons.info_outline)
-             .title (mgl/MongolText "About")
+             .title (mgl/MongolText (i18n/t ctx :drawer/about))
              .onTap (fn []
                       (navigator/navigate-to-screen navigator "/about")))
             (mgl/MongolListTile
              .leading (m/Icon m/Icons.restore_from_trash)
-             .title (mgl/MongolText "Recycle")
+             .title (mgl/MongolText (i18n/t ctx :drawer/recycle))
              .onTap (fn []
                       (-> m/Scaffold (.of ctx) .closeDrawer)
                       (notes/load-deleted-notes! ctx 0 20)
                       (navigator/navigate-to-screen navigator "/recycle")))
             (mgl/MongolListTile
              .leading (m/Icon m/Icons.settings)
-             .title (mgl/MongolText "Settings")
+             .title (mgl/MongolText (i18n/t ctx :drawer/settings))
              .onTap (fn []
                       (-> m/Scaffold (.of ctx) .closeDrawer)
                       (navigator/navigate-to-screen navigator "/settings")))
             (if-not (empty? uid)
               (mgl/MongolListTile
                .leading (m/Icon m/Icons.logout)
-               .title (mgl/MongolText "Logout")
+               .title (mgl/MongolText (i18n/t ctx :drawer/logout))
                .onTap (fn []
                         (-> m/Scaffold (.of ctx) .closeDrawer)
                         (token/clean)

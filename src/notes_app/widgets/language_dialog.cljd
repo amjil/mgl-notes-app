@@ -37,13 +37,15 @@
                               .fontSize 20
                               .fontWeight m/FontWeight.bold
                               .color (.-onSurface color-scheme)))
+      (m/Expanded 
+       .child
       (m/Container
        .child (m/SingleChildScrollView
                .scrollDirection m/Axis.horizontal
                .child
                (m/Row
                 .mainAxisSize m/MainAxisSize.min
-                .children option-widgets)))]))
+                .children option-widgets))))]))
     .actions
     [(m/TextButton
       .onPressed (fn [] (m/Navigator.pop ctx))

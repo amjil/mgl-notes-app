@@ -9,64 +9,61 @@
 
 (def locale-options
   [{:selection system-selection
-    :code nil
-    :label-key :language/system}
+    :label-key :language/system
+    :locale nil}
    {:selection "mn"
-    :code "mn"
-    :label-key :language/mongolian}
+    :label-key :language/mongolian
+    :locale (m/Locale. "mn")}
+   {:selection "mn-Mong"
+    :label-key :language/mongolian-traditional
+    :locale (m/Locale.fromSubtags :languageCode "mn" :scriptCode "Mong")}
    {:selection "zh"
-    :code "zh"
-    :label-key :language/chinese}
+    :label-key :language/chinese
+    :locale (m/Locale. "zh")}
    {:selection "en"
-    :code "en"
-    :label-key :language/english}])
+    :label-key :language/english
+    :locale (m/Locale. "en")}])
+
+(declare selected-option)
+
+(def default-selection "mn-Mong")
 
 (def locale-state
-  (atom {:selection system-selection
-         :code nil}))
+  (atom {:selection default-selection}))
 
 (defn available-options []
   locale-options)
 
 (defn init-locale! []
   (let [saved (await (pref/get-string locale-preference-key))
-        selection (or saved system-selection)]
-    (swap! locale-state assoc
-           :selection selection
-           :code saved)
+        selection (:selection (selected-option (or saved default-selection)))]
+    (swap! locale-state assoc :selection selection)
     selection))
 
-(defn- persist-selection! [selection code]
-  (if code
-    (await (pref/set-string locale-preference-key code))
-    (await (pref/remove-value locale-preference-key)))
+(defn- persist-selection! [selection]
+  (if (= selection system-selection)
+    (await (pref/remove-value locale-preference-key))
+    (await (pref/set-string locale-preference-key selection)))
   selection)
 
 (defn set-selection! [selection]
-  (if (= selection system-selection)
-    (do
-      (swap! locale-state assoc :selection system-selection :code nil)
-      (persist-selection! system-selection nil))
-    (do
-      (swap! locale-state assoc :selection selection :code selection)
-      (persist-selection! selection selection))))
+  (let [selected (:selection (selected-option (or selection default-selection)))]
+    (swap! locale-state assoc :selection selected)
+    (persist-selection! selected)))
 
 (defn get-selection []
   (:selection @locale-state))
 
-(defn get-code []
-  (:code @locale-state))
-
 (defn get-selected-locale []
-  (when-let [code (get-code)]
-    (m/Locale. code)))
+  (:locale (selected-option (get-selection))))
 
 (defn option-label [ctx option]
   (i18n/t ctx (:label-key option)))
 
 (defn selected-option [selection]
-  (or (first (filter #(= (:selection %) selection) locale-options))
-      (first locale-options)))
+  (let [match (first (filter #(= (:selection %) selection) locale-options))
+        default (first (filter #(= (:selection %) default-selection) locale-options))]
+    (or match default (first locale-options))))
 
 (defn language-subtitle [ctx]
   (option-label ctx (selected-option (get-selection))))
