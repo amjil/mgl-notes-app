@@ -93,6 +93,9 @@ class AppLocalizationsZh extends AppLocalizations {
   String get languageMongolian => '蒙古语';
 
   @override
+  String get languageMongolianTraditional => '传统蒙古文';
+
+  @override
   String get languageChinese => '中文';
 
   @override

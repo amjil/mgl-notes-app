@@ -97,6 +97,7 @@ abstract class AppLocalizations {
   static const List<Locale> supportedLocales = <Locale>[
     Locale('en'),
     Locale('mn'),
+    Locale.fromSubtags(languageCode: 'mn', scriptCode: 'Mong'),
     Locale('zh'),
   ];
 
@@ -268,6 +269,12 @@ abstract class AppLocalizations {
   /// **'Mongolian'**
   String get languageMongolian;
 
+  /// No description provided for @languageMongolianTraditional.
+  ///
+  /// In en, this message translates to:
+  /// **'Traditional Mongolian'**
+  String get languageMongolianTraditional;
+
   /// No description provided for @languageChinese.
   ///
   /// In en, this message translates to:
@@ -305,6 +312,18 @@ class _AppLocalizationsDelegate
 }
 
 AppLocalizations lookupAppLocalizations(Locale locale) {
+  // Lookup logic when language+script codes are specified.
+  switch (locale.languageCode) {
+    case 'mn':
+      {
+        switch (locale.scriptCode) {
+          case 'Mong':
+            return AppLocalizationsMnMong();
+        }
+        break;
+      }
+  }
+
   // Lookup logic when only language code is specified.
   switch (locale.languageCode) {
     case 'en':

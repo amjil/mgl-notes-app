@@ -93,6 +93,9 @@ class AppLocalizationsEn extends AppLocalizations {
   String get languageMongolian => 'Mongolian';
 
   @override
+  String get languageMongolianTraditional => 'Traditional Mongolian';
+
+  @override
   String get languageChinese => 'Chinese';
 
   @override

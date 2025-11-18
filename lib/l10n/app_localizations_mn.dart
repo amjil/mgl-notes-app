@@ -93,6 +93,9 @@ class AppLocalizationsMn extends AppLocalizations {
   String get languageMongolian => 'Монгол';
 
   @override
+  String get languageMongolianTraditional => 'Уламжлалт монгол бичиг';
+
+  @override
   String get languageChinese => 'Хятад';
 
   @override
@@ -100,4 +103,105 @@ class AppLocalizationsMn extends AppLocalizations {
 
   @override
   String get dialogClose => 'Хаах';
+}
+
+/// The translations for Mongolian, using the Mongolian script (`mn_Mong`).
+class AppLocalizationsMnMong extends AppLocalizationsMn {
+  AppLocalizationsMnMong() : super('mn_Mong');
+
+  @override
+  String get appTitle => 'ᠮᠣᠩᠭᠣᠯ ᠲᠡᠮᠳᠡᠭᠯᠡᠯ';
+
+  @override
+  String get drawerLogin => 'ᠨᠡᠪᠲᠡᠷᠡᠬᠦ';
+
+  @override
+  String get drawerLogout => 'ᠭᠠᠷᠬᠤ';
+
+  @override
+  String get drawerAbout => 'ᠮᠠᠨ ᠎ᠤ ᠲᠤᠬᠠᠢ ';
+
+  @override
+  String get drawerRecycle => 'ᠰᠡᠷᠭᠦᠭᠡᠬᠦ ᠰᠠᠩ';
+
+  @override
+  String get drawerSettings => 'ᠲᠣᠬᠢᠷᠠᠭ᠎ᠠ ';
+
+  @override
+  String get loginHeading => 'ᠨᠡᠪᠲᠡᠷᠡᠬᠦ';
+
+  @override
+  String get loginEmailLabel => 'ᠢᠮᠸᠯ';
+
+  @override
+  String get loginPasswordLabel => 'ᠨᠢᠭᠤᠴᠠ ᠦᠭᠡ ';
+
+  @override
+  String get loginSubmit => 'ᠨᠡᠪᠲᠡᠷᠡᠬᠦ';
+
+  @override
+  String get loginSubmitting => 'ᠨᠡᠪᠲᠡᠷᠡᠵᠦ ᠪᠠᠢᠨ᠎ᠠ ...';
+
+  @override
+  String get loginSuccess => 'ᠠᠮᠵᠢᠯᠲᠠ ᠎ᠲᠠᠢ ᠨᠡᠪᠲᠡᠷᠡᠯ᠎ᠡ ';
+
+  @override
+  String get loginError => 'ᠨᠠᠪᠲᠠᠷᠠᠯᠲᠠ ᠰᠠᠭᠠᠳ ᠎ᠲᠡᠢ ';
+
+  @override
+  String get loginRegisterCta => 'ᠨᠡᠪᠲᠡᠷᠡᠬᠦ';
+
+  @override
+  String get registerHeading => 'ᠪᠦᠷᠢᠳᠭᠡᠭᠦᠯᠬᠦ';
+
+  @override
+  String get registerEmailLabel => 'ᠢᠮᠸᠯ';
+
+  @override
+  String get registerPasswordLabel => 'ᠨᠢᠭᠤᠴᠠ ᠦᠭᠡ (≥6 ᠲᠡᠮᠳᠡᠭᠲᠦ)';
+
+  @override
+  String get registerConfirmLabel => 'ᠨᠢᠭᠤᠴᠠ ᠦᠭᠡ ᠎ᠪᠠᠨ ᠪᠠᠲᠤᠯᠠᠭᠠᠵᠢᠭᠤᠯᠬᠤ';
+
+  @override
+  String get registerSubmit => 'ᠪᠦᠷᠢᠳᠭᠡᠭᠦᠯᠬᠦ';
+
+  @override
+  String get registerSubmitting => 'ᠪᠦᠷᠢᠳᠭᠡᠵᠦ ᠪᠠᠢᠨ᠎ᠠ ...';
+
+  @override
+  String get registerSuccess => 'ᠪᠦᠷᠢᠳᠬᠡᠯ ᠠᠮᠵᠢᠯᠲᠠ ᠎ᠲᠠᠢ ';
+
+  @override
+  String get registerError => 'ᠪᠦᠷᠢᠳᠬᠡᠯ ᠰᠠᠭᠠᠳ ᠎ᠲᠠᠢ ';
+
+  @override
+  String get registerLoginCta => 'ᠨᠡᠪᠲᠡᠷᠡᠬᠦ';
+
+  @override
+  String get settingsLanguageTitle => 'ᠬᠡᠯᠡ';
+
+  @override
+  String get settingsLanguageSubtitle => 'ᠳᠡᠯᠭᠡᠴᠡᠨ ᠎ᠤ ᠬᠡᠯᠡ ᠎ᠶᠢ ᠰᠣᠩᠭᠣᠬᠤ ';
+
+  @override
+  String get languageDialogTitle => 'ᠬᠡᠯᠡ ᠎ᠪᠡᠨ ᠰᠣᠩᠭᠣᠬᠤ ';
+
+  @override
+  String get languageSystem => 'ᠰᠢᠰᠲ᠋ᠧᠮ ᠎ᠢ ᠳᠠᠭᠠᠬᠤ';
+
+  @override
+  String get languageMongolian => 'ᠮᠣᠩᠭᠣᠯ ';
+
+  @override
+  String get languageMongolianTraditional => 'ᠤᠯᠠᠮᠵᠢᠯᠠᠯᠲᠤ ᠮᠣᠩᠭᠣᠯ ';
+
+  @override
+  String get languageChinese => 'ᠬᠢᠲᠠᠳ ';
+
+  @override
+  String get languageEnglish => 'ᠠᠩᠭᠯᠢ ';
+
+  @override
+  String get dialogClose => 'ᠬᠠᠭᠠᠬᠤ';
 }
