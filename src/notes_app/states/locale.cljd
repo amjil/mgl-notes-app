@@ -1,0 +1,73 @@
+(ns notes-app.states.locale
+  (:require
+   ["package:flutter/material.dart" :as m]
+   [notes-app.services.pref :as pref]
+   [notes-app.utils.i18n :as i18n]))
+
+(def locale-preference-key "app_locale_code")
+(def system-selection :system)
+
+(def locale-options
+  [{:selection system-selection
+    :code nil
+    :label-key :language/system}
+   {:selection "mn"
+    :code "mn"
+    :label-key :language/mongolian}
+   {:selection "zh"
+    :code "zh"
+    :label-key :language/chinese}
+   {:selection "en"
+    :code "en"
+    :label-key :language/english}])
+
+(def locale-state
+  (atom {:selection system-selection
+         :code nil}))
+
+(defn available-options []
+  locale-options)
+
+(defn init-locale! []
+  (let [saved (await (pref/get-string locale-preference-key))
+        selection (or saved system-selection)]
+    (swap! locale-state assoc
+           :selection selection
+           :code saved)
+    selection))
+
+(defn- persist-selection! [selection code]
+  (if code
+    (await (pref/set-string locale-preference-key code))
+    (await (pref/remove-value locale-preference-key)))
+  selection)
+
+(defn set-selection! [selection]
+  (if (= selection system-selection)
+    (do
+      (swap! locale-state assoc :selection system-selection :code nil)
+      (persist-selection! system-selection nil))
+    (do
+      (swap! locale-state assoc :selection selection :code selection)
+      (persist-selection! selection selection))))
+
+(defn get-selection []
+  (:selection @locale-state))
+
+(defn get-code []
+  (:code @locale-state))
+
+(defn get-selected-locale []
+  (when-let [code (get-code)]
+    (m/Locale. code)))
+
+(defn option-label [ctx option]
+  (i18n/t ctx (:label-key option)))
+
+(defn selected-option [selection]
+  (or (first (filter #(= (:selection %) selection) locale-options))
+      (first locale-options)))
+
+(defn language-subtitle [ctx]
+  (option-label ctx (selected-option (get-selection))))
+

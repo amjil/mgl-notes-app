@@ -1,0 +1,107 @@
+(ns notes-app.utils.i18n
+  (:require
+   ["package:flutter/material.dart" :as m]
+   ["package:flutter_localizations/flutter_localizations.dart" :as fl]
+   ["package:cljd_mgl_notes_app/l10n/app_localizations.dart" :as l10n]
+   ["dart:core" :as dart]))
+
+(def supported-locales
+  [(m/Locale. "en")
+   (m/Locale. "mn")
+   (m/Locale. "zh")])
+
+(def localization-delegates
+  [l10n/AppLocalizations.delegate
+   fl/GlobalMaterialLocalizations.delegate
+   fl/GlobalWidgetsLocalizations.delegate
+   fl/GlobalCupertinoLocalizations.delegate])
+
+(def ^:private fallback-strings
+  {:app/title "Mongol Notes App"
+   :drawer/login "Login"
+   :drawer/logout "Logout"
+   :drawer/about "About"
+   :drawer/recycle "Recycle Bin"
+   :drawer/settings "Settings"
+   :login/heading "Login"
+   :login/email-label "Email"
+   :login/password-label "Password"
+   :login/submit "Login"
+   :login/submitting "Logging in..."
+   :login/success "Login successful"
+   :login/error "Login failed"
+   :login/register-cta "Register"
+   :register/heading "Register"
+   :register/email-label "Email"
+   :register/password-label "Password (≥6 chars)"
+   :register/confirm-label "Confirm password"
+   :register/submit "Register"
+   :register/submitting "Registering..."
+   :register/success "Registration successful. Please log in"
+   :register/error "Registration failed"
+   :register/login-cta "Login"
+   :settings/language-title "Language"
+   :settings/language-subtitle "Choose display language"
+   :language/dialog-title "Select language"
+   :language/system "Follow system"
+   :language/mongolian "Mongolian"
+   :language/chinese "Chinese"
+   :language/english "English"
+   :dialog/close "Close"})
+
+(def ^:private key->getter
+  {:app/title (fn [strings] (.-appTitle strings))
+   :drawer/login (fn [strings] (.-drawerLogin strings))
+   :drawer/logout (fn [strings] (.-drawerLogout strings))
+   :drawer/about (fn [strings] (.-drawerAbout strings))
+   :drawer/recycle (fn [strings] (.-drawerRecycle strings))
+   :drawer/settings (fn [strings] (.-drawerSettings strings))
+   :login/heading (fn [strings] (.-loginHeading strings))
+   :login/email-label (fn [strings] (.-loginEmailLabel strings))
+   :login/password-label (fn [strings] (.-loginPasswordLabel strings))
+   :login/submit (fn [strings] (.-loginSubmit strings))
+   :login/submitting (fn [strings] (.-loginSubmitting strings))
+   :login/success (fn [strings] (.-loginSuccess strings))
+   :login/error (fn [strings] (.-loginError strings))
+   :login/register-cta (fn [strings] (.-loginRegisterCta strings))
+   :register/heading (fn [strings] (.-registerHeading strings))
+   :register/email-label (fn [strings] (.-registerEmailLabel strings))
+   :register/password-label (fn [strings] (.-registerPasswordLabel strings))
+   :register/confirm-label (fn [strings] (.-registerConfirmLabel strings))
+   :register/submit (fn [strings] (.-registerSubmit strings))
+   :register/submitting (fn [strings] (.-registerSubmitting strings))
+   :register/success (fn [strings] (.-registerSuccess strings))
+   :register/error (fn [strings] (.-registerError strings))
+   :register/login-cta (fn [strings] (.-registerLoginCta strings))
+   :settings/language-title (fn [strings] (.-settingsLanguageTitle strings))
+   :settings/language-subtitle (fn [strings] (.-settingsLanguageSubtitle strings))
+   :language/dialog-title (fn [strings] (.-languageDialogTitle strings))
+   :language/system (fn [strings] (.-languageSystem strings))
+   :language/mongolian (fn [strings] (.-languageMongolian strings))
+   :language/chinese (fn [strings] (.-languageChinese strings))
+   :language/english (fn [strings] (.-languageEnglish strings))
+   :dialog/close (fn [strings] (.-dialogClose strings))})
+
+(defn- fallback [k]
+  (get fallback-strings k (name k)))
+
+(defn- get-strings [ctx]
+  (when ctx
+    (try
+      (m/Localizations.of ctx l10n/AppLocalizations)
+      (catch dart/Object _
+        nil))))
+
+(defn t [ctx k]
+  (if-let [getter (get key->getter k)]
+    (if-let [strings (get-strings ctx)]
+      (or (getter strings) (fallback k))
+      (fallback k))
+    (fallback k)))
+
+(defn resolve-locale [locale _supported]
+  (let [requested (some-> locale .-languageCode keyword)
+        available (into {} (map (fn [l] [(keyword (.-languageCode l)) l]) supported-locales))]
+    (or (get available requested)
+        (first supported-locales))))
+
