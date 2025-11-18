@@ -11,9 +11,18 @@ A Mongolian-first note-taking experience built with ClojureDart and Flutter. The
 - **Electric Sync adapters**: upload / pull helpers (`notes_app/utils/sync.cljd`) plus login & registration hooks ready to integrate with an Electric backend.
 - **State helpers refresh**: pagination, toast, and loading primitives reused across lists for consistent feedback.
 
+## Recent Block Editor Enhancements
+
+- **Block metadata support**: each block can store JSON metadata (`meta_data` column) for extensible block-level properties and custom attributes.
+- **Block indentation/levels**: hierarchical block structure with tab-based indentation, enabling nested content organization and outline-style editing.
+- **Link ID tracking**: editor state maintains `link-ids` map to track note references (`[[title]]`) and keep cross-note relationships synchronized.
+- **Note title metadata**: note titles support metadata storage, enabling rich title-level attributes alongside block metadata.
+- **Todo/task list support**: blocks can be marked as todo items with checkbox functionality, stored in block metadata for task management and completion tracking.
+- **Background and foreground colors**: customizable block-level background and foreground colors stored in metadata, enabling visual organization and highlighting of important content.
+
 ## Feature Overview
 
-- **Block-based editor** with Mongolian vertical input, reordering, and block-level persistence.
+- **Block-based editor** with Mongolian vertical input, reordering, block-level persistence, indentation/levels, per-block metadata support, todo/task lists, and customizable background/foreground colors.
 - **Favorites** pinned inside the app drawer for one-tap recall.
 - **Tagging** via inline `#hashtags`, automatic creation, and tag-note associations.
 - **Search workspace** covering notes, tags, and suggestions with pagination and custom keyboard support.
@@ -22,6 +31,10 @@ A Mongolian-first note-taking experience built with ClojureDart and Flutter. The
 - **Authentication screens** (login & register) wired to Electric Sync auth APIs.
 - **Offline-first storage** using Drift, with sync markers to reconcile local ↔ remote.
 - **Custom Mongolian keyboard & fonts** bundled for vertical script typing on any platform.
+- **App lock & security** with password protection, auto-lock timeout, and unlock screen.
+- **Settings screen** for theme, fonts, security, data management, and app preferences.
+- **Help & Support** screen with getting started guide, FAQs, and support information.
+- **About screen** displaying app version, features, and developer information.
 
 ## Tech Stack
 
@@ -98,11 +111,11 @@ mgl-notes-app/
 ├── src/notes_app/
 │   ├── main.cljd            # App entry + route table
 │   ├── theme.cljd           # Light/Dark theme definitions
-│   ├── screens/             # Home, editor, search, recycle, auth, about, help
+│   ├── screens/             # Home, editor, search, recycle, auth, settings, unlock, about, help, import-export
 │   ├── widgets/             # Mongolian UI components (chips, lists, favorites, etc.)
-│   ├── states/              # Atoms & pagination helpers for notes/search/tags/ui
-│   ├── services/            # DB, auth, env, import/export
-│   └── utils/               # Blocks, tags, clipboard, navigator, sync, toast
+│   ├── states/              # Atoms & pagination helpers for notes/search/tags/ui/theme/font/security
+│   ├── services/            # DB, auth, env, import/export, preferences
+│   └── utils/               # Blocks, tags, clipboard, navigator, sync, toast, file, date, platform
 ├── assets/
 │   ├── fonts/               # Mongolian fonts bundled in pubspec
 │   ├── data.zip             # Keyboard dictionary
