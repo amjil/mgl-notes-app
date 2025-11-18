@@ -81,6 +81,28 @@
                                  .style (m/TextStyle
                                          .fontSize 20
                                          .fontWeight m/FontWeight.bold))
+                 (m/Container
+                  .margin (m/EdgeInsets.only .top 12 .bottom 12)
+                  .padding (m/EdgeInsets.all 12)
+                  .decoration (m/BoxDecoration
+                               .color (.-errorContainer color-scheme)
+                               .borderRadius (m.BorderRadius/circular 8))
+                  .child
+                  (m/Row
+                   .crossAxisAlignment m/CrossAxisAlignment.start
+                   .children
+                   [(m/Icon m/Icons.warning
+                            .color (.-onErrorContainer color-scheme)
+                            .size 24)
+                    (m/Container .width 8)
+                    (m/Expanded
+                     .child
+                     (mgl/MongolText "⚠️ IMPORTANT WARNING: If you forget your unlock password, you will permanently lose access to ALL your data. There is no password recovery option. All your notes will be permanently inaccessible. Please remember your password carefully!"
+                                    .style (m/TextStyle
+                                            .fontSize 14
+                                            .fontWeight m/FontWeight.bold
+                                            .color (.-onErrorContainer color-scheme)
+                                            .height 1.4)))]))
                  (mgl/MongolTextField
                   .obscureText true
                   .autofocus true

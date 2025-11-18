@@ -144,6 +144,24 @@
                                 color-scheme)])
    color-scheme))
 
+(defn- create-app-lock-section [color-scheme]
+  (create-info-card
+   "App Lock & Security"
+   (m/Row
+    .crossAxisAlignment m.CrossAxisAlignment/start
+    .children [(create-help-item m/Icons.lock "App Lock"
+                                "App Lock protects your notes with a password. Once enabled, the app will automatically lock after a period of inactivity."
+                                color-scheme)
+               (m/Container .width 16)
+               (create-help-item m/Icons.warning "Important Warning"
+                                "⚠️ CRITICAL: If you forget your unlock password, you will permanently lose access to ALL your data. There is no password recovery option. Please remember your password carefully!"
+                                color-scheme)
+               (m/Container .width 16)
+               (create-help-item m/Icons.timer "Auto Lock"
+                                "You can set an auto-lock timeout. The app will automatically lock after the specified time of inactivity."
+                                color-scheme)])
+   color-scheme))
+
 (defn- create-faq-section [color-scheme]
   (create-info-card
    "Frequently Asked Questions"
@@ -190,6 +208,8 @@
                               [(create-getting-started-section color-scheme)
                                (m/Container .width 20)
                                (create-user-account-section color-scheme)
+                               (m/Container .width 20)
+                               (create-app-lock-section color-scheme)
                                (m/Container .width 20)
                                (create-common-issues-section color-scheme)
                                (m/Container .width 20)
