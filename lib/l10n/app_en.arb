@@ -1,0 +1,41 @@
+{
+  "@@locale": "en",
+  "appTitle": "Mongol Notes App",
+  "@appTitle": {
+    "description": "Application title shown in system task switcher."
+  },
+  "drawerLogin": "Login",
+  "@drawerLogin": {
+    "description": "Drawer action label for logging in."
+  },
+  "drawerLogout": "Logout",
+  "drawerAbout": "About",
+  "drawerRecycle": "Recycle Bin",
+  "drawerSettings": "Settings",
+  "loginHeading": "Login",
+  "loginEmailLabel": "Email",
+  "loginPasswordLabel": "Password",
+  "loginSubmit": "Login",
+  "loginSubmitting": "Logging in...",
+  "loginSuccess": "Login successful",
+  "loginError": "Login failed",
+  "loginRegisterCta": "Register",
+  "registerHeading": "Register",
+  "registerEmailLabel": "Email",
+  "registerPasswordLabel": "Password (≥6 chars)",
+  "registerConfirmLabel": "Confirm password",
+  "registerSubmit": "Register",
+  "registerSubmitting": "Registering...",
+  "registerSuccess": "Registration successful. Please log in",
+  "registerError": "Registration failed",
+  "registerLoginCta": "Login",
+  "settingsLanguageTitle": "Language",
+  "settingsLanguageSubtitle": "Choose display language",
+  "languageDialogTitle": "Select language",
+  "languageSystem": "Follow system",
+  "languageMongolian": "Mongolian",
+  "languageChinese": "Chinese",
+  "languageEnglish": "English",
+  "dialogClose": "Close"
+}
+
