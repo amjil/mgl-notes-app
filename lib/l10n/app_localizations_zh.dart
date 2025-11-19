@@ -131,4 +131,133 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get aboutVersionLabel => '版本 1.0.0';
+
+  @override
+  String get helpHeaderTitle => '帮助与支持';
+
+  @override
+  String get helpHeaderSubtitle => '获取使用应用的帮助';
+
+  @override
+  String get helpGettingStartedTitle => '快速上手';
+
+  @override
+  String get helpCreateNotesTitle => '创建笔记';
+
+  @override
+  String get helpCreateNotesDescription => '点击 + 按钮即可创建新笔记，可输入文本、添加标签并保存想法。';
+
+  @override
+  String get helpSearchTitle => '搜索与查找';
+
+  @override
+  String get helpSearchDescription => '使用搜索图标即可按内容或标签快速定位笔记。';
+
+  @override
+  String get helpOrganizeTitle => '整理';
+
+  @override
+  String get helpOrganizeDescription => '通过标签和分类整理笔记，方便查找。';
+
+  @override
+  String get helpCommonIssuesTitle => '常见问题';
+
+  @override
+  String get helpSyncTitle => '同步问题';
+
+  @override
+  String get helpSyncDescription => '若笔记未同步，请检查网络并尝试刷新应用。';
+
+  @override
+  String get helpSaveTitle => '保存问题';
+
+  @override
+  String get helpSaveDescription => '应用会在输入时自动保存，如遇问题请尝试关闭并重新打开笔记。';
+
+  @override
+  String get helpImportExportTitle => '导入/导出';
+
+  @override
+  String get helpImportExportDescription => '使用悬浮操作按钮即可从其他应用导入或导出数据。';
+
+  @override
+  String get helpContactSupportTitle => '联系支持';
+
+  @override
+  String get helpEmailSupportTitle => '邮件支持';
+
+  @override
+  String get helpEmailSupportDescription =>
+      '发送邮件至 support@notesapp.com 获得技术协助。';
+
+  @override
+  String get helpReportBugsTitle => '报告问题';
+
+  @override
+  String get helpReportBugsDescription => '发现 Bug？请在设置菜单中使用问题上报功能。';
+
+  @override
+  String get helpFeedbackTitle => '意见反馈';
+
+  @override
+  String get helpFeedbackDescription => '欢迎分享改进建议，帮助我们优化应用。';
+
+  @override
+  String get helpUserAccountTitle => '用户账户与数据';
+
+  @override
+  String get helpLoginMigrationTitle => '登录与数据迁移';
+
+  @override
+  String get helpLoginMigrationDescription => '登录后，匿名模式下创建的所有笔记都会自动迁入你的账户。';
+
+  @override
+  String get helpLogoutAccessTitle => '退出与数据访问';
+
+  @override
+  String get helpLogoutAccessDescription => '退出登录后无法访问笔记，需重新登录以查看和管理数据。';
+
+  @override
+  String get helpUserOnlyTitle => '仅限登录访问';
+
+  @override
+  String get helpUserOnlyDescription => '所有笔记都会绑定到用户账户，必须登录才能创建、查看、搜索和管理。';
+
+  @override
+  String get helpAppLockSectionTitle => '应用锁与安全';
+
+  @override
+  String get helpAppLockFeatureTitle => '应用锁';
+
+  @override
+  String get helpAppLockFeatureDescription =>
+      '应用锁允许你用密码保护笔记，启用后应用在空闲一段时间后会自动锁定。';
+
+  @override
+  String get helpAppLockWarningTitle => '重要警告';
+
+  @override
+  String get helpAppLockWarningDescription =>
+      '⚠️ 重要：若忘记解锁密码，所有数据将永久无法访问，且没有找回方式，请妥善保存。';
+
+  @override
+  String get helpAppLockAutoTitle => '自动锁定';
+
+  @override
+  String get helpAppLockAutoDescription => '你可以设置自动锁定时间，应用会在超出空闲时间后自动锁定。';
+
+  @override
+  String get helpFaqTitle => '常见问答';
+
+  @override
+  String get helpFaqBackupQuestion => '问：如何备份我的笔记？';
+
+  @override
+  String get helpFaqBackupAnswer => '答：使用悬浮按钮中的导出功能即可备份笔记。';
+
+  @override
+  String get helpFaqOfflineQuestion => '问：应用能离线使用吗？';
+
+  @override
+  String get helpFaqOfflineAnswer => '答：可以！笔记会在本地保存，联网后自动同步。';
 }

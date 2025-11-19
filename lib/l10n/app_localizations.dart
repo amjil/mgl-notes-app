@@ -346,6 +346,258 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Version 1.0.0'**
   String get aboutVersionLabel;
+
+  /// No description provided for @helpHeaderTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Help & Support'**
+  String get helpHeaderTitle;
+
+  /// No description provided for @helpHeaderSubtitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Get help with using the app'**
+  String get helpHeaderSubtitle;
+
+  /// No description provided for @helpGettingStartedTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Getting Started'**
+  String get helpGettingStartedTitle;
+
+  /// No description provided for @helpCreateNotesTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Create Notes'**
+  String get helpCreateNotesTitle;
+
+  /// No description provided for @helpCreateNotesDescription.
+  ///
+  /// In en, this message translates to:
+  /// **'Tap the + button to create a new note. You can add text, organize with tags, and save your thoughts.'**
+  String get helpCreateNotesDescription;
+
+  /// No description provided for @helpSearchTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Search & Find'**
+  String get helpSearchTitle;
+
+  /// No description provided for @helpSearchDescription.
+  ///
+  /// In en, this message translates to:
+  /// **'Use the search icon to find specific notes by text content or tags.'**
+  String get helpSearchDescription;
+
+  /// No description provided for @helpOrganizeTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Organize'**
+  String get helpOrganizeTitle;
+
+  /// No description provided for @helpOrganizeDescription.
+  ///
+  /// In en, this message translates to:
+  /// **'Use tags and categories to keep your notes organized and easy to find.'**
+  String get helpOrganizeDescription;
+
+  /// No description provided for @helpCommonIssuesTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Common Issues'**
+  String get helpCommonIssuesTitle;
+
+  /// No description provided for @helpSyncTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Sync Issues'**
+  String get helpSyncTitle;
+
+  /// No description provided for @helpSyncDescription.
+  ///
+  /// In en, this message translates to:
+  /// **'If notes aren\'t syncing, check your internet connection and try refreshing the app.'**
+  String get helpSyncDescription;
+
+  /// No description provided for @helpSaveTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Save Problems'**
+  String get helpSaveTitle;
+
+  /// No description provided for @helpSaveDescription.
+  ///
+  /// In en, this message translates to:
+  /// **'Notes auto-save as you type. If you\'re having issues, try closing and reopening the note.'**
+  String get helpSaveDescription;
+
+  /// No description provided for @helpImportExportTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Import/Export'**
+  String get helpImportExportTitle;
+
+  /// No description provided for @helpImportExportDescription.
+  ///
+  /// In en, this message translates to:
+  /// **'Use the floating action button to import notes from other apps or export your data.'**
+  String get helpImportExportDescription;
+
+  /// No description provided for @helpContactSupportTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Contact Support'**
+  String get helpContactSupportTitle;
+
+  /// No description provided for @helpEmailSupportTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Email Support'**
+  String get helpEmailSupportTitle;
+
+  /// No description provided for @helpEmailSupportDescription.
+  ///
+  /// In en, this message translates to:
+  /// **'Send us an email at support@notesapp.com for technical assistance.'**
+  String get helpEmailSupportDescription;
+
+  /// No description provided for @helpReportBugsTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Report Bugs'**
+  String get helpReportBugsTitle;
+
+  /// No description provided for @helpReportBugsDescription.
+  ///
+  /// In en, this message translates to:
+  /// **'Found a bug? Use the bug report feature in the settings menu.'**
+  String get helpReportBugsDescription;
+
+  /// No description provided for @helpFeedbackTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Feedback'**
+  String get helpFeedbackTitle;
+
+  /// No description provided for @helpFeedbackDescription.
+  ///
+  /// In en, this message translates to:
+  /// **'We\'d love to hear your suggestions for improving the app.'**
+  String get helpFeedbackDescription;
+
+  /// No description provided for @helpUserAccountTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'User Account & Data'**
+  String get helpUserAccountTitle;
+
+  /// No description provided for @helpLoginMigrationTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Login & Data Migration'**
+  String get helpLoginMigrationTitle;
+
+  /// No description provided for @helpLoginMigrationDescription.
+  ///
+  /// In en, this message translates to:
+  /// **'When you log in, all notes created in anonymous mode will automatically become part of your account. Your previous anonymous data will be transferred to your user account.'**
+  String get helpLoginMigrationDescription;
+
+  /// No description provided for @helpLogoutAccessTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Logout & Data Access'**
+  String get helpLogoutAccessTitle;
+
+  /// No description provided for @helpLogoutAccessDescription.
+  ///
+  /// In en, this message translates to:
+  /// **'After logging out, you will not be able to access your notes. You must log in again to view and manage your data.'**
+  String get helpLogoutAccessDescription;
+
+  /// No description provided for @helpUserOnlyTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'User-Only Access'**
+  String get helpUserOnlyTitle;
+
+  /// No description provided for @helpUserOnlyDescription.
+  ///
+  /// In en, this message translates to:
+  /// **'All notes are tied to your user account. You must be logged in to create, view, search, and manage your notes.'**
+  String get helpUserOnlyDescription;
+
+  /// No description provided for @helpAppLockSectionTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'App Lock & Security'**
+  String get helpAppLockSectionTitle;
+
+  /// No description provided for @helpAppLockFeatureTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'App Lock'**
+  String get helpAppLockFeatureTitle;
+
+  /// No description provided for @helpAppLockFeatureDescription.
+  ///
+  /// In en, this message translates to:
+  /// **'App Lock protects your notes with a password. Once enabled, the app will automatically lock after a period of inactivity.'**
+  String get helpAppLockFeatureDescription;
+
+  /// No description provided for @helpAppLockWarningTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Important Warning'**
+  String get helpAppLockWarningTitle;
+
+  /// No description provided for @helpAppLockWarningDescription.
+  ///
+  /// In en, this message translates to:
+  /// **'⚠️ CRITICAL: If you forget your unlock password, you will permanently lose access to ALL your data. There is no password recovery option. Please remember your password carefully!'**
+  String get helpAppLockWarningDescription;
+
+  /// No description provided for @helpAppLockAutoTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Auto Lock'**
+  String get helpAppLockAutoTitle;
+
+  /// No description provided for @helpAppLockAutoDescription.
+  ///
+  /// In en, this message translates to:
+  /// **'You can set an auto-lock timeout. The app will automatically lock after the specified time of inactivity.'**
+  String get helpAppLockAutoDescription;
+
+  /// No description provided for @helpFaqTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Frequently Asked Questions'**
+  String get helpFaqTitle;
+
+  /// No description provided for @helpFaqBackupQuestion.
+  ///
+  /// In en, this message translates to:
+  /// **'Q: How do I backup my notes?'**
+  String get helpFaqBackupQuestion;
+
+  /// No description provided for @helpFaqBackupAnswer.
+  ///
+  /// In en, this message translates to:
+  /// **'A: Use the export feature in the floating action button to backup your notes.'**
+  String get helpFaqBackupAnswer;
+
+  /// No description provided for @helpFaqOfflineQuestion.
+  ///
+  /// In en, this message translates to:
+  /// **'Q: Can I use the app offline?'**
+  String get helpFaqOfflineQuestion;
+
+  /// No description provided for @helpFaqOfflineAnswer.
+  ///
+  /// In en, this message translates to:
+  /// **'A: Yes! Notes are saved locally and will sync when you\'re back online.'**
+  String get helpFaqOfflineAnswer;
 }
 
 class _AppLocalizationsDelegate

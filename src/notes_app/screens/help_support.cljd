@@ -3,6 +3,7 @@
    ["package:flutter/material.dart" :as m]
    ["package:mongol/mongol.dart" :as mgl]
    [cljd.flutter :as f]
+   [notes-app.utils.i18n :as i18n]
    [notes-app.widgets.app-bar :as app-bar]))
 
 ;; Helper functions for better code organization
@@ -44,7 +45,7 @@
                                                         .color (.-onSurfaceVariant color-scheme)
                                                         .height 1.4)))]))
 
-(defn- create-help-header [color-scheme]
+(defn- create-help-header [color-scheme header-title header-subtitle]
   [(m/Container
     .width 120
     .height 120
@@ -60,131 +61,137 @@
    
    (m/Row
     .crossAxisAlignment m.CrossAxisAlignment/start
-    .children [(mgl/MongolText "Help & Support"
+    .children [(mgl/MongolText header-title
                             .style (m/TextStyle
                                     .fontSize 28
                                     .fontWeight m.FontWeight/bold
                                     .color (.-onSurface color-scheme)))
                (m/Container .width 8)
-               (mgl/MongolText "Get help with using the app"
+               (mgl/MongolText header-subtitle
                                .style (m/TextStyle
                                        .fontSize 16
                                        .color (.-onSurfaceVariant color-scheme)))])
    
    (m/Container .width 30)])
 
-(defn- create-getting-started-section [color-scheme]
+(defn- create-getting-started-section
+  [color-scheme title create-title create-description search-title search-description organize-title organize-description]
   (create-info-card
-   "Getting Started"
+   title
    (m/Row
     .crossAxisAlignment m.CrossAxisAlignment/start
-    .children [(create-help-item m/Icons.add_circle "Create Notes"
-                                "Tap the + button to create a new note. You can add text, organize with tags, and save your thoughts."
+    .children [(create-help-item m/Icons.add_circle create-title
+                                create-description
                                 color-scheme)
                (m/Container .width 16)
-               (create-help-item m/Icons.search "Search & Find"
-                                "Use the search icon to find specific notes by text content or tags."
+               (create-help-item m/Icons.search search-title
+                                search-description
                                 color-scheme)
                (m/Container .width 16)
-               (create-help-item m/Icons.folder "Organize"
-                                "Use tags and categories to keep your notes organized and easy to find."
+               (create-help-item m/Icons.folder organize-title
+                                organize-description
                                 color-scheme)])
    color-scheme))
 
-(defn- create-common-issues-section [color-scheme]
+(defn- create-common-issues-section
+  [color-scheme title sync-title sync-description save-title save-description import-title import-description]
   (create-info-card
-   "Common Issues"
+   title
    (m/Row
     .crossAxisAlignment m.CrossAxisAlignment/start
-    .children [(create-help-item m/Icons.sync "Sync Issues"
-                                "If notes aren't syncing, check your internet connection and try refreshing the app."
+    .children [(create-help-item m/Icons.sync sync-title
+                                sync-description
                                 color-scheme)
                (m/Container .width 16)
-               (create-help-item m/Icons.save "Save Problems"
-                                "Notes auto-save as you type. If you're having issues, try closing and reopening the note."
+               (create-help-item m/Icons.save save-title
+                                save-description
                                 color-scheme)
                (m/Container .width 16)
-               (create-help-item m/Icons.import_export "Import/Export"
-                                "Use the floating action button to import notes from other apps or export your data."
+               (create-help-item m/Icons.import_export import-title
+                                import-description
                                 color-scheme)])
    color-scheme))
 
-(defn- create-contact-support-section [color-scheme]
+(defn- create-contact-support-section
+  [color-scheme title email-title email-description bugs-title bugs-description feedback-title feedback-description]
   (create-info-card
-   "Contact Support"
+   title
    (m/Row
     .crossAxisAlignment m.CrossAxisAlignment/start
-    .children [(create-help-item m/Icons.email "Email Support"
-                                "Send us an email at support@notesapp.com for technical assistance."
+    .children [(create-help-item m/Icons.email email-title
+                                email-description
                                 color-scheme)
                (m/Container .width 16)
-               (create-help-item m/Icons.bug_report "Report Bugs"
-                                "Found a bug? Use the bug report feature in the settings menu."
+               (create-help-item m/Icons.bug_report bugs-title
+                                bugs-description
                                 color-scheme)
                (m/Container .width 16)
-               (create-help-item m/Icons.feedback "Feedback"
-                                "We'd love to hear your suggestions for improving the app." color-scheme)])
+               (create-help-item m/Icons.feedback feedback-title
+                                feedback-description color-scheme)])
    color-scheme))
 
-(defn- create-user-account-section [color-scheme]
+(defn- create-user-account-section
+  [color-scheme title login-title login-description logout-title logout-description user-title user-description]
   (create-info-card
-   "User Account & Data"
+   title
    (m/Row
     .crossAxisAlignment m.CrossAxisAlignment/start
-    .children [(create-help-item m/Icons.login "Login & Data Migration"
-                                "When you log in, all notes created in anonymous mode will automatically become part of your account. Your previous anonymous data will be transferred to your user account."
+    .children [(create-help-item m/Icons.login login-title
+                                login-description
                                 color-scheme)
                (m/Container .width 16)
-               (create-help-item m/Icons.logout "Logout & Data Access"
-                                "After logging out, you will not be able to access your notes. You must log in again to view and manage your data."
+               (create-help-item m/Icons.logout logout-title
+                                logout-description
                                 color-scheme)
                (m/Container .width 16)
-               (create-help-item m/Icons.person "User-Only Access"
-                                "All notes are tied to your user account. You must be logged in to create, view, search, and manage your notes."
+               (create-help-item m/Icons.person user-title
+                                user-description
                                 color-scheme)])
    color-scheme))
 
-(defn- create-app-lock-section [color-scheme]
+(defn- create-app-lock-section
+  [color-scheme title lock-title lock-description warning-title warning-description auto-title auto-description]
   (create-info-card
-   "App Lock & Security"
+   title
    (m/Row
     .crossAxisAlignment m.CrossAxisAlignment/start
-    .children [(create-help-item m/Icons.lock "App Lock"
-                                "App Lock protects your notes with a password. Once enabled, the app will automatically lock after a period of inactivity."
+    .children [(create-help-item m/Icons.lock lock-title
+                                lock-description
                                 color-scheme)
                (m/Container .width 16)
-               (create-help-item m/Icons.warning "Important Warning"
-                                "⚠️ CRITICAL: If you forget your unlock password, you will permanently lose access to ALL your data. There is no password recovery option. Please remember your password carefully!"
+               (create-help-item m/Icons.warning warning-title
+                                warning-description
                                 color-scheme)
                (m/Container .width 16)
-               (create-help-item m/Icons.timer "Auto Lock"
-                                "You can set an auto-lock timeout. The app will automatically lock after the specified time of inactivity."
+               (create-help-item m/Icons.timer auto-title
+                                auto-description
                                 color-scheme)])
    color-scheme))
 
-(defn- create-faq-section [color-scheme]
+(defn- create-faq-section
+  [color-scheme title backup-question backup-answer offline-question offline-answer]
   (create-info-card
-   "Frequently Asked Questions"
+   title
    (m/Row
     .crossAxisAlignment m.CrossAxisAlignment/start
-    .children [(mgl/MongolText "Q: How do I backup my notes?"
+    .children [(mgl/MongolText backup-question
                                .style (m/TextStyle
                                        .fontSize 14
                                        .fontWeight m.FontWeight/bold
                                        .color (.-onSurface color-scheme)))
                (m/Container .width 12)
-               (mgl/MongolText "A: Use the export feature in the floating action button to backup your notes."
+               (mgl/MongolText backup-answer
                                .style (m/TextStyle
                                        .fontSize 14
                                        .color (.-onSurfaceVariant color-scheme)))
                (m/Container .width 12)
-               (mgl/MongolText "Q: Can I use the app offline?"
+               (mgl/MongolText offline-question
                                .style (m/TextStyle
                                        .fontSize 14
                                        .fontWeight m.FontWeight/bold
                                        .color (.-onSurface color-scheme)))
                (m/Container .width 12)
-               (mgl/MongolText "A: Yes! Notes are saved locally and will sync when you're back online."
+               (mgl/MongolText offline-answer
                                .style (m/TextStyle
                                        .fontSize 14
                                        .color (.-onSurfaceVariant color-scheme)))])
@@ -194,7 +201,49 @@
   (f/widget
    :get [m/Navigator]
    :let [theme (-> m/Theme (.of ctx))
-         color-scheme (.-colorScheme theme)]
+         color-scheme (.-colorScheme theme)
+         header-title (i18n/t ctx :help/header-title)
+         header-subtitle (i18n/t ctx :help/header-subtitle)
+         getting-started-title (i18n/t ctx :help/getting-started-title)
+         create-notes-title (i18n/t ctx :help/create-notes-title)
+         create-notes-description (i18n/t ctx :help/create-notes-description)
+         search-title (i18n/t ctx :help/search-title)
+         search-description (i18n/t ctx :help/search-description)
+         organize-title (i18n/t ctx :help/organize-title)
+         organize-description (i18n/t ctx :help/organize-description)
+         common-issues-title (i18n/t ctx :help/common-issues-title)
+         sync-title (i18n/t ctx :help/sync-title)
+         sync-description (i18n/t ctx :help/sync-description)
+         save-title (i18n/t ctx :help/save-title)
+         save-description (i18n/t ctx :help/save-description)
+         import-title (i18n/t ctx :help/import-export-title)
+         import-description (i18n/t ctx :help/import-export-description)
+         contact-support-title (i18n/t ctx :help/contact-support-title)
+         email-support-title (i18n/t ctx :help/email-support-title)
+         email-support-description (i18n/t ctx :help/email-support-description)
+         report-bugs-title (i18n/t ctx :help/report-bugs-title)
+         report-bugs-description (i18n/t ctx :help/report-bugs-description)
+         feedback-title (i18n/t ctx :help/feedback-title)
+         feedback-description (i18n/t ctx :help/feedback-description)
+         user-account-title (i18n/t ctx :help/user-account-title)
+         login-migration-title (i18n/t ctx :help/login-migration-title)
+         login-migration-description (i18n/t ctx :help/login-migration-description)
+         logout-access-title (i18n/t ctx :help/logout-access-title)
+         logout-access-description (i18n/t ctx :help/logout-access-description)
+         user-only-title (i18n/t ctx :help/user-only-title)
+         user-only-description (i18n/t ctx :help/user-only-description)
+         app-lock-section-title (i18n/t ctx :help/app-lock-section-title)
+         app-lock-feature-title (i18n/t ctx :help/app-lock-feature-title)
+         app-lock-feature-description (i18n/t ctx :help/app-lock-feature-description)
+         app-lock-warning-title (i18n/t ctx :help/app-lock-warning-title)
+         app-lock-warning-description (i18n/t ctx :help/app-lock-warning-description)
+         app-lock-auto-title (i18n/t ctx :help/app-lock-auto-title)
+         app-lock-auto-description (i18n/t ctx :help/app-lock-auto-description)
+         faq-title (i18n/t ctx :help/faq-title)
+         faq-backup-question (i18n/t ctx :help/faq-backup-question)
+         faq-backup-answer (i18n/t ctx :help/faq-backup-answer)
+         faq-offline-question (i18n/t ctx :help/faq-offline-question)
+         faq-offline-answer (i18n/t ctx :help/faq-offline-answer)]
    (m/Scaffold
     .backgroundColor (.-surface color-scheme)
     .appBar (app-bar/mgl-search-app-bar navigator)
@@ -204,16 +253,56 @@
            .child (m/Row
                    .crossAxisAlignment m.CrossAxisAlignment/start
                    .children (concat
-                              (create-help-header color-scheme)
-                              [(create-getting-started-section color-scheme)
+                              (create-help-header color-scheme header-title header-subtitle)
+                              [(create-getting-started-section color-scheme
+                                                                getting-started-title
+                                                                create-notes-title
+                                                                create-notes-description
+                                                                search-title
+                                                                search-description
+                                                                organize-title
+                                                                organize-description)
                                (m/Container .width 20)
-                               (create-user-account-section color-scheme)
+                               (create-user-account-section color-scheme
+                                                            user-account-title
+                                                            login-migration-title
+                                                            login-migration-description
+                                                            logout-access-title
+                                                            logout-access-description
+                                                            user-only-title
+                                                            user-only-description)
                                (m/Container .width 20)
-                               (create-app-lock-section color-scheme)
+                               (create-app-lock-section color-scheme
+                                                        app-lock-section-title
+                                                        app-lock-feature-title
+                                                        app-lock-feature-description
+                                                        app-lock-warning-title
+                                                        app-lock-warning-description
+                                                        app-lock-auto-title
+                                                        app-lock-auto-description)
                                (m/Container .width 20)
-                               (create-common-issues-section color-scheme)
+                               (create-common-issues-section color-scheme
+                                                             common-issues-title
+                                                             sync-title
+                                                             sync-description
+                                                             save-title
+                                                             save-description
+                                                             import-title
+                                                             import-description)
                                (m/Container .width 20)
-                               (create-contact-support-section color-scheme)
+                               (create-contact-support-section color-scheme
+                                                               contact-support-title
+                                                               email-support-title
+                                                               email-support-description
+                                                               report-bugs-title
+                                                               report-bugs-description
+                                                               feedback-title
+                                                               feedback-description)
                                (m/Container .width 20)
-                               (create-faq-section color-scheme)
+                               (create-faq-section color-scheme
+                                                   faq-title
+                                                   faq-backup-question
+                                                   faq-backup-answer
+                                                   faq-offline-question
+                                                   faq-offline-answer)
                                (m/Container .width 30)]))))))

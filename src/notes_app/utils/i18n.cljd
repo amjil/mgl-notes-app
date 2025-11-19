@@ -58,7 +58,49 @@
    :about/description-body "A modern note-taking application built with Flutter and ClojureDart. Features include creating, editing, and organizing notes with a beautiful user interface."
    :about/developer-title "Developer"
    :about/developer-body "Built with ❤️ using Flutter and ClojureDart"
-   :about/version-label "Version 1.0.0"})
+   :about/version-label "Version 1.0.0"
+   :help/header-title "Help & Support"
+   :help/header-subtitle "Get help with using the app"
+   :help/getting-started-title "Getting Started"
+   :help/create-notes-title "Create Notes"
+   :help/create-notes-description "Tap the + button to create a new note. You can add text, organize with tags, and save your thoughts."
+   :help/search-title "Search & Find"
+   :help/search-description "Use the search icon to find specific notes by text content or tags."
+   :help/organize-title "Organize"
+   :help/organize-description "Use tags and categories to keep your notes organized and easy to find."
+   :help/common-issues-title "Common Issues"
+   :help/sync-title "Sync Issues"
+   :help/sync-description "If notes aren't syncing, check your internet connection and try refreshing the app."
+   :help/save-title "Save Problems"
+   :help/save-description "Notes auto-save as you type. If you're having issues, try closing and reopening the note."
+   :help/import-export-title "Import/Export"
+   :help/import-export-description "Use the floating action button to import notes from other apps or export your data."
+   :help/contact-support-title "Contact Support"
+   :help/email-support-title "Email Support"
+   :help/email-support-description "Send us an email at support@notesapp.com for technical assistance."
+   :help/report-bugs-title "Report Bugs"
+   :help/report-bugs-description "Found a bug? Use the bug report feature in the settings menu."
+   :help/feedback-title "Feedback"
+   :help/feedback-description "We'd love to hear your suggestions for improving the app."
+   :help/user-account-title "User Account & Data"
+   :help/login-migration-title "Login & Data Migration"
+   :help/login-migration-description "When you log in, all notes created in anonymous mode will automatically become part of your account. Your previous anonymous data will be transferred to your user account."
+   :help/logout-access-title "Logout & Data Access"
+   :help/logout-access-description "After logging out, you will not be able to access your notes. You must log in again to view and manage your data."
+   :help/user-only-title "User-Only Access"
+   :help/user-only-description "All notes are tied to your user account. You must be logged in to create, view, search, and manage your notes."
+   :help/app-lock-section-title "App Lock & Security"
+   :help/app-lock-feature-title "App Lock"
+   :help/app-lock-feature-description "App Lock protects your notes with a password. Once enabled, the app will automatically lock after a period of inactivity."
+   :help/app-lock-warning-title "Important Warning"
+   :help/app-lock-warning-description "\u26A0\uFE0F CRITICAL: If you forget your unlock password, you will permanently lose access to ALL your data. There is no password recovery option. Please remember your password carefully!"
+   :help/app-lock-auto-title "Auto Lock"
+   :help/app-lock-auto-description "You can set an auto-lock timeout. The app will automatically lock after the specified time of inactivity."
+   :help/faq-title "Frequently Asked Questions"
+   :help/faq-backup-question "Q: How do I backup my notes?"
+   :help/faq-backup-answer "A: Use the export feature in the floating action button to backup your notes."
+   :help/faq-offline-question "Q: Can I use the app offline?"
+   :help/faq-offline-answer "A: Yes! Notes are saved locally and will sync when you're back online."})
 
 (def ^:private key->getter
   {:app/title (fn [strings] (.-appTitle strings))
@@ -101,7 +143,49 @@
    :about/description-body (fn [strings] (.-aboutDescriptionBody strings))
    :about/developer-title (fn [strings] (.-aboutDeveloperTitle strings))
    :about/developer-body (fn [strings] (.-aboutDeveloperBody strings))
-   :about/version-label (fn [strings] (.-aboutVersionLabel strings))})
+   :about/version-label (fn [strings] (.-aboutVersionLabel strings))
+   :help/header-title (fn [strings] (.-helpHeaderTitle strings))
+   :help/header-subtitle (fn [strings] (.-helpHeaderSubtitle strings))
+   :help/getting-started-title (fn [strings] (.-helpGettingStartedTitle strings))
+   :help/create-notes-title (fn [strings] (.-helpCreateNotesTitle strings))
+   :help/create-notes-description (fn [strings] (.-helpCreateNotesDescription strings))
+   :help/search-title (fn [strings] (.-helpSearchTitle strings))
+   :help/search-description (fn [strings] (.-helpSearchDescription strings))
+   :help/organize-title (fn [strings] (.-helpOrganizeTitle strings))
+   :help/organize-description (fn [strings] (.-helpOrganizeDescription strings))
+   :help/common-issues-title (fn [strings] (.-helpCommonIssuesTitle strings))
+   :help/sync-title (fn [strings] (.-helpSyncTitle strings))
+   :help/sync-description (fn [strings] (.-helpSyncDescription strings))
+   :help/save-title (fn [strings] (.-helpSaveTitle strings))
+   :help/save-description (fn [strings] (.-helpSaveDescription strings))
+   :help/import-export-title (fn [strings] (.-helpImportExportTitle strings))
+   :help/import-export-description (fn [strings] (.-helpImportExportDescription strings))
+   :help/contact-support-title (fn [strings] (.-helpContactSupportTitle strings))
+   :help/email-support-title (fn [strings] (.-helpEmailSupportTitle strings))
+   :help/email-support-description (fn [strings] (.-helpEmailSupportDescription strings))
+   :help/report-bugs-title (fn [strings] (.-helpReportBugsTitle strings))
+   :help/report-bugs-description (fn [strings] (.-helpReportBugsDescription strings))
+   :help/feedback-title (fn [strings] (.-helpFeedbackTitle strings))
+   :help/feedback-description (fn [strings] (.-helpFeedbackDescription strings))
+   :help/user-account-title (fn [strings] (.-helpUserAccountTitle strings))
+   :help/login-migration-title (fn [strings] (.-helpLoginMigrationTitle strings))
+   :help/login-migration-description (fn [strings] (.-helpLoginMigrationDescription strings))
+   :help/logout-access-title (fn [strings] (.-helpLogoutAccessTitle strings))
+   :help/logout-access-description (fn [strings] (.-helpLogoutAccessDescription strings))
+   :help/user-only-title (fn [strings] (.-helpUserOnlyTitle strings))
+   :help/user-only-description (fn [strings] (.-helpUserOnlyDescription strings))
+   :help/app-lock-section-title (fn [strings] (.-helpAppLockSectionTitle strings))
+   :help/app-lock-feature-title (fn [strings] (.-helpAppLockFeatureTitle strings))
+   :help/app-lock-feature-description (fn [strings] (.-helpAppLockFeatureDescription strings))
+   :help/app-lock-warning-title (fn [strings] (.-helpAppLockWarningTitle strings))
+   :help/app-lock-warning-description (fn [strings] (.-helpAppLockWarningDescription strings))
+   :help/app-lock-auto-title (fn [strings] (.-helpAppLockAutoTitle strings))
+   :help/app-lock-auto-description (fn [strings] (.-helpAppLockAutoDescription strings))
+   :help/faq-title (fn [strings] (.-helpFaqTitle strings))
+   :help/faq-backup-question (fn [strings] (.-helpFaqBackupQuestion strings))
+   :help/faq-backup-answer (fn [strings] (.-helpFaqBackupAnswer strings))
+   :help/faq-offline-question (fn [strings] (.-helpFaqOfflineQuestion strings))
+   :help/faq-offline-answer (fn [strings] (.-helpFaqOfflineAnswer strings))})
 
 (defn- fallback [k]
   (get fallback-strings k (name k)))
