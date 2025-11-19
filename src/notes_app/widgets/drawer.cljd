@@ -4,11 +4,11 @@
    ["package:mongol/mongol.dart" :as mgl]
    [electric-sync.state :as es-state]
    [electric-sync.token :as token]
-  [notes-app.utils.navigator :as navigator]
+   [notes-app.utils.navigator :as navigator]
    [notes-app.widgets.favorite-list :as fal]
    [notes-app.states.notes :as notes]
-  [cljd.flutter :as f]
-  [notes-app.utils.i18n :as i18n]))
+   [cljd.flutter :as f]
+   [notes-app.utils.i18n :as i18n]))
 
 (defn mgl-left-drawer []
   (f/widget

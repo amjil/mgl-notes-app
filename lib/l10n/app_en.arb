@@ -12,6 +12,18 @@
   "drawerAbout": "About",
   "drawerRecycle": "Recycle Bin",
   "drawerSettings": "Settings",
+  "favoritesTitle": "Favorite Notes",
+  "@favoritesTitle": {
+    "description": "Section title for favorite notes list."
+  },
+  "favoritesEmptyMessage": "No favorite notes",
+  "@favoritesEmptyMessage": {
+    "description": "Placeholder message when there are no favorite notes."
+  },
+  "noteNoTitle": "No title",
+  "@noteNoTitle": {
+    "description": "Fallback label for notes without a title."
+  },
   "loginHeading": "Login",
   "loginEmailLabel": "Email",
   "loginPasswordLabel": "Password",

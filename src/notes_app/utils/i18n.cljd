@@ -24,6 +24,9 @@
    :drawer/about "About"
    :drawer/recycle "Recycle Bin"
    :drawer/settings "Settings"
+   :favorites/title "Favorite Notes"
+   :favorites/empty-message "No favorite notes"
+   :note/no-title "No title"
    :login/heading "Login"
    :login/email-label "Email"
    :login/password-label "Password"
@@ -109,6 +112,9 @@
    :drawer/about (fn [strings] (.-drawerAbout strings))
    :drawer/recycle (fn [strings] (.-drawerRecycle strings))
    :drawer/settings (fn [strings] (.-drawerSettings strings))
+   :favorites/title (fn [strings] (.-favoritesTitle strings))
+   :favorites/empty-message (fn [strings] (.-favoritesEmptyMessage strings))
+   :note/no-title (fn [strings] (.-noteNoTitle strings))
    :login/heading (fn [strings] (.-loginHeading strings))
    :login/email-label (fn [strings] (.-loginEmailLabel strings))
    :login/password-label (fn [strings] (.-loginPasswordLabel strings))
