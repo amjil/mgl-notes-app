@@ -62,10 +62,12 @@ cd mgl-notes-app
 flutter pub get
 clojure -M:cljd
 flutter pub run build_runner build
+flutter gen-l10n
 flutter run
 ```
 
 > Tip: run `flutter pub run build_runner build --delete-conflicting-outputs` after schema changes.
+> Localization: run `flutter gen-l10n` whenever strings change because the generated Dart under `lib/l10n/` is no longer tracked in Git.
 
 ### Environment Variables
 
