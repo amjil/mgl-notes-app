@@ -57,7 +57,8 @@
           (m/Row
            .mainAxisAlignment m/MainAxisAlignment.start
            .children
-           [(if (empty? uid)
+           [(if (and false (empty? uid))
+              ;; TODO: Remove this once we have a login screen
               (mgl/MongolListTile
                .leading (m/Icon m/Icons.login)
                .title (mgl/MongolText (i18n/t ctx :drawer/login))
