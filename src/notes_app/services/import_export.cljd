@@ -3,11 +3,12 @@
    ["package:path_provider/path_provider.dart" :as path-provider]
    ["dart:io" :as io]
    ["dart:convert" :as convert]
+   ["package:path/path.dart" :as path]
    [notes-app.services.db :as db]
    [notes-app.utils.string :as string-utils]))
 
 ;; Import/Export service for notes data
-;; Supports JSON format for data portability
+;; Supports SQLite database backup/restore and JSON format for data portability
 
 (defn get-app-documents-directory []
   (await (path-provider/getApplicationDocumentsDirectory)))
@@ -15,20 +16,26 @@
 (defn get-app-external-storage-directory []
   (await (path-provider/getExternalStorageDirectory)))
 
+;; Get the path to the SQLite database file
+(defn get-database-path []
+  (let [app-docs-dir (await (get-app-documents-directory))
+        db-path (path/join (.-path app-docs-dir) "notes.db")]
+    db-path))
+
 (defn create-export-directory []
-  (let [dir (get-app-documents-directory)
-        export-dir (io/Directory. (str (.-path dir) "/exports"))]
+  (let [dir (await (get-app-documents-directory))
+        ^io/Directory export-dir (io/Directory. (str (.-path dir) "/exports"))]
     (when-not (.existsSync export-dir)
       (.createSync export-dir :recursive true))
     export-dir))
 
 (defn format-date-time [date-time]
-  (let [year (.year date-time)
-        month (.month date-time)
-        day (.day date-time)
-        hour (.hour date-time)
-        minute (.minute date-time)
-        second (.second date-time)]
+  (let [year (.-year date-time)
+        month (.-month date-time)
+        day (.-day date-time)
+        hour (.-hour date-time)
+        minute (.-minute date-time)
+        second (.-second date-time)]
     (str year "-" 
          (string-utils/pad-left (str month) "0" 2) "-"
          (string-utils/pad-left (str day) "0" 2) "_"
@@ -36,8 +43,8 @@
          (string-utils/pad-left (str minute) "0" 2) "-"
          (string-utils/pad-left (str second) "0" 2))))
 
+;; Export all notes with their blocks, tags, and metadata to JSON format
 (defn export-notes-to-json []
-  "Export all notes with their blocks, tags, and metadata to JSON format"
   (let [notes (await (db/get-all-notes))
         export-data {:version "1.0"
                      :export-date (format-date-time (DateTime/now))
@@ -52,11 +59,13 @@
                        :created-at (.-createdAt note)
                        :updated-at (.-updatedAt note)
                        :sync-status (.-syncStatus note)
-                       :is-blocks-synced (.-isBlocksSynced note)
+                       :meta-data (.-metaData note)
+                       :block-ids (.-blockIds note)
                        :is-deleted (.-isDeleted note)
                        :blocks (map (fn [block]
                                      {:id (.-id block)
                                       :content (.-content block)
+                                      :meta-data (.-metaData block)
                                       :created-at (.-createdAt block)
                                       :updated-at (.-updatedAt block)
                                       :sync-status (.-syncStatus block)})
@@ -68,8 +77,8 @@
         (swap! (.-notes export-data) conj note-data)))
     export-data))
 
+;; Save export data to a JSON file
 (defn save-export-file [export-data filename]
-  "Save export data to a JSON file"
   (let [export-dir (create-export-directory)
         file-path (str (.-path export-dir) "/" filename)
         file (io/File. file-path)
@@ -77,28 +86,23 @@
     (.writeAsStringSync file json-string)
     file-path))
 
+;; Export all notes to a JSON file and return the file path
 (defn export-notes []
-  "Export all notes to a JSON file and return the file path"
-  (let [export-data (export-notes-to-json)
+  (let [export-data (await (export-notes-to-json))
         timestamp (format-date-time (DateTime/now))
         filename (str "mongol_notes_export_" timestamp ".json")]
     (save-export-file export-data filename)))
 
+;; Import notes from JSON data
 (defn import-notes-from-json [json-data]
-  "Import notes from JSON data"
   (let [data (convert/jsonDecode json-data)
-        version (.-version data)
         notes (.-notes data)]
     (doseq [note-data notes]
       (let [note-id (.-id note-data)
             title (.-title note-data)
-            created-at (.-createdAt note-data)
-            updated-at (.-updatedAt note-data)
-            sync-status (.-syncStatus note-data)
-            is-blocks-synced (.-isBlocksSynced note-data)
-            is-deleted (.-isDeleted note-data)
             meta-data (.-metaData note-data)
             blocks (.-blocks note-data)
+            block-ids (.-blockIds note-data)
             tags (.-tags note-data)]
         
         ;; Create note
@@ -109,6 +113,8 @@
           (let [content (.-content block-data)
                 meta-data (.-metaData block-data)]
             (db/create-block note-id content meta-data)))
+
+        (db/update-note-block-ids note-id (string-utils/json-array-of-strings block-ids))
         
         ;; Create tags and associations
         (doseq [tag-data tags]
@@ -117,20 +123,20 @@
             (db/create-tag tag-name tag-id)
             (db/add-tag-to-note note-id tag-id)))))))
 
+;; Read and parse JSON export file
 (defn read-export-file [file-path]
-  "Read and parse JSON export file"
   (let [file (io/File. file-path)
         json-string (.readAsStringSync file)]
     (convert/jsonDecode json-string)))
 
+;; Validate export data structure
 (defn validate-export-data [data]
-  "Validate export data structure"
   (and (.-version data)
        (.-notes data)
        (vector? (.-notes data))))
 
+;; Get information about an export file
 (defn get-export-file-info [file-path]
-  "Get information about an export file"
   (let [file (io/File. file-path)]
     {:path file-path
      :name (.basename file)
@@ -138,8 +144,8 @@
      :last-modified (.lastModifiedSync file)
      :exists (.existsSync file)}))
 
+;; List all export files in the exports directory
 (defn list-export-files []
-  "List all export files in the exports directory"
   (let [export-dir (create-export-directory)
         files (.listSync export-dir)
         json-files (filter (fn [file]
@@ -150,14 +156,55 @@
            (get-export-file-info (.path file)))
          json-files)))
 
+;; Delete an export file
 (defn delete-export-file [file-path]
-  "Delete an export file"
   (let [file (io/File. file-path)]
     (when (.existsSync file)
       (.deleteSync file))))
 
+;; Share an export file (platform specific implementation)
 (defn share-export-file [file-path]
-  "Share an export file (platform specific implementation)"
   ;; This would need to be implemented with platform-specific sharing
   ;; For now, just return the file path
-  file-path) 
+  file-path)
+
+;; SQLite Database Backup and Restore Functions
+
+;; Backup the entire SQLite database file to the exports directory
+(defn backup-database []
+  (let [db-path (await (get-database-path))
+        db-file (io/File. db-path)
+        export-dir (await (create-export-directory))
+        timestamp (format-date-time (DateTime/now))
+        backup-filename (str "notes_db_backup_" timestamp ".db")
+        backup-path (str (.-path export-dir) "/" backup-filename)]
+    (if (.existsSync db-file)
+      (do
+        (.copySync db-file backup-path)
+        backup-path)
+      (throw (Exception. "Database file not found")))))
+
+;; Restore the SQLite database from a backup file
+(defn restore-database [backup-file-path]
+  (let [backup-file (io/File. backup-file-path)
+        db-path (await (get-database-path))]
+    (if (.existsSync backup-file)
+      (do
+        ;; Close database connection before restoring
+        ;; Note: This might require additional database management
+        ;; Copy backup file to database location
+        (.copySync backup-file db-path)
+        db-path)
+      (throw (Exception. "Backup file not found")))))
+
+;; List all database backup files in the exports directory
+(defn list-database-backups []
+  (let [export-dir (create-export-directory)
+        files (.listSync export-dir)
+        db-files (filter (fn [file]
+                          (and (.isFileSync file)
+                               (.endsWith (.basename (.path file)) ".db")))
+                        files)]
+    (map (fn [file]
+           (get-export-file-info (.path file)))
+         db-files))) 

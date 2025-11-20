@@ -1,12 +1,26 @@
 (ns notes-app.utils.file
   (:require 
 ;;    ["package:file_picker/file_picker.dart" :as file-picker]
-;;    [notes-app.services.import-export :as import-export]
+   [notes-app.services.import-export :as import-export]
    [notes-app.utils.toast :as toast]))
 
 
 ;; TODO: Implement file picker
-(defn file-picker [ctx]
+(defn file-picker [_ctx]
+  identity)
+
+;; TODO: Implement file picker for database files
+(defn file-picker-for-db [ctx]
+  ;; For now, show a message that this needs to be implemented
+  ;; In a full implementation, this would use file_picker to select .db files
+  (toast/show-toast ctx "Database restore: Please select a .db backup file" :info)
+  ;; TODO: Implement actual file picker with .db extension filter
+  ;; When implemented, it should call:
+  ;; (-> (import-export/restore-database file-path)
+  ;;     (.then (fn []
+  ;;              (toast/show-toast ctx "Database restored successfully" :success)))
+  ;;     (.catchError (fn [error]
+  ;;                    (toast/show-toast ctx (str "Error restoring database: " error) :error)))))
   identity)
 
 ;; ;; TODO: Implement file picker

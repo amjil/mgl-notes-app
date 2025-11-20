@@ -43,9 +43,6 @@
                  [bid meta])))
         coll))
 
-(defn- json-array-of-strings [xs]
-  (str "[" (str/join "," (map (fn [s] (str "\"" s "\"")) xs)) "]"))
-
 (defn- update-note-references!
   "Update note references based on link-ids from editor state"
   [note-id]
@@ -203,7 +200,7 @@
                    (doseq [bid to-delete]
                      (db/delete-block bid))
                    ;; Update note.blockIds with editor order
-                   (db/update-note-block-ids note-id (json-array-of-strings body-ids))))))))
+                   (db/update-note-block-ids note-id (string-utils/json-array-of-strings body-ids))))))))
                    
 (declare clear-note-editor)
 

@@ -83,4 +83,8 @@
 (defn json-decode
   "Decode JSON string to data"
   [json-string]
-  (convert/jsonDecode json-string)) 
+  (convert/jsonDecode json-string))
+
+;; Convert a collection of strings into a JSON array string
+(defn json-array-of-strings [xs]
+  (str "[" (str/join "," (map (fn [s] (str "\"" s "\"")) xs)) "]"))

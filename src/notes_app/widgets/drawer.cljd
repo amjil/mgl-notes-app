@@ -79,6 +79,12 @@
                       (notes/load-deleted-notes! ctx 0 20)
                       (navigator/navigate-to-screen navigator "/recycle")))
             (mgl/MongolListTile
+             .leading (m/Icon m/Icons.import_export)
+             .title (mgl/MongolText (i18n/t ctx :drawer/import-export))
+             .onTap (fn []
+                      (-> m/Scaffold (.of ctx) .closeDrawer)
+                      (navigator/navigate-to-screen navigator "/import-export")))
+            (mgl/MongolListTile
              .leading (m/Icon m/Icons.settings)
              .title (mgl/MongolText (i18n/t ctx :drawer/settings))
              .onTap (fn []
