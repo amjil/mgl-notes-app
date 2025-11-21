@@ -68,3 +68,8 @@
 (defn empty-export-files-with-errors []
   (empty-state {:message "Error When Fetching Export Files"
                 :icon m/Icons.file_present_outlined}))
+
+;; Empty backup files state
+(defn empty-backup-files []
+  (empty-state {:message "No backup files found"
+                :icon m/Icons.storage_outlined}))

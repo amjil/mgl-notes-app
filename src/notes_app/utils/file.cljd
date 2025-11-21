@@ -1,49 +1,29 @@
 (ns notes-app.utils.file
   (:require 
-;;    ["package:file_picker/file_picker.dart" :as file-picker]
    [notes-app.services.import-export :as import-export]
    [notes-app.utils.toast :as toast]))
 
-
-;; TODO: Implement file picker
-(defn file-picker [_ctx]
-  identity)
-
-;; TODO: Implement file picker for database files
+;; File picker for database backup files
 (defn file-picker-for-db [ctx]
   ;; For now, show a message that this needs to be implemented
   ;; In a full implementation, this would use file_picker to select .db files
   (toast/show-toast ctx "Database restore: Please select a .db backup file" :info)
   ;; TODO: Implement actual file picker with .db extension filter
   ;; When implemented, it should call:
-  ;; (-> (import-export/restore-database file-path)
-  ;;     (.then (fn []
-  ;;              (toast/show-toast ctx "Database restored successfully" :success)))
+  ;; (-> (file-picker/FilePicker.platform.pickFiles
+  ;;      .type file-picker/FileType.custom
+  ;;      .allowedExtensions ["db"]
+  ;;      .allowMultiple false)
+  ;;     (.then (fn [result]
+  ;;              (if (and result (.-files result))
+  ;;                (let [file (first (.-files result))
+  ;;                      file-path (.-path file)]
+  ;;                  (-> (import-export/restore-database file-path)
+  ;;                      (.then (fn []
+  ;;                               (toast/show-toast ctx "Database restored successfully" :success)))
+  ;;                      (.catchError (fn [error]
+  ;;                                     (toast/show-toast ctx (str "Error restoring database: " error) :error)))))
+  ;;                (toast/show-toast ctx "No file selected" :info))))
   ;;     (.catchError (fn [error]
-  ;;                    (toast/show-toast ctx (str "Error restoring database: " error) :error)))))
+  ;;                    (toast/show-toast ctx (str "Error picking file: " error) :error)))))
   identity)
-
-;; ;; TODO: Implement file picker
-;; (defn file-picker [ctx]
-;;   (-> (file-picker/FilePicker.platform.pickFiles
-;;        .type file-picker/FileType.custom
-;;        .allowedExtensions ["json"]
-;;        .allowMultiple false)
-;;       (.then (fn [result]
-;;                (if (and result (.-files result))
-;;                  (let [file (first (.-files result))
-;;                        file-path (.-path file)]
-;;                    (-> (import-export/read-export-file file-path)
-;;                        (.then (fn [data]
-;;                                 (if (import-export/validate-export-data data)
-;;                                   (-> (import-export/import-notes-from-json data)
-;;                                       (.then (fn []
-;;                                                (toast/show-toast ctx "Notes imported successfully" :success)))
-;;                                       (.catchError (fn [error]
-;;                                                      (toast/show-toast ctx (str "Error importing notes: " error) :error))))
-;;                                   (toast/show-toast ctx "Invalid import file format" :error)))))
-;;                    (.catchError (fn [error]
-;;                                   (toast/show-toast ctx (str "Error reading file: " error) :error)))))
-;;                (toast/show-toast ctx "No file selected" :info)))
-;;       (.catchError (fn [error]
-;;                      (toast/show-toast ctx (str "Error picking file: " error) :error)))))

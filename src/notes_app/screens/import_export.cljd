@@ -83,70 +83,24 @@
 
      (m/SizedBox .width 16)
 
-     ;; Export Section
-     (m/Card
-      .child (m/Padding
-              .padding (m/EdgeInsets.all 16)
-              .child (m/Row
-                      .crossAxisAlignment m/CrossAxisAlignment.start
-                      .children
-                      [(mgl/MongolText "Export Notes"
-                                       .style title-medium)
-                       (m/SizedBox .width 8)
-                       (mgl/MongolText "Export all your notes to a JSON file for backup or transfer."
-                                       .style body-medium)
-                       (m/SizedBox .width 16)
-                       (m/ElevatedButton
-                        .onPressed (fn []
-                                     (-> (import-export-service/export-notes)
-                                         (.then (fn [_result]
-                                                  (toast/show-toast ctx "Notes exported successfully" :success)))
-                                         (.catchError (fn [error]
-                                                        (toast/show-toast ctx (str "Error exporting notes: " error) :error)))))
-                        .child (m/Column
-                                .mainAxisSize m/MainAxisSize.min
-                                .children [(m/Icon m/Icons.download)
-                                           (m/SizedBox .height 8)
-                                           (mgl/MongolText "Export Notes")]))])))
-
-     (m/SizedBox .width 16)
-
-     ;; Import Section
-     (m/Card
-      .child (m/Padding
-              .padding (m/EdgeInsets.all 16)
-              .child (m/Row
-                      .crossAxisAlignment m/CrossAxisAlignment.start
-                      .children
-                      [(mgl/MongolText "Import Notes"
-                                       .style title-medium)
-                       (m/SizedBox .width 8)
-                       (mgl/MongolText "Import notes from a JSON file. This will add new notes to your collection."
-                                       .style body-medium)
-                       (m/SizedBox .width 16)
-                       (m/ElevatedButton
-                        .onPressed (fn []
-                                     (file/file-picker ctx))
-                        .child (m/Column
-                                .mainAxisSize m/MainAxisSize.min
-                                .children [(m/Icon m/Icons.upload)
-                                           (m/SizedBox .height 8)
-                                           (mgl/MongolText "Import Notes")]))])))
-
-     (m/SizedBox .width 16)
-
-     ;; Export Files Section
-     (m/Card
-      .child
-      (m/Padding
-       .padding (m/EdgeInsets.all 16)
-       .child (m/Row
-               .crossAxisAlignment m/CrossAxisAlignment.start
-               .children
-               [(mgl/MongolText "Export Files"
-                                .style title-medium)
-                (m/SizedBox .width 8)
-                (mgl/MongolText "Manage your exported files."
-                                .style body-medium)
-                (m/SizedBox .width 16)
-                (import-export/export-files-list)])))])))
+     ;; Backup Files Section
+     (let [open-backup-files-dialog (fn []
+                                     (import-export/show-backup-files-dialog ctx))]
+       (m/Card
+        .child
+        (m/InkWell
+         .onTap open-backup-files-dialog
+         .borderRadius (m/BorderRadius.circular 12)
+         .child
+         (m/Padding
+          .padding (m/EdgeInsets.all 16)
+          .child (m/Row
+                  .crossAxisAlignment m/CrossAxisAlignment.start
+                  .children
+                  [(mgl/MongolText "Backup Files"
+                                   .style title-medium)
+                   (m/SizedBox .width 8)
+                   (mgl/MongolText "Tap to view and manage your database backup files."
+                                   .style body-medium)
+                   (m/SizedBox .width 16)
+                   (m/Icon m/Icons.open_in_new)])))))])))
