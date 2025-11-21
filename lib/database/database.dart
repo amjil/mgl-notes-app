@@ -28,7 +28,8 @@ class Notes extends Table {
 // Blocks table
 class Blocks extends Table {
   TextColumn get id => text()();
-  TextColumn get noteId => text().references(Notes, #id, onDelete: KeyAction.cascade)();
+  TextColumn get noteId =>
+      text().references(Notes, #id, onDelete: KeyAction.cascade)();
   TextColumn get userId => text().nullable()();
   TextColumn get content => text()();
   TextColumn get metaData => text().nullable()();
@@ -53,8 +54,10 @@ class Tags extends Table {
 // Note-tag junction table
 class NoteTags extends Table {
   TextColumn get userId => text().nullable()();
-  TextColumn get noteId => text().references(Notes, #id, onDelete: KeyAction.cascade)();
-  TextColumn get tagId => text().references(Tags, #id, onDelete: KeyAction.cascade)();
+  TextColumn get noteId =>
+      text().references(Notes, #id, onDelete: KeyAction.cascade)();
+  TextColumn get tagId =>
+      text().references(Tags, #id, onDelete: KeyAction.cascade)();
 
   @override
   Set<Column> get primaryKey => {noteId, tagId};
@@ -63,7 +66,8 @@ class NoteTags extends Table {
 // Favorite notes table
 class FavoriteNotes extends Table {
   TextColumn get userId => text().nullable()();
-  TextColumn get noteId => text().references(Notes, #id, onDelete: KeyAction.cascade)();
+  TextColumn get noteId =>
+      text().references(Notes, #id, onDelete: KeyAction.cascade)();
   DateTimeColumn get createdAt => dateTime().withDefault(currentDateAndTime)();
 
   @override
@@ -73,8 +77,10 @@ class FavoriteNotes extends Table {
 // Note references table - stores note_id and referenced_note_id for note reference jump functionality
 class NoteReferences extends Table {
   TextColumn get userId => text().nullable()();
-  TextColumn get noteId => text().references(Notes, #id, onDelete: KeyAction.cascade)();
-  TextColumn get referencedNoteId => text().references(Notes, #id, onDelete: KeyAction.cascade)();
+  TextColumn get noteId =>
+      text().references(Notes, #id, onDelete: KeyAction.cascade)();
+  TextColumn get referencedNoteId =>
+      text().references(Notes, #id, onDelete: KeyAction.cascade)();
   DateTimeColumn get createdAt => dateTime().withDefault(currentDateAndTime)();
 
   @override
@@ -82,14 +88,7 @@ class NoteReferences extends Table {
 }
 
 @DriftDatabase(
-  tables: [
-    Notes,
-    Blocks,
-    Tags,
-    NoteTags,
-    FavoriteNotes,
-    NoteReferences,
-  ],
+  tables: [Notes, Blocks, Tags, NoteTags, FavoriteNotes, NoteReferences],
 )
 class AppDatabase extends _$AppDatabase {
   AppDatabase(super.e);
@@ -97,12 +96,34 @@ class AppDatabase extends _$AppDatabase {
   @override
   int get schemaVersion => 16;
 
+  // Helper function to safely add a column if it doesn't exist
+  Future<void> _addColumnIfNotExists(
+    String tableName,
+    String columnName,
+    String columnDefinition,
+  ) async {
+    try {
+      await customStatement(
+        'ALTER TABLE $tableName ADD COLUMN $columnName $columnDefinition',
+      );
+    } catch (e) {
+      // Check if error is due to duplicate column name
+      final errorStr = e.toString().toLowerCase();
+      if (!errorStr.contains('duplicate column') &&
+          !errorStr.contains('duplicate column name')) {
+        // Re-throw if it's a different error
+        rethrow;
+      }
+      // Otherwise, column already exists, which is fine
+    }
+  }
+
   @override
   MigrationStrategy get migration {
     return MigrationStrategy(
       onCreate: (Migrator m) async {
         await m.createAll();
-        
+
         // Create FTS5 tables for full-text search
         await customStatement('''
           CREATE VIRTUAL TABLE blocks_fts
@@ -111,7 +132,7 @@ class AppDatabase extends _$AppDatabase {
             content
           )
         ''');
-        
+
         await customStatement('''
           CREATE VIRTUAL TABLE note_fts
           USING fts5(
@@ -134,8 +155,8 @@ class AppDatabase extends _$AppDatabase {
           await m.createTable(noteReferences);
         }
         if (from < 14) {
-          // Add user_id column to note_references table
-          await customStatement('ALTER TABLE note_references ADD COLUMN user_id TEXT');
+          // Add user_id column to note_references table if it doesn't exist
+          await _addColumnIfNotExists('note_references', 'user_id', 'TEXT');
         }
         if (from < 15) {
           // Add meta_data column to blocks table
