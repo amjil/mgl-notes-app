@@ -18,6 +18,7 @@
    [notes-app.screens.help-support :as help]
    [notes-app.screens.settings :as settings]
    [notes-app.screens.unlock :as unlock]
+   [notes-app.screens.backup :as backup]
    [notes-app.services.db :as db]
    [notes-app.theme :as theme]
    [notes-app.states.theme :as theme-state]
@@ -104,5 +105,6 @@
                 "/about" about/screen
                 "/help" help/screen
                 "/settings" settings/screen
-                "/unlock" unlock/screen}))))))
+                "/unlock" unlock/screen
+                "/backup" backup/screen}))))))
     
