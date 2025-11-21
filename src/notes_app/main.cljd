@@ -17,7 +17,6 @@
    [notes-app.screens.about-app :as about]
    [notes-app.screens.help-support :as help]
    [notes-app.screens.settings :as settings]
-   [notes-app.screens.import-export :as import-export]
    [notes-app.screens.unlock :as unlock]
    [notes-app.services.db :as db]
    [notes-app.theme :as theme]
@@ -105,6 +104,5 @@
                 "/about" about/screen
                 "/help" help/screen
                 "/settings" settings/screen
-                "/unlock" unlock/screen
-                "/import-export" import-export/screen}))))))
+                "/unlock" unlock/screen}))))))
     
