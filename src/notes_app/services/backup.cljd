@@ -1,0 +1,149 @@
+(ns notes-app.services.backup
+  (:require
+   ["dart:io" :as io]
+   ["dart:async" :as async]
+   ["package:path/path.dart" :as p]
+   ["package:path_provider/path_provider.dart" :refer [getApplicationDocumentsDirectory]]
+   ["package:intl/intl.dart" :refer [DateFormat]]
+   ["package:archive/archive_io.dart" :refer [Archive ArchiveFile ZipEncoder ZipDecoder]]
+   [notes-app.services.db :as db]
+   [notes-app.utils.toast :as toast]))
+
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;; Internal helpers
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+(defn- ensure-backup-dir []
+  (-> (getApplicationDocumentsDirectory)
+      (.then (fn [dir]
+               (let [backup-dir (io/Directory. (str (.path dir) "/backup"))]
+                 (.createSync backup-dir .recursive true)
+                 backup-dir)))))
+
+(defn- db-file-path []
+  (-> (getApplicationDocumentsDirectory)
+      (.then (fn [dir]
+               (str (.path dir) "/app.db")))))
+
+(defn- timestamp []
+  (.format (DateFormat. "yyyyMMdd_HHmmss") (DateTime/now)))
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;; Public: Create ZIP backup
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+(defn create-backup! []
+  (async/Future.
+   (fn [resolve _]
+     (await
+      (let [db-path (await (db-file-path))
+            db-file (io/File. db-path)
+            backup-dir (await (ensure-backup-dir))
+            out-path (str (.path backup-dir) "/backup_" (timestamp) ".zip")
+
+            bytes (.readAsBytesSync db-file)
+            archive (Archive.)]
+
+        ;; add DB file into archive
+        (.add archive
+              (ArchiveFile. "notes.db" (count bytes) bytes))
+
+        ;; write zip
+        (.writeAsBytesSync (io/File. out-path) (.encode (ZipEncoder.) archive))
+
+        (resolve out-path))))))
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;; Public: Restore backup ZIP
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+(defn restore-backup! [zip-path]
+  (async/Future.
+   (fn [resolve reject]
+     (try
+       (await
+        (let [db-path (await (db-file-path))
+              db-file (io/File. db-path)
+
+              ;; 1) close Drift first
+              _ (.close @db/db)
+
+              ;; 2) unzip backup
+              input (.readAsBytesSync (io/File. zip-path))
+              archive (-> (ZipDecoder.) (.decodeBytes input))
+              extracted (.content (.first archive))]
+
+          ;; 3) overwrite db file
+          (.writeAsBytesSync db-file extracted)
+
+          ;; 4) re-open DB (caller should set db var)
+          (db/initialize-database!)
+
+          (resolve :ok)))
+       (catch Exception e
+         (reject e))))))
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;; Public: List all backup files
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+(defn list-backups []
+  (async/Future.
+   (fn [resolve _]
+     (await
+      (let [backup-dir (await (ensure-backup-dir))
+            files (.listSync backup-dir)]
+        (resolve files))))))
+
+
+;; Export to Externel Folder
+;; (defn export-to-folder
+;;   "Select a external folder to export the backup ZIP file"
+;;   [ctx file-path]
+;;   (-> (.getDirectoryPath picker/FilePicker)
+;;       (.then
+;;        (fn [dir]
+;;          (when (and dir file-path)
+;;            (let [src (io/File. file-path)
+;;                  dest (io/File. (str dir "/" (p/basename file-path)))]
+;;              (.copySync src (.path dest))
+;;              (toast/show-toast ctx "Backup exported successfully" :success)))))
+;;       (.catchError (fn [e] 
+;;                      (toast/show-toast ctx (str "Error exporting backup: " e) :error)))))
+
+
+;; (defn pick-and-restore
+;;   "Pick a backup ZIP file from the system file picker and restore it"
+;;   [ctx drift-db]
+;;   (-> (.pickFiles picker/FilePicker
+;;                   .type picker/FileType.custom
+;;                   .allowedExtensions ["zip"])
+;;       (.then
+;;        (fn [result]
+;;          (if (some? result)
+;;            (let [file (.path (first (.files result)))]
+;;              (-> (restore-backup! file)
+;;                  (.then (fn [_]
+;;                           (toast/show-toast ctx "Backup restored successfully" :success)))))
+;;            ;; No file selected
+;;            (toast/show-toast ctx "No backup file selected" :info)))
+;;       (.catchError
+;;        (fn [e]
+;;          (toast/show-toast ctx (str "Error restoring backup: " e) :error))))))
+
+;; Usage example:
+
+;; (defn on-backup []
+;;   (-> (backup/create-backup!)
+;;       (.then (fn [path]
+;;                (print "Backup created: " path)))))
+
+;; (-> (backup/list-backups)
+;;     (.then (fn [files]
+;;              (doseq [f files]
+;;                (print "Backup file: " (.path f))))))
+
+;; (-> (backup/restore-backup! zip-path)
+;;     (.then (fn [_]
+;;              (print "Restore successful, please re-initialize the database instance"))))
