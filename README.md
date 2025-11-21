@@ -2,6 +2,8 @@
 
 A Mongolian-first note-taking experience built with ClojureDart and Flutter. The app combines vertical Mongolian typography, a block-based editor, sync-ready persistence, and modern UX patterns to help writers collect, organize, and revisit ideas.
 
+Looking for a more lightweight drafting companion? Explore the simpler note app [mongol-drafts](https://github.com/amjil/mongol-drafts) built around core vertical writing workflows.
+
 ## Highlights (2025-11)
 
 - **Favorite shelf**: horizontal favorites list in the drawer with quick navigation and unfavorite actions.
