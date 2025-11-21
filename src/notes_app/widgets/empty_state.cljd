@@ -2,7 +2,8 @@
   (:require
    ["package:flutter/material.dart" :as m]
    ["package:mongol/mongol.dart" :as mgl]
-   [cljd.flutter :as f]))
+   [cljd.flutter :as f]
+   [notes-app.utils.i18n :as i18n]))
 
 ;; ==================== Empty state widget ====================
 
@@ -29,53 +30,64 @@
                (when icon
                  (m/SizedBox .height 16))
                (mgl/MongolText
-                message
+                (or message "")
                 .style (m/TextStyle
                         .fontSize (or text-size 20)
                         .fontWeight (or font-weight m/FontWeight.w500)
                         .color (or color (.-onSurface color-scheme))))])))
-   
-   ;))
-    
-    
-    
 
 ;; ==================== Common empty states ====================
 
 ;; Empty notes state
 (defn empty-notes []
-  (empty-state {:message "Тэмдэглэл байхгүй"
-                :icon m/Icons.note_outlined}))
+  (f/widget
+   :context ctx
+   (empty-state {:message (i18n/t ctx :empty/notes-message)
+                 :icon m/Icons.note_outlined})))
 
 (defn empty-notes-with-errors []
-  (empty-state {:message "Error When Fetching Notes"
-                :icon m/Icons.note_outlined}))
+  (f/widget
+   :context ctx
+   (empty-state {:message (i18n/t ctx :empty/notes-error)
+                 :icon m/Icons.note_outlined})))
 
 ;; Empty search results state
 (defn empty-search-results []
-  (empty-state {:message "Хайлтын үр дүн олдсонгүй"
-                :icon m/Icons.search_off_outlined}))
+  (f/widget
+   :context ctx
+   (empty-state {:message (i18n/t ctx :empty/search-results-message)
+                 :icon m/Icons.search_off_outlined})))
 
 ;; Empty tags state
 (defn empty-tags []
-  (empty-state {:message "Тэг байхгүй"
-                :icon m/Icons.tag_outlined}))
+  (f/widget
+   :context ctx
+   (empty-state {:message (i18n/t ctx :empty/tags-message)
+                 :icon m/Icons.tag_outlined})))
 
 ;; Empty blocks state
 (defn empty-blocks []
-  (empty-state {:message "Блок байхгүй"
-                :icon m/Icons.block_outlined}))
+  (f/widget
+   :context ctx
+   (empty-state {:message (i18n/t ctx :empty/blocks-message)
+                 :icon m/Icons.block_outlined})))
 
 ;; Empty export files state
 (defn empty-export-files []
-  (empty-state {:message "Export files not found"
-                :icon m/Icons.file_present_outlined}))
+  (f/widget
+   :context ctx
+   (empty-state {:message (i18n/t ctx :empty/export-files-message)
+                 :icon m/Icons.file_present_outlined})))
 
 (defn empty-export-files-with-errors []
-  (empty-state {:message "Error When Fetching Export Files"
-                :icon m/Icons.file_present_outlined}))
+  (f/widget
+   :context ctx
+   (empty-state {:message (i18n/t ctx :empty/export-files-error)
+                 :icon m/Icons.file_present_outlined})))
 
 ;; Empty backup files state
 (defn empty-backup-files []
-  (empty-state {:message "No backup files found"
-                :icon m/Icons.storage_outlined}))
+  (f/widget
+   :context ctx
+   (empty-state {:message (i18n/t ctx :empty/backup-files-message)
+                 :icon m/Icons.storage_outlined})))

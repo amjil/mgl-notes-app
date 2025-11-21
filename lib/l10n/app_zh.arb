@@ -5,6 +5,7 @@
   "drawerLogout": "退出",
   "drawerAbout": "关于",
   "drawerRecycle": "回收站",
+  "drawerBackup": "备份",
   "drawerSettings": "设置",
   "favoritesTitle": "收藏的笔记",
   "favoritesEmptyMessage": "暂无收藏笔记",
@@ -85,6 +86,14 @@
   "helpFaqBackupQuestion": "问：如何备份我的笔记？",
   "helpFaqBackupAnswer": "答：使用悬浮按钮中的导出功能即可备份笔记。",
   "helpFaqOfflineQuestion": "问：应用能离线使用吗？",
-  "helpFaqOfflineAnswer": "答：可以！笔记会在本地保存，联网后自动同步。"
+  "helpFaqOfflineAnswer": "答：可以！笔记会在本地保存，联网后自动同步。",
+  "emptyNotesMessage": "暂无笔记",
+  "emptyNotesError": "获取笔记时出错",
+  "emptySearchResultsMessage": "未找到搜索结果",
+  "emptyTagsMessage": "暂无标签",
+  "emptyBlocksMessage": "暂无块",
+  "emptyExportFilesMessage": "未找到导出文件",
+  "emptyExportFilesError": "获取导出文件时出错",
+  "emptyBackupFilesMessage": "未找到备份文件"
 }
 

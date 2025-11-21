@@ -5,6 +5,7 @@
   "drawerLogout": "Гарах",
   "drawerAbout": "Тухай",
   "drawerRecycle": "Сэргээх сан",
+  "drawerBackup": "Нөөцлөлт",
   "drawerSettings": "Тохиргоо",
   "favoritesTitle": "Дуртай тэмдэглэлүүд",
   "favoritesEmptyMessage": "Дуртай тэмдэглэл алга",
@@ -85,6 +86,14 @@
   "helpFaqBackupQuestion": "Q: How do I backup my notes?",
   "helpFaqBackupAnswer": "A: Use the export feature in the floating action button to backup your notes.",
   "helpFaqOfflineQuestion": "Q: Can I use the app offline?",
-  "helpFaqOfflineAnswer": "A: Yes! Notes are saved locally and will sync when you're back online."
+  "helpFaqOfflineAnswer": "A: Yes! Notes are saved locally and will sync when you're back online.",
+  "emptyNotesMessage": "Тэмдэглэл байхгүй",
+  "emptyNotesError": "Тэмдэглэл татахад алдаа гарлаа",
+  "emptySearchResultsMessage": "Хайлтын үр дүн олдсонгүй",
+  "emptyTagsMessage": "Тэг байхгүй",
+  "emptyBlocksMessage": "Блок байхгүй",
+  "emptyExportFilesMessage": "Экспорт файл олдсонгүй",
+  "emptyExportFilesError": "Экспорт файл татахад алдаа гарлаа",
+  "emptyBackupFilesMessage": "Нөөцлөлтийн файл олдсонгүй"
 }
 

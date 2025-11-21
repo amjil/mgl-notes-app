@@ -11,6 +11,7 @@
   "drawerLogout": "Logout",
   "drawerAbout": "About",
   "drawerRecycle": "Recycle Bin",
+  "drawerBackup": "Backup",
   "drawerSettings": "Settings",
   "favoritesTitle": "Favorite Notes",
   "@favoritesTitle": {
@@ -100,6 +101,38 @@
   "helpFaqBackupQuestion": "Q: How do I backup my notes?",
   "helpFaqBackupAnswer": "A: Use the export feature in the floating action button to backup your notes.",
   "helpFaqOfflineQuestion": "Q: Can I use the app offline?",
-  "helpFaqOfflineAnswer": "A: Yes! Notes are saved locally and will sync when you're back online."
+  "helpFaqOfflineAnswer": "A: Yes! Notes are saved locally and will sync when you're back online.",
+  "emptyNotesMessage": "No notes",
+  "@emptyNotesMessage": {
+    "description": "Message shown when there are no notes."
+  },
+  "emptyNotesError": "Error When Fetching Notes",
+  "@emptyNotesError": {
+    "description": "Error message shown when fetching notes fails."
+  },
+  "emptySearchResultsMessage": "No search results found",
+  "@emptySearchResultsMessage": {
+    "description": "Message shown when search returns no results."
+  },
+  "emptyTagsMessage": "No tags",
+  "@emptyTagsMessage": {
+    "description": "Message shown when there are no tags."
+  },
+  "emptyBlocksMessage": "No blocks",
+  "@emptyBlocksMessage": {
+    "description": "Message shown when there are no blocks."
+  },
+  "emptyExportFilesMessage": "Export files not found",
+  "@emptyExportFilesMessage": {
+    "description": "Message shown when no export files are found."
+  },
+  "emptyExportFilesError": "Error When Fetching Export Files",
+  "@emptyExportFilesError": {
+    "description": "Error message shown when fetching export files fails."
+  },
+  "emptyBackupFilesMessage": "No backup files found",
+  "@emptyBackupFilesMessage": {
+    "description": "Message shown when no backup files are found."
+  }
 }
 

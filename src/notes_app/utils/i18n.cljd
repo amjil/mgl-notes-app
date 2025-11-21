@@ -23,6 +23,7 @@
    :drawer/logout "Logout"
    :drawer/about "About"
    :drawer/recycle "Recycle Bin"
+   :drawer/backup "Backup"
    :drawer/settings "Settings"
    :favorites/title "Favorite Notes"
    :favorites/empty-message "No favorite notes"
@@ -103,7 +104,15 @@
    :help/faq-backup-question "Q: How do I backup my notes?"
    :help/faq-backup-answer "A: Use the export feature in the floating action button to backup your notes."
    :help/faq-offline-question "Q: Can I use the app offline?"
-   :help/faq-offline-answer "A: Yes! Notes are saved locally and will sync when you're back online."})
+   :help/faq-offline-answer "A: Yes! Notes are saved locally and will sync when you're back online."
+   :empty/notes-message "No notes"
+   :empty/notes-error "Error When Fetching Notes"
+   :empty/search-results-message "No search results found"
+   :empty/tags-message "No tags"
+   :empty/blocks-message "No blocks"
+   :empty/export-files-message "Export files not found"
+   :empty/export-files-error "Error When Fetching Export Files"
+   :empty/backup-files-message "No backup files found"})
 
 (def ^:private key->getter
   {:app/title (fn [strings] (.-appTitle strings))
@@ -111,6 +120,7 @@
    :drawer/logout (fn [strings] (.-drawerLogout strings))
    :drawer/about (fn [strings] (.-drawerAbout strings))
    :drawer/recycle (fn [strings] (.-drawerRecycle strings))
+   :drawer/backup (fn [strings] (.-drawerBackup strings))
    :drawer/settings (fn [strings] (.-drawerSettings strings))
    :favorites/title (fn [strings] (.-favoritesTitle strings))
    :favorites/empty-message (fn [strings] (.-favoritesEmptyMessage strings))
@@ -191,7 +201,15 @@
    :help/faq-backup-question (fn [strings] (.-helpFaqBackupQuestion strings))
    :help/faq-backup-answer (fn [strings] (.-helpFaqBackupAnswer strings))
    :help/faq-offline-question (fn [strings] (.-helpFaqOfflineQuestion strings))
-   :help/faq-offline-answer (fn [strings] (.-helpFaqOfflineAnswer strings))})
+   :help/faq-offline-answer (fn [strings] (.-helpFaqOfflineAnswer strings))
+   :empty/notes-message (fn [strings] (.-emptyNotesMessage strings))
+   :empty/notes-error (fn [strings] (.-emptyNotesError strings))
+   :empty/search-results-message (fn [strings] (.-emptySearchResultsMessage strings))
+   :empty/tags-message (fn [strings] (.-emptyTagsMessage strings))
+   :empty/blocks-message (fn [strings] (.-emptyBlocksMessage strings))
+   :empty/export-files-message (fn [strings] (.-emptyExportFilesMessage strings))
+   :empty/export-files-error (fn [strings] (.-emptyExportFilesError strings))
+   :empty/backup-files-message (fn [strings] (.-emptyBackupFilesMessage strings))})
 
 (defn- fallback [k]
   (get fallback-strings k (name k)))
