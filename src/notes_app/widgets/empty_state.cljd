@@ -16,23 +16,29 @@
   (f/widget
    :context ctx
    :let [theme (-> m/Theme (.of ctx))
-         color-scheme (.-colorScheme theme)]
-   (m/Center
-    .child (m/Column
-            .mainAxisAlignment m/MainAxisAlignment.center
-            .children [(when icon
-                         (m/Icon
-                          icon
-                          .size (or icon-size 48)
-                          .color (or color (.-onSurfaceVariant color-scheme))))
-                       (when icon
-                         (m/SizedBox .height 16))
-                       (mgl/MongolText
-                        message
-                        .style (m/TextStyle
-                                .fontSize (or text-size 20)
-                                .fontWeight (or font-weight m/FontWeight.w500)
-                                .color (or color (.-onSurface color-scheme))))]))))
+         color-scheme (.-colorScheme theme)] 
+   (m/Center)
+   (m/Padding .padding (m/EdgeInsets.only .top 60))
+   (m/Column
+    .mainAxisAlignment m/MainAxisAlignment.start
+    .children [(when icon
+                 (m/Icon
+                  icon
+                  .size (or icon-size 48)
+                  .color (or color (.-onSurfaceVariant color-scheme))))
+               (when icon
+                 (m/SizedBox .height 16))
+               (mgl/MongolText
+                message
+                .style (m/TextStyle
+                        .fontSize (or text-size 20)
+                        .fontWeight (or font-weight m/FontWeight.w500)
+                        .color (or color (.-onSurface color-scheme))))])))
+   
+   ;))
+    
+    
+    
 
 ;; ==================== Common empty states ====================
 
