@@ -19,7 +19,11 @@
     .appBar (app-bar/mgl-search-app-bar navigator))
    .body
    (m/SafeArea)
+   (m/SingleChildScrollView
+    .scrollDirection m/Axis.horizontal)
    (m/Row
+    .mainAxisSize m/MainAxisSize.min
+    .crossAxisAlignment m/CrossAxisAlignment.start
     .children
     [;; Top title
      (m/Padding
@@ -33,55 +37,94 @@
 
      ;; Backup and restore buttons (horizontal)
      (m/Row
-      .mainAxisAlignment m/MainAxisAlignment.spaceAround
-      .children [;; Create backup
-                 (m/ElevatedButton
-                  .onPressed (fn []
-                               (-> (backup/create-backup!)
-                                   (.then (fn [_path]
-                                            (toast/show-toast ctx "Backup created successfully" :success)))
-                                   (.catchError (fn [error]
-                                                  (dart:core/print (str "Backup creation failed: " error))
-                                                  (toast/show-toast ctx (str "Backup creation failed: " error) :error)))))
-                  .style (m/ButtonStyle.
-                          .padding (m/WidgetStateProperty.all
-                                    (m/EdgeInsets.symmetric .vertical 12 .horizontal 8)))
-                  .child (mgl/MongolText "Create Backup"
-                                         .style (m/TextStyle
-                                                 .fontSize 16
-                                                 .fontWeight m/FontWeight.w500)))
+      .mainAxisSize m/MainAxisSize.max
+      .mainAxisAlignment m/MainAxisAlignment.start
+      .crossAxisAlignment m/CrossAxisAlignment.start
+      .children [;; Create backup card
+                 (m/Card
+                  .margin (m/EdgeInsets.all 12)
+                  .child
+                  (m/Padding
+                   .padding (m/EdgeInsets.all 16)
+                   .child
+                   (m/Row
+                    .mainAxisSize m/MainAxisSize.max
+                    .crossAxisAlignment m/CrossAxisAlignment.start
+                    .children [(mgl/MongolText "Create Backup"
+                                               .style (m/TextStyle
+                                                       .fontSize 14
+                                                       .fontWeight m/FontWeight.w500
+                                                       .color (.-onSurfaceVariant color-scheme)))
+                               (m/SizedBox .height 8)
+                               (mgl/MongolText "Note: The backup will include all note data. It is recommended to back up regularly to prevent data loss."
+                                               .style (m/TextStyle
+                                                       .fontSize 12
+                                                       .color (.-onSurfaceVariant color-scheme)))
+                               (m/SizedBox .height 12)
+                               (m/ElevatedButton
+                                .onPressed (fn []
+                                             (-> (backup/create-backup!)
+                                                 (.then (fn [_path]
+                                                          (toast/show-toast ctx "Backup created successfully" :success)))
+                                                 (.catchError (fn [error]
+                                                                (dart:core/print (str "Backup creation failed: " error))
+                                                                (toast/show-toast ctx (str "Backup creation failed: " error) :error)))))
+                                .style (m/ButtonStyle.
+                                        .padding (m/WidgetStateProperty.all
+                                                  (m/EdgeInsets.symmetric .vertical 12 .horizontal 8)))
+                                .child (mgl/MongolText "Create Backup"
+                                                       .style (m/TextStyle
+                                                               .fontSize 16
+                                                               .fontWeight m/FontWeight.w500)))])))
 
-                 ;; Restore backup
-                 (m/ElevatedButton
-                  .onPressed (fn []
-                               ;; Note: file_picker dependency needs to be enabled to use this
-                               ;; If FilePicker is not available, show a message
-                               ;;        (toast/show-toast ctx "Restore backup: Please select a backup file" :info)
-                               ;; TODO: Implement FilePicker file selection
-                               (-> (.pickFiles (.-platform picker/FilePicker)
-                                               .type picker/FileType.custom
-                                               .allowedExtensions ["zip"])
-                                   (.then (fn [result]
-                                            (when result
-                                              (let [zip (.-path (first (.-files result)))]
-                                                (-> (backup/restore-backup! zip)
-                                                    (.then (fn [_]
-                                                             (toast/show-toast ctx "Backup restored successfully" :success)))
-                                                    (.catchError (fn [error]
-                                                                   (toast/show-toast ctx (str "Error restoring backup: " error) :error)))))))))
-                               nil)
-                  .style (m/ButtonStyle.
-                          .padding (m/WidgetStateProperty.all
-                                    (m/EdgeInsets.symmetric .vertical 12 .horizontal 8)))
-                  .child (mgl/MongolText "Restore Backup"
-                                         .style (m/TextStyle
-                                                 .fontSize 16
-                                                 .fontWeight m/FontWeight.w500)))])
+                 ;; Restore backup card
+                 (m/Card
+                  .margin (m/EdgeInsets.all 12)
+                  .child
+                  (m/Padding
+                   .padding (m/EdgeInsets.all 16)
+                   .child
+                   (m/Row
+                    .mainAxisSize m/MainAxisSize.max
+                    .crossAxisAlignment m/CrossAxisAlignment.start
+                    .children [(mgl/MongolText "Restore Backup"
+                                               .style (m/TextStyle
+                                                       .fontSize 14
+                                                       .fontWeight m/FontWeight.w500
+                                                       .color (.-onSurfaceVariant color-scheme)))
+                               (m/SizedBox .height 8)
+                               (mgl/MongolText "Note: Restoring a backup will overwrite all current data. Please ensure you have saved important content. Please select a valid backup file (.zip format)."
+                                               .style (m/TextStyle
+                                                       .fontSize 12
+                                                       .color (.-onSurfaceVariant color-scheme)))
+                               (m/SizedBox .height 12)
+                               (m/ElevatedButton
+                                .onPressed (fn []
+                                             (-> (.pickFiles (.-platform picker/FilePicker)
+                                                             .type picker/FileType.custom
+                                                             .allowedExtensions ["zip"])
+                                                 (.then (fn [result]
+                                                          (when result
+                                                            (let [zip (.-path (first (.-files result)))]
+                                                              (-> (backup/restore-backup! zip)
+                                                                  (.then (fn [_]
+                                                                           (toast/show-toast ctx "Backup restored successfully" :success)))
+                                                                  (.catchError (fn [error]
+                                                                                 (toast/show-toast ctx (str "Error restoring backup: " error) :error)))))))))
+                                             nil)
+                                .style (m/ButtonStyle.
+                                        .padding (m/WidgetStateProperty.all
+                                                  (m/EdgeInsets.symmetric .vertical 12 .horizontal 8)))
+                                .child (mgl/MongolText "Restore Backup"
+                                                       .style (m/TextStyle
+                                                               .fontSize 16
+                                                               .fontWeight m/FontWeight.w500)))])))])
 
      (m/SizedBox .width 32)
 
      ;; Backup file list
-     (m/Expanded
+     (m/Flexible
+      .fit m/FlexFit.loose
       .child
       (m/FutureBuilder
        .future (backup/list-backups)
@@ -91,6 +134,8 @@
            (let [files (.-data snapshot)]
              (m/ListView.builder
               .scrollDirection m/Axis.horizontal
+              .physics (m/NeverScrollableScrollPhysics)
+              .shrinkWrap true
               .itemCount (count files)
               .itemBuilder
               (fn [ctx idx]
