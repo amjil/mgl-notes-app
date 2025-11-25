@@ -39,6 +39,7 @@
             current-page :current-page
             page-size :page-size} notes/notes-state]
    :managed [scroll-controller (infinite-scroll/create-scroll-controller (fn [] (load-more-notes-trigger ctx)))]
+   (m/Padding .padding (m/EdgeInsets.only .bottom 20))
    (m/Stack
     .children
     [(if loading
