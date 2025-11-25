@@ -94,5 +94,10 @@
   "emptyBlocksMessage": "ᠬᠡᠰᠡᠭ  ᠪᠠᠢᠬᠤ ᠦᠭᠡᠢ ",
   "emptyExportFilesMessage": "ᠡᠻᠰᠫᠤᠷᠲ ᠹᠠᠶᠢᠯ ᠣᠯᠳᠠᠭᠰᠠᠨ ᠦᠭᠡᠢ ",
   "emptyExportFilesError": "ᠡᠺᠰᠫᠣᠷᠲ ᠹᠠᠶᠢᠯ ᠲᠠᠲᠠᠬᠤ ᠎ᠳᠤ ᠠᠯᠳᠠᠭ᠎ᠠ ᠭᠠᠷᠤᠯ᠎ᠠ ",
-  "emptyBackupFilesMessage": "ᠨᠥᠬᠡᠴᠡᠯᠡᠭᠰᠡᠨ ᠹᠠᠶᠢᠯ ᠣᠯᠳᠠᠭᠰᠠᠨ ᠦᠭᠡᠢ "
+  "emptyBackupFilesMessage": "ᠨᠥᠬᠡᠴᠡᠯᠡᠭᠰᠡᠨ ᠹᠠᠶᠢᠯ ᠣᠯᠳᠠᠭᠰᠠᠨ ᠦᠭᠡᠢ ",
+  "editorTextColor": "ᠦᠰᠦᠭ᠎ᠦᠨ ᠦᠩᠭᠡ",
+  "editorBlockProperties": " ᠪᠠᠭᠴᠠ᠎ᠶᠢᠨ ᠲᠣᠳᠣᠷᠠᠭᠤᠯᠭ᠎ᠠ",
+  "editorTodo": "ᠲᠥᠯᠥᠪᠯᠡᠭᠡ",
+  "editorBackground": "ᠠᠷᠥ᠎ᠶᠢᠨ ᠥᠩᠭᠡ",
+  "editorPlaceholder": "ᠡᠨᠳᠡ ᠳᠠᠷᠤᠵᠤ ᠠᠭᠤᠯᠭ᠎ᠠ᠎ᠪᠠᠨ ᠣᠷᠣᠭᠤᠯᠤᠨ᠎ᠠ ᠤᠤ" 
 }

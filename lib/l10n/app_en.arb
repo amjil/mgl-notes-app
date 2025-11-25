@@ -133,6 +133,26 @@
   "emptyBackupFilesMessage": "No backup files found",
   "@emptyBackupFilesMessage": {
     "description": "Message shown when no backup files are found."
+  },
+  "editorTextColor": "Text Color",
+  "@editorTextColor": {
+    "description": "Label for text color option in editor."
+  },
+  "editorBlockProperties": "Block Properties",
+  "@editorBlockProperties": {
+    "description": "Label for block properties option in editor."
+  },
+  "editorTodo": "Todo",
+  "@editorTodo": {
+    "description": "Label for todo option in editor."
+  },
+  "editorBackground": "Background",
+  "@editorBackground": {
+    "description": "Label for background option in editor."
+  },
+  "editorPlaceholder": "Placeholder",
+  "@editorPlaceholder": {
+    "description": "Label for placeholder option in editor."
   }
 }
 

@@ -94,6 +94,11 @@
   "emptyBlocksMessage": "Блок байхгүй",
   "emptyExportFilesMessage": "Экспорт файл олдсонгүй",
   "emptyExportFilesError": "Экспорт файл татахад алдаа гарлаа",
-  "emptyBackupFilesMessage": "Нөөцлөлтийн файл олдсонгүй"
+  "emptyBackupFilesMessage": "Нөөцлөлтийн файл олдсонгүй",
+  "editorTextColor": "Текстийн өнгө",
+  "editorBlockProperties": "Блокийн шинж чанар",
+  "editorTodo": "Хийх зүйл",
+  "editorBackground": "Дэвсгэр",
+  "editorPlaceholder": "Байрлал"
 }
 

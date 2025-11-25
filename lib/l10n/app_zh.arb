@@ -94,6 +94,11 @@
   "emptyBlocksMessage": "暂无块",
   "emptyExportFilesMessage": "未找到导出文件",
   "emptyExportFilesError": "获取导出文件时出错",
-  "emptyBackupFilesMessage": "未找到备份文件"
+  "emptyBackupFilesMessage": "未找到备份文件",
+  "editorTextColor": "文字颜色",
+  "editorBlockProperties": "块属性",
+  "editorTodo": "待办",
+  "editorBackground": "背景",
+  "editorPlaceholder": "占位符"
 }
 

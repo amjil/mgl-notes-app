@@ -112,7 +112,12 @@
    :empty/blocks-message "No blocks"
    :empty/export-files-message "Export files not found"
    :empty/export-files-error "Error When Fetching Export Files"
-   :empty/backup-files-message "No backup files found"})
+   :empty/backup-files-message "No backup files found"
+   :editor/text-color "Text Color"
+   :editor/block-properties "Block Properties"
+   :editor/todo "Todo"
+   :editor/background "Background"
+   :editor/placeholder "Placeholder"})
 
 (def ^:private key->getter
   {:app/title (fn [strings] (.-appTitle strings))
@@ -209,7 +214,12 @@
    :empty/blocks-message (fn [strings] (.-emptyBlocksMessage strings))
    :empty/export-files-message (fn [strings] (.-emptyExportFilesMessage strings))
    :empty/export-files-error (fn [strings] (.-emptyExportFilesError strings))
-   :empty/backup-files-message (fn [strings] (.-emptyBackupFilesMessage strings))})
+   :empty/backup-files-message (fn [strings] (.-emptyBackupFilesMessage strings))
+   :editor/text-color (fn [strings] (.-editorTextColor strings))
+   :editor/block-properties (fn [strings] (.-editorBlockProperties strings))
+   :editor/todo (fn [strings] (.-editorTodo strings))
+   :editor/background (fn [strings] (.-editorBackground strings))
+   :editor/placeholder (fn [strings] (.-editorPlaceholder strings))})
 
 (defn- fallback [k]
   (get fallback-strings k (name k)))
