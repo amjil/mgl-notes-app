@@ -908,6 +908,33 @@
                                 (.-referencedNoteId row))))
                         rows)))))))
 
+(defn get-notes-referencing-note
+  "Get all notes that reference a specific note (reverse lookup), returns list of note IDs"
+  [referenced-note-id]
+  (let [^drift/AppDatabase db @db
+        user-id (get-user-id-if-available)
+        user-filter (if-not (empty? user-id)
+                      "AND n.user_id = ?"
+                      "AND n.user_id IS NULL")]
+    (-> (.get
+         (.customSelect
+          db
+          (str "SELECT n.id FROM notes n
+           INNER JOIN note_references nr ON n.id = nr.note_id
+           WHERE nr.referenced_note_id = ? AND n.is_deleted = false " user-filter)
+          .variables (if-not (empty? user-id)
+                       [(d/Variable referenced-note-id) (d/Variable user-id)]
+                       [(d/Variable referenced-note-id)])))
+        (.then (fn [rows]
+                 (if (empty? rows)
+                   []
+                   (map (fn [row]
+                          (let [row (.-data row)]
+                            (or (get row "id")
+                                (get row :id)
+                                (.-id row))))
+                        rows)))))))
+
 ;; =============================================================================
 ;; Update User ID for Drift Tables
 ;; =============================================================================

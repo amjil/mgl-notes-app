@@ -6,6 +6,7 @@
    [notes-app.widgets.app-bar :as app-bar]
    [notes-app.widgets.drawer :as drawer]
    [notes-app.states.ui :as ui]
+   [block-editor.state :as editor-state]
    [notes-app.utils.navigator :as navigator]
    [notes-app.utils.note :as note-util]))
 
@@ -28,6 +29,7 @@
                            .onPressed (fn []
                                         (dart:core/print "Floating action button pressed")
                                         (note-util/clear-note-editor)
+                                        (reset! editor-state/is-loading false)
                                         (navigator/navigate-to-screen navigator "/editor"))
                            .backgroundColor (.-primary color-scheme)
                            .foregroundColor (.-onPrimary color-scheme)
