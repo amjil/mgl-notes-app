@@ -2,7 +2,8 @@
   (:require
    ["package:uuid/uuid.dart" :as uuid]
    [notes-app.services.db :as db]
-   [notes-app.utils.state-helpers :as helpers]))
+   [notes-app.utils.state-helpers :as helpers]
+   [notes-app.utils.string :as string-utils]))
 
 ;; Notes State Management
 ;; Responsible for managing notes-related states, including notes list, current note, etc.
@@ -47,13 +48,15 @@
                                           notes))]
                      (helpers/handle-pagination-result! notes-state page _notes limit))))))))
 
+(declare delete-note-in-notes-state!)
+
 ;; Delete note
 (defn delete-note! [ctx id]
   (helpers/with-success-toast! ctx notes-state
     (-> (db/soft-delete-note id)
         (.then (fn [success]
                  (when success
-                   (load-notes-paginated! ctx 0))
+                   (delete-note-in-notes-state! id))
                  success)))
     "Тэмдэглэл амжилттай устгагдлаа"))
 
@@ -204,5 +207,21 @@
                         notes))]
     (helpers/handle-pagination-result! notes-state 0 notes 20)))
 
-;; (defn update-note-in-notes-state! [id content]
-;;   (swap! notes-state assoc :notes (conj (:notes @notes-state) note)))
+(defn update-note-in-notes-state! [id title content]
+  (let [notes (:results @notes-state)
+        notes (vec (map #(if (= (get % "id") id)
+                           (assoc % "title" title "content" (str title "\n" content))
+                           %)
+                        notes))]
+    (swap! notes-state assoc :results notes)))
+
+(defn add-note-in-notes-state! [id content]
+  (let [notes (:results @notes-state)
+        title (string-utils/extract-title-from-content content)
+        notes (vec (concat [(assoc {} "id" id "title" title "content" content)] notes))]
+    (swap! notes-state assoc :results notes)))
+
+(defn delete-note-in-notes-state! [id]
+  (let [notes (:results @notes-state)
+        notes (vec (filter #(not= (get % "id") id) notes))]
+    (swap! notes-state assoc :results notes)))

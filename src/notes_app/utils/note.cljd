@@ -134,43 +134,44 @@
 (defn- update-referencing-notes-on-title-change!
   "Update all notes that reference this note when the title changes"
   [note-id old-title new-title]
-  (dart:core/print (str "update-referencing-notes-on-title-change! note-id:" note-id " old-title:" old-title " new-title:" new-title))
   (when (and (not= old-title new-title) (not (str/blank? old-title)) (not (str/blank? new-title)))
     (-> (db/get-notes-referencing-note note-id)
-        (.then (fn [referencing-note-ids]
-                 (dart:core/print (str "referencing-note-ids:" referencing-note-ids))
-                 (doseq [ref-note-id referencing-note-ids]
-                   (-> (db/get-blocks-by-note-id ref-note-id)
-                       (.then (fn [blocks]
-                                (let [escaped-old-title old-title;(escape-regex-special-chars old-title)
-                                      old-link-pattern (re-pattern (str "\\[\\[" escaped-old-title "\\]\\]"))
-                                      updated-blocks (map (fn [block]
-                                                            (let [block-id (or (:id block) (.-id block))
-                                                                  old-content (or (:content block) (.-content block) "")
-                                                                  new-content (str/replace old-content old-link-pattern (str "[[" new-title "]]"))
-                                                                  block-meta (or (:metaData block) (.-metaData block))]
-                                                              {:id block-id
-                                                               :content new-content
-                                                               :metaData block-meta}))
-                                                          blocks)
-                                      block-ids (map (fn [b] (or (:id b) (.-id b))) blocks)
-                                      blocks-content-map (into {}
-                                                               (map (fn [block]
-                                                                      (let [bid (:id block)
-                                                                            content (:content block)]
-                                                                        [bid content])))
-                                                               updated-blocks)
-                                      new-content (build-content-from-blocks block-ids blocks-content-map)]
-                                  ;; Update blocks
-                                  (doseq [block updated-blocks]
-                                    (let [block-id (:id block)
-                                          content (:content block)
-                                          block-meta (string-utils/json-encode (:metaData block))]
-                                      (db/update-block block-id content block-meta)
-                                      (db/update-block-content block-id content)))
-                                  (dart:core/print (str "new-content: " new-content))
-                                  ;; Recalculate content from blocks and update note_fts
-                                  (db/update-note-content ref-note-id new-content)))))))))))
+        (.then (fn [referencing-notes]
+                 (doseq [ref-note referencing-notes]
+                   (let [ref-note-id (get ref-note "id")
+                         ref-note-title (get ref-note "title")]
+                     (-> (db/get-blocks-by-note-id ref-note-id)
+                         (.then (fn [blocks]
+                                  (let [escaped-old-title old-title;(escape-regex-special-chars old-title)
+                                        old-link-pattern (re-pattern (str "\\[\\[" escaped-old-title "\\]\\]"))
+                                        updated-blocks (map (fn [block]
+                                                              (let [block-id (or (:id block) (.-id block))
+                                                                    old-content (or (:content block) (.-content block) "")
+                                                                    new-content (str/replace old-content old-link-pattern (str "[[" new-title "]]"))
+                                                                    block-meta (or (:metaData block) (.-metaData block))]
+                                                                {:id block-id
+                                                                 :content new-content
+                                                                 :metaData block-meta}))
+                                                            blocks)
+                                        block-ids (map (fn [b] (or (:id b) (.-id b))) blocks)
+                                        blocks-content-map (into {}
+                                                                 (map (fn [block]
+                                                                        (let [bid (:id block)
+                                                                              content (:content block)]
+                                                                          [bid content])))
+                                                                 updated-blocks)
+                                        new-content (build-content-from-blocks block-ids blocks-content-map)]
+                                    ;; Update blocks
+                                    (doseq [block updated-blocks]
+                                      (let [block-id (:id block)
+                                            content (:content block)
+                                            block-meta (if (empty? (:metaData block)) "" (string-utils/json-encode (:metaData block)))]
+                                        (db/update-block block-id content block-meta)
+                                        (db/update-block-content block-id content)))
+                                    ;; Update note in notes state
+                                    (notes/update-note-in-notes-state! ref-note-id ref-note-title new-content)
+                                    ;; Recalculate content from blocks and update note_fts
+                                    (db/update-note-content ref-note-id new-content))))))))))))
 
 (defn- update-note-tags!
   "Update note tags based on tags extracted from content"
@@ -258,7 +259,7 @@
                    ;; Update existing blocks
                    (doseq [bid to-update]
                      (let [content (block-content-with-indent bid)
-                           block-meta (string-utils/json-encode (get blocks-meta bid))]
+                           block-meta (if (empty? (get blocks-meta bid)) "" (string-utils/json-encode (get blocks-meta bid)))]
                        (db/update-block bid content block-meta)
                        (db/update-block-content bid content)))
                    ;; Delete removed blocks
@@ -369,8 +370,8 @@
                          (save-blocks-for-note! ctx new-id)
                          (update-note-references! new-id)
                          (update-note-tags! new-id content)
-                         ;; Reload notes list after creating note
-                         (notes/load-notes-paginated! ctx 0)
+                         ;; Update note in notes state
+                         (notes/add-note-in-notes-state! new-id content)
                          (async/Future.value true)))))
           (let [note-id (get current "id")
                 old-title (get current "title" "")
@@ -382,8 +383,8 @@
                          (update-note-tags! note-id content)
                          ;; Update referencing notes if title changed
                          (update-referencing-notes-on-title-change! note-id old-title title)
-                         ;; Reload notes list after creating note
-                         (notes/load-notes-paginated! ctx 0)
+                         ;; Update note in notes state
+                         (notes/update-note-in-notes-state! note-id title content)
                          (async/Future.value true))))))))
     (async/Future.value false)))
 

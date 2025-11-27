@@ -919,7 +919,7 @@
     (-> (.get
          (.customSelect
           db
-          (str "SELECT n.id FROM notes n
+          (str "SELECT n.id, n.title FROM notes n
            INNER JOIN note_references nr ON n.id = nr.note_id
            WHERE nr.referenced_note_id = ? AND n.is_deleted = false " user-filter)
           .variables (if-not (empty? user-id)
@@ -930,9 +930,7 @@
                    []
                    (map (fn [row]
                           (let [row (.-data row)]
-                            (or (get row "id")
-                                (get row :id)
-                                (.-id row))))
+                            (assoc {} "id" (get row "id") "title" (get row "title"))))
                         rows)))))))
 
 ;; =============================================================================
