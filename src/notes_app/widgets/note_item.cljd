@@ -64,7 +64,6 @@
          shadow-color (.-shadow color-scheme)
          font-family (font-state/get-note-font-family)
          font-size (font-state/get-note-font-size)
-         item (.-data item)
          note-id (get item "id")
          note-title (get item "title")
          note-content (get item "content")
