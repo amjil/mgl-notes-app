@@ -7,6 +7,7 @@
    [virtual-keyboard.input-control :as control]
    [virtual-keyboard.keyboard-candidates :as kc]
    [virtual-keyboard.zip-utils :as zip-utils]
+   [virtual-keyboard.fst-reader :as fst-reader]
    [electric-sync.token :as token]
    [notes-app.screens.home :as home]
    [notes-app.screens.login :as login]
@@ -40,8 +41,8 @@
   ;; Set up input control
   (control/set-control)
 
-  (zip-utils/read-json-from-asset-zip kc/data "assets/data.zip")
   (zip-utils/read-json-from-asset-zip kc/next "assets/next.zip")
+  (fst-reader/ensure-loaded)
 
   ;; Init The Token
   (await (token/init))

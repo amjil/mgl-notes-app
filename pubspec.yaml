@@ -95,8 +95,14 @@ flutter:
   #   - images/a_dot_burr.jpeg
   #   - images/a_dot_ham.jpeg
   assets:
-    - assets/data.zip
     - assets/next.zip
+    - assets/fst/dict.bin
+    - assets/fst/dict.idx
+    - assets/fst/keys.json
+    - assets/fst/lists.bin
+    - assets/fst/lists.idx
+    - assets/fst/words.fst
+    - assets/fst/token_table.bin
     - assets/fonts/OyunQaganTig.ttf
     - assets/fonts/OnonSoninSans.ttf
 
