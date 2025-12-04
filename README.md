@@ -1,6 +1,6 @@
 # MGL Notes App
 
-A Mongolian-first note-taking experience built with ClojureDart and Flutter. The app combines vertical Mongolian typography, a block-based editor, sync-ready persistence, and modern UX patterns to help writers collect, organize, and revisit ideas.
+Another Mongolian note-taking experience built with ClojureDart and Flutter. The app combines vertical Mongolian typography, a block-based editor, sync-ready persistence, and modern UX patterns to help writers collect, organize, and revisit ideas.
 
 Looking for a more lightweight drafting companion? Explore the simpler note app [mongol-drafts](https://github.com/amjil/mongol-drafts) built around core vertical writing workflows.
 
