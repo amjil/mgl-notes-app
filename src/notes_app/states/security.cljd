@@ -1,6 +1,7 @@
 (ns notes-app.states.security
   (:require
    ["dart:async" :as dart-async]
+   ["dart:core" :as dart-core]
    ["package:lifecycle/lifecycle.dart" :as lifecycle]
    ["package:flutter/material.dart" :as m]
    ["package:flutter/scheduler.dart" :as scheduler]
@@ -79,10 +80,10 @@
                        (lock! :timeout)))))))
 
 (defn- update-last-active! []
-  (swap! security-state assoc :last-active (DateTime/now)))
+  (swap! security-state assoc :last-active (dart-core.DateTime/now)))
 
 (defn- update-last-background! []
-  (swap! security-state assoc :last-background (DateTime/now)))
+  (swap! security-state assoc :last-background (dart-core.DateTime/now)))
 
 (defn lock!
   ([reason]
@@ -113,7 +114,7 @@
                (assoc :locked? false
                       :lock-reason nil
                       :failed-attempts 0
-                      :last-active (DateTime/now)))))
+                      :last-active (dart-core/DateTime.now)))))
   ;; Clear lock state preference
   (await (pref/set-bool lock-state-pref-key false))
   (schedule-lock-timer!)
@@ -122,10 +123,10 @@
 (defn mark-active! []
   (swap! security-state
          (fn [state]
-           (if (and (:enabled? state)
+             (if (and (:enabled? state)
                     (password-present? state)
                     (not (:locked? state)))
-             (assoc state :last-active (DateTime/now))
+             (assoc state :last-active (dart-core/DateTime.now))
              state)))
   (schedule-lock-timer!))
 
@@ -209,7 +210,7 @@
           minutes (:timeout-minutes state)]
       (update-last-active!)
       (if (and last-background minutes (pos? minutes))
-        (let [delta (.-inMilliseconds (.difference (DateTime/now) last-background))
+        (let [delta (.-inMilliseconds (.difference (dart-core/DateTime.now) last-background))
               threshold (* minutes 60000)]
           (if (>= delta threshold)
             (lock! :resume)
@@ -240,7 +241,7 @@
            :locked? (and saved-locked? enabled? password)
            :lock-reason (when (and saved-locked? enabled? password) :manual)
            :failed-attempts 0
-           :last-active (DateTime/now)
+           :last-active (dart-core/DateTime.now)
            :last-background nil)
     (if (and enabled? (password-present?))
       (if (:locked? @security-state)

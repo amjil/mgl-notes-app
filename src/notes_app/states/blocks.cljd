@@ -23,9 +23,9 @@
                  (swap! blocks-state assoc :blocks blocks :loading false))))))
 
 ;; Create block
-(defn create-block! [ctx note-id content]
+(defn create-block! [ctx note-id content & [block-meta]]
   (helpers/with-success-toast! ctx blocks-state
-    (-> (db/create-block note-id content)
+    (-> (db/create-block note-id content (or block-meta "{}"))
         (.then (fn [block]
                  (swap! blocks-state assoc
                         :blocks (conj (:blocks @blocks-state) block)
@@ -34,9 +34,9 @@
     "Блок амжилттай үүслээ"))
 
 ;; Update block
-(defn update-block! [ctx id content]
+(defn update-block! [ctx id content & [block-meta]]
   (helpers/with-success-toast! ctx blocks-state
-    (-> (db/update-block id content)
+    (-> (db/update-block id content (or block-meta "{}"))
         (.then (fn [success]
                  (when success
                    (let [updated-blocks (map (fn [block]

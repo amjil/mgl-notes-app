@@ -73,7 +73,7 @@
             (map (fn [notes]
                    (notes/handle-notes-result-for-stream notes)
                    :list-widget))
-            (map (fn [[er st]]
+            (map (fn [[_er _st]]
                    (toast/handle-error-with-toast ctx "Error while fetching notes")
                    :error-widget))
             :as-values (notes/get-notes-for-stream))

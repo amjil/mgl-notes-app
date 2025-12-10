@@ -1,8 +1,8 @@
 (ns notes-app.states.search
   (:require
    [notes-app.services.db :as db]
-   [notes-app.utils.toast :as toast]
-   [notes-app.utils.state-helpers :as helpers]))
+   [notes-app.utils.state-helpers :as helpers]
+   [clojure.string :as str]))
 
 ;; Search State Management
 ;; Responsible for managing search-related states, including search results, query, etc.
@@ -75,7 +75,7 @@
 
 ;; Add to search history
 (defn add-to-search-history! [query]
-  (when (and query (not (empty? (clojure.string/trim query))))
+  (when (and query (not (empty? (str/trim query))))
     (let [current-history (:search-history @search-state)
           new-history (take 10 (distinct (conj current-history query)))]
       (swap! search-state assoc :search-history new-history))))
@@ -92,9 +92,7 @@
 (defn clear-suggestions! []
   (swap! search-state assoc :suggestions []))
   
-;; Clear search results
-(defn clear-search-results! []
-  (swap! search-state assoc :results []))
+;; Clear search results (removed duplicate - using the one below)
 
 ;; ===== Search State Queries =====
 
