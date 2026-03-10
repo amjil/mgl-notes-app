@@ -1,0 +1,54 @@
+(ns notes-app.ui.backlinks
+  (:require ["package:flutter/material.dart" :as m]
+            ["package:mongol/mongol.dart" :as mongol]
+            [notes-app.ui.highlighter :as highlighter]))
+
+(defn backlinks-panel
+  "Backlinks panel at bottom of note page. backlinks-list: seq of {:source-page-id str :content str}. on-link-tap: (fn [page-id])."
+  [backlinks-list on-link-tap]
+  (if (empty? backlinks-list)
+    (m/SizedBox.shrink)
+    (m/Column
+     .crossAxisAlignment m.CrossAxisAlignment/start
+     .children
+     [(m/Divider .height 32.0 .thickness 1.0)
+      (m/Padding
+       .padding (m.EdgeInsets/only .bottom 16.0)
+       .child
+       (m/Text (str "References linking here (" (count backlinks-list) ")")
+               .style (m/TextStyle .fontSize 18.0
+                                   .fontWeight m.FontWeight/bold
+                                   .color m.Colors/grey)))
+      (m/ListView.builder
+       .shrinkWrap true
+       .physics (m.NeverScrollableScrollPhysics)
+       .itemCount (count backlinks-list)
+       .itemBuilder
+       (fn [_ i]
+         (let [result (nth backlinks-list i)
+               source-page-id (:source-page-id result)
+               content (:content result "")
+               base-style (m/TextStyle .color m.Colors/black .fontSize 15.0 .fontFamily "OyunQaganTig")]
+           (m/Container
+            .margin (m.EdgeInsets/only .bottom 12.0)
+            .padding (m.EdgeInsets/all 12.0)
+            .decoration (m/BoxDecoration
+                         .color (-> m.Colors/blueGrey (.withOpacity 0.05))
+                         .borderRadius (m.BorderRadius/circular 8.0))
+            .child
+            (m/Column
+             .crossAxisAlignment m.CrossAxisAlignment/start
+             .mainAxisSize m.MainAxisSize/min
+             .children
+             [(m/GestureDetector
+               .onTap #(when on-link-tap (on-link-tap source-page-id))
+               .child
+               (m/Text (or source-page-id "")
+                      .style (m/TextStyle .color m.Colors/blue
+                                          .fontWeight m.FontWeight/w600
+                                          .fontSize 13.0)))
+              (m/SizedBox .height 8.0)
+              (mongol/MongolText.rich
+               (m/TextSpan
+                .style base-style
+                .children (highlighter/build-read-mode-spans content base-style on-link-tap)))])))))])))

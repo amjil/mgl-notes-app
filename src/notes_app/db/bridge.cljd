@@ -1,0 +1,44 @@
+(ns notes-app.db.bridge
+  "Convert Drift Block list to editor-state (:root + :blocks)."
+  (:require ["dart:convert" :as convert]))
+
+(defn data-json->map
+  "Convert Block dataJson string (Dart jsonDecode) to keyword-keyed map. Used by core when merging data."
+  [json-str]
+  (when (and json-str (not= json-str "{}"))
+    (try
+      (let [decoded (convert/jsonDecode json-str)]
+        (when decoded
+          (into {} (for [e (.-entries decoded)]
+                     [(keyword (.-key e)) (.-value e)]))))
+      (catch Exception _ {}))))
+
+(defn block->map
+  "Convert single Drift Block to map for reader etc. Includes :id for reader to persist data (e.g. image width-ratio)."
+  [block]
+  (when block
+    {:id (.-id block)
+     :type (keyword (.-type block))
+     :content (.-content block)
+     :attributes {:indent (.-indent block)}
+     :data (data-json->map (.-dataJson block))}))
+
+(defn db-blocks->editor-state
+  "Convert get-page-blocks List<Block> to editor state {:root [...] :blocks {...}}."
+  [dart-block-list]
+  (when dart-block-list
+    (let [blocks (vec dart-block-list)
+          sorted (sort-by #(.-orderIndex %) blocks)
+          root (mapv #(.-id %) sorted)
+          blocks-map (reduce
+                      (fn [acc b]
+                        (assoc acc (.-id b)
+                               {:id (.-id b)
+                                :type (keyword (.-type b))
+                                :content (.-content b)
+                                :attributes {:indent (.-indent b)}
+                                :data (data-json->map (.-dataJson b))}))
+                      {}
+                      sorted)]
+      {:root root
+       :blocks blocks-map})))

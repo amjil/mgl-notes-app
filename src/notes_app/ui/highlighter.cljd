@@ -1,0 +1,89 @@
+(ns notes-app.ui.highlighter
+  (:require ["package:flutter/material.dart" :as m]
+            ["package:flutter/gestures.dart" :as gestures]
+            [clojure.string :as str]
+            [rich-editor.model.delta :as delta]))
+
+;; =============================================================
+;; Regex for [[wikilink]]; Dart RegExp for performance and cross-platform
+;; =============================================================
+(def ^:private bidi-link-pattern "\\[\\[([^\\]]+)\\]\\]")
+
+;; =============================================================
+;; [Edit mode] AST attribute injector (Transaction Middleware)
+;; =============================================================
+
+(defn compute-link-formats
+  "Scan text and produce Delta ops with format attributes only. Highlights [[links]] without hiding brackets; avoids conflict with mongol-ime and Flutter caret."
+  [text]
+  (if (str/blank? text)
+    []
+    (let [regex (dart:core/RegExp. bidi-link-pattern)
+          matches (seq (.allMatches regex text))]
+      (loop [ms matches
+             last-idx 0
+             ops []]
+        (if (empty? ms)
+          (let [remaining (- (count text) last-idx)]
+            (if (> remaining 0)
+              (conj ops (delta/retain remaining))
+              ops))
+
+          (let [^dart:core/RegExpMatch match (first ms)
+                start-idx (.-start match)
+                end-idx (.-end match)
+                match-len (- end-idx start-idx)
+                retain-len (- start-idx last-idx)
+                ops (if (> retain-len 0)
+                      (conj ops (delta/retain retain-len))
+                      ops)
+                link-attrs {:bidi-link true
+                            :color "#1E90FF"}
+                ops (conj ops (delta/retain match-len link-attrs))]
+
+            (recur (rest ms) end-idx ops)))))))
+
+;; =============================================================
+;; [Read mode] TextSpan renderer (View Layer)
+;; =============================================================
+
+(defn build-read-mode-spans
+  "Parse text, drop [[ ]] brackets, render wikilinks as tappable highlighted TextSpans. Used by reader.cljd with MongolText."
+  [raw-text base-style on-link-tap]
+  (if (str/blank? raw-text)
+    [(m/TextSpan .text "" .style base-style)]
+
+    (let [regex (dart:core/RegExp. bidi-link-pattern)
+          matches (seq (.allMatches regex raw-text))]
+
+      (loop [ms matches
+             last-idx 0
+             spans []]
+
+        (if (empty? ms)
+          (let [remaining (.substring raw-text last-idx)]
+            (if (not-empty remaining)
+              (conj spans (m/TextSpan .text remaining .style base-style))
+              spans))
+
+          (let [^dart:core/RegExpMatch match (first ms)
+                start-idx (.-start match)
+                end-idx (.-end match)
+                link-text (.group match 1)
+                before-text (.substring raw-text last-idx start-idx)
+                spans (if (not-empty before-text)
+                        (conj spans (m/TextSpan .text before-text .style base-style))
+                        spans)
+                recognizer (let [r (gestures/TapGestureRecognizer.)]
+                             (set! (.-onTap r) (fn [] (when on-link-tap (on-link-tap link-text))))
+                             r)
+                link-style (.copyWith base-style
+                                      .color m.Colors/blue
+                                      .fontWeight m.FontWeight/w600
+                                      .backgroundColor (-> m.Colors/blue (.withOpacity 0.08)))
+                link-span (m/TextSpan
+                           .text link-text
+                           .style link-style
+                           .recognizer recognizer)]
+
+            (recur (rest ms) end-idx (conj spans link-span))))))))

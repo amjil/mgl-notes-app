@@ -1,0 +1,15 @@
+(ns notes-app.utils.core
+  (:require ["dart:async" :as async]
+            ["dart:core" :as dc]))
+
+(defn make-debouncer
+  "Return a debounced fn: (debouncer f) runs f only for the last call within ms."
+  [ms]
+  (let [timer (atom nil)]
+    (fn [f]
+      (when @timer
+        (.cancel @timer))
+      (reset! timer
+              (async/Timer.
+               (dc/Duration. .milliseconds ms)
+               #(do (f) (reset! timer nil)))))))

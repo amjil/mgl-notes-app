@@ -1,0 +1,157 @@
+(ns notes-app.ui.command-palette
+  "Global command palette: search by command, not data. Cmd/Ctrl+Shift+P to open.
+   Decoupled from shell via opts :get-today and :show-new-page-dialog!."
+  (:require ["package:flutter/material.dart" :as m]
+            ["package:flutter/services.dart" :as s]
+            [cljd.flutter :as f]
+            [clojure.string :as str]
+            [notes-app.db.core :as db]))
+
+;; =============================================================
+;; 1. Command registry: all available actions
+;; =============================================================
+
+(defn get-all-commands
+  "Return command list. opts: :get-today (fn [] -> today page name), :show-new-page-dialog! (fn [ctx on-create]), injected by shell."
+  [!current-page ctx opts]
+  (let [get-today (or (:get-today opts) (fn [] ""))
+        show-new-page! (or (:show-new-page-dialog! opts) (fn [_ _] nil))]
+    [{:title "New Page"
+      :icon m.Icons/add_circle_outline
+      :action #(do
+                (.pop (m.Navigator/of ctx))
+                (show-new-page! ctx (fn [name] (reset! !current-page name))))}
+
+     {:title "Today"
+      :icon m.Icons/today
+      :action #(do (.pop (m.Navigator/of ctx)) (reset! !current-page (get-today)))}
+
+     {:title "Export to PDF"
+      :icon m.Icons/picture_as_pdf
+      :action #(do (.pop (m.Navigator/of ctx)) (println "TODO: call print driver"))}
+
+     {:title "Delete Current Page"
+      :icon m.Icons/delete_forever
+      :color m.Colors/redAccent
+      :action #(do
+                (.pop (m.Navigator/of ctx))
+                (when-let [page-id @!current-page]
+                  (db/delete-page! page-id)
+                  (reset! !current-page (get-today))))}
+
+     {:title "Clear Cache"
+      :icon m.Icons/cleaning_services
+      :action #(do (.pop (m.Navigator/of ctx)) (println "TODO: clear DB index"))}]))
+
+;; =============================================================
+;; 2. Command palette UI: full-width list, > prefix
+;; =============================================================
+
+(defn command-palette-view
+  "Command palette view. opts optional: :get-today, :show-new-page-dialog!, passed from shell."
+  ([!current-page] (command-palette-view !current-page nil))
+  ([!current-page opts]
+   (let [!filter-text (atom "")
+         !selected-idx (atom 0)]
+     (f/widget
+      :context ctx
+      :watch [text !filter-text
+              idx !selected-idx]
+      (let [all-cmds (get-all-commands !current-page ctx opts)
+           text-lower (str/lower-case (or text ""))
+           filtered (filter (fn [cmd]
+                              (str/includes? (str/lower-case (:title cmd)) text-lower))
+                            all-cmds)
+           filtered-vec (vec filtered)]
+       (m/Focus
+        .autofocus true
+        .onKeyEvent
+        (fn [_node event]
+          (if (= (.-runtimeType event) s/KeyDownEvent)
+            (let [logical-key (.-logicalKey event)]
+              (cond
+                (= logical-key s.LogicalKeyboardKey/escape)
+                (do (.pop (m.Navigator/of ctx)) m.KeyEventResult/handled)
+
+                (= logical-key s.LogicalKeyboardKey/arrowDown)
+                (do (swap! !selected-idx (fn [i] (min (inc i) (max 0 (dec (count filtered-vec))))))
+                    m.KeyEventResult/handled)
+
+                (= logical-key s.LogicalKeyboardKey/arrowUp)
+                (do (swap! !selected-idx (fn [i] (max 0 (dec i))))
+                    m.KeyEventResult/handled)
+
+                (or (= logical-key s.LogicalKeyboardKey/enter)
+                    (= logical-key s.LogicalKeyboardKey/numpadEnter))
+                (do (when (and (seq filtered-vec) (<= 0 idx (dec (count filtered-vec))))
+                      (let [cmd (nth filtered-vec idx)]
+                        ((:action cmd))))
+                    m.KeyEventResult/handled)
+
+                :else m.KeyEventResult/ignored))
+            m.KeyEventResult/ignored))
+        .child
+        (m/Center
+         .child
+         (m/Container
+          .width 600.0
+          .height 400.0
+          .decoration (m/BoxDecoration
+                       .color (-> m.Colors/grey .-shade900)
+                       .borderRadius (m.BorderRadius/circular 12.0)
+                       .boxShadow [(m/BoxShadow .color (-> m.Colors/black (.withOpacity 0.5)) .blurRadius 20.0)])
+          .child
+          (m/Column
+           .mainAxisSize m.MainAxisSize/min
+           .children
+           [;; 1. Input (> prefix hints command mode)
+            (m/Padding
+             .padding (m.EdgeInsets/all 16.0)
+             .child (m/TextField
+                     .autofocus true
+                     .decoration (m/InputDecoration
+                                 .prefixText "> "
+                                 .hintText "Type command name..."
+                                 .border m.InputBorder/none
+                                 .filled true
+                                 .fillColor (-> m.Colors/white (.withOpacity 0.08)))
+                     .style (m/TextStyle .color m.Colors/white)
+                     .onChanged #(do (reset! !filter-text %) (reset! !selected-idx 0))))
+
+            (m/Divider .height 1.0 .color (-> m.Colors/white (.withOpacity 0.12)))
+
+            ;; 2. Command list (full width)
+            (m/Expanded
+             .child
+             (if (empty? filtered-vec)
+               (m/Center
+                .child (m/Text "No matching commands"
+                             .style (m/TextStyle .color m.Colors/white54)))
+               (m/ListView.builder
+                .itemCount (count filtered-vec)
+                .itemBuilder
+                (fn [_ i]
+                  (let [cmd (nth filtered-vec i)
+                        is-active? (= idx i)]
+                    (m/InkWell
+                     .onTap (fn []
+                              (.pop (m.Navigator/of ctx))
+                              ((:action cmd)))
+                     .child
+                     (m/Container
+                      .color (if is-active?
+                               (-> m.Colors/blue (.withOpacity 0.12))
+                               m.Colors/transparent)
+                      .padding (m.EdgeInsets/symmetric .horizontal 20.0 .vertical 12.0)
+                      .child
+                      (m/Row
+                       .children
+                       [(m/Icon (:icon cmd)
+                                .size 22.0
+                                .color (or (:color cmd) m.Colors/blueGrey))
+                        (m/SizedBox .width 16.0)
+                        (m/Text (:title cmd)
+                                .style (m/TextStyle
+                                        .fontSize 15.0
+                                        .color m.Colors/white
+                                        .fontWeight (if is-active? m.FontWeight/w600 m.FontWeight/normal)))]))))))))])))))))))

@@ -1,0 +1,96 @@
+(ns notes-app.ui.autocomplete
+  (:require ["package:flutter/material.dart" :as m]
+            ["package:mongol/mongol.dart" :as mongol]
+            [cljd.flutter :as f]
+            [notes-app.db.core :as db]
+            [rich-editor.commands.transaction :as tx]))
+
+;; =============================================================
+;; 1. State
+;; =============================================================
+
+;; Global state for autocomplete menu visibility
+(defonce !ac-state 
+  (atom {:active? false :query "" :block-id nil :offset nil}))
+
+(defn close-menu! []
+  (when (:active? @!ac-state)
+    (swap! !ac-state assoc :active? false)))
+
+;; =============================================================
+;; 2. On candidate select: complete `]]` and write to AST
+;; =============================================================
+
+(defn- handle-select! [!editor-state page-name]
+  (let [{:keys [block-id query]} @!ac-state
+        block (get-in @!editor-state [:blocks block-id])
+        old-text (:content block "")
+        target-str (str "[[" query)
+        last-idx (.lastIndexOf old-text target-str)
+        
+        new-text (if (>= last-idx 0)
+                   (str (.substring old-text 0 last-idx) "[[" page-name "]] ")
+                   old-text)]
+    
+    (tx/commit-transaction! !editor-state
+      (tx/make-transaction :ops [(tx/update-data-op block-id {:content new-text})] 
+                           :after-selection nil))
+    (close-menu!)))
+
+;; =============================================================
+;; 3. Floating menu UI (vertical text, horizontal scroll)
+;; =============================================================
+
+(defn auto-complete-menu [!editor-state]
+  (f/widget
+   :watch [ac !ac-state]
+   
+   (if-not (:active? ac)
+     (m/SizedBox.shrink)
+     (let [offset (or (:offset ac) (m/Offset 0.0 0.0))]
+       (m/Positioned
+        .left (+ 40.0 (.-dx offset))
+        .top (+ 20.0 (.-dy offset))
+        .child
+        (m/Material
+       .elevation 8.0
+       .borderRadius (m.BorderRadius/circular 8.0)
+       .child
+        (m/Container
+        .height 240.0 
+        .decoration (m/BoxDecoration .color (-> m.Colors/grey .-shade800) 
+                                     .borderRadius (m.BorderRadius/circular 8.0)
+                                     .border (m/Border.all .color (-> m.Colors/blue (.withOpacity 0.5))))
+        .child
+        (f/widget
+         :watch [pages (stream
+                        (map (fn [rows] 
+                               (filter #(if (empty? (:query ac)) 
+                                          true 
+                                          (.contains % (:query ac))) 
+                                       (vec rows))))
+                        (map (fn [_] []))
+                        :as-values (db/watch-all-pages))]
+         
+         (if (empty? pages)
+           (m/Padding 
+            .padding (m.EdgeInsets/all 16.0) 
+            .child (mongol/MongolText "No matching pages" .style (m/TextStyle .color m.Colors/white54 .fontFamily "OyunQaganTig")))
+           
+           (m/ListView.builder
+            .scrollDirection m.Axis/horizontal
+            .itemCount (count pages)
+            .itemBuilder
+            (fn [_ i]
+              (let [p-name (nth pages i)]
+                (m/InkWell
+                 .onTap #(handle-select! !editor-state p-name)
+                 .child
+                 (m/Container
+                  .padding (m.EdgeInsets/symmetric .vertical 20.0 .horizontal 16.0)
+                  .decoration (m/BoxDecoration 
+                               .border (m/Border .right (m/BorderSide .color (-> m.Colors/white (.withOpacity 0.15)))))
+                  .child (mongol/MongolText p-name 
+                                            .style (m/TextStyle .fontFamily "OyunQaganTig" 
+                                                                .fontSize 16.0 
+                                                                .color m.Colors/blue))))))))))))))))

@@ -1,0 +1,242 @@
+(ns notes-app.ui.shell
+  (:require ["package:flutter/material.dart" :as m]
+            ["package:flutter/services.dart" :as services]
+            ["package:mongol/mongol.dart" :as mongol]
+            [cljd.flutter :as f]
+            [notes-app.ui.page :as page]
+            [notes-app.ui.search :as search]
+            [notes-app.ui.command-palette :as command-palette]
+            [notes-app.db.core :as db]))
+
+;; =============================================================
+;; 1. Date helper: standard journal page name like "2026-03-09"
+;; =============================================================
+
+(defn get-today-page-name
+  "Return today's date string as page key"
+  []
+  (let [now (dart:core/DateTime.now)
+        y (.-year now)
+        m (-> now .-month str (.padLeft 2 "0"))
+        d (-> now .-day str (.padLeft 2 "0"))]
+    (str y "-" m "-" d)))
+
+;; =============================================================
+;; 2. New page dialog (vertical layout)
+;; =============================================================
+
+(defn show-vertical-new-page-dialog! [ctx on-create]
+  (let [!input (atom "")]
+    (m/showDialog
+     .context ctx
+     .builder
+     (fn [dialog-ctx]
+       (m/Dialog
+        .backgroundColor (-> m.Colors/grey .-shade900)
+        .child
+        (m/Container
+         .height 400.0
+         .padding (m.EdgeInsets/all 24.0)
+         .child
+         (m/Row
+          .mainAxisSize m.MainAxisSize/min
+          .crossAxisAlignment m.CrossAxisAlignment/start
+          .children
+          [           (mongol/MongolText "New Page" 
+                              .style (m/TextStyle .fontSize 20.0 
+                                                  .fontWeight m.FontWeight/bold 
+                                                  .fontFamily "OyunQaganTig"
+                                                  .color m.Colors/white))
+           (m/SizedBox .width 24.0)
+           
+           ;; Vertical input
+           (m/SizedBox
+            .width 60.0 
+            .child (mongol/MongolTextField 
+                    .autofocus true 
+                    .onChanged #(reset! !input %) 
+                    .decoration (m/InputDecoration .hintText "Name")))
+           
+           (m/SizedBox .width 24.0)
+           
+           (m/InkWell
+            .onTap #(.pop (m.Navigator/of dialog-ctx))
+            .child (m/Padding 
+                    .padding (m.EdgeInsets/symmetric .vertical 16.0 .horizontal 8.0)
+                    .child (mongol/MongolText "Cancel" .style (m/TextStyle .fontFamily "OyunQaganTig" .color m.Colors/white70))))
+           
+           (m/SizedBox .width 16.0)
+           
+           (m/InkWell
+            .onTap (fn []
+                     (let [page-name @!input]
+                       (when (not-empty page-name)
+                         (on-create page-name)
+                         (.pop (m.Navigator/of dialog-ctx)))))
+            .child (m/Container
+                    .padding (m.EdgeInsets/symmetric .vertical 24.0 .horizontal 12.0)
+                    .decoration (m/BoxDecoration .color m.Colors/blue .borderRadius (m.BorderRadius/circular 8.0))
+                    .child (mongol/MongolText "Create" 
+                                              .style (m/TextStyle .color m.Colors/white 
+                                                                  .fontFamily "OyunQaganTig"))))])))))))
+                                                                  
+
+;; =============================================================
+;; 3. App shell (global)
+;; =============================================================
+
+(defn app-shell 
+  "Global app shell: opens on today, seamless note-taking (singleton DB)."
+  []
+  
+  (let [today-str (get-today-page-name)
+        !current-page (atom today-str)]
+    
+    (f/widget
+     ;; Bind ctx for dialogs
+     :context ctx
+     :watch [current-page !current-page]
+     
+     (m/Scaffold
+      .body
+      (m/Focus
+       ;; No autofocus here so editor keeps focus; keyboard goes to editor-container; mongol-ime gets input (only editor has Focus)
+       .autofocus false
+       .onKeyEvent
+       (fn [_node event]
+         (if (not= (.-runtimeType event) services/KeyDownEvent)
+           m.KeyEventResult/ignored
+           (let [logical-key (.-logicalKey event)
+                 hw (.-instance services/HardwareKeyboard)
+                 mod-meta-or-ctrl (or (.-isMetaPressed hw) (.-isControlPressed hw))]
+             (cond
+               ;; Cmd/Ctrl + K: global search
+               (and (= logical-key services.LogicalKeyboardKey/keyK) mod-meta-or-ctrl)
+               (do (m/showDialog
+                    .context ctx
+                    .builder (fn [_] (search/search-panel-view !current-page)))
+                   m.KeyEventResult/handled)
+
+               ;; Cmd/Ctrl + Shift + P: command palette
+               (and (= logical-key services.LogicalKeyboardKey/keyP)
+                    (.-isShiftPressed hw)
+                    mod-meta-or-ctrl)
+               (do (m/showDialog
+                    .context ctx
+                    .builder (fn [_]
+                               (command-palette/command-palette-view
+                                !current-page
+                                {:get-today get-today-page-name
+                                 :show-new-page-dialog! show-vertical-new-page-dialog!})))
+                   m.KeyEventResult/handled)
+
+               :else m.KeyEventResult/ignored))))
+       .child
+       (m/Row
+        .children
+        [;; =========================================================
+         ;; A. Sidebar
+        ;; =========================================================
+        (m/Container
+         .width 280.0
+         .color (-> m.Colors/white (.withOpacity 0.05))
+         .padding (m.EdgeInsets/only .left 16.0 .top 40.0 .bottom 20.0)
+         .child
+         (m/Row
+          .crossAxisAlignment m.CrossAxisAlignment/start
+          .children
+          [;; 1. App logo and title
+           (mongol/MongolText "Amjil Notes" 
+                              .style (m/TextStyle .fontSize 24.0 .fontWeight m.FontWeight/w900 
+                                                  .fontFamily "OyunQaganTig" .color m.Colors/white70))
+           
+           (m/SizedBox .width 20.0)
+           
+           ;; 2. Today shortcut
+           (m/InkWell
+            .onTap #(reset! !current-page (get-today-page-name))
+            .child
+            (m/Container
+             .padding (m.EdgeInsets/symmetric .vertical 16.0 .horizontal 8.0)
+             .decoration (m/BoxDecoration 
+                          .color (if (= current-page (get-today-page-name))
+                                   (-> m.Colors/blue (.withOpacity 0.1))
+                                   m.Colors/transparent)
+                          .borderRadius (m.BorderRadius/circular 8.0))
+             .child (m/Column
+                     .mainAxisSize m.MainAxisSize/min
+                     .children
+                     [(m/Icon m.Icons/today .size 18.0 .color m.Colors/blue)
+                      (m/SizedBox .height 8.0)
+                      (mongol/MongolText "Today" 
+                                         .style (m/TextStyle .color m.Colors/blue .fontFamily "OyunQaganTig"))])))
+           
+           (m/SizedBox .width 12.0)
+           
+           ;; 3. New page button
+           (m/InkWell
+            .onTap #(show-vertical-new-page-dialog! ctx (fn [name] (reset! !current-page name)))
+            .child
+            (m/Container
+             .padding (m.EdgeInsets/symmetric .vertical 16.0 .horizontal 8.0)
+             .decoration (m/BoxDecoration 
+                          .color (-> m.Colors/white (.withOpacity 0.1)) 
+                          .borderRadius (m.BorderRadius/circular 8.0))
+             .child (m/Column
+                     .mainAxisSize m.MainAxisSize/min
+                     .children
+                     [(m/Icon m.Icons/add .size 18.0 .color m.Colors/white70)
+                      (m/SizedBox .height 8.0)
+                      (mongol/MongolText "New Page" 
+                                         .style (m/TextStyle .color m.Colors/white70 
+                                                             .fontFamily "OyunQaganTig"))])))
+           
+           (m/Padding
+            .padding (m.EdgeInsets/symmetric .horizontal 16.0)
+            .child (m/VerticalDivider .width 1.0 .thickness 1.0 .color (-> m.Colors/white (.withOpacity 0.2))))
+           
+           ;; 4. Dynamic page list
+           (m/Expanded
+            .child
+            (f/widget
+             :watch [pages-list (stream
+                                 (map (fn [results] 
+                                        (filter #(not= % (get-today-page-name)) (vec results))))
+                                 (map (fn [_] []))
+                                 :as-values (db/watch-all-pages))]
+             
+             (m/ListView.builder
+              .scrollDirection m.Axis/horizontal
+              .itemCount (count pages-list)
+              .itemBuilder
+              (fn [_ i]
+                (let [p-name (nth pages-list i)
+                      is-selected? (= current-page p-name)]
+                  (m/GestureDetector
+                   .onTap #(reset! !current-page p-name)
+                   .child
+                   (m/Container
+                    .margin (m.EdgeInsets/only .right 8.0)
+                    .padding (m.EdgeInsets/symmetric .vertical 20.0 .horizontal 12.0)
+                    .decoration (m/BoxDecoration 
+                                 .color (if is-selected? (-> m.Colors/blue (.withOpacity 0.1)) m.Colors/transparent)
+                                 .borderRadius (m.BorderRadius/circular 8.0))
+                    .child
+                    (mongol/MongolText p-name 
+                                       .style (m/TextStyle 
+                                               .fontFamily "OyunQaganTig"
+                                               .fontSize 16.0
+                                               .color (if is-selected? m.Colors/blue m.Colors/white70)
+                                               .fontWeight (if is-selected? m.FontWeight/bold m.FontWeight/normal))))))))))]))
+        
+        ;; =========================================================
+        ;; B. Main content
+        ;; =========================================================
+        (m/Expanded
+         .child
+         (m/Container
+          .color m.Colors/black
+          .child
+          (m/KeyedSubtree
+           .key (m/ValueKey. current-page)
+           .child (page/note-page-view current-page (fn [target-page] (reset! !current-page target-page))))))]))))))

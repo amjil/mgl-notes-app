@@ -1,0 +1,90 @@
+(ns notes-app.store
+  "In-memory note store: page state + block link index (when not using Drift)."
+  (:require [clojure.set :as cset]
+            [notes-app.utils.parser :as parser]))
+
+(defn- state->entities [page-id state]
+  (let [root (:root state [])
+        blocks (:blocks state {})]
+    (reduce (fn [acc id]
+              (if-let [b (get blocks id)]
+                (assoc acc id {:id id :page-id page-id :content (:content b "")
+                               :order-index (.indexOf (vec root) id)})
+                acc))
+            {}
+            root)))
+
+(defn- compute-diff [page-id old-state new-state]
+  (let [old-entities (state->entities page-id old-state)
+        new-entities (state->entities page-id new-state)
+        old-ids (set (keys old-entities))
+        new-ids (set (keys new-entities))
+        deletes (cset/difference old-ids new-ids)
+        upserts (reduce (fn [acc id]
+                          (let [old-e (get old-entities id)
+                                new-e (get new-entities id)]
+                            (if (not= old-e new-e)
+                              (conj acc new-e)
+                              acc)))
+                        []
+                        new-ids)]
+    {:deletes (vec deletes) :upserts upserts}))
+
+(defn make-store
+  "Return atom with {:pages {} :block->page {} :links []}."
+  []
+  (atom {:pages {} :block->page {} :links []}))
+
+(defn sync-state!
+  "Sync page editor state to store; update block->page and links."
+  [!store page-id old-state new-state]
+  (let [clean-old (dissoc (or old-state {}) :active-block-id :cursor-visible)
+        clean-new (dissoc (or new-state {}) :active-block-id :cursor-visible)]
+    (when (not= clean-old clean-new)
+      (let [diff (compute-diff page-id (or clean-old {:root [] :blocks {}}) clean-new)
+            {:keys [deletes upserts]} diff
+            page-block-ids (set (keys (:blocks clean-new {})))]
+        (swap! !store
+               (fn [s]
+                 (let [s (update s :block->page #(apply dissoc % deletes))
+                       s (update s :links
+                                 #(vec (remove (fn [x] (contains? (set deletes) (:source-id x))) %)))
+                       s (assoc-in s [:pages page-id] clean-new)
+                       s (reduce (fn [s bid] (assoc-in s [:block->page bid] page-id))
+                                 s page-block-ids)
+                       s (update s :links
+                                 #(vec (remove (fn [x] (= (:source-page-id x) page-id)) %)))
+                       new-links (mapcat (fn [e]
+                                          (let [targets (parser/parse-bidirectional-links (:content e))]
+                                            (map (fn [target]
+                                                   {:source-id (:id e) :source-page-id page-id :target-page-id target})
+                                                 targets)))
+                                       upserts)
+                       s (update s :links into new-links)]
+                   s)))))))
+
+(defn get-backlinks
+  "Return list of refs to target-page-id, each {:source-page-id :content}."
+  [store target-page-id]
+  (let [links (filter #(= (:target-page-id %) target-page-id) (:links store))
+        pages (:pages store)]
+    (map (fn [link]
+           (let [source-id (:source-id link)
+                 page-id (:source-page-id link)
+                 content (get-in pages [page-id :blocks source-id :content] "")]
+             {:source-page-id page-id :content content}))
+         links)))
+
+(defn get-page-state
+  "Get page editor state; nil if not present."
+  [store page-id]
+  (get-in store [:pages page-id]))
+
+(defn set-page-state!
+  "Write page state directly (e.g. initial load)."
+  [!store page-id state]
+  (sync-state! !store page-id nil state))
+
+(defn list-page-ids
+  [store]
+  (vec (keys (:pages store))))

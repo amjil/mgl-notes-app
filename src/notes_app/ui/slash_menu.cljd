@@ -1,0 +1,138 @@
+(ns notes-app.ui.slash-menu
+  (:require ["package:flutter/material.dart" :as m]
+            ["package:mongol/mongol.dart" :as mgl]
+            [cljd.flutter :as f]
+            [clojure.string :as str]
+            [rich-editor.commands.transaction :as tx]
+            [rich-editor.commands.editor-commands :as editor-cmd]
+            [notes-app.utils.date :as date]))
+
+;; =============================================================
+;; 1. Slash commands: type conversion + dynamic (date/time)
+;; =============================================================
+
+(def slash-commands
+  [{:title "Heading 1" :icon m.Icons/format_size :type :heading-1 :desc "/h1"}
+   {:title "Heading 2" :icon m.Icons/text_fields :type :heading-2 :desc "/h2"}
+   {:title "Heading 3" :icon m.Icons/text_fields :type :heading-3 :desc "/h3"}
+   {:title "Task" :icon m.Icons/check_box :type :task :desc "/todo"}
+   {:title "Quote" :icon m.Icons/format_quote :type :blockquote :desc "/quote"}
+   {:title "Image" :icon m.Icons/image :type :image :desc "/img"}
+   {:title "Divider" :icon m.Icons/horizontal_rule :type :divider :desc "/---"}])
+
+(defn get-dynamic-commands
+  "Dynamic commands: :value-fn evaluated on apply so date/time is correct even across midnight."
+  []
+  [{:title "Today" :icon m.Icons/today :desc "/today"
+    :action :insert :value-fn #(str "[[" (date/get-relative-date 0) "]]")}
+   {:title "Tomorrow" :icon m.Icons/event :desc "/tomorrow"
+    :action :insert :value-fn #(str "[[" (date/get-relative-date 1) "]]")}
+   {:title "Current time" :icon m.Icons/access_time :desc "/now"
+    :action :insert :value-fn date/get-now-time}])
+
+;; =============================================================
+;; 2. State and close
+;; =============================================================
+
+(defonce !slash-state
+  (atom {:visible false :block-id nil :filter ""}))
+
+(defonce !slash-selected-idx (atom 0))
+
+(defn close-slash-menu! []
+  (when (:visible @!slash-state)
+    (swap! !slash-state assoc :visible false :block-id nil))
+  (reset! !slash-selected-idx 0))
+
+;; =============================================================
+;; 3. Apply command: (1) text insert :insert  (2) type change (H1/Task etc.)
+;; =============================================================
+
+(defn apply-command! [!state block-id cmd]
+  (when (and block-id cmd)
+    (let [block (get-in @!state [:blocks block-id])
+          old-content (or (:content block) "")]
+      (case (:action cmd)
+        ;; Text insert: e.g. "remember /today" -> "remember [[2026-03-09]]", cursor to end
+        :insert
+        (let [value (if (:value-fn cmd) ((:value-fn cmd)) (:value cmd))
+              new-content (str/replace old-content #"/[a-zA-Z]*$" value)]
+          (tx/commit-transaction! !state
+            (tx/make-transaction
+             :ops [(tx/update-data-op block-id {:content new-content})]
+             :after-selection nil))
+          (editor-cmd/focus-block !state block-id (count new-content)))
+
+        ;; Type change: strip trailing slash, update block type
+        (let [new-content (str/replace old-content #"/\s*$" "")]
+          (tx/commit-transaction! !state
+            (tx/make-transaction
+             :ops [(tx/update-data-op block-id {:type (:type cmd) :content new-content})]
+             :after-selection nil)))))
+    (close-slash-menu!)))
+
+;; =============================================================
+;; 4. Merge static + dynamic commands, filter in real time (/tom -> Tomorrow etc.)
+;; =============================================================
+
+(defn all-commands []
+  (into slash-commands (get-dynamic-commands)))
+
+(defn filtered-commands []
+  (let [f (str/trim (get @!slash-state :filter ""))
+        cmds (all-commands)]
+    (if (str/blank? f)
+      cmds
+      (filterv (fn [cmd]
+                (or (str/includes? (:title cmd) f)
+                    (str/includes? (:desc cmd) f)))
+              cmds))))
+
+;; =============================================================
+;; 5. Floating menu UI: arrow keys highlight, Enter confirm
+;; =============================================================
+
+(defn slash-menu-view [on-select]
+  (f/widget
+   :watch [idx !slash-selected-idx
+           _slash !slash-state]
+   :let [commands (filtered-commands)
+         n (count commands)]
+  ;;  (when (and (pos? n) (>= idx n))
+  ;;    (reset! !slash-selected-idx (max 0 (dec n))))
+   (m/Material
+    .elevation 8.0
+    .borderRadius (m.BorderRadius/circular 8.0)
+    .color (-> m.Colors/grey .-shade800)
+    .child
+    (m/Container
+     .width 220.0
+     .constraints (m/BoxConstraints .maxHeight 300.0)
+     .child (m/ListView.builder
+             .scrollDirection m.Axis/horizontal
+             .shrinkWrap true
+             .itemCount (count commands)
+             .itemBuilder
+             (fn [_ctx i]
+               (let [cmd (nth commands i)
+                     is-active? (= idx i)]
+                 (m/InkWell
+                  .onTap #(on-select cmd)
+                  .child (m/Container
+                          .color (if is-active?
+                                   (-> m.Colors/blue (.withOpacity 0.1))
+                                   m.Colors/transparent)
+                          .padding (m.EdgeInsets/all 12.0)
+                          .child (m/Column
+                                  .children
+                                  [(m/Icon (:icon cmd)
+                                           .size 18.0
+                                           .color (if is-active? m.Colors/blue m.Colors/white70))
+                                   (m/SizedBox .height 12.0)
+                                   (mgl/MongolText (:title cmd)
+                                                   .style (m/TextStyle
+                                                           .fontSize 14.0
+                                                           .color m.Colors/white
+                                                           .fontWeight (if is-active?
+                                                                         m.FontWeight/bold
+                                                                         m.FontWeight/normal)))]))))))))))

@@ -1,16 +1,25 @@
 {:paths ["src"] ; where your cljd files are
  :deps {tensegritics/clojuredart
         {:git/url "https://github.com/tensegritics/ClojureDart.git"
-         :sha "9385be3c88ab6593350fdda50d86af985224971b"}
+         :sha "4ee792f3044589c96b019c2a86db9b23f1b283ab"}
         amjil/mongol-virtual-keyboard
         {:git/url "https://github.com/amjil/mongol-virtual-keyboard.git"
-         :sha "1f3e40d9b1d7be45820e0b1b1bc6a5322a79e3f9"}
-        amjil/electric-sync
-        {:git/url "https://github.com/amjil/electric-sync"
-         :sha "6d5fc716cf7f2e68b1a9a2a729c8f9bb4951f869"}
-        amjil/mongol-block-editor
-        {:git/url "https://github.com/amjil/mongol-block-editor.git"
-         :sha "895e363961f8d8c3af9d390c774bdf6b05c9151f"}}
+         :sha "bb83ef01b9610053e8529c453b102db74a40b5a7"}
+        amjil/mongol-ime
+        {;:git/url "https://github.com/amjil/mongol-ime.git"
+         ;:sha "5110cc95a51a9980f5f39599fdc94d85e9d77491"
+         :local/root "../m-h-k"
+         }
+        amjil/mgl-block-editor
+        {;:git/url "https://github.com/amjil/mgl-block-editor.git"
+         ;:sha "c37d5f1c4ad5ead95974507d889189bb455a42d6"
+         :local/root "../mgl-block-editor"
+         }
+        amjil/mgl-richtext-editor
+        {;:git/url "https://github.com/amjil/mgl-richtext-editor.git"
+         ;:sha ""
+         :local/root "../mgl-richtext-editor"
+         }}
  :aliases {:cljd {:main-opts ["-m" "cljd.build"]}}
  :cljd/opts {:kind :flutter
              :main notes-app.main}}

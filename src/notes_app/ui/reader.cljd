@@ -1,0 +1,215 @@
+(ns notes-app.ui.reader
+  (:require ["package:flutter/material.dart" :as m]
+            ["package:flutter/gestures.dart" :as gestures]
+            ["package:mongol/mongol.dart" :as mongol]
+            [clojure.string :as str]
+            [notes-app.db.core :as db]
+            [notes-app.ui.image-viewer :as viewer]
+            [notes-app.utils.parser :as parser]))
+
+;; Match editor dark-block-style: font size, line height, font for reader/edit visual consistency
+(defn- reader-block-style [block-type]
+  (case block-type
+    :heading-1 (m/TextStyle. .fontSize 28.0 .fontWeight m.FontWeight/bold .height 2.0 .fontFamily "OyunQaganTig" .color m.Colors/white)
+    :heading-2 (m/TextStyle. .fontSize 24.0 .fontWeight m.FontWeight/bold .height 2.0 .fontFamily "OyunQaganTig" .color m.Colors/white)
+    :heading-3 (m/TextStyle. .fontSize 20.0 .fontWeight m.FontWeight/bold .height 2.0 .fontFamily "OyunQaganTig" .color m.Colors/white)
+    :blockquote (m/TextStyle. .fontSize 20.0 .fontStyle m.FontStyle/italic .height 2.0 .fontFamily "OyunQaganTig" .color m.Colors/white70)
+    :task (m/TextStyle. .fontSize 20.0 .height 2.0 .fontFamily "OyunQaganTig" .color m.Colors/white)
+    (m/TextStyle. .fontSize 20.0 .height 2.0 .fontFamily "OyunQaganTig" .color m.Colors/white)))
+
+;; =============================================================
+;; 1. Inline rich text parsing (Inline Spans)
+;; =============================================================
+
+(defn- build-rich-spans 
+  "Core: split text into styled TextSpan array"
+  [text base-style on-link-tap]
+  (let [spans (parser/parse-text-spans text)]
+    (map (fn [{:keys [type content]}]
+           (case type
+             :text 
+             (m/TextSpan .text content .style base-style)
+
+             :link 
+             (m/TextSpan .text (str "[[" content "]]")
+                         .style (.copyWith base-style 
+                                           .color m.Colors/blue 
+                                           .fontWeight m.FontWeight/bold
+                                           .decoration m.TextDecoration/underline)
+                         .recognizer (let [r (gestures/TapGestureRecognizer.)]
+                                       (set! (.-onTap r) #(on-link-tap content))
+                                       r))
+
+             :tag  
+             (m/TextSpan .text (str "#" content)
+                         .style (.copyWith base-style 
+                                           .color m.Colors/purple 
+                                           .fontStyle m.FontStyle/italic)
+                         .recognizer (let [r (gestures/TapGestureRecognizer.)]
+                                       (set! (.-onTap r) #(on-link-tap content))
+                                       r))
+
+             :block-ref 
+             (m/TextSpan .text (str "⚓ " (apply str (take 8 content)) "…") 
+                         .style (.copyWith base-style 
+                                           .color m.Colors/white70 
+                                           .fontSize (- (.-fontSize base-style) 2.0)
+                                           .backgroundColor (-> m.Colors/white (.withOpacity 0.15))
+                                           .decoration m.TextDecoration/underline
+                                           .decorationStyle m.TextDecorationStyle/dashed)
+                         .recognizer (let [r (gestures/TapGestureRecognizer.)]
+                                       (set! (.-onTap r) #(on-link-tap {:type :block :id content}))
+                                       r))))
+         spans)))
+
+;; =============================================================
+;; 2. Properties panel rendering
+;; =============================================================
+
+(def ^:private prop-line-regex #"^[^:\n]+::\s*(.*)$")
+
+(defn- strip-property-lines
+  "Strip leading consecutive property lines from body"
+  [content]
+  (let [lines (str/split-lines (or content ""))]
+    (str/join "\n" (drop-while #(re-matches prop-line-regex (str/trim %)) lines))))
+
+(defn- render-properties-view
+  "Render properties panel. Property values (v) also support rich text parsing"
+  [props _base-style on-link-tap]
+  (if (empty? props)
+    (m/SizedBox.shrink)
+    (m/Container
+     .margin (m.EdgeInsets/only .bottom 12.0)
+     .padding (m.EdgeInsets/all 8.0)
+     .decoration (m/BoxDecoration
+                  .color (-> m.Colors/white (.withOpacity 0.05))
+                  .borderRadius (m.BorderRadius/circular 4.0)
+                  .border (m/Border.all .color (-> m.Colors/white (.withOpacity 0.15))))
+     .child
+     (m/Column
+      .crossAxisAlignment m.CrossAxisAlignment/start
+      .mainAxisSize m.MainAxisSize/min
+      .children
+      (vec (map (fn [[k v]]
+                  (m/Padding
+                   .padding (m.EdgeInsets/symmetric .vertical 2.0)
+                   .child
+                   (mongol/MongolRichText
+                    .text (m/TextSpan
+                           .children
+                           [(m/TextSpan .text (str k ": ")
+                                        .style (m/TextStyle .color m.Colors/white54 
+                                                            .fontSize 12.0 
+                                                            .fontWeight m.FontWeight/bold
+                                                            .fontFamily "OyunQaganTig"))
+                            ;; Parse property value as rich text, support [[links]] in properties
+                            (m/TextSpan 
+                             .children (build-rich-spans v 
+                                                         (m/TextStyle .color m.Colors/white70 
+                                                                      .fontSize 12.0
+                                                                      .fontFamily "OyunQaganTig")
+                                                         on-link-tap))]))))
+                props))))))
+
+;; =============================================================
+;; 3. Block dispatcher
+;; =============================================================
+
+(defn block-reader-view
+  "Read-mode block view. Top Column uses mainAxisSize/max to fill parent; text wrapped in Expanded
+   so MongolText respects height and wraps columns in vertical layout, avoiding RenderFlex overflow."
+  [block on-link-tap plugins]
+  (let [{b-type :type raw-content :content b-data :data} block
+        content (or raw-content "")
+        b-data (or b-data {})
+        props (parser/parse-properties content)
+        clean-text (strip-property-lines content)
+        base-style (reader-block-style b-type)
+        plugin (first (filter #(= (:type %) b-type) plugins))
+        ;; Wrap text in Expanded so it wraps within parent height instead of overflowing
+        rich-text-content (fn [text-style]
+                            (m/Expanded
+                             .child
+                             (mongol/MongolText.rich
+                              (m/TextSpan
+                               .children (build-rich-spans clean-text text-style on-link-tap)))))]
+    (m/Column
+     .mainAxisSize m.MainAxisSize/max
+     .crossAxisAlignment m.CrossAxisAlignment/start
+     .children
+     (filterv some?
+      [(render-properties-view props base-style on-link-tap)
+       (cond
+         (and plugin (:render-read plugin))
+         ((:render-read plugin) block base-style on-link-tap)
+
+         (= b-type :image)
+         (let [url (get b-data :url "")
+               block-id (:id block)]
+           (if (str/blank? url)
+             (m/SizedBox.shrink)
+             (m/Builder
+              .builder (fn [ctx]
+                         (let [screen-width (.-width (.-size (m.MediaQuery/of ctx)))
+                               width-ratio (get b-data :width-ratio 0.5)]
+                           (m/Column
+                            .mainAxisSize m.MainAxisSize/min
+                            .crossAxisAlignment m.CrossAxisAlignment/start
+                            .children
+                            [(m/MouseRegion
+                              .cursor m.SystemMouseCursors/click
+                              .child
+                              (m/GestureDetector
+                               .onTap (fn [] (viewer/open! ctx url))
+                               .child
+                               (m/Hero
+                                .tag url
+                                .child
+                                (m/ClipRRect
+                                 .borderRadius (m.BorderRadius/circular 8.0)
+                                 .child (m/Image.network url
+                                                         .width (* screen-width width-ratio)
+                                                         .fit m.BoxFit/fitWidth)))))
+                             (m/SizedBox .height 8.0)
+                             (m/SizedBox
+                              .width (* screen-width width-ratio)
+                              .child (m/Slider
+                                      .value (min 1.0 (max 0.1 width-ratio))
+                                      .min 0.1
+                                      .max 1.0
+                                      .onChanged (fn [new-val]
+                                                   (when block-id
+                                                     (db/update-block-data! block-id {:width-ratio new-val})))))]))))))
+
+         (= b-type :divider)
+         (m/Padding
+          .padding (m.EdgeInsets/symmetric .vertical 16.0 .horizontal 8.0)
+          .child (m/Container .width 2.0 .height 150.0 .color (-> m.Colors/white (.withOpacity 0.2))))
+
+         (= b-type :task)
+         (let [checked? (get-in block [:data :checked] false)
+               task-style (if checked?
+                            (.copyWith base-style .decoration m.TextDecoration/lineThrough .color m.Colors/white54)
+                            base-style)]
+           (m/Row
+            .mainAxisSize m.MainAxisSize/min
+            .crossAxisAlignment m.CrossAxisAlignment/start
+            .children
+            [(m/GestureDetector
+              .onTap #(println "Toggle state")
+              .child (m/Padding
+                      .padding (m.EdgeInsets/only .bottom 12.0)
+                      .child (m/Icon (if checked? m.Icons/check_box m.Icons/check_box_outline_blank)
+                                     .color (if checked? m.Colors/blue m.Colors/white54)
+                                     .size 24.0)))
+             (rich-text-content task-style)]))
+
+         (= b-type :blockquote)
+         (m/Container
+          .padding (m.EdgeInsets/only .top 16.0)
+          .decoration (m/BoxDecoration .border (m/Border .top (m/BorderSide .color m.Colors/blue .width 4.0)))
+          .child (rich-text-content base-style))
+
+         :else
+         (rich-text-content base-style))]))))

@@ -1,0 +1,71 @@
+(ns notes-app.ui.journals
+  (:require ["package:flutter/material.dart" :as m]
+            ["package:mongol/mongol.dart" :as mongol]
+            [cljd.flutter :as f]
+            [notes-app.ui.page :as page]
+            [notes-app.db.core :as db]))
+
+;; =============================================================
+;; Date helpers
+;; =============================================================
+(defn- get-today-page-name []
+  (let [now (dart:core/DateTime.now)
+        y (.-year now)
+        mon (-> now .-month str (.padLeft 2 "0"))
+        d (-> now .-day str (.padLeft 2 "0"))]
+    (str y "-" mon "-" d)))
+
+;; =============================================================
+;; Journal stream view: high-performance DB direct
+;; =============================================================
+(defn journals-stream-view 
+  "Logseq-style journal stream: SQLite filter and sort only, max performance"
+  []
+  (f/widget
+   (m/Scaffold
+    .backgroundColor m.Colors/black
+    .body
+    (m/SafeArea
+     .child
+     (f/widget
+      ;; 1. Subscribe to watch-all-journals; values are plain strings ["2026-03-08" "2026-03-07" ...]
+      :watch [journal-pages (stream
+                             (map (fn [names] (vec names)))
+                             (map (fn [_] []))
+                             :as-values (db/watch-all-journals))]
+      
+      :let [today (get-today-page-name)
+            ;; 2. Remove today from list (if today has journal, DB has it; avoid showing twice)
+            past-journals (remove #(= % today) journal-pages)
+            
+            ;; 3. Put today at the start (so even with no entry today, user has a canvas to type)
+            display-dates (into [today] past-journals)]
+      
+      ;; Same base-top-margin as editor so journal stream first column aligns with others
+      (m/ListView.builder
+       .scrollDirection m.Axis/horizontal
+       .padding (m.EdgeInsets/only .top 48.0)
+       .itemCount (count display-dates)
+       .itemBuilder
+       (fn [_ctx i]
+         (let [date-id (nth display-dates i)]
+           (m/KeyedSubtree
+            .key (m/ValueKey. date-id)
+            .child
+            (m/Row
+             .crossAxisAlignment m.CrossAxisAlignment/start
+             .children
+             [;; A. Core editor
+              (m/Container
+               ;; Limit max width so previous day peeks on the right, hinting scroll
+               .constraints (m/BoxConstraints .maxWidth 850.0) 
+               .child (page/note-content-view date-id nil))
+              
+              ;; B. Divider between days
+              (m/Padding
+               .padding (m.EdgeInsets/symmetric .horizontal 40.0 .vertical 60.0)
+               .child
+               (m/Container .width 2.0 
+                            .decoration (m/BoxDecoration 
+                                         .color (-> m.Colors/white (.withOpacity 0.15))
+                                         .borderRadius (m.BorderRadius/circular 2.0))))]))))))))))

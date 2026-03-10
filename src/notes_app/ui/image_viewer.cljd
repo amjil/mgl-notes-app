@@ -1,0 +1,49 @@
+(ns notes-app.ui.image-viewer
+  (:require ["package:flutter/material.dart" :as m]
+            ["package:flutter/services.dart" :as services]
+            ))
+
+(defn- show-desktop-image [ctx url]
+  (.push (m.Navigator/of ctx)
+         (m/PageRouteBuilder.
+          .opaque false
+          .barrierColor (-> m.Colors/black (.withOpacity 0.9))
+          .barrierDismissible true
+          .pageBuilder
+          (fn [route-ctx _ _]
+            (m/Focus
+             .autofocus true
+             .onKeyEvent
+             (fn [_node event]
+               (if (and (= (.-runtimeType event) services/KeyDownEvent)
+                        (= (.-logicalKey event) services.LogicalKeyboardKey/escape))
+                 (do (.pop (m.Navigator/of route-ctx))
+                     m.KeyEventResult/handled)
+                 m.KeyEventResult/ignored))
+             .child
+             (m/Stack
+              .children
+              [;; 1. Tap background to close
+               (m/GestureDetector
+                .onTap #(.pop (m.Navigator/of route-ctx))
+                .child (m/Container .color m.Colors/transparent))
+               ;; 2. Image (Hero)
+               (m/Center
+                .child
+                (m/Hero
+                 .tag url
+                 .child
+                 (m/ConstrainedBox
+                  .constraints (m/BoxConstraints .maxWidth 1200.0 .maxHeight 800.0)
+                  .child (m/Image.network url .fit m.BoxFit/contain))))
+               ;; 3. Close button (top right)
+               (m/Positioned
+                .top 30.0
+                .right 30.0
+                .child (m/IconButton
+                        .icon (m/Icon m.Icons/close .color m.Colors/white .size 32.0)
+                        .onPressed #(.pop (m.Navigator/of route-ctx))
+                        .tooltip "Exit fullscreen (Esc)"))]))))))
+
+(defn open! [ctx url]
+  (show-desktop-image ctx url))

@@ -1,0 +1,57 @@
+(ns notes-app.ui.navigation
+  (:require ["package:flutter/material.dart" :as m]
+            ["dart:async" :as async]
+            ["dart:core" :as dc]
+            [notes-app.db.core :as db]
+            [rich-editor.components.node-view :as node-view]))
+
+(declare handle-global-link-tap!)
+
+(def !flash-tokens
+  (atom {}))
+
+(defn flash-block!
+  "Flash block briefly, clear after ms (UI only, not persisted)."
+  ([block-id] (flash-block! block-id 1200))
+  ([block-id ms]
+   (when block-id
+     (let [token (swap! !flash-tokens update block-id (fnil inc 0))]
+       (async/Timer.
+        (dc/Duration. .milliseconds ms)
+        (fn []
+          (swap! !flash-tokens
+                 (fn [m]
+                   (if (= (get m block-id) token)
+                     (dissoc m block-id)
+                     m)))))))))
+
+(defn jump-and-flash!
+  "Jump to block and trigger brief highlight."
+  [!current-page block-id]
+  (handle-global-link-tap! !current-page {:type :block :id block-id})
+  (flash-block! block-id 1200))
+
+(defn ^:async handle-global-link-tap! 
+  "Global link tap handler. Uses ^:async."
+  [!current-page target]
+  (cond
+    (string? target)
+    (reset! !current-page target)
+    
+    (and (map? target) (= (:type target) :block))
+    (let [block-id (:id target)
+          page-id (await (db/get-block-page-id block-id))]
+      (if page-id
+        (do
+          (when (not= @!current-page page-id)
+            (reset! !current-page page-id))
+          (await (async/Future.delayed (dc/Duration. .milliseconds 200)))
+          (let [block-key (get @node-view/!block-text-keys block-id)]
+            (if-let [ctx (and block-key (.-currentContext block-key))]
+              (m/Scrollable.ensureVisible 
+               ctx 
+               .duration (dc/Duration. .milliseconds 400)
+               .alignment 0.2
+               .curve m.Curves/easeOutQuart)
+              (dc/print "Warning: block context not found, page may not be built yet"))))
+        (dc/print (str "Error: block not found in DB: " block-id))))))

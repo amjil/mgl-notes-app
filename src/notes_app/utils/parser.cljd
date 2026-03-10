@@ -1,0 +1,106 @@
+(ns notes-app.utils.parser
+  (:require ["dart:core" :as dart]
+            [clojure.string :as str]))
+
+;; =============================================================
+;; 1. Regex
+;; =============================================================
+
+;; Main: 1=wikilink, 2=tag, 3=UUID
+(def ^:private link-regex "\\[\\[([^\\]]+)\\]\\]|#([^ \\n\\t#\\[\\]]+)|\\(\\(([a-f0-9\\-]{36})\\)\\)")
+
+;; Property: key:: value
+(def ^:private prop-regex #"^([^:\n]+)::\s*(.*)$")
+
+;; =============================================================
+;; 2. Inline span parsing
+;; =============================================================
+
+(defn parse-text-spans 
+  "Split text into typed tokens for MongolRichText."
+  [text]
+  (let [regex (dart:core/RegExp. link-regex)
+        matches (vec (.allMatches regex (or text "")))]
+    (if (empty? matches)
+      [{:type :text :content text}]
+      (loop [i 0
+             last-idx 0
+             acc []]
+        (if (< i (count matches))
+          (let [^dart:core/RegExpMatch m (nth matches i)
+                start (.start m)
+                end (.end m)
+                link-text (.group m 1)
+                tag-text (.group m 2)
+                uuid-text (.group m 3)
+                
+                prefix-text (.substring text last-idx start)
+                acc (if (not-empty prefix-text) (conj acc {:type :text :content prefix-text}) acc)
+                
+                token (cond 
+                        link-text {:type :link :content link-text}
+                        tag-text  {:type :tag  :content tag-text}
+                        uuid-text {:type :block-ref :content uuid-text})]
+            (recur (inc i) end (conj acc token)))
+          (let [suffix (.substring text last-idx)]
+            (if (not-empty suffix) (conj acc {:type :text :content suffix}) acc)))))))
+
+;; =============================================================
+;; 3. Block properties
+;; =============================================================
+
+(defn parse-properties
+  "Extract properties from block text. Only leading consecutive key:: value lines."
+  [text]
+  (if (str/blank? text)
+    {}
+    (let [lines (str/split-lines text)]
+      (loop [acc {}
+             remaining lines]
+        (if (empty? remaining)
+          acc
+          (let [line (str/trim (first remaining))
+                match (re-matches prop-regex line)]
+            (if match
+              (recur (assoc acc (str/trim (nth match 1)) (str/trim (nth match 2)))
+                     (rest remaining))
+              acc)))))))
+
+(defn strip-properties
+  "Strip leading property lines from block, return body text for Reader."
+  [text]
+  (if (str/blank? text)
+    ""
+    (let [lines (str/split-lines text)]
+      (loop [remaining lines]
+        (if (empty? remaining)
+          ""
+          (let [line (str/trim (first remaining))]
+            (if (re-matches prop-regex line)
+              (recur (rest remaining))
+              (str/join "\n" remaining))))))))
+
+;; =============================================================
+;; 4. Reference extraction (for DB layer)
+;; =============================================================
+
+(defn parse-all-references
+  "Extract all page names and block UUIDs from text. Returns {:pages [...] :blocks [...]}."
+  [text]
+  (let [re (dart:core/RegExp. link-regex)
+        matches (vec (.allMatches re (or text "")))]
+    (reduce (fn [acc ^dart:core/RegExpMatch m]
+              (let [link (.group m 1)
+                    tag  (.group m 2)
+                    uuid (.group m 3)]
+                (cond
+                  link (update acc :pages conj link)
+                  tag  (update acc :pages conj tag)
+                  uuid (update acc :blocks conj uuid)
+                  :else acc)))
+            {:pages [] :blocks []}
+            matches)))
+
+;; Alias for db/core callers
+(defn parse-bidirectional-links [text]
+  (:pages (parse-all-references text)))

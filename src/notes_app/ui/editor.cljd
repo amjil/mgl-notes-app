@@ -1,0 +1,632 @@
+(ns notes-app.ui.editor
+  (:require ["package:flutter/material.dart" :as m]
+            ["package:flutter/services.dart" :as s]
+            [cljd.flutter :as f]
+            [block-editor.commands.block-commands :as block-cmd]
+            [block-editor.config :as be-config]
+            [rich-editor.components.node-view :as node-view]
+            [rich-editor.commands.editor-commands :as editor-cmd]
+            [rich-editor.config :as rich-config]
+            [rich-editor.defaults :as rich-defaults]
+            [rich-editor.services.ime-service :as ime]
+            [shared-ime.controller :as ime-ctrl]
+            [shared-ime.overlay-view :as overlay]
+            [notes-app.db.core :as db]
+            [notes-app.ui.reader :as reader]
+            [notes-app.ui.navigation :as nav]
+            [notes-app.ui.autocomplete :as ac]
+            [notes-app.ui.slash-menu :as slash]))
+
+;; Block text color in dark theme (rich-editor defaults to black, invisible on dark bg)
+(def ^:private dark-text-color m.Colors/white)
+;; Unified top margin so vertical text doesn't hit the top and blocks align
+(def ^:private base-top-margin 48.0)
+
+(defn- dark-block-style [block-type]
+  (case block-type
+    :heading-1 (m/TextStyle. .fontSize 28.0 .fontWeight m.FontWeight/bold
+                           .height 2.0 .fontFamily "OyunQaganTig" .color dark-text-color)
+    :heading-2 (m/TextStyle. .fontSize 24.0 .fontWeight m.FontWeight/bold
+                           .height 2.0 .fontFamily "OyunQaganTig" .color dark-text-color)
+    :heading-3 (m/TextStyle. .fontSize 20.0 .fontWeight m.FontWeight/bold
+                           .height 2.0 .fontFamily "OyunQaganTig" .color dark-text-color)
+    :blockquote (m/TextStyle. .fontSize 20.0 .fontStyle m.FontStyle/italic
+                             .height 2.0 .fontFamily "OyunQaganTig" .color dark-text-color)
+    :code-block (m/TextStyle. .fontSize 16.0 .fontFamily "monospace" .height 1.8 .color dark-text-color)
+    :list-item (m/TextStyle. .fontSize 20.0 .height 2.0 .fontFamily "OyunQaganTig" .color dark-text-color)
+    :task (m/TextStyle. .fontSize 20.0 .height 2.0 .fontFamily "OyunQaganTig" .color dark-text-color)
+    (m/TextStyle. .fontSize 20.0 .height 2.0 .fontFamily "OyunQaganTig" .color dark-text-color)))
+
+;; =============================================================
+;; 0. Collapse visibility: filter root list by collapsed?
+;; =============================================================
+
+(defn- get-visible-root
+  "Compute visible block IDs from collapse state. When a block has :collapsed?,
+   skip all following blocks with greater indent until same or parent level."
+  [root-ids blocks-map]
+  (loop [remaining (seq root-ids)
+         visible []
+         skip-until-indent nil]
+    (if-let [id (first remaining)]
+      (let [block (get blocks-map id)
+            indent (get-in block [:attributes :indent] 0)
+            collapsed? (get block :collapsed? false)]
+        (cond
+          ;; Currently in skip mode
+          skip-until-indent
+          (if (> indent skip-until-indent)
+            (recur (rest remaining) visible skip-until-indent)
+            (recur (rest remaining)
+                   (conj visible id)
+                   (if collapsed? indent nil)))
+
+          ;; Normal mode
+          :else
+          (recur (rest remaining)
+                 (conj visible id)
+                 (if collapsed? indent nil))))
+      visible)))
+
+(defn- has-children?
+  "Whether block has children (next block has greater indent)."
+  [root-ids blocks-map current-id]
+  (let [v (vec root-ids)
+        idx (.indexOf v current-id)
+        next-id (when (and (>= idx 0) (< (inc idx) (count v)))
+                  (nth v (inc idx)))]
+    (boolean
+     (when next-id
+       (let [cur-indent (get-in blocks-map [current-id :attributes :indent] 0)
+             next-indent (get-in blocks-map [next-id :attributes :indent] 0)]
+         (> next-indent cur-indent))))))
+
+(defn toggle-collapse!
+  "Toggle block collapse state (in-memory only, not persisted)."
+  [!state block-id]
+  (swap! !state update-in [:blocks block-id :collapsed?] #(if % false true)))
+
+;; =============================================================
+;; 1. IME and refresh state (reuse underlying logic)
+;; =============================================================
+(defonce !refresh-tick (atom 0))
+(defonce !ime-callbacks-installed? (atom false))
+
+(defn- ensure-ime-callbacks! [!state]
+  (when-not @!ime-callbacks-installed?
+    (reset! !ime-callbacks-installed? true)
+    (ime/set-merge-focus-callback! (fn [!state id offset] (editor-cmd/focus-block !state id offset)))
+    (ime/set-split-focus-callback! (fn [!state id offset] (editor-cmd/focus-block !state id offset)))
+    (ime/set-after-update-callback! (fn [] (swap! !refresh-tick inc)))
+    (ime/set-get-caret-offset-callback!
+     (fn [block-id]
+       (when-let [text-key (get @node-view/!block-text-keys block-id)]
+         (let [state @!state
+               sel (get-in state [:blocks block-id :selection])
+               caret-off (if sel (.-extentOffset sel) 0)]
+           (node-view/get-caret-global-offset text-key caret-off)))))))
+
+;; 2. Slash menu positioning: LayerLink bound to current editing block (for CompositedTransformFollower)
+;; Must be created at defonce to avoid reset! in child widget build triggering parent setState (Flutter forbids setState in build)
+(defonce !slash-layer-link (atom (m/LayerLink.)))
+
+;; 3. Marquee selection: GlobalKey for editor content area, for coordinate conversion
+(defonce !editor-marquee-key (atom nil))
+(defonce !marquee-last-intersect-ms (atom 0))
+(def ^:private intersect-throttle-ms 50)
+
+(defn- handle-selection-intersection!
+  "Update local !selected-ids from selection rect vs block bounds. Coords in editor content local (via container-box globalToLocal)."
+  [!selected-ids selection-rect]
+  (when-let [^m/RenderBox container-box (when @!editor-marquee-key
+                                         (when-let [ctx (.-currentContext @!editor-marquee-key)]
+                                           (.findRenderObject ctx)))]
+    (let [keys-map @node-view/!block-text-keys
+          selected (atom #{})]
+      (doseq [[block-id g-key] keys-map]
+        (when-let [ctx (and g-key (.-currentContext g-key))]
+          (try
+            (let [^m/RenderBox render-box (.findRenderObject ctx)]
+              (when render-box
+                (let [global-pos (.localToGlobal render-box m.Offset/zero)
+                      local-pos (.globalToLocal container-box global-pos)
+                      size (.-size render-box)
+                      block-rect (m.Rect/fromLTWH (.-dx local-pos) (.-dy local-pos)
+                                                  (.-width size) (.-height size))]
+                  (when (.overlaps selection-rect block-rect)
+                    (swap! selected conj block-id)))))
+            (catch Exception _ nil))))
+      (reset! !selected-ids @selected))))
+
+;; 5. Get block screen offset for overlay menu positioning
+(defn- get-block-offset [block-id]
+  (when-let [text-key (get @node-view/!block-text-keys block-id)]
+    (when-let [ctx (.-currentContext text-key)]
+      (try
+        (let [^m/RenderBox rb (.findRenderObject ctx)]
+          (.localToGlobal rb m.Offset/zero))
+        (catch Exception _ nil)))))
+
+;; =============================================================
+;; 5. Bulk actions toolbar (multi-select)
+;; =============================================================
+
+(defn- handle-bulk-convert! [!state ids target-type]
+  (when (seq ids)
+    (swap! !state update :blocks
+           (fn [blocks]
+             (reduce (fn [acc id]
+                       (if (contains? acc id)
+                         (assoc-in acc [id :type] target-type)
+                         acc))
+                     blocks
+                     ids)))
+    (db/batch-sync-types! (vec ids) target-type)))
+
+(defn- handle-bulk-delete! [!state !selected-ids]
+  (let [ids @!selected-ids]
+    (when (seq ids)
+      (swap! !state
+             (fn [s]
+               (-> s
+                   (update :root (fn [root] (vec (remove #(contains? ids %) root))))
+                   (update :blocks (fn [blocks] (apply dissoc blocks ids))))))
+      (reset! !selected-ids #{})
+      (db/batch-delete-blocks! (vec ids)))))
+
+(defn- action-icon-button [icon tooltip on-press & {:keys [color] :or {color m.Colors/white}}]
+  (m/Tooltip
+   .message tooltip
+   .child
+   (m/IconButton
+    .icon (m/Icon icon .color color)
+    .onPressed on-press)))
+
+(defn- selection-action-bar [!state !selected-ids]
+  (let [count-text (str (count @!selected-ids) " blocks selected")]
+    (m/Material
+     .elevation 12.0
+     .color (-> m.Colors/grey .-shade900 (.withOpacity 0.9))
+     .borderRadius (m.BorderRadius/circular 30.0)
+     .child
+     (m/Padding
+      .padding (m.EdgeInsets/symmetric .horizontal 24.0 .vertical 12.0)
+      .child
+      (m/Row
+       .mainAxisSize m.MainAxisSize/min
+       .children
+       [(m/Text count-text
+                .style (m/TextStyle .color m.Colors/white .fontWeight m.FontWeight/bold))
+        (m/VerticalDivider .width 32.0 .color m.Colors/white24)
+
+        ;; Action buttons
+        (action-icon-button m.Icons/check_box "Convert to task"
+                            #(handle-bulk-convert! !state @!selected-ids :task))
+
+        (action-icon-button m.Icons/title "Convert to heading"
+                            #(handle-bulk-convert! !state @!selected-ids :heading-1))
+
+        (action-icon-button m.Icons/delete_outline "Bulk delete"
+                            #(handle-bulk-delete! !state !selected-ids)
+                            :color m.Colors/redAccent)
+
+        (m/VerticalDivider .width 32.0 .color m.Colors/white24)
+
+        ;; Close / clear selection
+        (m/IconButton
+         .icon (m/Icon m.Icons/close .color m.Colors/white)
+         .onPressed #(reset! !selected-ids #{}))])))))
+
+;; =============================================================
+;; 3. Core: smart block renderer (edit vs read mode)
+;; =============================================================
+(defn smart-block-renderer
+  "By focus: show block as input or static layout. Supports marquee highlight (selected-ids).
+   Edit and read use same minWidth and horizontal padding to avoid column jump in vertical layout."
+  [block-id !state index cfg on-link-tap !selected-ids]
+  (f/widget
+   :watch [state !state selected-ids !selected-ids flash-tokens nav/!flash-tokens]
+   :let [is-active? (= block-id (:active-block-id state))
+         block-data (get-in state [:blocks block-id])
+         block-type (or (get block-data :type) :paragraph)
+         block-style-fn (get cfg :block-style dark-block-style)
+         base-style (block-style-fn block-type)
+         font-size (or (.-fontSize base-style) 20.0)
+         common-min-w (* 2.0 font-size)
+         plugins (:block-plugins cfg [])
+         selected? (contains? selected-ids block-id)
+         flash? (contains? flash-tokens block-id)
+         bg-color (cond
+                    flash? (-> m.Colors/amber (.withOpacity 0.30))
+                    selected? (-> m.Colors/blue (.withOpacity 0.05))
+                    :else m.Colors/transparent)]
+   ;; Single mold: constraints + horizontal padding for both edit and read
+   (m/AnimatedContainer
+    .duration (dart:core/Duration. .milliseconds 400)
+    .curve m.Curves/easeInOut
+    .constraints (m/BoxConstraints. .minWidth common-min-w .minHeight 40.0)
+    .padding (m.EdgeInsets/symmetric .horizontal 8.0)
+    .decoration (m/BoxDecoration
+                 .borderRadius (m/BorderRadius.circular 8.0)
+                 .color bg-color)
+    .child
+    (if is-active?
+      ;; --- State A: edit (same container as read, no extra Padding) ---
+      ;; If still misaligned: check showLineDivider in node-view/block-node MglSelectableText, TextField contentPadding: EdgeInsets.zero
+      (m/CompositedTransformTarget
+       .link @!slash-layer-link
+       .child (node-view/block-node block-id !state index cfg))
+      ;; --- State B: read ---
+      (m/GestureDetector
+       .onTap #(editor-cmd/focus-block !state block-id 0)
+       .child (reader/block-reader-view block-data on-link-tap plugins))))))
+
+;; =============================================================
+;; 4. Top container: keyboard and horizontal scroll tree
+;; =============================================================
+(defn editor-container
+  "Block editor container for vertical layout. Supports on-link-tap for read-mode link clicks."
+  ([!state on-link-tap] (editor-container !state nil on-link-tap))
+  ([!state editor-config on-link-tap]
+   (ensure-ime-callbacks! !state)
+   
+   ;; Core: real-time wikilink sniffer
+   (add-watch !state :ac-sniffer
+              (fn [_ _ _ new-state]
+                (let [active-id (:active-block-id new-state)]
+                  (if-not active-id
+                    (ac/close-menu!)
+                    (let [content (get-in new-state [:blocks active-id :content] "")
+                          ;; Regex: [[ ... not yet closed by ]
+                          regex (dart:core/RegExp. "\\[\\[([^\\]]*)$")
+                          match (first (.allMatches regex content))]
+                      (if match
+                        (let [query (.group match 1)
+                              offset (get-block-offset active-id)]
+                          (reset! ac/!ac-state {:active? true :query query :block-id active-id :offset offset}))
+                        (ac/close-menu!)))))))
+   
+   ;; Slash command sniffer: show menu on "/" or "/keyword", filter by text after "/" (e.g. /tom -> Tomorrow)
+   (add-watch !state :slash-sniffer
+              (fn [_ _ _ new-state]
+                (let [active-id (:active-block-id new-state)
+                      content (get-in new-state [:blocks active-id :content] "")
+                      ;; Match trailing / or /letters for menu display and filter
+                      slash-match (re-find #"/([a-zA-Z]*)$" content)]
+                  (if (and active-id slash-match)
+                    (let [filter-text (or (second slash-match) "")]
+                      (swap! ime-ctrl/!ime-state assoc :candidates [] :page-index 0)
+                      (reset! slash/!slash-state {:visible true :block-id active-id :filter filter-text})
+                      (reset! slash/!slash-selected-idx 0))
+                    (slash/close-slash-menu!)))))
+
+   (let [effective-config (or editor-config {:block-style dark-block-style})
+         cfg (be-config/merge-config rich-defaults/full-default-config effective-config)
+         ;; Marquee UI state in f/widget outer let
+         !selecting? (atom false)
+         !select-start (atom nil)
+         !select-rect (atom nil)
+         !selected-ids (atom #{})]
+     (when (or (nil? (get @!state :editor-config)) editor-config)
+       (swap! !state assoc :editor-config cfg))
+     (when-not @!editor-marquee-key
+       (reset! !editor-marquee-key (m/GlobalKey.)))
+     
+     (f/widget
+      :watch [state !state
+              _ !refresh-tick
+              selecting? !selecting?
+              rect !select-rect
+              slash slash/!slash-state
+              link !slash-layer-link]
+      :let [cfg* (get state :editor-config cfg)
+            visible-ids (get-visible-root (:root state) (:blocks state))
+            any-collapsed? (some #(get-in state [:blocks % :collapsed?]) (:root state))
+            marquee-active? selecting?
+            marquee-rect rect]
+      
+      ;; Layout: Stack so completion menu floats above editor; marquee above list
+      (m/Stack
+       .children (vec (remove nil? [;; =====================================================
+        ;; Bottom: marquee gesture (Shift+drag) + editor body and keyboard
+        ;; =====================================================
+        (m/Listener
+         .onPointerDown
+         (fn [e]
+           (when (.-isShiftPressed (.-instance s/HardwareKeyboard))
+             (let [pos (.-localPosition e)]
+               (reset! !selecting? true)
+               (reset! !select-start pos)
+               (reset! !select-rect (m.Rect/fromPoints pos pos))
+               (reset! !selected-ids #{}))))
+         .onPointerMove
+         (fn [e]
+           (when @!selecting?
+             (let [pos (.-localPosition e)
+                   start @!select-start
+                   rect (m.Rect/fromPoints start pos)]
+               (reset! !select-rect rect)
+               (let [now (dart:core/DateTime.now)
+                     ms (.-millisecondsSinceEpoch now)]
+                 (when (>= (- ms @!marquee-last-intersect-ms) intersect-throttle-ms)
+                   (reset! !marquee-last-intersect-ms ms)
+                   (handle-selection-intersection! !selected-ids rect))))))
+         .onPointerUp
+         (fn [_]
+           (reset! !selecting? false)
+           (reset! !select-start nil)
+           (reset! !select-rect nil))
+         .onPointerCancel
+         (fn [_]
+           (reset! !selecting? false)
+           (reset! !select-start nil)
+           (reset! !select-rect nil))
+         .child
+         (m/KeyedSubtree
+          .key @!editor-marquee-key
+          .child
+          (overlay/ime-global-wrapper
+           (m/CallbackShortcuts
+            .bindings (rich-config/shortcut-bindings cfg* !state)
+            .child
+            (m/Focus
+             .autofocus true
+             .onKeyEvent
+             (fn [_node event]
+               (let [ime-res (ime-ctrl/handle-key-event event)]
+                 (if (= ime-res m.KeyEventResult/handled)
+                   ime-res
+                   (let [logical-key (.-logicalKey event)
+                        is-down? (= (.-runtimeType event) s/KeyDownEvent)
+                         is-enter? (or (= logical-key s.LogicalKeyboardKey/enter)
+                                       (= logical-key s.LogicalKeyboardKey/numpadEnter))
+                         shift? (.-isShiftPressed (.-instance s/HardwareKeyboard))
+                         is-up? (= logical-key s.LogicalKeyboardKey/arrowUp)
+                         is-down-arrow? (= logical-key s.LogicalKeyboardKey/arrowDown)
+                         is-left? (= logical-key s.LogicalKeyboardKey/arrowLeft)
+                         is-right? (= logical-key s.LogicalKeyboardKey/arrowRight)
+                         is-arrow? (or is-up? is-down-arrow? is-left? is-right?)
+                         cmd-dot? (and is-down?
+                                        (= logical-key s.LogicalKeyboardKey/period)
+                                        (.-isMetaPressed (.-instance s/HardwareKeyboard)))
+                         visible (get-visible-root (:root @!state) (:blocks @!state))]
+                     (cond
+                       ;; Slash menu open: arrow keys select, Enter confirm, Esc cancel
+                       (and (:visible @slash/!slash-state) is-down?)
+                       (cond
+                         (= logical-key s.LogicalKeyboardKey/arrowDown)
+                         (let [n (count (slash/filtered-commands))]
+                           (when (pos? n)
+                             (swap! slash/!slash-selected-idx #(mod (inc %) n)))
+                           m.KeyEventResult/handled)
+                         (= logical-key s.LogicalKeyboardKey/arrowUp)
+                         (let [n (count (slash/filtered-commands))]
+                           (when (pos? n)
+                             (swap! slash/!slash-selected-idx #(mod (dec %) n)))
+                           m.KeyEventResult/handled)
+                         (or is-enter? (= logical-key s.LogicalKeyboardKey/numpadEnter))
+                         (let [cmds (slash/filtered-commands)
+                               idx @slash/!slash-selected-idx
+                               block-id (:block-id @slash/!slash-state)]
+                           (when (and (seq cmds) (>= idx 0) (< idx (count cmds)))
+                             (slash/apply-command! !state block-id (nth cmds idx)))
+                           m.KeyEventResult/handled)
+                         (= logical-key s.LogicalKeyboardKey/escape)
+                         (do (slash/close-slash-menu!) m.KeyEventResult/handled)
+                         :else m.KeyEventResult/ignored)
+
+                       ;; Cmd+. toggle current block collapse
+                       (and cmd-dot? (:active-block-id @!state))
+                       (do (toggle-collapse! !state (:active-block-id @!state))
+                           m.KeyEventResult/handled)
+
+                       ;; Enter: split current block
+                       (and is-enter? is-down? (not shift?))
+                       (do
+                         (when-let [new-id (block-cmd/split-active-block! !state)]
+                           (editor-cmd/focus-block !state new-id 0))
+                         m.KeyEventResult/handled)
+
+                       (= logical-key s.LogicalKeyboardKey/tab)
+                       (if is-down?
+                         (let [ids @!selected-ids
+                               shift? (.-isShiftPressed (.-instance s/HardwareKeyboard))
+                               direction (if shift? -1 1)]
+                           (if (seq ids)
+                             ;; --- Case A: bulk indent ---
+                             (do
+                               (swap! !state update :blocks
+                                      (fn [blocks]
+                                        (reduce (fn [acc id]
+                                                  (update-in acc [id :attributes :indent]
+                                                             (fn [i] (max 0 (+ (or i 0) direction)))))
+                                                blocks
+                                                ids)))
+                               (db/batch-update-indents! (vec ids) direction)
+                               m.KeyEventResult/handled)
+
+                             ;; --- Case B: single block ---
+                             (do
+                               (if shift?
+                                 (rich-config/run-command cfg* !state :outdent)
+                                 (rich-config/run-command cfg* !state :indent))
+                               m.KeyEventResult/handled)))
+                         m.KeyEventResult/handled)
+
+                       ;; Backspace on empty block: merge into previous (by visible order)
+                       (and is-down? (= logical-key s.LogicalKeyboardKey/backspace))
+                       (let [active-id (:active-block-id @!state)
+                             idx (when active-id (.indexOf visible active-id))
+                             content (when active-id (or (get-in @!state [:blocks active-id :content]) ""))
+                             empty-block? (and active-id (zero? (count content)) (>= idx 0))
+                             not-first? (> idx 0)]
+                         (if (and empty-block? not-first?)
+                           (do
+                             (when-let [{:keys [prev-id new-offset]}
+                                        (block-cmd/merge-with-previous! !state active-id)]
+                               (editor-cmd/focus-block !state prev-id new-offset))
+                             m.KeyEventResult/handled)
+                           m.KeyEventResult/ignored))
+
+                       is-arrow?
+                       (if is-down?
+                         (let [active-id (:active-block-id @!state)]
+                           (if active-id
+                             (let [block (get-in @!state [:blocks active-id])
+                                   sel (:selection block)
+                                   offset (if sel (.-extentOffset sel) 0)
+                                   content-len (count (:content block ""))
+                                   idx (.indexOf visible active-id)]
+                               (cond
+                                 is-up?
+                                 (if (> offset 0)
+                                   (do (editor-cmd/focus-block !state active-id (dec offset))
+                                       m.KeyEventResult/handled)
+                                   (do (when (> idx 0)
+                                         (let [prev-id (nth visible (dec idx))
+                                               prev-len (count (:content (get-in @!state [:blocks prev-id]) ""))]
+                                           (editor-cmd/focus-block !state prev-id prev-len)))
+                                       m.KeyEventResult/handled))
+
+                                 is-down-arrow?
+                                 (if (< offset content-len)
+                                   (do (editor-cmd/focus-block !state active-id (inc offset))
+                                       m.KeyEventResult/handled)
+                                   (do (when (< idx (dec (count visible)))
+                                         (let [next-id (nth visible (inc idx))]
+                                           (editor-cmd/focus-block !state next-id 0)))
+                                       m.KeyEventResult/handled))
+
+                                 is-left?
+                                 (do (when (> idx 0)
+                                       (let [prev-id (nth visible (dec idx))
+                                             prev-len (count (:content (get-in @!state [:blocks prev-id]) ""))
+                                             new-offset (min offset prev-len)]
+                                         (editor-cmd/focus-block !state prev-id new-offset)))
+                                     m.KeyEventResult/handled)
+
+                                 is-right?
+                                 (do (when (< idx (dec (count visible)))
+                                       (let [next-id (nth visible (inc idx))
+                                             next-len (count (:content (get-in @!state [:blocks next-id]) ""))
+                                             new-offset (min offset next-len)]
+                                         (editor-cmd/focus-block !state next-id new-offset)))
+                                     m.KeyEventResult/handled)
+
+                                 :else m.KeyEventResult/ignored))
+                             m.KeyEventResult/handled))
+                         m.KeyEventResult/handled)
+
+                       :else m.KeyEventResult/ignored)))))
+             .child
+             (m/ReorderableListView.builder
+              .buildDefaultDragHandles false
+              .scrollDirection m.Axis/horizontal
+              ;; base-top-margin so first column aligns with others; only indent inside blocks
+              .padding (m.EdgeInsets/only .top base-top-margin .bottom 40.0 .left 20.0 .right 120.0)
+              .onReorder (fn [old-index new-index]
+                           (when-not any-collapsed?
+                             (let [new-index (if (< old-index new-index) (dec new-index) new-index)]
+                               (block-cmd/reorder-blocks! !state old-index new-index))))
+              .itemCount (count visible-ids)
+              .itemBuilder
+              (fn [_ctx i]
+                (let [id (nth visible-ids i)
+                      block (get-in state [:blocks id])
+                      block-type (or (get block :type) :paragraph)
+                      block-style-fn (get cfg* :block-style dark-block-style)
+                      base-style (block-style-fn block-type)
+                      font-size (or (.-fontSize base-style) 20.0)
+                      is-active? (= id (:active-block-id state))
+                      indent-level (get-in block [:attributes :indent] 0)
+                      ;; List already has base-top-margin; only add indent offset so first block aligns
+                      top-offset (* 32.0 indent-level)
+                      show-arrow? (has-children? (:root state) (:blocks state) id)
+                      is-collapsed? (:collapsed? block false)
+                      collapse-icon (if show-arrow?
+                                      (m/Icon (if is-collapsed? m.Icons/arrow_right m.Icons/arrow_drop_down)
+                                              .size 16.0 .color m.Colors/blue)
+                                      (m/Icon m.Icons/lens .size 8.0 .color m.Colors/white54))
+                      handle-child (m/GestureDetector
+                                    .onTap (when show-arrow? #(toggle-collapse! !state id))
+                                    .child (m/Padding
+                                            .padding (m.EdgeInsets/all 4.0)
+                                            .child collapse-icon))
+                      drag-handle (if any-collapsed?
+                                    handle-child
+                                    (m/ReorderableDragStartListener
+                                     .index i
+                                     .child (m/MouseRegion
+                                             .cursor m.SystemMouseCursors/grab
+                                             .child handle-child)))]
+                  (m/KeyedSubtree
+                   .key (m/ValueKey. id)
+                   .child
+                   (m/AnimatedPadding
+                    .duration (dart:core/Duration .milliseconds 250)
+                    .curve m.Curves/easeOutQuart
+                    .padding (m.EdgeInsets/only .right 16.0 .top top-offset)
+                    .child
+                    (m/Stack
+                     .alignment m.Alignment/topCenter
+                     .clipBehavior m.Clip/none
+                     .children
+                     [(m/IntrinsicWidth
+                       .child (smart-block-renderer id !state i cfg* on-link-tap !selected-ids))
+                      (m/Positioned
+                       .left (if (true? is-active?) (* 1.2 font-size) font-size)
+                       .top -24.0
+                       .child drag-handle)])))))))))))
+
+        ;; 2. Top: marquee rect (does not capture events)
+        (when (and marquee-active? marquee-rect)
+          (m/IgnorePointer
+           .child
+           (m/Positioned
+            .left (.-left marquee-rect)
+            .top (.-top marquee-rect)
+            .width (.-width marquee-rect)
+            .height (.-height marquee-rect)
+            .child (m/Container
+                    .decoration (m/BoxDecoration
+                                 .color (-> m.Colors/blue (.withOpacity 0.12))
+                                 .border (m/Border.all .color m.Colors/blue .width 1.0)
+                                 .borderRadius (m.BorderRadius/circular 2.0))))))
+
+        ;; 3. Top: autocomplete menu
+        (ac/auto-complete-menu !state)
+
+        ;; 4. Top: slash menu (follows editing block)
+        (when (and (:visible slash) link)
+          (m/CompositedTransformFollower
+           .link link
+           .offset (m/Offset. 12.0 8.0)
+           .child
+           (slash/slash-menu-view
+            (fn [cmd]
+              (slash/apply-command! !state (:block-id slash) cmd)))))
+
+        ;; 5. Top: bulk actions bar (shown when multi-select, floating bottom center)
+        (f/widget
+         :watch [selected-ids !selected-ids]
+         (let [show? (> (count selected-ids) 1)]
+           (m/Positioned
+            .bottom 40.0
+            .left 0.0 .right 0.0
+            .child
+            (m/Center
+             .child
+             (m/AnimatedSlide
+              .duration (dart:core/Duration .milliseconds 180)
+              .curve m.Curves/easeOutCubic
+              .offset (if show? (m/Offset. 0.0 0.0) (m/Offset. 0.0 0.25))
+              .child
+              (m/AnimatedOpacity
+               .duration (dart:core/Duration .milliseconds 140)
+               .curve m.Curves/easeOut
+               .opacity (if show? 1.0 0.0)
+               .child
+               (m/IgnorePointer
+                .ignoring (not show?)
+                .child (selection-action-bar !state !selected-ids))))))))
+        ])))))))

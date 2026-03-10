@@ -1,0 +1,497 @@
+(ns notes-app.db.core
+  (:require ["package:mgl_notes_app/database.dart" :as db]
+            ["package:mgl_notes_app/db_helpers.dart" :as db-helpers]
+            ["package:drift/drift.dart" :as drift]
+            ["dart:async" :as async]
+            ["dart:convert" :as convert]
+            [clojure.set :as cset]
+            [clojure.string :as str]
+            [notes-app.db.bridge :as bridge]
+            [notes-app.utils.parser :as parser]))
+
+;; =============================================================================
+;; 0. Helper: regex to detect journal page
+;; =============================================================================
+
+(defn- is-journal? 
+  "Whether page name is standard journal format (e.g. 2026-03-09)"
+  [page-name]
+  (let [regex (dart:core/RegExp. "^\\d{4}-\\d{2}-\\d{2}$")]
+    (.hasMatch regex page-name)))
+
+;; =============================================================================
+;; 1. Database instance
+;; =============================================================================
+
+(defonce db (atom nil))
+
+(defn initialize-database!
+  "Initialize Drift DB; call with await in main before runApp."
+  []
+  (let [instance (await (db/initDriftDatabase))]
+    (reset! db instance)))
+
+(defn get-database
+  "Return current AppDatabase instance; nil if not initialized."
+  []
+  @db)
+
+;; =============================================================================
+;; 2. Pages
+;; =============================================================================
+
+(defn watch-all-pages
+  "Watch page list (type = 'page'), sorted by name asc. Returns Stream<List<String>>"
+  []
+  (if-let [^db/AppDatabase database @db]
+    (let [pages-tbl (.-pages database)
+          query (doto (.select database pages-tbl)
+                  (.where (fn [tbl] (.equals (.-type tbl) "page")))
+                  (.orderBy [(fn [tbl] (drift/OrderingTerm.asc (.-name tbl)))]))]
+      (.map (.watch query)
+            (fn [rows]
+              (mapv #(.-name %) rows))))
+    (async/Stream.empty)))
+
+(defn watch-all-journals
+  "Watch journal list (type = 'journal'), sorted by date desc. Returns Stream<List<String>>"
+  []
+  (if-let [^db/AppDatabase database @db]
+    (let [pages-tbl (.-pages database)
+          query (doto (.select database pages-tbl)
+                  (.where (fn [tbl] (.equals (.-type tbl) "journal")))
+                  (.orderBy [(fn [tbl] (drift/OrderingTerm.desc (.-name tbl)))]))]
+      (.map (.watch query)
+            (fn [rows]
+              (mapv #(.-name %) rows))))
+    (async/Stream.empty)))
+(defn ensure-page!
+  "Insert page if name does not exist; ensure correct type (journal or page)."
+  [page-name]
+  (when-let [^db/AppDatabase database @db]
+    (let [type-val (if (is-journal? page-name) "journal" "page")
+          companion (db/PagesCompanion.insert
+                     .name page-name
+                     .type (drift/Value. type-val))]
+      (.insert (.into database (.-pages database)) companion .mode drift.InsertMode/insertOrIgnore))))
+
+;; =============================================================================
+;; 3. Blocks
+;; =============================================================================
+
+(defn get-page-blocks
+  "Get all blocks for page-id, ordered by order_index. Returns Future<List<Block>>."
+  [page-id]
+  (if-let [^db/AppDatabase database @db]
+    (let [tbl (.-blocks database)]
+      (.get (doto (.select database tbl)
+              (.where (fn [^db/Blocks b] (.equals (.-pageId b) page-id)))
+              (.orderBy [(fn [b] (drift/OrderingTerm.asc (.-orderIndex b)))]))))
+    (throw (ex-info "Database not initialized" {}))))
+
+(defn get-block-by-id
+  "Get single block by block-id. Returns Future<Block?>, nil if not found."
+  [block-id]
+  (when-let [^db/AppDatabase database @db]
+    (let [tbl (.-blocks database)
+          query (doto (.select database tbl)
+                  (.where (fn [^db/Blocks b] (.equals (.-id b) block-id))))]
+      (async/Future.
+       (fn []
+         (let [rows (await (.get query))]
+           (first rows)))))))
+
+(defn update-block-data!
+  "Update only block's dataJson: merge data-update (keyword map) into current data and write back. Used in reader for e.g. image width-ratio. Fire-and-forget."
+  [block-id data-update]
+  (when (and block-id (seq data-update))
+    (when-let [^db/AppDatabase database @db]
+      (let [tbl (.-blocks database)]
+        (.then (get-block-by-id block-id)
+          (fn [block]
+            (when block
+              (let [current-data (bridge/data-json->map (or (.-dataJson block) "{}"))
+                    merged (merge current-data data-update)
+                    new-json (convert/jsonEncode (into {} (map (fn [[k v]] [(name k) v]) merged)))
+                    companion (db/BlocksCompanion. .dataJson (drift/Value. new-json))]
+                (.write (doto (.update database tbl)
+                          (.where (fn [^db/Blocks b] (.equals (.-id b) block-id))))
+                        companion)))))))))
+
+;; =============================================================================
+;; 3.1 Bulk indent (multi-select Tab / Shift+Tab)
+;; =============================================================================
+
+(defn batch-update-indents!
+  "Bulk update blocks.indent in DB (transaction, multiple UPDATEs)."
+  [ids direction]
+  (when (and (seq ids) (not (zero? direction)))
+    (when-let [^db/AppDatabase database @db]
+      (let [tbl (.-blocks database)
+            sql "UPDATE blocks SET indent = MAX(indent + ?, 0) WHERE id = ?"]
+        (.transaction database
+                      (fn []
+                        (async/Future.
+                         (fn []
+                           (doseq [id ids]
+                             (await
+                              (.customUpdate database sql
+                                             .variables [(drift/Variable. direction)
+                                                         (drift/Variable. id)]
+                                             .updates #{tbl})))
+                           nil))))))))
+
+;; =============================================================================
+;; 3.2 Bulk type update (multi-select: task, heading, etc.)
+;; =============================================================================
+
+(defn batch-sync-types!
+  "Bulk update blocks.type in DB. target-type is keyword (e.g. :task)."
+  [ids target-type]
+  (when (and (seq ids) target-type)
+    (when-let [^db/AppDatabase database @db]
+      (let [tbl (.-blocks database)
+            type-str (name target-type)
+            sql "UPDATE blocks SET type = ? WHERE id = ?"]
+        (.transaction database
+                      (fn []
+                        (async/Future.
+                         (fn []
+                           (doseq [id ids]
+                             (await
+                              (.customUpdate database sql
+                                             .variables [(drift/Variable. type-str)
+                                                         (drift/Variable. id)]
+                                             .updates #{tbl})))
+                           nil))))))))
+
+;; =============================================================================
+;; 3.3 Bulk delete blocks (blocks + block_links + properties)
+;; =============================================================================
+
+(defn batch-delete-blocks!
+  "Bulk delete blocks and related links and properties."
+  [ids]
+  (when (seq ids)
+    (when-let [^db/AppDatabase database @db]
+      (let [blocks-tbl (.-blocks database)
+            links-tbl (.-blockLinks database)
+            props-tbl (.-properties database)
+            del-props-sql "DELETE FROM properties WHERE block_id = ?"
+            del-links-sql "DELETE FROM block_links WHERE source_id = ?"
+            del-block-sql "DELETE FROM blocks WHERE id = ?"]
+        (.transaction database
+                      (fn []
+                        (async/Future.
+                         (fn []
+                           (doseq [id ids]
+                             (await (.customUpdate database del-props-sql
+                                                   .variables [(drift/Variable. id)]
+                                                   .updates #{props-tbl}))
+                             (await (.customUpdate database del-links-sql
+                                                   .variables [(drift/Variable. id)]
+                                                   .updates #{links-tbl}))
+                             (await (.customUpdate database del-block-sql
+                                                   .variables [(drift/Variable. id)]
+                                                   .updates #{blocks-tbl})))
+                           nil))))))))
+
+;; =============================================================================
+;; 3.4 Delete whole page (blocks + page record; for command palette Delete Current Page)
+;; =============================================================================
+
+(defn delete-page!
+  "Delete page: delete all blocks (and links, properties), then page record. Returns Future."
+  [page-id]
+  (when (and page-id (not (str/blank? page-id)))
+    (when-let [^db/AppDatabase database @db]
+      (async/Future.
+       (fn []
+         (let [blocks (await (get-page-blocks page-id))
+               block-ids (mapv #(.-id %) blocks)
+               pages-tbl (.-pages database)
+               delete-future (batch-delete-blocks! block-ids)]
+           (when delete-future
+             (await delete-future))
+           (await (.customUpdate database "DELETE FROM pages WHERE name = ?"
+                                 .variables [(drift/Variable. page-id)]
+                                 .updates #{pages-tbl}))
+           nil))))))
+
+;; =============================================================================
+;; 4. Backlinks
+;; =============================================================================
+
+(defn watch-backlinks
+  "Watch blocks that reference current page. Stream of {:block block :source source-page-id}."
+  [page-id]
+  (if-let [^db/AppDatabase database @db]
+    (let [tbl (.-blocks database)
+          query (str "SELECT b.* FROM block_links bl "
+                     "INNER JOIN blocks b ON bl.source_id = b.id "
+                     "WHERE bl.target_id = ?")
+          selectable (.customSelect database query
+                                    .variables [(drift/Variable. page-id)]
+                                    .readsFrom #{(.-blocks database) (.-blockLinks database)})]
+      (.map (.watch selectable)
+            (fn [rows]
+              (mapv (fn [row]
+                      (let [block (.readTable row tbl)]
+                        {:block block
+                         :source (.-pageId block)}))
+                    rows))))
+    (async/Stream.empty)))
+
+;; =============================================================================
+;; 4.1 Unlinked references: LIKE %keyword% query
+;; =============================================================================
+
+(defn watch-unlinked-references
+  "Watch blocks that mention current page title but without [[ ]] link. Stream of {:block block :source source-page-id}. Like Logseq unlinked refs: LIKE %page-id%, exclude blocks already in block_links."
+  [page-id]
+  (if-let [^db/AppDatabase database @db]
+    (let [tbl (.-blocks database)
+          pattern (str "%" page-id "%")
+          query (str "SELECT b.* FROM blocks b "
+                     "WHERE b.content LIKE ? "
+                     "AND b.id NOT IN (SELECT source_id FROM block_links WHERE target_id = ?)")
+          selectable (.customSelect database query
+                                    .variables [(drift/Variable. pattern) (drift/Variable. page-id)]
+                                    .readsFrom #{(.-blocks database) (.-blockLinks database)})]
+      (.map (.watch selectable)
+            (fn [rows]
+              (mapv (fn [row]
+                      (let [block (.readTable row tbl)]
+                        {:block block
+                         :source (.-pageId block)}))
+                    rows))))
+    (async/Stream.empty)))
+
+(defn promote-unlinked-to-link!
+  "Promote unlinked ref to wikilink: replace bare keyword in block content with [[page-id]], write block_links. Atomic at DB layer."
+  [item page-id]
+  (when-let [^db/AppDatabase database @db]
+    (let [block (:block item)
+          block-id (.-id block)
+          old-content (or (.-content block) "")
+          new-content (str/replace old-content (re-pattern (str "\\Q" page-id "\\E"))
+                                   (str "[[" page-id "]]"))]
+      (when (not= old-content new-content)
+        (.batch database
+                (fn [^drift/Batch b]
+                  (let [companion (db/BlocksCompanion.insert
+                                  .id block-id
+                                  .pageId (.-pageId block)
+                                  .orderIndex (int (.-orderIndex block))
+                                  .indent (drift/Value. (int (.-indent block)))
+                                  .type (.-type block)
+                                  .content new-content
+                                  .dataJson (drift/Value. (str (or (.-dataJson block) "{}"))))]
+                    (.insertAllOnConflictUpdate b (.-blocks database) [companion]))
+                  (let [link-companion (db/BlockLinksCompanion.insert
+                                       .sourceId block-id
+                                       .targetId page-id
+                                       .linkType (drift/Value. "ref"))]
+                    (.insertAll b (.-blockLinks database) [link-companion])
+                    nil)))))))
+
+
+(defn get-block-page-id
+  "Look up Page ID for a block by Block ID"
+  [block-id]
+  (if-let [^db/AppDatabase database @db]
+    (let [tbl (.-blocks database)
+          query (doto (.select database tbl)
+                  (.where (fn [b] (.equals (.-id b) block-id))))]
+      (async/Future. 
+       (fn []
+         (let [rows (await (.get query))]
+           (when-let [first-row (first rows)]
+             (.-pageId first-row))))))
+    (async/Future.value nil)))
+
+;; =============================================================================
+;; Block context for search preview (Hover Preview)
+;; =============================================================================
+
+(defn get-block-context
+  "Get block and its neighbors (up to 3 blocks) for preview. Returns Future<List<Block>>."
+  [block-id page-id]
+  (if-let [^db/AppDatabase database @db]
+    (async/Future.
+     (fn []
+       (let [tbl (.-blocks database)
+             target (await (get-block-by-id block-id))]
+         (if-not target
+           []
+           (let [idx (.-orderIndex target)
+                 lo (max 0 (- idx 1))
+                 hi (+ idx 1)
+                 query (str "SELECT * FROM blocks WHERE page_id = ? AND order_index >= ? AND order_index <= ? ORDER BY order_index")
+                 selectable (.customSelect database query
+                             .variables [(drift/Variable. page-id) (drift/Variable. lo) (drift/Variable. hi)]
+                             .readsFrom #{(.-blocks database)})]
+             (mapv (fn [row] (.readTable row tbl)) (await (.get selectable))))))))
+    (async/Future.value [])))
+
+;; =============================================================================
+;; Global search: fuzzy across Pages + Blocks (for Command Palette)
+;; =============================================================================
+
+(defn search-everything
+  "Fuzzy search across pages and blocks. Returns Future of [{:type :page|:block :id ...} ...]."
+  [query-str]
+  (if (str/blank? query-str)
+    (async/Future. (fn [] []))
+    (if-let [^db/AppDatabase database @db]
+      (async/Future.
+       (fn []
+         (let [pattern (str "%" query-str "%")
+               pages-tbl (.-pages database)
+               blocks-tbl (.-blocks database)
+               pages-query (doto (.select database pages-tbl)
+                             (.where (fn [tbl] (.like (.-name tbl) pattern)))
+                             (.limit 5))
+               page-rows (await (.get pages-query))
+               blocks-query (doto (.select database blocks-tbl)
+                              (.where (fn [tbl] (.like (.-content tbl) pattern)))
+                              (.limit 15))
+               block-rows (await (.get blocks-query))]
+           (vec (concat
+                 (map (fn [p] {:type :page :id (.-name p) :title (.-name p)}) page-rows)
+                 (map (fn [b] {:type :block :id (.-id b) :page-id (.-pageId b) :content (.-content b)}) block-rows))))))
+      (async/Future. (fn [] [])))))
+
+;; =============================================================================
+;; 5. Flatten and normalize state
+;; =============================================================================
+
+(defn- state->entities
+  "Flatten tree editor-state to ID-keyed DB entity map."
+  [page-id state]
+  (let [root (:root state [])
+        blocks (:blocks state {})]
+    (reduce-kv
+     (fn [acc idx id]
+       (if-let [b (get blocks id)]
+         (assoc acc id
+                {:id id
+                 :page-id page-id
+                 :order-index idx
+                 :indent (get-in b [:attributes :indent] 0)
+                 :type (name (:type b))
+                 :content (:content b "")
+                 :data-json (convert/jsonEncode (get b :data {}))})
+         acc))
+     {}
+     (vec root))))
+
+;; =============================================================================
+;; 6. Core diff
+;; =============================================================================
+
+(defn- compute-diff
+  "Compare old vs new state; return block IDs to upsert and delete."
+  [page-id old-state new-state]
+  (let [old-entities (state->entities page-id old-state)
+        new-entities (state->entities page-id new-state)
+        old-ids (set (keys old-entities))
+        new-ids (set (keys new-entities))
+        deletes (cset/difference old-ids new-ids)
+        upserts (reduce
+                 (fn [acc id]
+                   (let [old-e (get old-entities id)
+                         new-e (get new-entities id)]
+                     (if (not= old-e new-e)
+                       (conj acc new-e)
+                       acc)))
+                 []
+                 new-ids)]
+    {:deletes (vec deletes)
+     :upserts upserts}))
+
+;; =============================================================================
+;; 7. Drift batch sync (auto-registers touched pages)
+;; =============================================================================
+
+(defn- execute-batch-sync!
+  "Run Drift Batch API: one atomic apply of all inserts/updates/deletes and touched pages."
+  [^db/AppDatabase database page-id diff-result]
+  (let [{:keys [deletes upserts]} diff-result
+        delete-ids (db-helpers/stringListFrom deletes)]
+    (when (or (seq deletes) (seq upserts))
+      (.batch database
+              (fn [^drift/Batch b]
+                (when (seq deletes)
+                  (.deleteWhere b (.-blockLinks database)
+                               (fn [tbl] (.isIn (.-sourceId tbl) delete-ids)))
+                  (.deleteWhere b (.-blocks database)
+                               (fn [tbl] (.isIn (.-id tbl) delete-ids))))
+                
+                (when (seq upserts)
+                  (let [extracted-links (mapcat (fn [e] (parser/parse-bidirectional-links (:content e))) upserts)
+                        all-touched-pages (set (conj extracted-links page-id))
+                        page-companions
+                        (map (fn [p-name]
+                               (db/PagesCompanion.insert
+                                .name p-name
+                                .type (drift/Value. (if (is-journal? p-name) "journal" "page"))))
+                             all-touched-pages)
+                        block-companions
+                        (map (fn [e]
+                               (db/BlocksCompanion.insert
+                                .id (:id e)
+                                .pageId (:page-id e)
+                                .orderIndex (int (or (:order-index e) 0))
+                                .indent (drift/Value. (int (or (:indent e) 0)))
+                                .type (str (or (:type e) "paragraph"))
+                                .content (drift/Value. (str (or (:content e) "")))
+                                .dataJson (drift/Value. (str (or (:data-json e) "{}")))))
+                             upserts)
+                        link-companions
+                        (mapcat (fn [e]
+                                  (let [links (parser/parse-bidirectional-links (:content e))]
+                                    (map (fn [target]
+                                           (db/BlockLinksCompanion.insert
+                                            .sourceId (:id e)
+                                            .targetId target
+                                            .linkType (drift/Value. "ref")))
+                                         links)))
+                                upserts)
+                        upsert-ids (db-helpers/stringListFrom (vec (map :id upserts)))
+                        all-properties
+                        (mapcat (fn [e]
+                                  (let [props (parser/parse-properties (:content e))]
+                                    (map (fn [[k v]]
+                                           (db/PropertiesCompanion.insert
+                                            .blockId (:id e)
+                                            .key k
+                                            .value v))
+                                         props)))
+                                upserts)]
+                    (.insertAll b (.-pages database) page-companions .mode drift.InsertMode/insertOrIgnore)
+                    (.insertAllOnConflictUpdate b (.-blocks database) block-companions)
+                    (.deleteWhere b (.-blockLinks database)
+                                 (fn [tbl] (.isIn (.-sourceId tbl) upsert-ids)))
+                    (when (seq link-companions)
+                      (.insertAll b (.-blockLinks database) link-companions))
+                    (.deleteWhere b (.-properties database)
+                                 (fn [tbl] (.isIn (.-blockId tbl) upsert-ids)))
+                    (when (seq all-properties)
+                      (.insertAll b (.-properties database) (vec all-properties))))))))))
+
+;; =============================================================================
+;; 8. UI entry
+;; =============================================================================
+
+(defn sync-state-to-db!
+  "Incrementally sync editor state to DB."
+  [^db/AppDatabase database page-id old-state new-state]
+  (if (or (nil? old-state) (nil? new-state))
+    (let [diff-result (compute-diff page-id {:blocks {} :root []} new-state)]
+      (execute-batch-sync! database page-id diff-result))
+    (let [clean-old (dissoc old-state :active-block-id :cursor-visible)
+          clean-new (dissoc new-state :active-block-id :cursor-visible)]
+      (when (not= clean-old clean-new)
+        (let [diff-result (compute-diff page-id clean-old clean-new)]
+          (execute-batch-sync! database page-id diff-result))))))

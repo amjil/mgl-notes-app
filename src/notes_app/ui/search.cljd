@@ -1,0 +1,149 @@
+(ns notes-app.ui.search
+  (:require ["package:flutter/material.dart" :as m]
+            ["package:flutter/services.dart" :as services]
+            ["package:mongol/mongol.dart" :as mongol]
+            [cljd.flutter :as f]
+            [notes-app.db.core :as db]
+            [notes-app.ui.navigation :as nav]
+            [notes-app.ui.search-preview :as search-preview]))
+
+(defn search-panel-view
+  "Global search panel: async sync, key handling, desktop layout."
+  [!current-page]
+  (let [!query (atom "")
+        !results (atom [])
+        !selected-idx (atom 0)]
+    
+    (f/widget
+      :watch [results !results
+              idx !selected-idx]
+      :context ctx
+      (m/Focus
+        .autofocus true
+        .onKeyEvent
+        (fn [_node event]
+          (if (= (.-runtimeType event) services/KeyDownEvent)
+            (let [logical-key (.-logicalKey event)]
+              (cond
+                ;; 1. ESC close
+                (= logical-key services.LogicalKeyboardKey/escape)
+                (do (.pop (m/Navigator.of ctx)) m.KeyEventResult/handled)
+
+                ;; 2. Arrow down
+                (= logical-key services.LogicalKeyboardKey/arrowDown)
+                (do (swap! !selected-idx (fn [i] (min (inc i) (max 0 (dec (count results))))))
+                    m.KeyEventResult/handled)
+
+                ;; 3. Arrow up
+                (= logical-key services.LogicalKeyboardKey/arrowUp)
+                (do (swap! !selected-idx (fn [i] (max 0 (dec i))))
+                    m.KeyEventResult/handled)
+
+                ;; 4. Enter go
+                (or (= logical-key services.LogicalKeyboardKey/enter)
+                    (= logical-key services.LogicalKeyboardKey/numpadEnter))
+                (do (when (and (seq results) (<= 0 idx (dec (count results))))
+                      (let [res (nth results idx)]
+                        (.pop (m/Navigator.of ctx))
+                        (nav/handle-global-link-tap! !current-page
+                          (if (= (:type res) :page) 
+                            (:id res) 
+                            {:type :block :id (:id res)}))))
+                    m.KeyEventResult/handled)
+
+                :else m.KeyEventResult/ignored))
+            m.KeyEventResult/ignored))
+        .child
+        (m/Center
+          .child
+          (m/Container
+            .width 1000.0 .height 600.0
+            .decoration (m/BoxDecoration 
+                          .color (-> m.Colors/grey .-shade900) 
+                          .borderRadius (m.BorderRadius/circular 12.0)
+                          .boxShadow [(m/BoxShadow .color (-> m.Colors/black (.withOpacity 0.5)) .blurRadius 20.0)])
+            .child
+            (m/Row
+              .children
+              [;; Left list (40%)
+               (m/SizedBox
+                 .width 400.0
+                 .child
+                 (m/Column
+                   .children
+                   [(m/Padding
+                      .padding (m.EdgeInsets/all 16.0)
+                      .child
+                      (m/TextField
+                        .autofocus true
+                        .decoration (m/InputDecoration 
+                                      .hintText "Search pages or block content..." 
+                                      .prefixIcon (m/Icon m.Icons/search) 
+                                      .border m.InputBorder/none)
+                        .onChanged
+                        (fn [v]
+                          (reset! !query v)
+                            (let [search-res (await (db/search-everything v))]
+                              (reset! !results (vec search-res))
+                              (reset! !selected-idx 0)))))
+                    (m/Divider .height 1.0)
+                    (m/Expanded
+                      .child
+                      (if (empty? results)
+                        (m/Center .child (m/Text "No results" .style (m/TextStyle .color m.Colors/white54)))
+                        (m/Scrollbar
+                          .child
+                          (m/ListView.builder
+                            .itemCount (count results)
+                            .itemBuilder
+                            (fn [_item-ctx i]
+                              (let [res (nth results i)
+                                    is-selected? (= idx i)]
+                                (m/InkWell
+                                  .onTap (fn []
+                                           (.pop (m/Navigator.of ctx))
+                                           (nav/handle-global-link-tap! !current-page
+                                             (if (= (:type res) :page) 
+                                               (:id res) 
+                                               {:type :block :id (:id res)})))
+                                  .child
+                                  (m/Container
+                                    .color (if is-selected? (-> m.Colors/blue (.withOpacity 0.05)) m.Colors/transparent)
+                                    .padding (m.EdgeInsets/symmetric .horizontal 16.0 .vertical 12.0)
+                                    .child
+                                    (m/Row
+                                      .children
+                                      [(m/Icon (if (= (:type res) :page) m.Icons/description m.Icons/segment) 
+                                               .size 20.0 .color m.Colors/white70)
+                                       (m/SizedBox .width 12.0)
+                                       (m/Expanded
+                                         .child
+                                         (if (= (:type res) :page)
+                                           (m/Text (:title res) .style (m/TextStyle .fontWeight m.FontWeight/bold))
+                                           (m/Column
+                                             .crossAxisAlignment m.CrossAxisAlignment/start
+                                             .children
+                                             [(m/Text (or (:page-id res) "") .style (m/TextStyle .color m.Colors/white54 .fontSize 10.0))
+                                              (m/SizedBox .height 4.0)
+                                              (mongol/MongolText (or (:content res) "") 
+                                                                 .maxLines 1 
+                                                                 .style (m/TextStyle .fontFamily "OyunQaganTig"))])))])))))))))]))
+               
+               (m/VerticalDivider .width 1.0 .thickness 1.0)
+               
+               ;; Right preview (60%)
+               (m/Expanded
+                 .child
+                 (if (and (seq results) (< idx (count results)))
+                   (let [res (nth results idx)]
+                     (if (= (:type res) :block)
+                       (search-preview/preview-pane (:id res) (:page-id res) !current-page)
+                       (m/Center 
+                         .child 
+                         (m/Column 
+                           .mainAxisSize m.MainAxisSize/min
+                           .children
+                           [(m/Icon m.Icons/description .size 48.0 .color m.Colors/blue)
+                            (m/SizedBox .height 16.0)
+                            (m/Text (:title res) .style (m/TextStyle .fontSize 20.0 .fontWeight m.FontWeight/bold))]))))
+                   (m/Center .child (m/Icon m.Icons/search .size 64.0 .color (-> m.Colors/white (.withOpacity 0.15))))))])))))))

@@ -1,0 +1,206 @@
+(ns notes-app.ui.page
+  (:require ["package:flutter/material.dart" :as m]
+            ["package:flutter/services.dart" :as s]
+            ["package:mongol/mongol.dart" :as mongol]
+            ["package:mgl_editor_core/post_frame_trigger.dart" :as pft]
+            [cljd.flutter :as f]
+            [notes-app.db.core :as db]
+            [notes-app.db.bridge :as db-bridge]
+            [notes-app.utils.core :as utils]
+            [notes-app.ui.reader :as reader]
+            [notes-app.ui.editor :as editor]
+            [rich-editor.model.node :as node]
+            [rich-editor.services.ime-service :as ime]))
+
+(defn- initial-single-block-state
+  "For new/empty page: single-block state matching block-editor initial-state, editable and syncable to DB."
+  []
+  (let [id (str "b-" (.-millisecondsSinceEpoch (dart:core/DateTime.now)))
+        block (-> (node/make-node id :paragraph "")
+                  (assoc :attributes {:indent 0})
+                  (assoc :selection (s/TextSelection. .baseOffset 0 .extentOffset 0)))]
+    {:root [id]
+     :blocks {id block}
+     :active-block-id id
+     :cursor-visible true
+     :history {:undo-stack [] :redo-stack [] :max-depth 100 :last-edit-time 0}}))
+
+(defn- ensure-editor-state-ready!
+  "DB-loaded state lacks active-block-id / cursor-visible / selection / history; align with block-editor initial-state so cursor and edit area show. If root empty (new or empty page), replace with single-block initial state."
+  [!state]
+  (swap! !state
+         (fn [s]
+           (let [root (or (:root s) [])
+                 s (if (empty? root)
+                     (initial-single-block-state)
+                     (let [first-id (first root)
+                           s (cond-> s
+                                (not (get s :history)) (assoc :history {:undo-stack [] :redo-stack [] :max-depth 100 :last-edit-time 0}))
+                           s (cond-> s
+                                first-id (assoc :active-block-id first-id :cursor-visible true))
+                           s (if (and first-id (not (get-in s [:blocks first-id :selection])))
+                               (assoc-in s [:blocks first-id :selection]
+                                         (s/TextSelection. .baseOffset 0 .extentOffset 0))
+                               s)]
+                       s))]
+             s))))
+
+(defn note-content-view 
+  "Core view: title, editor, backlinks panel. on-navigate: (fn [target-page-name]) called when [[page]] is clicked; can be nil."
+  [page-id on-navigate]
+  (let [!state (atom nil)
+        !ime-attached (atom false)
+        debounce-save (utils/make-debouncer 800)
+        page-future (db/get-page-blocks page-id)]
+    
+    (f/widget
+     (m/FutureBuilder
+      .future page-future
+      .builder
+      (fn [ctx snapshot]
+        (cond
+          (= (.-connectionState snapshot) m.ConnectionState/waiting)
+          (m/Center .child (m/CircularProgressIndicator .color m.Colors/blue))
+          
+          (.-hasData snapshot)
+          (do
+            (when (nil? @!state)
+              (reset! !state (db-bridge/db-blocks->editor-state (.-data snapshot)))
+              (ensure-editor-state-ready! !state)
+              (add-watch !state :db-sync
+                         (fn [_ _ old new]
+                           (when (not= (dissoc old :active-block-id :cursor-visible)
+                                       (dissoc new :active-block-id :cursor-visible))
+                             (debounce-save #(db/sync-state-to-db! (db/get-database) page-id old new))))))
+            
+            (f/widget
+             :watch [state !state]
+             ;; Top-level split Row
+             (m/Row
+              .crossAxisAlignment m.CrossAxisAlignment/start
+              .children
+              [;; A. Page title
+               (m/Padding
+                .padding (m.EdgeInsets/all 32.0)
+                .child
+                (mongol/MongolText page-id 
+                                   .style (m/TextStyle .fontSize 32.0 .fontWeight m.FontWeight/w900 
+                                                       .fontFamily "OyunQaganTig" .color m.Colors/white)))
+               
+               ;; B. Main editor (attach IME after first frame, cursor and input work)
+               (m/Expanded
+                .child
+                (pft/PostFrameTrigger
+                 .onLayout
+                 (fn []
+                   (when (compare-and-set! !ime-attached false true)
+                     (when-let [active-id (:active-block-id @!state)]
+                       (when (seq (:root @!state))
+                         (ime/attach! !state active-id)))))
+                 .child (editor/editor-container !state nil
+                         ;; Navigate on [[page]] click; pass fn even when on-navigate nil to avoid reader error
+                         (fn [target]
+                           (when on-navigate
+                             (if (string? target)
+                               (on-navigate target)
+                               (when (and (map? target) (= (:type target) :block))
+                                 nil)))))))
+               
+               ;; C. Divider
+               (m/Container .width 1.0 .color (-> m.Colors/white (.withOpacity 0.2)))
+               
+               ;; D. Backlinks and unlinked references (sidebar)
+               (m/Container
+                .width 320.0
+                .color (-> m.Colors/white (.withOpacity 0.03))
+                .padding (m.EdgeInsets/all 24.0)
+                .child
+                (f/widget
+                 :watch [backlinks (stream
+                                    (map (fn [results] (vec results)))
+                                    (map (fn [_] []))
+                                    :as-values (db/watch-backlinks page-id))
+                        unlinked (stream
+                                  (map (fn [results] (vec results)))
+                                  (map (fn [_] []))
+                                  :as-values (db/watch-unlinked-references page-id))]
+                 
+                 (m/SingleChildScrollView
+                  .scrollDirection m.Axis/horizontal
+                  .child
+                  (m/Row
+                   .crossAxisAlignment m.CrossAxisAlignment/start
+                   .children
+                   (concat
+                    ;; Module 1: Linked references
+                    (if (empty? backlinks)
+                      [(m/Padding .padding (m.EdgeInsets/only .right 24.0)
+                                  .child (mongol/MongolText "No references" .style (m/TextStyle .color m.Colors/white54 .fontFamily "OyunQaganTig")))]
+                      (concat
+                       [(m/Padding .padding (m.EdgeInsets/only .right 24.0)
+                                   .child (mongol/MongolText (str "Linked references (" (count backlinks) ")")
+                                                                 .style (m/TextStyle .fontSize 18.0 .color m.Colors/white70 .fontFamily "OyunQaganTig")))]
+                       (map (fn [{:keys [block source]}]
+                              (m/Container
+                               .margin (m.EdgeInsets/only .right 16.0)
+                               .padding (m.EdgeInsets/all 16.0)
+                               .decoration (m/BoxDecoration .color (-> m.Colors/white (.withOpacity 0.06)) .borderRadius (m.BorderRadius/circular 8.0))
+                               .child
+                               (m/Column
+                                .crossAxisAlignment m.CrossAxisAlignment/start
+                                .children
+                                [(mongol/MongolText source .style (m/TextStyle .color m.Colors/blue .fontWeight m.FontWeight/bold .fontFamily "OyunQaganTig" .fontSize 14.0))
+                                 (m/SizedBox .height 12.0)
+                                 (reader/block-reader-view (db-bridge/block->map block)
+                                                           (fn [t] (when on-navigate (on-navigate t)))
+                                                           [])])))
+                             backlinks)))
+                    
+                    ;; Module 2: Unlinked references
+                    (when (seq unlinked)
+                      (concat
+                       [(m/Padding
+                         .padding (m.EdgeInsets/symmetric .horizontal 24.0)
+                         .child
+                         (m/Row
+                          .children
+                          [(m/Container .height 60.0 .width 1.0 .color (-> m.Colors/white (.withOpacity 0.2)))
+                           (m/SizedBox .width 24.0)
+                           (mongol/MongolText (str "Unlinked mentions (" (count unlinked) ")")
+                                              .style (m/TextStyle .fontSize 18.0 .color m.Colors/orange .fontFamily "OyunQaganTig"))]))]
+                       (map (fn [item]
+                              (let [block (:block item)
+                                    source (:source item)]
+                                (m/Container
+                                 .margin (m.EdgeInsets/only .right 16.0)
+                                 .padding (m.EdgeInsets/all 16.0)
+                                 .decoration (m/BoxDecoration .color (-> m.Colors/orange (.withOpacity 0.05))
+                                                            .borderRadius (m.BorderRadius/circular 8.0)
+                                                            .border (m/Border.all .color (-> m.Colors/orange (.withOpacity 0.2))))
+                                 .child
+                                 (m/Column
+                                  .crossAxisAlignment m.CrossAxisAlignment/start
+                                  .children
+                                  [(mongol/MongolText source .style (m/TextStyle .color m.Colors/orange .fontWeight m.FontWeight/bold .fontFamily "OyunQaganTig" .fontSize 14.0))
+                                   (m/SizedBox .height 12.0)
+                                   (reader/block-reader-view (db-bridge/block->map block)
+                                                             (fn [t] (when on-navigate (on-navigate t)))
+                                                             [])
+                                   (m/SizedBox .height 12.0)
+                                   (mongol/MongolElevatedButton
+                                    .onPressed #(db/promote-unlinked-to-link! item page-id)
+                                    .style (m/ElevatedButton.styleFrom .backgroundColor m.Colors/orange .elevation 0)
+                                    .child (mongol/MongolText "Convert to link" .style (m/TextStyle .color m.Colors/white .fontFamily "OyunQaganTig")))]))))
+                             unlinked))))))))] )))
+          
+          :else
+          (m/Center .child (mongol/MongolText "Load failed" .style (m/TextStyle .fontFamily "OyunQaganTig")))))))))
+
+;; Wrapper for single-page mode
+(defn note-page-view 
+  "page-id: current page name; on-navigate: (fn [target-page-name]) for [[page]] click, optional."
+  ([page-id] (note-page-view page-id nil))
+  ([page-id on-navigate]
+   (m/Scaffold
+    .backgroundColor m.Colors/black
+    .body (m/SafeArea .child (note-content-view page-id on-navigate)))))

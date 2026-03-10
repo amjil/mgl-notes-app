@@ -1,9 +1,0 @@
-(ns notes-app.widgets.keyboard
-  (:require
-   [virtual-keyboard.keyboard :as keyboard]))
-   
-(defn keyboard []
-  (keyboard/keyboard {:custom-fns {}}))
-
-(defn candidates-panel []
-  (keyboard/candidates nil))

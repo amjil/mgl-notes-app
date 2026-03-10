@@ -1,0 +1,69 @@
+(ns notes-app.ui.search-preview
+  "Search result side preview: selected block and neighbors, vertical text, horizontal scroll."
+  (:require ["package:flutter/material.dart" :as m]
+            [cljd.flutter :as f]
+            [notes-app.db.core :as db]
+            [notes-app.db.bridge :as db-bridge]
+            [notes-app.ui.navigation :as nav]
+            [notes-app.ui.reader :as reader]))
+
+(defn preview-pane
+  "Right preview: stream macro turns db/get-block-context Future into reactive state."
+  [block-id page-id !current-page]
+  (f/widget
+   :context ctx
+   :watch [context-blocks (stream 
+                            (map identity) 
+                            (map (fn [_err] [])) 
+                            :as-values (db/get-block-context block-id page-id))]
+   (cond
+     (nil? context-blocks)
+     (m/Center .child (m/CircularProgressIndicator))
+
+     (empty? context-blocks)
+     (m/Center .child (m/Text "Could not load preview" .style (m/TextStyle .color m.Colors/white54)))
+
+     ;; Normal render
+     :else
+     (m/Container
+      .padding (m.EdgeInsets/all 20.0)
+      .color (-> m.Colors/white (.withOpacity 0.03))
+      .child
+      (m/SingleChildScrollView
+       .scrollDirection m.Axis/horizontal
+       .child
+       (m/Row
+        .crossAxisAlignment m.CrossAxisAlignment/start
+        .children
+        (mapv (fn [b]
+                (let [is-target? (= (.-id b) block-id)
+                      block-map (db-bridge/block->map b)]
+                  (m/Column
+                   .mainAxisSize m.MainAxisSize/min
+                   .children
+                   [(if is-target?
+                      (m/Padding
+                       .padding (m.EdgeInsets/only .bottom 8.0)
+                       .child
+                       (m/TextButton.icon
+                        .style (m.TextButton/styleFrom .foregroundColor m.Colors/blue)
+                        .icon (m/Icon m.Icons/near_me .size 16.0)
+                        .label (m/Text "Go to block" .style (m/TextStyle .fontSize 12.0))
+                        .onPressed (fn []
+                                     (.pop (m/Navigator.of ctx))
+                                     (nav/jump-and-flash! !current-page block-id))))
+                      (m/SizedBox .height 24.0))
+
+                    (m/Container
+                     .margin (m.EdgeInsets/only .right 30.0)
+                     .padding (m.EdgeInsets/all 12.0)
+                     .decoration (when is-target?
+                                   (m/BoxDecoration
+                                    .border (m.Border/all .color m.Colors/blue .width 1.5)
+                                    .borderRadius (m.BorderRadius/circular 8.0)
+                                    .color (-> m.Colors/blue (.withOpacity 0.03))))
+                     .child (reader/block-reader-view
+                             block-map
+                             #(println "Preview tap:" %)
+                             []))])))
+              context-blocks)))))))
