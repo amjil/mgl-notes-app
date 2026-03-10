@@ -323,7 +323,7 @@
     .duration (dart:core/Duration. .milliseconds 400)
     .curve m.Curves/easeInOut
     .constraints (m/BoxConstraints. .minWidth common-min-w .minHeight 40.0)
-    .padding (m.EdgeInsets/symmetric .horizontal 8.0)
+    .padding (m.EdgeInsets/only .left 8.0 .right 0.0)
     .decoration (m/BoxDecoration
                  .borderRadius (m/BorderRadius.circular 8.0)
                  .color bg-color)
@@ -637,7 +637,7 @@
               .buildDefaultDragHandles false
               .scrollDirection m.Axis/horizontal
               ;; base-top-margin so first column aligns with others; only indent inside blocks
-              .padding (m.EdgeInsets/only .top base-top-margin .bottom 40.0 .left 20.0 .right 120.0)
+              .padding (m.EdgeInsets/only .top base-top-margin .bottom 40.0 .left 20.0 .right 0.0)
               .onReorder (fn [old-index new-index]
                            (when-not any-collapsed?
                              (let [new-index (if (< old-index new-index) (dec new-index) new-index)]
@@ -679,7 +679,7 @@
                    (m/AnimatedPadding
                     .duration (dart:core/Duration .milliseconds 250)
                     .curve m.Curves/easeOutQuart
-                    .padding (m.EdgeInsets/only .right 16.0 .top top-offset)
+                    .padding (m.EdgeInsets/only .right 0.0 .top top-offset)
                     .child
                     (m/Stack
                      .alignment m.Alignment/topCenter
