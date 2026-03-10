@@ -19,8 +19,29 @@
 
 ;; Block text color in dark theme (rich-editor defaults to black, invisible on dark bg)
 (def ^:private dark-text-color m.Colors/white)
+(def ^:private light-text-color m.Colors/black87)
 ;; Unified top margin so vertical text doesn't hit the top and blocks align
 (def ^:private base-top-margin 48.0)
+
+(def ^:private default-prefs
+  {:font-size-scale 1.0
+   :line-height 2.0
+   :theme-mode :dark
+   :bg-color 0xFF121212
+   :bg-texture :none
+   :vertical-align :start
+   :show-bullets? true
+   :show-indent-guides? true
+   :show-block-ids? false
+   :font-family "OyunQaganTig"})
+
+(defn- get-prefs [state]
+  (let [legacy-lh (:line-height state)
+        prefs (merge default-prefs (get state :prefs {}))
+        prefs (cond-> prefs
+                (and legacy-lh (nil? (get-in state [:prefs :line-height])))
+                (assoc :line-height legacy-lh))]
+    prefs))
 
 (defn- dark-block-style
   ([block-type] (dark-block-style block-type 2.0))
@@ -38,6 +59,57 @@
      :list-item (m/TextStyle. .fontSize 20.0 .height line-height .fontFamily "OyunQaganTig" .color dark-text-color)
      :task (m/TextStyle. .fontSize 20.0 .height line-height .fontFamily "OyunQaganTig" .color dark-text-color)
      (m/TextStyle. .fontSize 20.0 .height line-height .fontFamily "OyunQaganTig" .color dark-text-color))))
+
+(defn- prefs-block-style
+  "Theme/scale aware block style used by editor (TextField) and reader consistency."
+  [block-type prefs]
+  (let [lh (double (or (:line-height prefs) 2.0))
+        scale (double (or (:font-size-scale prefs) 1.0))
+        theme (or (:theme-mode prefs) :dark)
+        font-family (or (:font-family prefs) "OyunQaganTig")
+        color (if (= theme :light) light-text-color dark-text-color)
+        fs (fn [n] (* n scale))]
+    (case block-type
+      :heading-1 (m/TextStyle. .fontSize (fs 28.0) .fontWeight m.FontWeight/bold
+                              .height lh .fontFamily font-family .color color)
+      :heading-2 (m/TextStyle. .fontSize (fs 24.0) .fontWeight m.FontWeight/bold
+                              .height lh .fontFamily font-family .color color)
+      :heading-3 (m/TextStyle. .fontSize (fs 20.0) .fontWeight m.FontWeight/bold
+                              .height lh .fontFamily font-family .color color)
+      :blockquote (m/TextStyle. .fontSize (fs 20.0) .fontStyle m.FontStyle/italic
+                               .height lh .fontFamily font-family .color (if (= theme :light) m.Colors/black54 m.Colors/white70))
+      :code-block (m/TextStyle. .fontSize (fs 16.0) .fontFamily "monospace"
+                               .height (min 2.2 (max 1.2 (* 0.9 lh))) .color color)
+      :list-item (m/TextStyle. .fontSize (fs 20.0) .height lh .fontFamily font-family .color color)
+      :task (m/TextStyle. .fontSize (fs 20.0) .height lh .fontFamily font-family .color color)
+      (m/TextStyle. .fontSize (fs 20.0) .height lh .fontFamily font-family .color color))))
+
+(defn- align-from-prefs [prefs]
+  (case (or (:vertical-align prefs) :start)
+    :center m.Alignment/center
+    :end m.Alignment/bottomCenter
+    m.Alignment/topCenter))
+
+(defn- bullet-widget [prefs]
+  (when (:show-bullets? prefs)
+    (m/Container
+     .margin (m.EdgeInsets/only .right 6.0)
+     .width 10.0
+     .height 10.0
+     .decoration (m/BoxDecoration
+                  .shape m.BoxShape/circle
+                  .color (if (= (:theme-mode prefs) :light)
+                           (-> m.Colors/black (.withOpacity 0.25))
+                           (-> m.Colors/white (.withOpacity 0.20)))))))
+
+(defn- indent-guide-widget [prefs indent]
+  (when (and (:show-indent-guides? prefs) (pos? (long indent)))
+    (m/Container
+     .margin (m.EdgeInsets/only .right 8.0)
+     .width 1.0
+     .color (if (= (:theme-mode prefs) :light)
+              (-> m.Colors/black (.withOpacity 0.10))
+              (-> m.Colors/white (.withOpacity 0.10))))))
 
 ;; =============================================================
 ;; 0. Collapse visibility: filter root list by collapsed?
@@ -230,11 +302,12 @@
    :watch [state !state
            selected-ids !selected-ids
            flash-tokens nav/!flash-tokens]
-   :let [is-active? (= block-id (:active-block-id state))
+   :let [prefs (get-prefs state)
+         is-active? (= block-id (:active-block-id state))
          block-data (get-in state [:blocks block-id])
          block-type (or (get block-data :type) :paragraph)
-         lh (double (or (:line-height state) 2.0))
-         block-style-fn (get cfg :block-style dark-block-style)
+         lh (double (or (:line-height prefs) 2.0))
+         block-style-fn (get cfg :block-style (fn [t] (prefs-block-style t prefs)))
          base-style (block-style-fn block-type)
          font-size (or (.-fontSize base-style) 20.0)
          common-min-w (* lh font-size)
@@ -255,16 +328,49 @@
                  .borderRadius (m/BorderRadius.circular 8.0)
                  .color bg-color)
     .child
-    (if is-active?
-      ;; --- State A: edit (same container as read, no extra Padding) ---
-      ;; If still misaligned: check showLineDivider in node-view/block-node MglSelectableText, TextField contentPadding: EdgeInsets.zero
-      (m/CompositedTransformTarget
-       .link @!slash-layer-link
-       .child (node-view/block-node block-id !state index cfg))
-      ;; --- State B: read ---
-      (m/GestureDetector
-       .onTap #(editor-cmd/focus-block !state block-id 0)
-       .child (reader/block-reader-view block-data on-link-tap plugins lh))))))
+    (m/Row
+     .mainAxisSize m.MainAxisSize/min
+     .crossAxisAlignment m.CrossAxisAlignment/start
+     .children
+     (filterv some?
+              [(indent-guide-widget prefs (get-in block-data [:attributes :indent] 0))
+               (when (or (= block-type :list-item) (= block-type :task))
+                 (bullet-widget prefs))
+               (m/Flexible
+                .fit m.FlexFit/loose
+                .child
+                (m/Align
+                 .alignment (align-from-prefs prefs)
+                 .child
+                 (if is-active?
+                   ;; --- State A: edit ---
+                   (m/CompositedTransformTarget
+                    .link @!slash-layer-link
+                    .child (node-view/block-node block-id !state index (assoc cfg :block-style (fn [t] (prefs-block-style t prefs)))))
+                   ;; --- State B: read ---
+                   (m/GestureDetector
+                    .onTap #(editor-cmd/focus-block !state block-id 0)
+                    .child
+                    (m/ClipRect
+                     .child
+                     (m/Column
+                      ;; In bounded-height contexts, allow the reader part to flex instead of overflowing.
+                      .mainAxisSize m.MainAxisSize/max
+                      .crossAxisAlignment m.CrossAxisAlignment/start
+                      .children
+                      (filterv some?
+                               [(when (:show-block-ids? prefs)
+                                  (m/Padding
+                                   .padding (m.EdgeInsets/only .bottom 6.0)
+                                   .child (m/Text (str block-id)
+                                                  .style (m/TextStyle
+                                                          .fontSize 10.0
+                                                          .color (if (= (:theme-mode prefs) :light)
+                                                                   (-> m.Colors/black (.withOpacity 0.35))
+                                                                   (-> m.Colors/white (.withOpacity 0.35)))))))
+                                (m/Flexible
+                                 .fit m.FlexFit/loose
+                                 .child (reader/block-reader-view block-data on-link-tap plugins lh {:prefs prefs}))])))))))])))))
 
 ;; =============================================================
 ;; 4. Top container: keyboard and horizontal scroll tree
@@ -324,9 +430,10 @@
               rect !select-rect
               slash slash/!slash-state
               link !slash-layer-link]
-      :let [lh (double (or (:line-height state) 2.0))
-            cfg* (assoc (get state :editor-config cfg)
-                        :block-style (fn [block-type] (dark-block-style block-type lh)))
+     :let [prefs (get-prefs state)
+           lh (double (or (:line-height prefs) 2.0))
+           cfg* (assoc (get state :editor-config cfg)
+                       :block-style (fn [block-type] (prefs-block-style block-type prefs)))
             visible-ids (get-visible-root (:root state) (:blocks state))
             any-collapsed? (some #(get-in state [:blocks % :collapsed?]) (:root state))
             marquee-active? selecting?

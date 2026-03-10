@@ -9,15 +9,23 @@
 
 ;; Match editor dark-block-style: font size, line height, font for reader/edit visual consistency
 (defn- reader-block-style
-  ([block-type] (reader-block-style block-type 2.0))
-  ([block-type line-height]
-   (case block-type
-     :heading-1 (m/TextStyle. .fontSize 28.0 .fontWeight m.FontWeight/bold .height line-height .fontFamily "OyunQaganTig" .color m.Colors/white)
-     :heading-2 (m/TextStyle. .fontSize 24.0 .fontWeight m.FontWeight/bold .height line-height .fontFamily "OyunQaganTig" .color m.Colors/white)
-     :heading-3 (m/TextStyle. .fontSize 20.0 .fontWeight m.FontWeight/bold .height line-height .fontFamily "OyunQaganTig" .color m.Colors/white)
-     :blockquote (m/TextStyle. .fontSize 20.0 .fontStyle m.FontStyle/italic .height line-height .fontFamily "OyunQaganTig" .color m.Colors/white70)
-     :task (m/TextStyle. .fontSize 20.0 .height line-height .fontFamily "OyunQaganTig" .color m.Colors/white)
-     (m/TextStyle. .fontSize 20.0 .height line-height .fontFamily "OyunQaganTig" .color m.Colors/white))))
+  ([block-type] (reader-block-style block-type 2.0 nil))
+  ([block-type line-height] (reader-block-style block-type line-height nil))
+  ([block-type line-height {:keys [prefs]}]
+   (let [prefs (or prefs {})
+         scale (double (or (:font-size-scale prefs) 1.0))
+         theme (or (:theme-mode prefs) :dark)
+         font-family (or (:font-family prefs) "OyunQaganTig")
+         base-color (if (= theme :light) m.Colors/black87 m.Colors/white)
+         muted-color (if (= theme :light) m.Colors/black54 m.Colors/white70)
+         fs (fn [n] (* n scale))]
+     (case block-type
+       :heading-1 (m/TextStyle. .fontSize (fs 28.0) .fontWeight m.FontWeight/bold .height line-height .fontFamily font-family .color base-color)
+       :heading-2 (m/TextStyle. .fontSize (fs 24.0) .fontWeight m.FontWeight/bold .height line-height .fontFamily font-family .color base-color)
+       :heading-3 (m/TextStyle. .fontSize (fs 20.0) .fontWeight m.FontWeight/bold .height line-height .fontFamily font-family .color base-color)
+       :blockquote (m/TextStyle. .fontSize (fs 20.0) .fontStyle m.FontStyle/italic .height line-height .fontFamily font-family .color muted-color)
+       :task (m/TextStyle. .fontSize (fs 20.0) .height line-height .fontFamily font-family .color base-color)
+       (m/TextStyle. .fontSize (fs 20.0) .height line-height .fontFamily font-family .color base-color)))))
 
 ;; =============================================================
 ;; 1. Inline rich text parsing (Inline Spans)
@@ -121,24 +129,29 @@
 (defn block-reader-view
   "Read-mode block view. Top Column uses mainAxisSize/max to fill parent; text wrapped in Expanded
    so MongolText respects height and wraps columns in vertical layout, avoiding RenderFlex overflow."
-  ([block on-link-tap plugins] (block-reader-view block on-link-tap plugins 2.0))
-  ([block on-link-tap plugins line-height]
+  ([block on-link-tap plugins] (block-reader-view block on-link-tap plugins 2.0 nil))
+  ([block on-link-tap plugins line-height] (block-reader-view block on-link-tap plugins line-height nil))
+  ([block on-link-tap plugins line-height opts]
    (let [{b-type :type raw-content :content b-data :data} block
          content (or raw-content "")
          b-data (or b-data {})
          props (parser/parse-properties content)
          clean-text (strip-property-lines content)
-         base-style (reader-block-style b-type line-height)
+         base-style (reader-block-style b-type line-height opts)
          plugin (first (filter #(= (:type %) b-type) plugins))
         ;; Wrap text in Expanded so it wraps within parent height instead of overflowing
-        rich-text-content (fn [text-style]
-                            (m/Expanded
-                             .child
-                             (mongol/MongolText.rich
-                              (m/TextSpan
-                               .children (build-rich-spans clean-text text-style on-link-tap)))))]
+         ;; NOTE: This view can be hosted inside unbounded-height parents (e.g. nested scroll/vertical columns).
+         ;; Using Expanded in that case throws: "RenderFlex children have non-zero flex but incoming height constraints are unbounded."
+         ;; Flexible(loose) keeps wrapping behavior but allows shrink-wrapping.
+         rich-text-content (fn [text-style]
+                             (m/Flexible
+                              .fit m.FlexFit/loose
+                              .child
+                              (mongol/MongolText.rich
+                               (m/TextSpan
+                                .children (build-rich-spans clean-text text-style on-link-tap)))))]
      (m/Column
-      .mainAxisSize m.MainAxisSize/max
+      .mainAxisSize m.MainAxisSize/min
       .crossAxisAlignment m.CrossAxisAlignment/start
       .children
       (filterv some?

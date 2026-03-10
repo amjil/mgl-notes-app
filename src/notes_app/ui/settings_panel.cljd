@@ -1,0 +1,229 @@
+(ns notes-app.ui.settings-panel
+  (:require ["package:flutter/material.dart" :as m]
+            ["package:flutter/services.dart" :as s]
+            [cljd.flutter :as f]))
+
+(def ^:private default-prefs
+  {:font-size-scale 1.0
+   :line-height 2.0
+   :theme-mode :dark     ;; :light | :dark
+   :bg-color 0xFF121212
+   :bg-texture :none     ;; :none | :leather | :rice-paper | :frosted
+   :vertical-align :start ;; :start | :center | :end
+   :show-bullets? true
+   :show-indent-guides? true
+   :show-block-ids? false
+   :font-family "OyunQaganTig"})
+
+(defn ensure-prefs!
+  "Ensure [:prefs] exists; also migrate legacy top-level :line-height if present."
+  [!state]
+  (swap! !state
+         (fn [s]
+           (let [legacy-lh (get s :line-height)
+                 prefs (merge default-prefs (get s :prefs {}))
+                 prefs (cond-> prefs
+                         (and legacy-lh (nil? (get-in s [:prefs :line-height])))
+                         (assoc :line-height legacy-lh))]
+             (-> s
+                 (assoc :prefs prefs))))))
+
+(defn- setting-row [label child]
+  (m/Padding
+   .padding (m.EdgeInsets/symmetric .vertical 10.0)
+   .child (m/Row
+           .crossAxisAlignment m.CrossAxisAlignment/center
+           .children [(m/SizedBox
+                       .width 110.0
+                       .child (m/Text label
+                                     .style (m/TextStyle .fontSize 13.0 .fontWeight m.FontWeight/w600)))
+                      (m/Expanded .child child)])))
+
+(defn typography-panel
+  "Typography & Theme Panel content. Mount inside modal bottom sheet / drawer."
+  [!state]
+  (f/widget
+   :context ctx
+   :watch [{:keys [prefs]} !state]
+   :let [{:keys [font-size-scale line-height theme-mode bg-color bg-texture vertical-align
+                 show-bullets? show-indent-guides? show-block-ids? font-family]} prefs
+         panel-bg (if (= theme-mode :dark) (m/Color 0xFF1E1E1E) m.Colors/white)
+         fg (if (= theme-mode :dark) m.Colors/white m.Colors/black87)]
+   (m/Container
+    .padding (m.EdgeInsets/all 20.0)
+    .decoration (m/BoxDecoration
+                 .color panel-bg
+                 .borderRadius (m/BorderRadius.only
+                                .topLeft (m/Radius.circular 18.0)
+                                .topRight (m/Radius.circular 18.0)))
+    .child
+    (m/DefaultTextStyle
+     .style (m/TextStyle .color fg .fontFamily font-family)
+     .child
+     (m/Column
+      .mainAxisSize m.MainAxisSize/min
+      .children
+      [(m/Row
+        .children
+        [(m/Expanded
+          .child (m/Text "Typography & Theme"
+                         .style (m/TextStyle .fontSize 18.0 .fontWeight m.FontWeight/bold .color fg)))
+         (m/IconButton
+          .tooltip "Close"
+          .icon (m/Icon m.Icons/close .color (if (= theme-mode :dark) m.Colors/white70 m.Colors/black54))
+         .onPressed (fn [] (.pop (m/Navigator.of ctx))))])
+       (m/Divider .height 28.0 .color (-> fg (.withOpacity 0.15)))
+
+       ;; 1) Font size scale
+       (setting-row
+        "Font size"
+        (m/Column
+         .crossAxisAlignment m.CrossAxisAlignment/start
+         .children
+         [(m/Slider
+           .value (double (min 2.0 (max 0.5 (or font-size-scale 1.0))))
+           .min 0.5
+           .max 2.0
+           .divisions 15
+           .onChanged (fn [v] (swap! !state assoc-in [:prefs :font-size-scale] v)))
+          (m/Text (str (.toStringAsFixed (double (or font-size-scale 1.0)) 2) "x")
+                  .style (m/TextStyle .fontSize 12.0 .color (-> fg (.withOpacity 0.65))))]))
+
+       ;; 2) Line height
+       (setting-row
+        "Line height"
+        (m/Column
+         .crossAxisAlignment m.CrossAxisAlignment/start
+         .children
+         [(m/Slider
+           .value (double (min 3.5 (max 1.0 (or line-height 2.0))))
+           .min 1.0
+           .max 3.5
+           .divisions 25
+           .onChanged (fn [v] (swap! !state assoc-in [:prefs :line-height] v)))
+          (m/Text (str (.toStringAsFixed (double (or line-height 2.0)) 2) "x")
+                  .style (m/TextStyle .fontSize 12.0 .color (-> fg (.withOpacity 0.65))))]))
+
+       ;; 3) Theme mode
+       (setting-row
+        "Color theme"
+        (m/SegmentedButton.
+         .segments [(m/ButtonSegment. .value :light
+                                      .icon (m/Icon m.Icons/light_mode)
+                                      .label (m/Text "Light"))
+                    (m/ButtonSegment. .value :dark
+                                      .icon (m/Icon m.Icons/dark_mode)
+                                      .label (m/Text "Dark"))]
+         .selected #{(or theme-mode :dark)}
+         .onSelectionChanged (fn [sset]
+                               (swap! !state assoc-in [:prefs :theme-mode] (first sset)))))
+
+       ;; 4) Background color (presets)
+       (setting-row
+        "Background color"
+        (m/Wrap
+         .spacing 10.0
+         .runSpacing 10.0
+         .children
+         [(let [c 0xFF121212]
+            (m/GestureDetector
+             .onTap #(swap! !state assoc-in [:prefs :bg-color] c)
+             .child (m/Container
+                     .width 28.0 .height 28.0
+                     .decoration (m/BoxDecoration
+                                  .color (m/Color c)
+                                  .borderRadius (m/BorderRadius.circular 8.0)
+                                  .border (m/Border.all
+                                           .color (if (= bg-color c) m.Colors/blue (-> fg (.withOpacity 0.25)))
+                                           .width (if (= bg-color c) 2.0 1.0))))))
+          (let [c 0xFFF3E9D2]
+            (m/GestureDetector
+             .onTap #(swap! !state assoc-in [:prefs :bg-color] c)
+             .child (m/Container
+                     .width 28.0 .height 28.0
+                     .decoration (m/BoxDecoration
+                                  .color (m/Color c)
+                                  .borderRadius (m/BorderRadius.circular 8.0)
+                                  .border (m/Border.all
+                                           .color (if (= bg-color c) m.Colors/blue (-> fg (.withOpacity 0.25)))
+                                           .width (if (= bg-color c) 2.0 1.0))))))
+          (let [c 0xFF0E1A22]
+            (m/GestureDetector
+             .onTap #(swap! !state assoc-in [:prefs :bg-color] c)
+             .child (m/Container
+                     .width 28.0 .height 28.0
+                     .decoration (m/BoxDecoration
+                                  .color (m/Color c)
+                                  .borderRadius (m/BorderRadius.circular 8.0)
+                                  .border (m/Border.all
+                                           .color (if (= bg-color c) m.Colors/blue (-> fg (.withOpacity 0.25)))
+                                           .width (if (= bg-color c) 2.0 1.0))))))]))
+
+       ;; 5) Paper texture
+       (setting-row
+        "Paper texture"
+        (m/SegmentedButton.
+         .segments [(m/ButtonSegment. .value :none .label (m/Text "Solid"))
+                    (m/ButtonSegment. .value :leather .label (m/Text "Leather"))
+                    (m/ButtonSegment. .value :rice-paper .label (m/Text "Rice paper"))
+                    (m/ButtonSegment. .value :frosted .label (m/Text "Frosted"))]
+         .selected #{(or bg-texture :none)}
+         .onSelectionChanged (fn [sset]
+                               (swap! !state assoc-in [:prefs :bg-texture] (first sset)))))
+
+       ;; 6) Vertical alignment
+       (setting-row
+        "Vertical alignment"
+        (m/SegmentedButton.
+         .segments [(m/ButtonSegment. .value :start .label (m/Text "Top"))
+                    (m/ButtonSegment. .value :center .label (m/Text "Center"))
+                    (m/ButtonSegment. .value :end .label (m/Text "Bottom"))]
+         .selected #{(or vertical-align :start)}
+         .onSelectionChanged (fn [sset]
+                               (swap! !state assoc-in [:prefs :vertical-align] (first sset)))))
+
+       (m/Divider .height 28.0 .color (-> fg (.withOpacity 0.12)))
+
+       ;; 7) UI Hints
+       (m/SwitchListTile
+        .contentPadding m.EdgeInsets/zero
+        .title (m/Text "Show list bullets")
+        .value (boolean show-bullets?)
+        .onChanged (fn [v] (swap! !state assoc-in [:prefs :show-bullets?] v)))
+
+       (m/SwitchListTile
+        .contentPadding m.EdgeInsets/zero
+        .title (m/Text "Show indent guides")
+        .value (boolean show-indent-guides?)
+        .onChanged (fn [v] (swap! !state assoc-in [:prefs :show-indent-guides?] v)))
+
+       (m/SwitchListTile
+        .contentPadding m.EdgeInsets/zero
+        .title (m/Text "Show block IDs (debug)")
+        .value (boolean show-block-ids?)
+        .onChanged (fn [v] (swap! !state assoc-in [:prefs :show-block-ids?] v)))
+
+       (m/SizedBox .height 10.0)])))))
+
+(defn show-typography-panel!
+  [ctx !state]
+  (ensure-prefs! !state)
+  (m/showModalBottomSheet
+   .context ctx
+   .isScrollControlled true
+   .useSafeArea true
+   .backgroundColor m.Colors/transparent
+   .builder
+   (fn [sheet-ctx]
+     ;; Wrap in Material so Text/Ink widgets are safe in overlay route.
+     (m/Material
+      .color m.Colors/transparent
+      .child
+      (m/SingleChildScrollView
+       .child
+       (m/Padding
+        ;; Avoid keyboard overlap if later we add text inputs
+        .padding (m.EdgeInsets/only
+                  .bottom (.-bottom (.-viewInsets (m/MediaQuery.of sheet-ctx))))
+        .child (typography-panel !state)))))))
+

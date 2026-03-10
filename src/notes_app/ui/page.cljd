@@ -9,6 +9,7 @@
             [notes-app.utils.core :as utils]
             [notes-app.ui.reader :as reader]
             [notes-app.ui.editor :as editor]
+            [notes-app.ui.settings-panel :as settings]
             [rich-editor.model.node :as node]
             [rich-editor.services.ime-service :as ime]))
 
@@ -23,8 +24,17 @@
      :blocks {id block}
      :active-block-id id
      :cursor-visible true
-     ;; Global typography config (UI-only, do not persist to DB)
-     :line-height 2.0
+     ;; Global typography prefs (UI-only, do not persist to DB)
+     :prefs {:font-size-scale 1.0
+             :line-height 2.0
+             :theme-mode :dark
+             :bg-color 0xFF121212
+             :bg-texture :none
+             :vertical-align :start
+             :show-bullets? true
+             :show-indent-guides? true
+             :show-block-ids? false
+             :font-family "OyunQaganTig"}
      :history {:undo-stack [] :redo-stack [] :max-depth 100 :last-edit-time 0}}))
 
 (defn- ensure-editor-state-ready!
@@ -45,15 +55,32 @@
                                          (s/TextSelection. .baseOffset 0 .extentOffset 0))
                                s)]
                        s))]
-             (cond-> s
-               (nil? (get s :line-height)) (assoc :line-height 2.0))))))
+             ;; Ensure prefs + migrate legacy :line-height if present
+             (let [legacy-lh (get s :line-height)
+                   prefs (merge {:font-size-scale 1.0
+                                 :line-height 2.0
+                                 :theme-mode :dark
+                                 :bg-color 0xFF121212
+                                 :bg-texture :none
+                                 :vertical-align :start
+                                 :show-bullets? true
+                                 :show-indent-guides? true
+                                 :show-block-ids? false
+                                 :font-family "OyunQaganTig"}
+                                (get s :prefs {}))
+                   prefs (cond-> prefs
+                           (and legacy-lh (nil? (get-in s [:prefs :line-height])))
+                           (assoc :line-height legacy-lh))]
+               (assoc s :prefs prefs))))))
 
 (defn- spacing-controller
   "UI control for global vertical text column spacing (TextStyle.height). UI-only."
   [!state]
   (f/widget
    :watch [state !state]
-   :let [lh (double (or (:line-height state) 2.0))]
+   :let [lh (double (or (get-in state [:prefs :line-height])
+                        (:line-height state)
+                        2.0))]
    (m/Row
     .mainAxisSize m.MainAxisSize/min
     .children
@@ -67,7 +94,8 @@
               .max 3.5
               .divisions 10
               .activeColor m.Colors/blue
-              .onChanged (fn [v] (swap! !state assoc :line-height v))))
+              .onChanged (fn [v]
+                           (swap! !state assoc-in [:prefs :line-height] v))))
      (m/SizedBox .width 8.0)
      (m/Text (str (.toStringAsFixed lh 1) "x")
              .style (m/TextStyle .color m.Colors/white54 .fontSize 12.0))])))
@@ -103,23 +131,82 @@
               (ensure-editor-state-ready! !state)
               (add-watch !state :db-sync
                          (fn [_ _ old new]
-                           (let [strip-ui (fn [s] (dissoc s :active-block-id :cursor-visible :line-height :editor-config))]
+                           (let [strip-ui (fn [s] (dissoc s :active-block-id :cursor-visible :line-height :prefs :editor-config))]
                              (when (not= (strip-ui old) (strip-ui new))
                                (debounce-save #(db/sync-state-to-db! (db/get-database) page-id (strip-ui old) (strip-ui new))))))))
 
             (f/widget
              :watch [state !state]
+             :let [prefs (merge {:font-size-scale 1.0
+                                 :line-height 2.0
+                                 :theme-mode :dark
+                                 :bg-color 0xFF121212
+                                 :bg-texture :none
+                                 :font-family "OyunQaganTig"}
+                                (get state :prefs {}))
+                   theme (:theme-mode prefs)
+                   bg-color (or (:bg-color prefs) (if (= theme :light) 0xFFFFFFFF 0xFF121212))
+                   bg-texture (or (:bg-texture prefs) :none)
+                   decoration
+                   (case bg-texture
+                     :leather (m/BoxDecoration
+                               .gradient (m/LinearGradient
+                                          .begin m.Alignment/topLeft
+                                          .end m.Alignment/bottomRight
+                                          .colors [(m/Color bg-color)
+                                                   (m/Color (if (= theme :light) 0xFFEADDC7 0xFF0E0A08))
+                                                   (m/Color (if (= theme :light) 0xFFF6EEDF 0xFF1A1210))]))
+                     :rice-paper (m/BoxDecoration
+                                  .gradient (m/LinearGradient
+                                             .begin m.Alignment/topCenter
+                                             .end m.Alignment/bottomCenter
+                                             .colors [(m/Color bg-color)
+                                                      (m/Color (if (= theme :light) 0xFFF7F0DE 0xFF141414))]))
+                     :frosted (m/BoxDecoration
+                               .gradient (m/LinearGradient
+                                          .begin m.Alignment/topLeft
+                                          .end m.Alignment/bottomRight
+                                          .colors [(m/Color bg-color)
+                                                   (m/Color (if (= theme :light) 0xFFEFF3F6 0xFF0B1520))]))
+                     (m/BoxDecoration .color (m/Color bg-color)))]
              ;; Top-level split Row
-             (m/Row
-              .crossAxisAlignment m.CrossAxisAlignment/start
-              .children
-              [;; A. Page title
+             (m/AnimatedContainer
+              .duration (dart:core/Duration. .milliseconds 300)
+              .curve m.Curves/easeInOut
+              .decoration decoration
+              .child
+              (m/Row
+               .crossAxisAlignment m.CrossAxisAlignment/start
+               .children
+               [;; A. Page title + settings
                (m/Padding
                 .padding (m.EdgeInsets/all 32.0)
                 .child
-                (mongol/MongolText page-id
-                                   .style (m/TextStyle .fontSize 32.0 .fontWeight m.FontWeight/w900
-                                                       .fontFamily "OyunQaganTig" .color m.Colors/white)))
+                (m/Row
+                 .mainAxisSize m.MainAxisSize/min
+                 .children
+                 [(mongol/MongolText
+                   page-id
+                   .style (m/TextStyle
+                           .fontSize (* 32.0 (double (or (:font-size-scale prefs) 1.0)))
+                           .fontWeight m.FontWeight/w900
+                           .fontFamily (or (:font-family prefs) "OyunQaganTig")
+                           .color (if (= theme :light) m.Colors/black87 m.Colors/white)))
+                  (m/SizedBox .width 16.0)
+                  (m/IconButton
+                   .tooltip "Typography & Theme"
+                   .icon (m/Icon m.Icons/tune
+                                 .color (if (= theme :light) m.Colors/black54 m.Colors/white70))
+                   .onPressed (fn []
+                                ;; Debug signal: verify click triggers even if panel fails.
+                                (try
+                                  (-> (m/ScaffoldMessenger.of ctx)
+                                      (.showSnackBar
+                                       (m/SnackBar
+                                        .duration (dart:core/Duration. .milliseconds 800)
+                                        .content (m/Text "Opening typography panel…"))))
+                                  (catch Exception _ nil))
+                                (settings/show-typography-panel! ctx !state)))]))
 
                ;; B. Main editor (attach IME after first frame, cursor and input work)
                (m/Expanded
@@ -146,7 +233,9 @@
                ;; D. Backlinks and unlinked references (sidebar)
                (m/Container
                 .width 320.0
-                .color (-> m.Colors/white (.withOpacity 0.03))
+                .color (if (= theme :light)
+                         (-> m.Colors/black (.withOpacity 0.03))
+                         (-> m.Colors/white (.withOpacity 0.03)))
                 .padding (m.EdgeInsets/all 24.0)
                 .child
                 (f/widget
@@ -159,7 +248,9 @@
                                    (map (fn [results] (vec results)))
                                    (map (fn [_] []))
                                    :as-values (db/watch-unlinked-references page-id))]
-                 :let [lh (double (or (:line-height editor-state) 2.0))
+                 :let [lh (double (or (get-in editor-state [:prefs :line-height])
+                                      (:line-height editor-state)
+                                      2.0))
                        linked-widgets
                        (if (empty? backlinks)
                          [(m/Padding
@@ -192,7 +283,8 @@
                                      (db-bridge/block->map block)
                                      (fn [t] (when on-navigate (on-navigate t)))
                                      []
-                                     lh)])))
+                                     lh
+                                     {:prefs (get editor-state :prefs {})})])))
                                backlinks)))
                        unlinked-widgets
                        (when (seq unlinked)
@@ -229,7 +321,8 @@
                                        (db-bridge/block->map block)
                                        (fn [t] (when on-navigate (on-navigate t)))
                                        []
-                                       lh)
+                                       lh
+                                       {:prefs (get editor-state :prefs {})})
                                       (m/SizedBox .height 12.0)
                                       (mongol/MongolElevatedButton
                                        .onPressed #(db/promote-unlinked-to-link! item page-id)
@@ -250,7 +343,7 @@
                      .child
                      (m/Row
                       .crossAxisAlignment m.CrossAxisAlignment/start
-                      .children (vec (concat linked-widgets (or unlinked-widgets []))))))])))])))
+                      .children (vec (concat linked-widgets (or unlinked-widgets []))))))])))]))))
 
           :else
           (m/Center .child (mongol/MongolText "Load failed" .style (m/TextStyle .fontFamily "OyunQaganTig")))))))))
@@ -261,5 +354,6 @@
   ([page-id] (note-page-view page-id nil))
   ([page-id on-navigate]
    (m/Scaffold
+    ;; Background is prefs-driven inside content (for smooth theme/texture); keep scaffold neutral.
     .backgroundColor m.Colors/black
     .body (m/SafeArea .child (note-content-view page-id on-navigate)))))
