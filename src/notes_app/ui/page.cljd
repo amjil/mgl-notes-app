@@ -23,6 +23,8 @@
      :blocks {id block}
      :active-block-id id
      :cursor-visible true
+     ;; Global typography config (UI-only, do not persist to DB)
+     :line-height 2.0
      :history {:undo-stack [] :redo-stack [] :max-depth 100 :last-edit-time 0}}))
 
 (defn- ensure-editor-state-ready!
@@ -43,25 +45,57 @@
                                          (s/TextSelection. .baseOffset 0 .extentOffset 0))
                                s)]
                        s))]
-             s))))
+             (cond-> s
+               (nil? (get s :line-height)) (assoc :line-height 2.0))))))
 
-(defn note-content-view 
+(defn- spacing-controller
+  "UI control for global vertical text column spacing (TextStyle.height). UI-only."
+  [!state]
+  (f/widget
+   :watch [state !state]
+   :let [lh (double (or (:line-height state) 2.0))]
+   (m/Row
+    .mainAxisSize m.MainAxisSize/min
+    .children
+    [(m/Icon m.Icons/format_line_spacing .color m.Colors/white70 .size 18.0)
+     (m/SizedBox .width 12.0)
+     (m/SizedBox
+      .width 180.0
+      .child (m/Slider
+              .value (min 3.5 (max 1.0 lh))
+              .min 1.0
+              .max 3.5
+              .divisions 10
+              .activeColor m.Colors/blue
+              .onChanged (fn [v] (swap! !state assoc :line-height v))))
+     (m/SizedBox .width 8.0)
+     (m/Text (str (.toStringAsFixed lh 1) "x")
+             .style (m/TextStyle .color m.Colors/white54 .fontSize 12.0))])))
+
+(defn note-content-view
   "Core view: title, editor, backlinks panel. on-navigate: (fn [target-page-name]) called when [[page]] is clicked; can be nil."
   [page-id on-navigate]
   (let [!state (atom nil)
         !ime-attached (atom false)
-        debounce-save (utils/make-debouncer 800)
-        page-future (db/get-page-blocks page-id)]
-    
+        !ime-page-id (atom nil)]
     (f/widget
+     ;; Keep atoms alive across parent rebuilds; also bind IME attach to current page-id.
+     :let [debounce-save (utils/make-debouncer 800)
+           page-future (db/get-page-blocks page-id)]
      (m/FutureBuilder
       .future page-future
       .builder
       (fn [ctx snapshot]
+        ;; If route/page changes but widget subtree is preserved, reset editor + IME attach flags.
+        (when (not= @!ime-page-id page-id)
+          (reset! !ime-page-id page-id)
+          (reset! !ime-attached false)
+          (remove-watch !state :db-sync)
+          (reset! !state nil))
         (cond
           (= (.-connectionState snapshot) m.ConnectionState/waiting)
           (m/Center .child (m/CircularProgressIndicator .color m.Colors/blue))
-          
+
           (.-hasData snapshot)
           (do
             (when (nil? @!state)
@@ -69,10 +103,10 @@
               (ensure-editor-state-ready! !state)
               (add-watch !state :db-sync
                          (fn [_ _ old new]
-                           (when (not= (dissoc old :active-block-id :cursor-visible)
-                                       (dissoc new :active-block-id :cursor-visible))
-                             (debounce-save #(db/sync-state-to-db! (db/get-database) page-id old new))))))
-            
+                           (let [strip-ui (fn [s] (dissoc s :active-block-id :cursor-visible :line-height :editor-config))]
+                             (when (not= (strip-ui old) (strip-ui new))
+                               (debounce-save #(db/sync-state-to-db! (db/get-database) page-id (strip-ui old) (strip-ui new))))))))
+
             (f/widget
              :watch [state !state]
              ;; Top-level split Row
@@ -83,10 +117,10 @@
                (m/Padding
                 .padding (m.EdgeInsets/all 32.0)
                 .child
-                (mongol/MongolText page-id 
-                                   .style (m/TextStyle .fontSize 32.0 .fontWeight m.FontWeight/w900 
+                (mongol/MongolText page-id
+                                   .style (m/TextStyle .fontSize 32.0 .fontWeight m.FontWeight/w900
                                                        .fontFamily "OyunQaganTig" .color m.Colors/white)))
-               
+
                ;; B. Main editor (attach IME after first frame, cursor and input work)
                (m/Expanded
                 .child
@@ -98,17 +132,17 @@
                        (when (seq (:root @!state))
                          (ime/attach! !state active-id)))))
                  .child (editor/editor-container !state nil
-                         ;; Navigate on [[page]] click; pass fn even when on-navigate nil to avoid reader error
-                         (fn [target]
-                           (when on-navigate
-                             (if (string? target)
-                               (on-navigate target)
-                               (when (and (map? target) (= (:type target) :block))
-                                 nil)))))))
-               
+                                                 ;; Navigate on [[page]] click; pass fn even when on-navigate nil to avoid reader error
+                                                 (fn [target]
+                                                   (when on-navigate
+                                                     (if (string? target)
+                                                       (on-navigate target)
+                                                       (when (and (map? target) (= (:type target) :block))
+                                                         nil)))))))
+
                ;; C. Divider
                (m/Container .width 1.0 .color (-> m.Colors/white (.withOpacity 0.2)))
-               
+
                ;; D. Backlinks and unlinked references (sidebar)
                (m/Container
                 .width 320.0
@@ -116,83 +150,108 @@
                 .padding (m.EdgeInsets/all 24.0)
                 .child
                 (f/widget
-                 :watch [backlinks (stream
+                 :watch [editor-state !state
+                         backlinks (stream
                                     (map (fn [results] (vec results)))
                                     (map (fn [_] []))
                                     :as-values (db/watch-backlinks page-id))
-                        unlinked (stream
-                                  (map (fn [results] (vec results)))
-                                  (map (fn [_] []))
-                                  :as-values (db/watch-unlinked-references page-id))]
-                 
-                 (m/SingleChildScrollView
-                  .scrollDirection m.Axis/horizontal
-                  .child
-                  (m/Row
-                   .crossAxisAlignment m.CrossAxisAlignment/start
-                   .children
-                   (concat
-                    ;; Module 1: Linked references
-                    (if (empty? backlinks)
-                      [(m/Padding .padding (m.EdgeInsets/only .right 24.0)
-                                  .child (mongol/MongolText "No references" .style (m/TextStyle .color m.Colors/white54 .fontFamily "OyunQaganTig")))]
-                      (concat
-                       [(m/Padding .padding (m.EdgeInsets/only .right 24.0)
-                                   .child (mongol/MongolText (str "Linked references (" (count backlinks) ")")
-                                                                 .style (m/TextStyle .fontSize 18.0 .color m.Colors/white70 .fontFamily "OyunQaganTig")))]
-                       (map (fn [{:keys [block source]}]
-                              (m/Container
-                               .margin (m.EdgeInsets/only .right 16.0)
-                               .padding (m.EdgeInsets/all 16.0)
-                               .decoration (m/BoxDecoration .color (-> m.Colors/white (.withOpacity 0.06)) .borderRadius (m.BorderRadius/circular 8.0))
-                               .child
-                               (m/Column
-                                .crossAxisAlignment m.CrossAxisAlignment/start
-                                .children
-                                [(mongol/MongolText source .style (m/TextStyle .color m.Colors/blue .fontWeight m.FontWeight/bold .fontFamily "OyunQaganTig" .fontSize 14.0))
-                                 (m/SizedBox .height 12.0)
-                                 (reader/block-reader-view (db-bridge/block->map block)
-                                                           (fn [t] (when on-navigate (on-navigate t)))
-                                                           [])])))
-                             backlinks)))
-                    
-                    ;; Module 2: Unlinked references
-                    (when (seq unlinked)
-                      (concat
-                       [(m/Padding
-                         .padding (m.EdgeInsets/symmetric .horizontal 24.0)
-                         .child
-                         (m/Row
-                          .children
-                          [(m/Container .height 60.0 .width 1.0 .color (-> m.Colors/white (.withOpacity 0.2)))
-                           (m/SizedBox .width 24.0)
-                           (mongol/MongolText (str "Unlinked mentions (" (count unlinked) ")")
-                                              .style (m/TextStyle .fontSize 18.0 .color m.Colors/orange .fontFamily "OyunQaganTig"))]))]
-                       (map (fn [item]
-                              (let [block (:block item)
-                                    source (:source item)]
-                                (m/Container
-                                 .margin (m.EdgeInsets/only .right 16.0)
-                                 .padding (m.EdgeInsets/all 16.0)
-                                 .decoration (m/BoxDecoration .color (-> m.Colors/orange (.withOpacity 0.05))
-                                                            .borderRadius (m.BorderRadius/circular 8.0)
-                                                            .border (m/Border.all .color (-> m.Colors/orange (.withOpacity 0.2))))
-                                 .child
-                                 (m/Column
-                                  .crossAxisAlignment m.CrossAxisAlignment/start
-                                  .children
-                                  [(mongol/MongolText source .style (m/TextStyle .color m.Colors/orange .fontWeight m.FontWeight/bold .fontFamily "OyunQaganTig" .fontSize 14.0))
-                                   (m/SizedBox .height 12.0)
-                                   (reader/block-reader-view (db-bridge/block->map block)
-                                                             (fn [t] (when on-navigate (on-navigate t)))
-                                                             [])
-                                   (m/SizedBox .height 12.0)
-                                   (mongol/MongolElevatedButton
-                                    .onPressed #(db/promote-unlinked-to-link! item page-id)
-                                    .style (m/ElevatedButton.styleFrom .backgroundColor m.Colors/orange .elevation 0)
-                                    .child (mongol/MongolText "Convert to link" .style (m/TextStyle .color m.Colors/white .fontFamily "OyunQaganTig")))]))))
-                             unlinked))))))))] )))
-          
+                         unlinked (stream
+                                   (map (fn [results] (vec results)))
+                                   (map (fn [_] []))
+                                   :as-values (db/watch-unlinked-references page-id))]
+                 :let [lh (double (or (:line-height editor-state) 2.0))
+                       linked-widgets
+                       (if (empty? backlinks)
+                         [(m/Padding
+                           .padding (m.EdgeInsets/only .right 24.0)
+                           .child (mongol/MongolText
+                                   "No references"
+                                   .style (m/TextStyle .color m.Colors/white54 .fontFamily "OyunQaganTig")))]
+                         (into
+                          [(m/Padding
+                            .padding (m.EdgeInsets/only .right 24.0)
+                            .child (mongol/MongolText
+                                    (str "Linked references (" (count backlinks) ")")
+                                    .style (m/TextStyle .fontSize 18.0 .color m.Colors/white70 .fontFamily "OyunQaganTig")))]
+                          (map (fn [{:keys [block source]}]
+                                 (m/Container
+                                  .margin (m.EdgeInsets/only .right 16.0)
+                                  .padding (m.EdgeInsets/all 16.0)
+                                  .decoration (m/BoxDecoration
+                                               .color (-> m.Colors/white (.withOpacity 0.06))
+                                               .borderRadius (m.BorderRadius/circular 8.0))
+                                  .child
+                                  (m/Column
+                                   .crossAxisAlignment m.CrossAxisAlignment/start
+                                   .children
+                                   [(mongol/MongolText
+                                     source
+                                     .style (m/TextStyle .color m.Colors/blue .fontWeight m.FontWeight/bold .fontFamily "OyunQaganTig" .fontSize 14.0))
+                                    (m/SizedBox .height 12.0)
+                                    (reader/block-reader-view
+                                     (db-bridge/block->map block)
+                                     (fn [t] (when on-navigate (on-navigate t)))
+                                     []
+                                     lh)])))
+                               backlinks)))
+                       unlinked-widgets
+                       (when (seq unlinked)
+                         (into
+                          [(m/Padding
+                            .padding (m.EdgeInsets/symmetric .horizontal 24.0)
+                            .child
+                            (m/Row
+                             .children
+                             [(m/Container .height 60.0 .width 1.0 .color (-> m.Colors/white (.withOpacity 0.2)))
+                              (m/SizedBox .width 24.0)
+                              (mongol/MongolText
+                               (str "Unlinked mentions (" (count unlinked) ")")
+                               .style (m/TextStyle .fontSize 18.0 .color m.Colors/orange .fontFamily "OyunQaganTig"))]))]
+                          (map (fn [item]
+                                 (let [block (:block item)
+                                       source (:source item)]
+                                   (m/Container
+                                    .margin (m.EdgeInsets/only .right 16.0)
+                                    .padding (m.EdgeInsets/all 16.0)
+                                    .decoration (m/BoxDecoration
+                                                 .color (-> m.Colors/orange (.withOpacity 0.05))
+                                                 .borderRadius (m.BorderRadius/circular 8.0)
+                                                 .border (m/Border.all .color (-> m.Colors/orange (.withOpacity 0.2))))
+                                    .child
+                                    (m/Column
+                                     .crossAxisAlignment m.CrossAxisAlignment/start
+                                     .children
+                                     [(mongol/MongolText
+                                       source
+                                       .style (m/TextStyle .color m.Colors/orange .fontWeight m.FontWeight/bold .fontFamily "OyunQaganTig" .fontSize 14.0))
+                                      (m/SizedBox .height 12.0)
+                                      (reader/block-reader-view
+                                       (db-bridge/block->map block)
+                                       (fn [t] (when on-navigate (on-navigate t)))
+                                       []
+                                       lh)
+                                      (m/SizedBox .height 12.0)
+                                      (mongol/MongolElevatedButton
+                                       .onPressed #(db/promote-unlinked-to-link! item page-id)
+                                       .style (m/ElevatedButton.styleFrom .backgroundColor m.Colors/orange .elevation 0)
+                                       .child (mongol/MongolText
+                                               "Convert to link"
+                                               .style (m/TextStyle .color m.Colors/white .fontFamily "OyunQaganTig")))])))))
+                          unlinked))]
+                 (m/Column
+                  .crossAxisAlignment m.CrossAxisAlignment/start
+                  .children
+                  [(spacing-controller !state)
+                   (m/SizedBox .height 16.0)
+                   (m/Expanded
+                    .child
+                    (m/SingleChildScrollView
+                     .scrollDirection m.Axis/horizontal
+                     .child
+                     (m/Row
+                      .crossAxisAlignment m.CrossAxisAlignment/start
+                      .children (vec (concat linked-widgets (or unlinked-widgets []))))))])))])))
+
           :else
           (m/Center .child (mongol/MongolText "Load failed" .style (m/TextStyle .fontFamily "OyunQaganTig")))))))))
 

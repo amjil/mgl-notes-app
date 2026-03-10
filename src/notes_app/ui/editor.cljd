@@ -22,20 +22,22 @@
 ;; Unified top margin so vertical text doesn't hit the top and blocks align
 (def ^:private base-top-margin 48.0)
 
-(defn- dark-block-style [block-type]
-  (case block-type
-    :heading-1 (m/TextStyle. .fontSize 28.0 .fontWeight m.FontWeight/bold
-                           .height 2.0 .fontFamily "OyunQaganTig" .color dark-text-color)
-    :heading-2 (m/TextStyle. .fontSize 24.0 .fontWeight m.FontWeight/bold
-                           .height 2.0 .fontFamily "OyunQaganTig" .color dark-text-color)
-    :heading-3 (m/TextStyle. .fontSize 20.0 .fontWeight m.FontWeight/bold
-                           .height 2.0 .fontFamily "OyunQaganTig" .color dark-text-color)
-    :blockquote (m/TextStyle. .fontSize 20.0 .fontStyle m.FontStyle/italic
-                             .height 2.0 .fontFamily "OyunQaganTig" .color dark-text-color)
-    :code-block (m/TextStyle. .fontSize 16.0 .fontFamily "monospace" .height 1.8 .color dark-text-color)
-    :list-item (m/TextStyle. .fontSize 20.0 .height 2.0 .fontFamily "OyunQaganTig" .color dark-text-color)
-    :task (m/TextStyle. .fontSize 20.0 .height 2.0 .fontFamily "OyunQaganTig" .color dark-text-color)
-    (m/TextStyle. .fontSize 20.0 .height 2.0 .fontFamily "OyunQaganTig" .color dark-text-color)))
+(defn- dark-block-style
+  ([block-type] (dark-block-style block-type 2.0))
+  ([block-type line-height]
+   (case block-type
+     :heading-1 (m/TextStyle. .fontSize 28.0 .fontWeight m.FontWeight/bold
+                            .height line-height .fontFamily "OyunQaganTig" .color dark-text-color)
+     :heading-2 (m/TextStyle. .fontSize 24.0 .fontWeight m.FontWeight/bold
+                            .height line-height .fontFamily "OyunQaganTig" .color dark-text-color)
+     :heading-3 (m/TextStyle. .fontSize 20.0 .fontWeight m.FontWeight/bold
+                            .height line-height .fontFamily "OyunQaganTig" .color dark-text-color)
+     :blockquote (m/TextStyle. .fontSize 20.0 .fontStyle m.FontStyle/italic
+                              .height line-height .fontFamily "OyunQaganTig" .color dark-text-color)
+     :code-block (m/TextStyle. .fontSize 16.0 .fontFamily "monospace" .height (min 2.2 (max 1.2 (* 0.9 line-height))) .color dark-text-color)
+     :list-item (m/TextStyle. .fontSize 20.0 .height line-height .fontFamily "OyunQaganTig" .color dark-text-color)
+     :task (m/TextStyle. .fontSize 20.0 .height line-height .fontFamily "OyunQaganTig" .color dark-text-color)
+     (m/TextStyle. .fontSize 20.0 .height line-height .fontFamily "OyunQaganTig" .color dark-text-color))))
 
 ;; =============================================================
 ;; 0. Collapse visibility: filter root list by collapsed?
@@ -225,14 +227,17 @@
    Edit and read use same minWidth and horizontal padding to avoid column jump in vertical layout."
   [block-id !state index cfg on-link-tap !selected-ids]
   (f/widget
-   :watch [state !state selected-ids !selected-ids flash-tokens nav/!flash-tokens]
+   :watch [state !state
+           selected-ids !selected-ids
+           flash-tokens nav/!flash-tokens]
    :let [is-active? (= block-id (:active-block-id state))
          block-data (get-in state [:blocks block-id])
          block-type (or (get block-data :type) :paragraph)
+         lh (double (or (:line-height state) 2.0))
          block-style-fn (get cfg :block-style dark-block-style)
          base-style (block-style-fn block-type)
          font-size (or (.-fontSize base-style) 20.0)
-         common-min-w (* 2.0 font-size)
+         common-min-w (* lh font-size)
          plugins (:block-plugins cfg [])
          selected? (contains? selected-ids block-id)
          flash? (contains? flash-tokens block-id)
@@ -259,7 +264,7 @@
       ;; --- State B: read ---
       (m/GestureDetector
        .onTap #(editor-cmd/focus-block !state block-id 0)
-       .child (reader/block-reader-view block-data on-link-tap plugins))))))
+       .child (reader/block-reader-view block-data on-link-tap plugins lh))))))
 
 ;; =============================================================
 ;; 4. Top container: keyboard and horizontal scroll tree
@@ -319,7 +324,9 @@
               rect !select-rect
               slash slash/!slash-state
               link !slash-layer-link]
-      :let [cfg* (get state :editor-config cfg)
+      :let [lh (double (or (:line-height state) 2.0))
+            cfg* (assoc (get state :editor-config cfg)
+                        :block-style (fn [block-type] (dark-block-style block-type lh)))
             visible-ids (get-visible-root (:root state) (:blocks state))
             any-collapsed? (some #(get-in state [:blocks % :collapsed?]) (:root state))
             marquee-active? selecting?
