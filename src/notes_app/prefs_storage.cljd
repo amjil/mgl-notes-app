@@ -1,0 +1,79 @@
+(ns notes-app.prefs-storage
+  "Persist typography/theme prefs (settings panel) to local storage via SharedPreferences."
+  (:require ["package:shared_preferences/shared_preferences.dart" :as sp]
+            ["dart:convert" :as convert]))
+
+(def ^:private storage-key "notes_app_prefs")
+
+(def ^:private keyword-value-keys
+  #{:theme-mode :bg-texture :vertical-align})
+
+(defonce ^:private !persisted-prefs (atom nil))
+(defonce ^:private !load-promise (atom nil))
+
+(defn- prefs->json
+  "Encode prefs map to JSON string. Keyword keys/values become strings."
+  [prefs]
+  (when (map? prefs)
+    (let [m (into {} (for [[k v] prefs]
+                       [(name k) (cond (keyword? v) (name v)
+                                       (number? v)  v
+                                       (string? v)  v
+                                       :else        v)]))]
+      (convert/jsonEncode m))))
+
+(defn- json->prefs
+  "Decode JSON string to prefs map (keyword keys, keyword values for known keys)."
+  [json-str]
+  (when (and json-str (not= json-str ""))
+    (try
+      (let [decoded (convert/jsonDecode json-str)
+            entries (when decoded (.-entries decoded))]
+        (when entries
+          (into {}
+                (for [e entries]
+                  (let [k (keyword (.-key e))
+                        v (.-value e)]
+                    [k (if (contains? keyword-value-keys k)
+                         (when v (keyword v))
+                         v)])))))
+      (catch Exception _ nil))))
+
+(defn load-prefs!
+  "Load prefs from SharedPreferences. Sets @!persisted-prefs when done. Returns Future."
+  []
+  (when (nil? @!load-promise)
+    (reset! !load-promise
+            (-> (sp/SharedPreferences.getInstance)
+                (.then (fn [^sp/SharedPreferences instance]
+                         (let [raw (when instance (.getString instance storage-key))
+                               prefs (or (json->prefs raw) {})]
+                           (reset! !persisted-prefs prefs)
+                           prefs))))))
+  @!load-promise)
+
+(defn get-persisted-prefs
+  "Return current cached persisted prefs (may be nil if not loaded yet)."
+  []
+  @!persisted-prefs)
+
+(defn ensure-loaded!
+  "If prefs already loaded, call on-loaded with them; else load then call on-loaded. on-loaded: (fn [prefs])."
+  [on-loaded]
+  (if (some? @!persisted-prefs)
+    (on-loaded @!persisted-prefs)
+    (-> (load-prefs!)
+        (.then (fn [prefs] (on-loaded (or prefs {})))))))
+
+(defn save-prefs!
+  "Persist prefs map to SharedPreferences. Returns Future<bool>."
+  [prefs]
+  (when (map? prefs)
+    (let [json (prefs->json prefs)]
+      (when json
+        (-> (sp/SharedPreferences.getInstance)
+            (.then (fn [^sp/SharedPreferences instance]
+                     (when instance
+                       (.setString instance storage-key json)
+                       (reset! !persisted-prefs prefs)
+                       true))))))))

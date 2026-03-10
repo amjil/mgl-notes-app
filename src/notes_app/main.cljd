@@ -3,6 +3,7 @@
             [cljd.flutter :as f]
             [block-editor.widgets.editor-container :as be-container]
             [notes-app.db.core :as db]
+            [notes-app.prefs-storage :as prefs-storage]
             [notes-app.ui.shell :as shell]
             [rich-editor.commands.editor-commands :as editor-cmd]
             [rich-editor.components.node-view :as node-view]
@@ -34,6 +35,8 @@
 
   ;; Initialize Drift DB first (async then store in db atom)
   (await (db/initialize-database!))
+  ;; Start loading persisted typography/theme prefs (used when opening a page)
+  (prefs-storage/load-prefs!)
 
   (f/run
    (m/MaterialApp

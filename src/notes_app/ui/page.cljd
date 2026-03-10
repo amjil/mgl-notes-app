@@ -6,6 +6,7 @@
             [cljd.flutter :as f]
             [notes-app.db.core :as db]
             [notes-app.db.bridge :as db-bridge]
+            [notes-app.prefs-storage :as prefs-storage]
             [notes-app.utils.core :as utils]
             [notes-app.ui.reader :as reader]
             [notes-app.ui.editor :as editor]
@@ -55,50 +56,22 @@
                                          (s/TextSelection. .baseOffset 0 .extentOffset 0))
                                s)]
                        s))]
-             ;; Ensure prefs + migrate legacy :line-height if present
-             (let [legacy-lh (get s :line-height)
-                   prefs (merge {:font-size-scale 1.0
-                                 :line-height 2.0
-                                 :theme-mode :dark
-                                 :bg-color 0xFF121212
-                                 :bg-texture :none
-                                 :vertical-align :start
-                                 :show-bullets? true
-                                 :show-indent-guides? true
-                                 :show-block-ids? false
-                                 :font-family "OyunQaganTig"}
-                                (get s :prefs {}))
-                   prefs (cond-> prefs
-                           (and legacy-lh (nil? (get-in s [:prefs :line-height])))
-                           (assoc :line-height legacy-lh))]
-               (assoc s :prefs prefs))))))
-
-(defn- spacing-controller
-  "UI control for global vertical text column spacing (TextStyle.height). UI-only."
-  [!state]
-  (f/widget
-   :watch [state !state]
-   :let [lh (double (or (get-in state [:prefs :line-height])
-                        (:line-height state)
-                        2.0))]
-   (m/Row
-    .mainAxisSize m.MainAxisSize/min
-    .children
-    [(m/Icon m.Icons/format_line_spacing .color m.Colors/white70 .size 18.0)
-     (m/SizedBox .width 12.0)
-     (m/SizedBox
-      .width 180.0
-      .child (m/Slider
-              .value (min 3.5 (max 1.0 lh))
-              .min 1.0
-              .max 3.5
-              .divisions 10
-              .activeColor m.Colors/blue
-              .onChanged (fn [v]
-                           (swap! !state assoc-in [:prefs :line-height] v))))
-     (m/SizedBox .width 8.0)
-     (m/Text (str (.toStringAsFixed lh 1) "x")
-             .style (m/TextStyle .color m.Colors/white54 .fontSize 12.0))])))
+             ;; Ensure prefs: default + persisted (local storage) + in-memory; migrate legacy :line-height
+             (assoc s :prefs
+                    (cond-> (merge {:font-size-scale 1.0
+                                    :line-height 2.0
+                                    :theme-mode :dark
+                                    :bg-color 0xFF121212
+                                    :bg-texture :none
+                                    :vertical-align :start
+                                    :show-bullets? true
+                                    :show-indent-guides? true
+                                    :show-block-ids? false
+                                    :font-family "OyunQaganTig"}
+                                   (or (prefs-storage/get-persisted-prefs) {})
+                                   (get s :prefs {}))
+                      (and (get s :line-height) (nil? (get-in s [:prefs :line-height])))
+                      (assoc :line-height (get s :line-height))))))))
 
 (defn note-content-view
   "Core view: title, editor, backlinks panel. on-navigate: (fn [target-page-name]) called when [[page]] is clicked; can be nil."
@@ -119,6 +92,7 @@
           (reset! !ime-page-id page-id)
           (reset! !ime-attached false)
           (remove-watch !state :db-sync)
+          (remove-watch !state :prefs-persist)
           (reset! !state nil))
         (cond
           (= (.-connectionState snapshot) m.ConnectionState/waiting)
@@ -133,7 +107,15 @@
                          (fn [_ _ old new]
                            (let [strip-ui (fn [s] (dissoc s :active-block-id :cursor-visible :line-height :prefs :editor-config))]
                              (when (not= (strip-ui old) (strip-ui new))
-                               (debounce-save #(db/sync-state-to-db! (db/get-database) page-id (strip-ui old) (strip-ui new))))))))
+                               (debounce-save #(db/sync-state-to-db! (db/get-database) page-id (strip-ui old) (strip-ui new)))))))
+              (let [debounce-prefs (utils/make-debouncer 400)]
+                (add-watch !state :prefs-persist
+                           (fn [_ _ old new]
+                             (when (not= (get old :prefs) (get new :prefs))
+                               (debounce-prefs #(prefs-storage/save-prefs! (get @!state :prefs)))))))
+              (prefs-storage/ensure-loaded!
+               (fn [loaded-prefs]
+                 (swap! !state update :prefs merge (or loaded-prefs {})))))
 
             (f/widget
              :watch [state !state]
@@ -334,9 +316,7 @@
                  (m/Column
                   .crossAxisAlignment m.CrossAxisAlignment/start
                   .children
-                  [(spacing-controller !state)
-                   (m/SizedBox .height 16.0)
-                   (m/Expanded
+                  [(m/Expanded
                     .child
                     (m/SingleChildScrollView
                      .scrollDirection m.Axis/horizontal

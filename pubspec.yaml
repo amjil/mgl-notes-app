@@ -13,6 +13,7 @@ dependencies:
   mongol: ^9.2.1
   path_provider: ^2.1.5
   path: ^1.9.1
+  shared_preferences: ^2.3.3
   drift: ^2.30.1
   sqlite3_flutter_libs: ^0.5.41
   mgl_editor_core:
