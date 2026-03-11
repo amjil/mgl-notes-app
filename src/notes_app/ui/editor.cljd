@@ -27,6 +27,7 @@
 (def ^:private default-prefs
   {:font-size-scale 1.0
    :line-height 2.0
+   :letter-spacing 0.0
    :theme-mode :dark
    :bg-color 0xFF121212
    :bg-texture :none
@@ -66,24 +67,25 @@
   [block-type prefs]
   (let [lh (double (or (:line-height prefs) 2.0))
         scale (double (or (:font-size-scale prefs) 1.0))
+        ls (double (or (:letter-spacing prefs) 0.0))
         theme (or (:theme-mode prefs) :dark)
         font-family (or (:font-family prefs) "OyunQaganTig")
         color (if (= theme :light) light-text-color dark-text-color)
         fs (fn [n] (* n scale))]
     (case block-type
       :heading-1 (m/TextStyle. .fontSize (fs 28.0) .fontWeight m.FontWeight/bold
-                              .height lh .fontFamily font-family .color color)
+                              .height lh .letterSpacing ls .fontFamily font-family .color color)
       :heading-2 (m/TextStyle. .fontSize (fs 24.0) .fontWeight m.FontWeight/bold
-                              .height lh .fontFamily font-family .color color)
+                              .height lh .letterSpacing ls .fontFamily font-family .color color)
       :heading-3 (m/TextStyle. .fontSize (fs 20.0) .fontWeight m.FontWeight/bold
-                              .height lh .fontFamily font-family .color color)
+                              .height lh .letterSpacing ls .fontFamily font-family .color color)
       :blockquote (m/TextStyle. .fontSize (fs 20.0) .fontStyle m.FontStyle/italic
-                               .height lh .fontFamily font-family .color (if (= theme :light) m.Colors/black54 m.Colors/white70))
+                               .height lh .letterSpacing ls .fontFamily font-family .color (if (= theme :light) m.Colors/black54 m.Colors/white70))
       :code-block (m/TextStyle. .fontSize (fs 16.0) .fontFamily "monospace"
-                               .height (min 2.2 (max 1.2 (* 0.9 lh))) .color color)
-      :list-item (m/TextStyle. .fontSize (fs 20.0) .height lh .fontFamily font-family .color color)
-      :task (m/TextStyle. .fontSize (fs 20.0) .height lh .fontFamily font-family .color color)
-      (m/TextStyle. .fontSize (fs 20.0) .height lh .fontFamily font-family .color color))))
+                               .height (min 2.2 (max 1.2 (* 0.9 lh))) .letterSpacing ls .color color)
+      :list-item (m/TextStyle. .fontSize (fs 20.0) .height lh .letterSpacing ls .fontFamily font-family .color color)
+      :task (m/TextStyle. .fontSize (fs 20.0) .height lh .letterSpacing ls .fontFamily font-family .color color)
+      (m/TextStyle. .fontSize (fs 20.0) .height lh .letterSpacing ls .fontFamily font-family .color color))))
 
 (defn- align-from-prefs [prefs]
   (case (or (:vertical-align prefs) :start)
@@ -444,7 +446,6 @@
               slash slash/!slash-state
               link !slash-layer-link]
      :let [prefs (get-prefs state)
-           lh (double (or (:line-height prefs) 2.0))
            cfg* (assoc (get state :editor-config cfg)
                        :block-style (fn [block-type] (prefs-block-style block-type prefs)))
             visible-ids (get-visible-root (:root state) (:blocks state))

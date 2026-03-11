@@ -29,9 +29,11 @@
      ;; Global typography prefs (UI-only, do not persist to DB)
      :prefs {:font-size-scale 1.0
              :line-height 2.0
+             :letter-spacing 0.0
              :theme-mode :dark
              :bg-color 0xFF121212
              :bg-texture :none
+             :zen-mode? false
              :vertical-align :start
              :show-bullets? true
              :show-indent-guides? true
@@ -61,9 +63,11 @@
              (assoc s :prefs
                     (cond-> (merge {:font-size-scale 1.0
                                     :line-height 2.0
+                                    :letter-spacing 0.0
                                     :theme-mode :dark
                                     :bg-color 0xFF121212
                                     :bg-texture :none
+                                    :zen-mode? false
                                     :vertical-align :start
                                     :show-bullets? true
                                     :show-indent-guides? true
@@ -144,9 +148,11 @@
            (m/SizedBox.shrink)
            (let [prefs (merge {:font-size-scale 1.0
                               :line-height 2.0
+                              :letter-spacing 0.0
                               :theme-mode :dark
                               :bg-color 0xFF121212
                               :bg-texture :none
+                              :zen-mode? false
                               :font-family "OyunQaganTig"}
                              (get state :prefs {}))
                  theme (:theme-mode prefs)
