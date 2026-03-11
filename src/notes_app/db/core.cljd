@@ -229,17 +229,9 @@
 ;; 4. Backlinks
 ;; =============================================================================
 
-(defn- backlinks-selectable
-  [^db/AppDatabase database page-id]
-  (let [;; Explicit column aliases so QueryRow has keys readTable expects (no b. prefix)
-        query (str "SELECT b.id AS id, b.page_id AS page_id, b.order_index AS order_index, "
-                   "b.indent AS indent, b.type AS type, b.content AS content, b.data_json AS data_json "
-                   "FROM block_links bl INNER JOIN blocks b ON bl.source_id = b.id WHERE bl.target_id = ?")]
-    (.customSelect database query
-                   .variables [(drift/Variable. page-id)]
-                   .readsFrom #{(.-blocks database) (.-blockLinks database)})))
-
-(defn- rows->backlinks [tbl rows]
+(defn- rows->backlinks
+  "Convert QueryRow/TypedResult rows into {:block :source} items."
+  [tbl rows]
   (mapv (fn [row]
           (let [block (.readTable row tbl)]
             {:block block
@@ -250,23 +242,41 @@
   "One-shot: blocks that reference current page. Returns Future<vector of {:block :source}>."
   [page-id]
   (if-let [^db/AppDatabase database @db]
-    (let [tbl (.-blocks database)
-          selectable (backlinks-selectable database page-id)]
-      (.then (.get selectable)
+    (let [blocks-tbl (.-blocks database)
+          links-tbl (.-blockLinks database)
+          query (-> (.select database blocks-tbl)
+                    (.join [(drift/innerJoin
+                             links-tbl
+                             (.equalsExp (.-sourceId links-tbl) (.-id blocks-tbl)))]))]
+      (.where query (.equals (.-targetId links-tbl) page-id))
+      (.then (.get query)
              (fn [rows]
-               (vec (rows->backlinks tbl rows)))))
+               (mapv (fn [row]
+                       (let [block (.readTable row blocks-tbl)]
+                         {:block block
+                          :source (.-pageId block)}))
+                     rows))))
     (async/Future. (fn [] []))))
 
 (defn watch-backlinks
   "Watch blocks that reference current page. Stream of {:block block :source source-page-id}."
   [page-id]
   (if-let [^db/AppDatabase database @db]
-    (let [tbl (.-blocks database)
-          selectable (backlinks-selectable database page-id)]
+    (let [blocks-tbl (.-blocks database)
+          links-tbl (.-blockLinks database)
+          query (-> (.select database blocks-tbl)
+                    (.join [(drift/innerJoin
+                             links-tbl
+                             (.equalsExp (.-sourceId links-tbl) (.-id blocks-tbl)))]))]
+      (.where query (.equals (.-targetId links-tbl) page-id))
       (stream-handle-error
-       (.map (.watch selectable)
+       (.map (.watch query)
              (fn [rows]
-               (rows->backlinks tbl rows)))))
+               (mapv (fn [row]
+                       (let [block (.readTable row blocks-tbl)]
+                         {:block block
+                          :source (.-pageId block)}))
+                     rows)))))
     (async/Stream.empty)))
 
 ;; =============================================================================

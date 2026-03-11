@@ -8,7 +8,7 @@
 
 (defn- reference-card
   "A single reference card (for both linked and unlinked items)."
-  [{:keys [block source type]} on-navigate lh prefs]
+  [{:keys [block source type]} on-navigate]
   (let [is-unlinked? (= type :unlinked)]
     (m/Container
      .margin (m.EdgeInsets/only .right 16.0)
@@ -40,15 +40,13 @@
        (reader/block-reader-view
         (db-bridge/block->map block)
         on-navigate
-        []
-        lh
-        {:prefs prefs})]))))
+        [])]))))
 
 (defn references-sidebar
   "References sidebar: watches and renders linked + unlinked references."
   [page-id !editor-state on-navigate]
   (f/widget
-   :watch [state !editor-state
+   :watch [_ !editor-state
            ;; Watch linked references.
            backlinks (stream
                      (map vec)
@@ -57,9 +55,7 @@
            unlinked (stream
                      (map vec)
                      :as-values (db/watch-unlinked-references page-id))]
-   :let [prefs (:prefs state)
-         lh (double (or (:line-height prefs) (:line-height state) 2.0))
-         backlinks (or backlinks [])
+   :let [backlinks (or backlinks [])
          unlinked (or unlinked [])]
    (m/Column
     .crossAxisAlignment m.CrossAxisAlignment/start
@@ -82,7 +78,7 @@
         .children
         (vec (concat
               ;; Linked cards
-              (map #(reference-card (assoc % :type :linked) on-navigate lh prefs) backlinks)
+              (map #(reference-card (assoc % :type :linked) on-navigate) backlinks)
 
               ;; Unlinked divider (if any)
               (when (seq unlinked)
@@ -101,7 +97,7 @@
                      (m/Column
                       .mainAxisSize m.MainAxisSize/min
                       .children
-                      [(reference-card (assoc item :type :unlinked) on-navigate lh prefs)
+                      [(reference-card (assoc item :type :unlinked) on-navigate)
                        (m/SizedBox .height 12.0)
                        (mongol/MongolElevatedButton
                         .onPressed #(db/promote-unlinked-to-link! item page-id)
