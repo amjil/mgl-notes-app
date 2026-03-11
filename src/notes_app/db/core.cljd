@@ -40,6 +40,11 @@
 ;; 2. Pages
 ;; =============================================================================
 
+(defn- stream-handle-error
+  "Wrap stream so errors are handled and not passed to cljd stream layer (avoids nil error-rf)."
+  [s]
+  (.handleError s (fn [_] nil)))
+
 (defn watch-all-pages
   "Watch page list (type = 'page'), sorted by name asc. Returns Stream<List<String>>"
   []
@@ -48,9 +53,10 @@
           query (doto (.select database pages-tbl)
                   (.where (fn [tbl] (.equals (.-type tbl) "page")))
                   (.orderBy [(fn [tbl] (drift/OrderingTerm.asc (.-name tbl)))]))]
-      (.map (.watch query)
-            (fn [rows]
-              (mapv #(.-name %) rows))))
+      (stream-handle-error
+       (.map (.watch query)
+             (fn [rows]
+               (mapv #(.-name %) rows)))))
     (async/Stream.empty)))
 
 (defn watch-all-journals
@@ -61,9 +67,10 @@
           query (doto (.select database pages-tbl)
                   (.where (fn [tbl] (.equals (.-type tbl) "journal")))
                   (.orderBy [(fn [tbl] (drift/OrderingTerm.desc (.-name tbl)))]))]
-      (.map (.watch query)
-            (fn [rows]
-              (mapv #(.-name %) rows))))
+      (stream-handle-error
+       (.map (.watch query)
+             (fn [rows]
+               (mapv #(.-name %) rows)))))
     (async/Stream.empty)))
 (defn ensure-page!
   "Insert page if name does not exist; ensure correct type (journal or page)."
@@ -222,49 +229,85 @@
 ;; 4. Backlinks
 ;; =============================================================================
 
+(defn- backlinks-selectable
+  [^db/AppDatabase database page-id]
+  (let [;; Explicit column aliases so QueryRow has keys readTable expects (no b. prefix)
+        query (str "SELECT b.id AS id, b.page_id AS page_id, b.order_index AS order_index, "
+                   "b.indent AS indent, b.type AS type, b.content AS content, b.data_json AS data_json "
+                   "FROM block_links bl INNER JOIN blocks b ON bl.source_id = b.id WHERE bl.target_id = ?")]
+    (.customSelect database query
+                   .variables [(drift/Variable. page-id)]
+                   .readsFrom #{(.-blocks database) (.-blockLinks database)})))
+
+(defn- rows->backlinks [tbl rows]
+  (mapv (fn [row]
+          (let [block (.readTable row tbl)]
+            {:block block
+             :source (.-pageId block)}))
+        rows))
+
+(defn get-backlinks
+  "One-shot: blocks that reference current page. Returns Future<vector of {:block :source}>."
+  [page-id]
+  (if-let [^db/AppDatabase database @db]
+    (let [tbl (.-blocks database)
+          selectable (backlinks-selectable database page-id)]
+      (.then (.get selectable)
+             (fn [rows]
+               (vec (rows->backlinks tbl rows)))))
+    (async/Future. (fn [] []))))
+
 (defn watch-backlinks
   "Watch blocks that reference current page. Stream of {:block block :source source-page-id}."
   [page-id]
   (if-let [^db/AppDatabase database @db]
     (let [tbl (.-blocks database)
-          query (str "SELECT b.* FROM block_links bl "
-                     "INNER JOIN blocks b ON bl.source_id = b.id "
-                     "WHERE bl.target_id = ?")
-          selectable (.customSelect database query
-                                    .variables [(drift/Variable. page-id)]
-                                    .readsFrom #{(.-blocks database) (.-blockLinks database)})]
-      (.map (.watch selectable)
-            (fn [rows]
-              (mapv (fn [row]
-                      (let [block (.readTable row tbl)]
-                        {:block block
-                         :source (.-pageId block)}))
-                    rows))))
+          selectable (backlinks-selectable database page-id)]
+      (stream-handle-error
+       (.map (.watch selectable)
+             (fn [rows]
+               (rows->backlinks tbl rows)))))
     (async/Stream.empty)))
 
 ;; =============================================================================
 ;; 4.1 Unlinked references: LIKE %keyword% query
 ;; =============================================================================
 
-(defn watch-unlinked-references
-  "Watch blocks that mention current page title but without [[ ]] link. Stream of {:block block :source source-page-id}. Like Logseq unlinked refs: LIKE %page-id%, exclude blocks already in block_links."
+(defn get-unlinked-references
+  "One-shot: blocks that mention page-id in content but without [[ ]] link. Returns Future<vector of {:block :source}>."
   [page-id]
   (if-let [^db/AppDatabase database @db]
     (let [tbl (.-blocks database)
           pattern (str "%" page-id "%")
-          query (str "SELECT b.* FROM blocks b "
-                     "WHERE b.content LIKE ? "
+          query (str "SELECT b.id AS id, b.page_id AS page_id, b.order_index AS order_index, "
+                     "b.indent AS indent, b.type AS type, b.content AS content, b.data_json AS data_json "
+                     "FROM blocks b WHERE b.content LIKE ? "
                      "AND b.id NOT IN (SELECT source_id FROM block_links WHERE target_id = ?)")
           selectable (.customSelect database query
                                     .variables [(drift/Variable. pattern) (drift/Variable. page-id)]
                                     .readsFrom #{(.-blocks database) (.-blockLinks database)})]
-      (.map (.watch selectable)
-            (fn [rows]
-              (mapv (fn [row]
-                      (let [block (.readTable row tbl)]
-                        {:block block
-                         :source (.-pageId block)}))
-                    rows))))
+      (.then (.get selectable)
+             (fn [rows]
+               (vec (rows->backlinks tbl rows)))))
+    (async/Future. (fn [] []))))
+
+(defn watch-unlinked-references
+  "Watch blocks that mention current page title but without [[ ]] link. Stream of {:block block :source source-page-id}. Like Logseq unlinked refs."
+  [page-id]
+  (if-let [^db/AppDatabase database @db]
+    (let [tbl (.-blocks database)
+          pattern (str "%" page-id "%")
+          query (str "SELECT b.id AS id, b.page_id AS page_id, b.order_index AS order_index, "
+                     "b.indent AS indent, b.type AS type, b.content AS content, b.data_json AS data_json "
+                     "FROM blocks b WHERE b.content LIKE ? "
+                     "AND b.id NOT IN (SELECT source_id FROM block_links WHERE target_id = ?)")
+          selectable (.customSelect database query
+                                    .variables [(drift/Variable. pattern) (drift/Variable. page-id)]
+                                    .readsFrom #{(.-blocks database) (.-blockLinks database)})]
+      (stream-handle-error
+       (.map (.watch selectable)
+             (fn [rows]
+               (rows->backlinks tbl rows)))))
     (async/Stream.empty)))
 
 (defn promote-unlinked-to-link!

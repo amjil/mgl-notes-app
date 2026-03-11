@@ -18,6 +18,7 @@ Future<String> getDatabasePath() async {
 DatabaseConnection connect() {
   return DatabaseConnection.delayed(Future(() async {
     final dbPath = await getDatabasePath();
+    print('SQLite database: $dbPath');
     return NativeDatabase.createBackgroundConnection(File(dbPath));
   }));
 }

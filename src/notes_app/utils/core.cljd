@@ -3,13 +3,26 @@
             ["dart:core" :as dc]))
 
 (defn make-debouncer
-  "Return a debounced fn: (debouncer f) runs f only for the last call within ms."
+  "Return {:schedule (fn [f]), :flush (fn [])}. (schedule f) runs f only for the last call within ms.
+   (flush) runs any pending f immediately and cancels the timer (e.g. before leaving page)."
   [ms]
-  (let [timer (atom nil)]
-    (fn [f]
-      (when @timer
-        (.cancel @timer))
-      (reset! timer
-              (async/Timer.
-               (dc/Duration. .milliseconds ms)
-               #(do (f) (reset! timer nil)))))))
+  (let [state (atom nil) ;; {:timer Timer :pending fn} or nil
+        run-pending!
+        (fn []
+          (when-let [s @state]
+            (when (:timer s)
+              (.cancel (:timer s)))
+            (when (:pending s)
+              ((:pending s)))
+            (reset! state nil)))]
+    {:schedule (fn [f]
+                 (when-let [s @state]
+                   (when (:timer s)
+                     (.cancel (:timer s)))
+                   (reset! state nil))
+                 (reset! state
+                         {:timer (async/Timer.
+                                  (dc/Duration. .milliseconds ms)
+                                  #(do (run-pending!)))
+                          :pending f}))
+     :flush run-pending!}))

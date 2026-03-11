@@ -3,12 +3,13 @@
             ["package:flutter/services.dart" :as s]
             ["package:mongol/mongol.dart" :as mongol]
             ["package:mgl_editor_core/post_frame_trigger.dart" :as pft]
+            ["dart:async" :as async]
             [cljd.flutter :as f]
             [notes-app.db.core :as db]
             [notes-app.db.bridge :as db-bridge]
             [notes-app.prefs-storage :as prefs-storage]
             [notes-app.utils.core :as utils]
-            [notes-app.ui.reader :as reader]
+            [notes-app.ui.backlinks :as backlinks]
             [notes-app.ui.editor :as editor]
             [notes-app.ui.settings-panel :as settings]
             [rich-editor.model.node :as node]
@@ -74,84 +75,105 @@
                       (assoc :line-height (get s :line-height))))))))
 
 (defn note-content-view
-  "Core view: title, editor, backlinks panel. on-navigate: (fn [target-page-name]) called when [[page]] is clicked; can be nil."
+  "Core view: use stream in :watch for DB data; lifecycle (subscribe/unsubscribe) is handled by ClojureDart when page-id changes."
   [page-id on-navigate]
   (let [!state (atom nil)
         !ime-attached (atom false)
-        !ime-page-id (atom nil)]
+        !current-page-id (atom page-id)
+        !pending-init? (atom false)
+        !save-debouncer (atom nil)]
     (f/widget
-     ;; Keep atoms alive across parent rebuilds; also bind IME attach to current page-id.
-     :let [debounce-save (utils/make-debouncer 800)
-           page-future (db/get-page-blocks page-id)]
-     (m/FutureBuilder
-      .future page-future
-      .builder
-      (fn [ctx snapshot]
-        ;; If route/page changes but widget subtree is preserved, reset editor + IME attach flags.
-        (when (not= @!ime-page-id page-id)
-          (reset! !ime-page-id page-id)
-          (reset! !ime-attached false)
-          (remove-watch !state :db-sync)
-          (remove-watch !state :prefs-persist)
-          (reset! !state nil))
-        (cond
-          (= (.-connectionState snapshot) m.ConnectionState/waiting)
-          (m/Center .child (m/CircularProgressIndicator .color m.Colors/blue))
+     :context ctx
+     :watch [db-data (stream
+                     (map identity)
+                     (map (fn [_] :error))
+                     :as-values (db/get-page-blocks page-id))
+             state !state]
+     ;; Physical page switch: when page-id changed, flush save, clear watchers and editor state.
+     :let [_ (when (not= @!current-page-id page-id)
+               ;; Not watched, safe to update synchronously to avoid repeated scheduling.
+               (reset! !current-page-id page-id)
+               ;; Never mutate watched atoms during build; defer to microtask.
+               (async/Future.microtask
+                (fn []
+                  (when-let [d @!save-debouncer]
+                    ((:flush d))
+                    (reset! !save-debouncer nil))
+                  (reset! !pending-init? false)
+                  (reset! !ime-attached false)
+                  (remove-watch !state :db-sync)
+                  (remove-watch !state :prefs-persist)
+                  (reset! !state nil))))] 
+     (cond
+       ;; Loading
+       (nil? db-data)
+       (m/Center .child (m/CircularProgressIndicator .color m.Colors/blue))
 
-          (.-hasData snapshot)
-          (do
-            (when (nil? @!state)
-              (reset! !state (db-bridge/db-blocks->editor-state (.-data snapshot)))
-              (ensure-editor-state-ready! !state)
-              (add-watch !state :db-sync
-                         (fn [_ _ old new]
-                           (let [strip-ui (fn [s] (dissoc s :active-block-id :cursor-visible :line-height :prefs :editor-config))]
-                             (when (not= (strip-ui old) (strip-ui new))
-                               (debounce-save #(db/sync-state-to-db! (db/get-database) page-id (strip-ui old) (strip-ui new)))))))
-              (let [debounce-prefs (utils/make-debouncer 400)]
-                (add-watch !state :prefs-persist
-                           (fn [_ _ old new]
-                             (when (not= (get old :prefs) (get new :prefs))
-                               (debounce-prefs #(prefs-storage/save-prefs! (get @!state :prefs)))))))
-              (prefs-storage/ensure-loaded!
-               (fn [loaded-prefs]
-                 (swap! !state update :prefs merge (or loaded-prefs {})))))
+       ;; Error
+       (= db-data :error)
+       (m/Center .child (mongol/MongolText "Load failed" .style (m/TextStyle .fontFamily "OyunQaganTig")))
 
-            (f/widget
-             :watch [state !state]
-             :let [prefs (merge {:font-size-scale 1.0
-                                 :line-height 2.0
-                                 :theme-mode :dark
-                                 :bg-color 0xFF121212
-                                 :bg-texture :none
-                                 :font-family "OyunQaganTig"}
-                                (get state :prefs {}))
-                   theme (:theme-mode prefs)
-                   bg-color (or (:bg-color prefs) (if (= theme :light) 0xFFFFFFFF 0xFF121212))
-                   bg-texture (or (:bg-texture prefs) :none)
-                   decoration
-                   (case bg-texture
-                     :leather (m/BoxDecoration
-                               .gradient (m/LinearGradient
-                                          .begin m.Alignment/topLeft
-                                          .end m.Alignment/bottomRight
-                                          .colors [(m/Color bg-color)
-                                                   (m/Color (if (= theme :light) 0xFFEADDC7 0xFF0E0A08))
-                                                   (m/Color (if (= theme :light) 0xFFF6EEDF 0xFF1A1210))]))
-                     :rice-paper (m/BoxDecoration
-                                  .gradient (m/LinearGradient
-                                             .begin m.Alignment/topCenter
-                                             .end m.Alignment/bottomCenter
-                                             .colors [(m/Color bg-color)
-                                                      (m/Color (if (= theme :light) 0xFFF7F0DE 0xFF141414))]))
-                     :frosted (m/BoxDecoration
-                               .gradient (m/LinearGradient
-                                          .begin m.Alignment/topLeft
-                                          .end m.Alignment/bottomRight
-                                          .colors [(m/Color bg-color)
-                                                   (m/Color (if (= theme :light) 0xFFEFF3F6 0xFF0B1520))]))
-                     (m/BoxDecoration .color (m/Color bg-color)))]
-             ;; Top-level split Row
+       ;; Data ready
+       :else
+       (do
+         (when (and (nil? @!state) (false? @!pending-init?))
+           (reset! !pending-init? true)
+           ;; Defer init so :watch's internal setState doesn't fire during build.
+           (async/Future.microtask
+            (fn []
+              (when (nil? @!state)
+                (reset! !state (db-bridge/db-blocks->editor-state db-data))
+                (ensure-editor-state-ready! !state)
+                (let [save-debouncer (utils/make-debouncer 800)]
+                  (reset! !save-debouncer save-debouncer)
+                  (add-watch !state :db-sync
+                             (fn [_ _ old new]
+                               (let [strip-ui (fn [s] (dissoc s :active-block-id :cursor-visible :line-height :prefs :editor-config))]
+                                 (when (not= (strip-ui old) (strip-ui new))
+                                   ((:schedule save-debouncer) #(db/sync-state-to-db! (db/get-database) page-id (strip-ui old) (strip-ui new))))))))
+                (let [prefs-debouncer (utils/make-debouncer 400)]
+                  (add-watch !state :prefs-persist
+                             (fn [_ _ old new]
+                               (when (not= (get old :prefs) (get new :prefs))
+                                 ((:schedule prefs-debouncer) #(prefs-storage/save-prefs! (get @!state :prefs)))))))
+                (prefs-storage/ensure-loaded!
+                 (fn [loaded-prefs]
+                   (swap! !state update :prefs merge (or loaded-prefs {}))))))))
+
+         (if (nil? state)
+           (m/SizedBox.shrink)
+           (let [prefs (merge {:font-size-scale 1.0
+                              :line-height 2.0
+                              :theme-mode :dark
+                              :bg-color 0xFF121212
+                              :bg-texture :none
+                              :font-family "OyunQaganTig"}
+                             (get state :prefs {}))
+                 theme (:theme-mode prefs)
+                 bg-color (or (:bg-color prefs) (if (= theme :light) 0xFFFFFFFF 0xFF121212))
+                 bg-texture (or (:bg-texture prefs) :none)
+                 decoration
+                 (case bg-texture
+                   :leather (m/BoxDecoration
+                             .gradient (m/LinearGradient
+                                        .begin m.Alignment/topLeft
+                                        .end m.Alignment/bottomRight
+                                        .colors [(m/Color bg-color)
+                                                 (m/Color (if (= theme :light) 0xFFEADDC7 0xFF0E0A08))
+                                                 (m/Color (if (= theme :light) 0xFFF6EEDF 0xFF1A1210))]))
+                   :rice-paper (m/BoxDecoration
+                                .gradient (m/LinearGradient
+                                           .begin m.Alignment/topCenter
+                                           .end m.Alignment/bottomCenter
+                                           .colors [(m/Color bg-color)
+                                                    (m/Color (if (= theme :light) 0xFFF7F0DE 0xFF141414))]))
+                   :frosted (m/BoxDecoration
+                             .gradient (m/LinearGradient
+                                        .begin m.Alignment/topLeft
+                                        .end m.Alignment/bottomRight
+                                        .colors [(m/Color bg-color)
+                                                 (m/Color (if (= theme :light) 0xFFEFF3F6 0xFF0B1520))]))
+                   (m/BoxDecoration .color (m/Color bg-color)))]
              (m/AnimatedContainer
               .duration (dart:core/Duration. .milliseconds 300)
               .curve m.Curves/easeInOut
@@ -161,172 +183,70 @@
                .crossAxisAlignment m.CrossAxisAlignment/start
                .children
                [;; A. Page title + settings
-               (m/Padding
-                .padding (m.EdgeInsets/all 32.0)
-                .child
-                (m/Row
-                 .mainAxisSize m.MainAxisSize/min
-                 .children
-                 [(mongol/MongolText
-                   page-id
-                   .style (m/TextStyle
-                           .fontSize (* 32.0 (double (or (:font-size-scale prefs) 1.0)))
-                           .fontWeight m.FontWeight/w900
-                           .fontFamily (or (:font-family prefs) "OyunQaganTig")
-                           .color (if (= theme :light) m.Colors/black87 m.Colors/white)))
-                  (m/SizedBox .width 16.0)
-                  (m/IconButton
-                   .tooltip "Typography & Theme"
-                   .icon (m/Icon m.Icons/tune
-                                 .color (if (= theme :light) m.Colors/black54 m.Colors/white70))
-                   .onPressed (fn []
-                                ;; Debug signal: verify click triggers even if panel fails.
-                                (try
-                                  (-> (m/ScaffoldMessenger.of ctx)
-                                      (.showSnackBar
-                                       (m/SnackBar
-                                        .duration (dart:core/Duration. .milliseconds 800)
-                                        .content (m/Text "Opening typography panel…"))))
-                                  (catch Exception _ nil))
-                                (settings/show-typography-panel! ctx !state)))]))
-
-               ;; B. Main editor (attach IME after first frame, cursor and input work)
-               (m/Expanded
-                .child
-                (pft/PostFrameTrigger
-                 .onLayout
-                 (fn []
-                   (when (compare-and-set! !ime-attached false true)
-                     (when-let [active-id (:active-block-id @!state)]
-                       (when (seq (:root @!state))
-                         (ime/attach! !state active-id)))))
-                 .child (editor/editor-container !state nil
-                                                 ;; Navigate on [[page]] click; pass fn even when on-navigate nil to avoid reader error
-                                                 (fn [target]
-                                                   (when on-navigate
-                                                     (if (string? target)
-                                                       (on-navigate target)
-                                                       (when (and (map? target) (= (:type target) :block))
-                                                         nil)))))))
-
-               ;; C. Divider
-               (m/Container .width 1.0 .color (-> m.Colors/white (.withOpacity 0.2)))
-
-               ;; D. Backlinks and unlinked references (sidebar)
-               (m/Container
-                .width 320.0
-                .color (if (= theme :light)
-                         (-> m.Colors/black (.withOpacity 0.03))
-                         (-> m.Colors/white (.withOpacity 0.03)))
-                .padding (m.EdgeInsets/all 24.0)
-                .child
-                (f/widget
-                 :watch [editor-state !state
-                         backlinks (stream
-                                    (map (fn [results] (vec results)))
-                                    (map (fn [_] []))
-                                    :as-values (db/watch-backlinks page-id))
-                         unlinked (stream
-                                   (map (fn [results] (vec results)))
-                                   (map (fn [_] []))
-                                   :as-values (db/watch-unlinked-references page-id))]
-                 :let [lh (double (or (get-in editor-state [:prefs :line-height])
-                                      (:line-height editor-state)
-                                      2.0))
-                       linked-widgets
-                       (if (empty? backlinks)
-                         [(m/Padding
-                           .padding (m.EdgeInsets/only .right 24.0)
-                           .child (mongol/MongolText
-                                   "No references"
-                                   .style (m/TextStyle .color m.Colors/white54 .fontFamily "OyunQaganTig")))]
-                         (into
-                          [(m/Padding
-                            .padding (m.EdgeInsets/only .right 24.0)
-                            .child (mongol/MongolText
-                                    (str "Linked references (" (count backlinks) ")")
-                                    .style (m/TextStyle .fontSize 18.0 .color m.Colors/white70 .fontFamily "OyunQaganTig")))]
-                          (map (fn [{:keys [block source]}]
-                                 (m/Container
-                                  .margin (m.EdgeInsets/only .right 16.0)
-                                  .padding (m.EdgeInsets/all 16.0)
-                                  .decoration (m/BoxDecoration
-                                               .color (-> m.Colors/white (.withOpacity 0.06))
-                                               .borderRadius (m.BorderRadius/circular 8.0))
-                                  .child
-                                  (m/Column
-                                   .crossAxisAlignment m.CrossAxisAlignment/start
-                                   .children
-                                   [(mongol/MongolText
-                                     source
-                                     .style (m/TextStyle .color m.Colors/blue .fontWeight m.FontWeight/bold .fontFamily "OyunQaganTig" .fontSize 14.0))
-                                    (m/SizedBox .height 12.0)
-                                    (reader/block-reader-view
-                                     (db-bridge/block->map block)
-                                     (fn [t] (when on-navigate (on-navigate t)))
-                                     []
-                                     lh
-                                     {:prefs (get editor-state :prefs {})})])))
-                               backlinks)))
-                       unlinked-widgets
-                       (when (seq unlinked)
-                         (into
-                          [(m/Padding
-                            .padding (m.EdgeInsets/symmetric .horizontal 24.0)
-                            .child
-                            (m/Row
-                             .children
-                             [(m/Container .height 60.0 .width 1.0 .color (-> m.Colors/white (.withOpacity 0.2)))
-                              (m/SizedBox .width 24.0)
-                              (mongol/MongolText
-                               (str "Unlinked mentions (" (count unlinked) ")")
-                               .style (m/TextStyle .fontSize 18.0 .color m.Colors/orange .fontFamily "OyunQaganTig"))]))]
-                          (map (fn [item]
-                                 (let [block (:block item)
-                                       source (:source item)]
-                                   (m/Container
-                                    .margin (m.EdgeInsets/only .right 16.0)
-                                    .padding (m.EdgeInsets/all 16.0)
-                                    .decoration (m/BoxDecoration
-                                                 .color (-> m.Colors/orange (.withOpacity 0.05))
-                                                 .borderRadius (m.BorderRadius/circular 8.0)
-                                                 .border (m/Border.all .color (-> m.Colors/orange (.withOpacity 0.2))))
-                                    .child
-                                    (m/Column
-                                     .crossAxisAlignment m.CrossAxisAlignment/start
-                                     .children
-                                     [(mongol/MongolText
-                                       source
-                                       .style (m/TextStyle .color m.Colors/orange .fontWeight m.FontWeight/bold .fontFamily "OyunQaganTig" .fontSize 14.0))
-                                      (m/SizedBox .height 12.0)
-                                      (reader/block-reader-view
-                                       (db-bridge/block->map block)
-                                       (fn [t] (when on-navigate (on-navigate t)))
-                                       []
-                                       lh
-                                       {:prefs (get editor-state :prefs {})})
-                                      (m/SizedBox .height 12.0)
-                                      (mongol/MongolElevatedButton
-                                       .onPressed #(db/promote-unlinked-to-link! item page-id)
-                                       .style (m/ElevatedButton.styleFrom .backgroundColor m.Colors/orange .elevation 0)
-                                       .child (mongol/MongolText
-                                               "Convert to link"
-                                               .style (m/TextStyle .color m.Colors/white .fontFamily "OyunQaganTig")))])))))
-                          unlinked))]
-                 (m/Column
-                  .crossAxisAlignment m.CrossAxisAlignment/start
+                (m/Padding
+                 .padding (m.EdgeInsets/all 32.0)
+                 .child
+                 (m/Row
+                  .mainAxisSize m.MainAxisSize/min
                   .children
-                  [(m/Expanded
-                    .child
-                    (m/SingleChildScrollView
-                     .scrollDirection m.Axis/horizontal
-                     .child
-                     (m/Row
-                      .crossAxisAlignment m.CrossAxisAlignment/start
-                      .children (vec (concat linked-widgets (or unlinked-widgets []))))))])))]))))
+                  [(mongol/MongolText
+                    page-id
+                    .style (m/TextStyle
+                            .fontSize (* 32.0 (double (or (:font-size-scale prefs) 1.0)))
+                            .fontWeight m.FontWeight/w900
+                            .fontFamily (or (:font-family prefs) "OyunQaganTig")
+                            .color (if (= theme :light) m.Colors/black87 m.Colors/white)))
+                   (m/SizedBox .width 16.0)
+                   (m/IconButton
+                    .tooltip "Typography & Theme"
+                    .icon (m/Icon m.Icons/tune
+                                  .color (if (= theme :light) m.Colors/black54 m.Colors/white70))
+                    .onPressed (fn []
+                                 (try
+                                   (-> (m/ScaffoldMessenger.of ctx)
+                                       (.showSnackBar
+                                        (m/SnackBar
+                                         .duration (dart:core/Duration. .milliseconds 800)
+                                         .content (m/Text "Opening typography panel…"))))
+                                   (catch Exception _ nil))
+                                 (settings/show-typography-panel! ctx !state)))]))
 
-          :else
-          (m/Center .child (mongol/MongolText "Load failed" .style (m/TextStyle .fontFamily "OyunQaganTig")))))))))
+                ;; B. Main editor (attach IME after first frame)
+                (m/Expanded
+                 .child
+                 (pft/PostFrameTrigger
+                  .onLayout
+                  (fn []
+                    (when (compare-and-set! !ime-attached false true)
+                      (when-let [active-id (:active-block-id @!state)]
+                        (when (seq (:root @!state))
+                          (ime/attach! !state active-id)))))
+                  .child (editor/editor-container !state nil
+                                                  (fn [target]
+                                                    (when on-navigate
+                                                      (if (string? target)
+                                                        (on-navigate target)
+                                                        (when (and (map? target) (= (:type target) :block))
+                                                          nil)))))))
+
+                ;; C. Divider
+                (m/Container .width 1.0 .color (-> m.Colors/white (.withOpacity 0.2)))
+
+                ;; D. Backlinks sidebar
+                (m/Container
+                 .width 320.0
+                    .color (if (= theme :light)
+                             (-> m.Colors/black (.withOpacity 0.03))
+                             (-> m.Colors/white (.withOpacity 0.03)))
+                    .padding (m.EdgeInsets/all 24.0)
+                    .child
+                    (backlinks/references-sidebar
+                     page-id
+                     !state
+                     (fn [t]
+                       (when-let [d @!save-debouncer]
+                         ((:flush d)))
+                       (when on-navigate (on-navigate t)))))])))))))))
 
 ;; Wrapper for single-page mode
 (defn note-page-view 

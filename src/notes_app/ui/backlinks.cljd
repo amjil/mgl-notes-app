@@ -1,54 +1,112 @@
 (ns notes-app.ui.backlinks
   (:require ["package:flutter/material.dart" :as m]
             ["package:mongol/mongol.dart" :as mongol]
-            [notes-app.ui.highlighter :as highlighter]))
+            [cljd.flutter :as f]
+            [notes-app.db.core :as db]
+            [notes-app.db.bridge :as db-bridge]
+            [notes-app.ui.reader :as reader]))
 
-(defn backlinks-panel
-  "Backlinks panel at bottom of note page. backlinks-list: seq of {:source-page-id str :content str}. on-link-tap: (fn [page-id])."
-  [backlinks-list on-link-tap]
-  (if (empty? backlinks-list)
-    (m/SizedBox.shrink)
-    (m/Column
-     .crossAxisAlignment m.CrossAxisAlignment/start
-     .children
-     [(m/Divider .height 32.0 .thickness 1.0)
-      (m/Padding
-       .padding (m.EdgeInsets/only .bottom 16.0)
+(defn- reference-card
+  "A single reference card (for both linked and unlinked items)."
+  [{:keys [block source type]} on-navigate lh prefs]
+  (let [is-unlinked? (= type :unlinked)]
+    (m/Container
+     .margin (m.EdgeInsets/only .right 16.0)
+     .padding (m.EdgeInsets/all 16.0)
+     .decoration (m/BoxDecoration
+                  .color (if is-unlinked?
+                           (-> m.Colors/orange (.withOpacity 0.05))
+                           (-> m.Colors/white (.withOpacity 0.06)))
+                  .borderRadius (m.BorderRadius/circular 8.0)
+                  .border (when is-unlinked?
+                            (m/Border.all .color (-> m.Colors/orange (.withOpacity 0.2)))))
+     .child
+     (m/Column
+      .crossAxisAlignment m.CrossAxisAlignment/start
+      .mainAxisSize m.MainAxisSize/min
+      .children
+      [(m/GestureDetector
+        .onTap #(when on-navigate (on-navigate source))
+        .child
+        (mongol/MongolText
+         source
+         .style (m/TextStyle
+                 .color (if is-unlinked? m.Colors/orange m.Colors/blue)
+                 .fontWeight m.FontWeight/bold
+                 .fontFamily "OyunQaganTig"
+                 .fontSize 14.0)))
+       (m/SizedBox .height 12.0)
+       ;; Reuse the reader component to render block content.
+       (reader/block-reader-view
+        (db-bridge/block->map block)
+        on-navigate
+        []
+        lh
+        {:prefs prefs})]))))
+
+(defn references-sidebar
+  "References sidebar: watches and renders linked + unlinked references."
+  [page-id !editor-state on-navigate]
+  (f/widget
+   :watch [state !editor-state
+           ;; Watch linked references.
+           backlinks (stream
+                     (map vec)
+                     :as-values (db/watch-backlinks page-id))
+           ;; Watch unlinked references.
+           unlinked (stream
+                     (map vec)
+                     :as-values (db/watch-unlinked-references page-id))]
+   :let [prefs (:prefs state)
+         lh (double (or (:line-height prefs) (:line-height state) 2.0))
+         backlinks (or backlinks [])
+         unlinked (or unlinked [])]
+   (m/Column
+    .crossAxisAlignment m.CrossAxisAlignment/start
+    .children
+    [;; 1) Linked header
+     (m/Padding
+      .padding (m.EdgeInsets/only .right 24.0 .bottom 16.0)
+      .child (mongol/MongolText
+              (if (empty? backlinks) "No linked references" (str "Linked references (" (count backlinks) ")"))
+              .style (m/TextStyle .fontSize 18.0 .color m.Colors/white70 .fontFamily "OyunQaganTig")))
+
+     ;; 2) List area (horizontal scroll because inner text is vertical).
+     (m/Expanded
+      .child
+      (m/SingleChildScrollView
+       .scrollDirection m.Axis/horizontal
        .child
-       (m/Text (str "References linking here (" (count backlinks-list) ")")
-               .style (m/TextStyle .fontSize 18.0
-                                   .fontWeight m.FontWeight/bold
-                                   .color m.Colors/grey)))
-      (m/ListView.builder
-       .shrinkWrap true
-       .physics (m.NeverScrollableScrollPhysics)
-       .itemCount (count backlinks-list)
-       .itemBuilder
-       (fn [_ i]
-         (let [result (nth backlinks-list i)
-               source-page-id (:source-page-id result)
-               content (:content result "")
-               base-style (m/TextStyle .color m.Colors/black .fontSize 15.0 .fontFamily "OyunQaganTig")]
-           (m/Container
-            .margin (m.EdgeInsets/only .bottom 12.0)
-            .padding (m.EdgeInsets/all 12.0)
-            .decoration (m/BoxDecoration
-                         .color (-> m.Colors/blueGrey (.withOpacity 0.05))
-                         .borderRadius (m.BorderRadius/circular 8.0))
-            .child
-            (m/Column
-             .crossAxisAlignment m.CrossAxisAlignment/start
-             .mainAxisSize m.MainAxisSize/min
-             .children
-             [(m/GestureDetector
-               .onTap #(when on-link-tap (on-link-tap source-page-id))
-               .child
-               (m/Text (or source-page-id "")
-                      .style (m/TextStyle .color m.Colors/blue
-                                          .fontWeight m.FontWeight/w600
-                                          .fontSize 13.0)))
-              (m/SizedBox .height 8.0)
-              (mongol/MongolText.rich
-               (m/TextSpan
-                .style base-style
-                .children (highlighter/build-read-mode-spans content base-style on-link-tap)))])))))])))
+       (m/Row
+        .crossAxisAlignment m.CrossAxisAlignment/start
+        .children
+        (vec (concat
+              ;; Linked cards
+              (map #(reference-card (assoc % :type :linked) on-navigate lh prefs) backlinks)
+
+              ;; Unlinked divider (if any)
+              (when (seq unlinked)
+                [(m/Padding
+                  .padding (m.EdgeInsets/symmetric .horizontal 24.0)
+                  .child (m/Row
+                          .children
+                          [(m/Container .height 60.0 .width 1.0 .color (-> m.Colors/white (.withOpacity 0.2)))
+                           (m/SizedBox .width 24.0)
+                           (mongol/MongolText
+                            "Unlinked mentions"
+                            .style (m/TextStyle .fontSize 18.0 .color m.Colors/orange .fontFamily "OyunQaganTig"))]))])
+
+              ;; Unlinked cards
+              (map (fn [item]
+                     (m/Column
+                      .mainAxisSize m.MainAxisSize/min
+                      .children
+                      [(reference-card (assoc item :type :unlinked) on-navigate lh prefs)
+                       (m/SizedBox .height 12.0)
+                       (mongol/MongolElevatedButton
+                        .onPressed #(db/promote-unlinked-to-link! item page-id)
+                        .style (m/ElevatedButton.styleFrom .backgroundColor m.Colors/orange .elevation 0)
+                        .child (mongol/MongolText
+                                "Convert to link"
+                                .style (m/TextStyle .color m.Colors/white .fontFamily "OyunQaganTig")))]))
+                   unlinked))))))])))

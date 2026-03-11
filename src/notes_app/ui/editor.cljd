@@ -1,6 +1,7 @@
 (ns notes-app.ui.editor
   (:require ["package:flutter/material.dart" :as m]
             ["package:flutter/services.dart" :as s]
+            ["dart:async" :as async]
             [cljd.flutter :as f]
             [block-editor.commands.block-commands :as block-cmd]
             [block-editor.config :as be-config]
@@ -414,12 +415,24 @@
    (let [effective-config (or editor-config {:block-style dark-block-style})
          cfg (be-config/merge-config rich-defaults/full-default-config effective-config)
          ;; Marquee UI state in f/widget outer let
+         !config-scheduled? (atom false)
          !selecting? (atom false)
          !select-start (atom nil)
          !select-rect (atom nil)
          !selected-ids (atom #{})]
-     (when (or (nil? (get @!state :editor-config)) editor-config)
-       (swap! !state assoc :editor-config cfg))
+     ;; Never mutate watched atoms during build; defer editor-config write.
+     ;; Also avoid redundant swaps when cfg is already current.
+     (when (and (false? @!config-scheduled?)
+                (or (nil? (get @!state :editor-config)) editor-config)
+                (not= (get @!state :editor-config) cfg))
+       (reset! !config-scheduled? true)
+       (async/Future.microtask
+        (fn []
+          (swap! !state
+                 (fn [s]
+                   (if (= (get s :editor-config) cfg)
+                     s
+                     (assoc s :editor-config cfg)))))))
      (when-not @!editor-marquee-key
        (reset! !editor-marquee-key (m/GlobalKey.)))
      

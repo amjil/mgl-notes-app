@@ -94,8 +94,10 @@
                     tag  (.group m 2)
                     uuid (.group m 3)]
                 (cond
-                  link (update acc :pages conj link)
-                  tag  (update acc :pages conj tag)
+                  link (let [p (str/trim link)]
+                         (if (str/blank? p) acc (update acc :pages conj p)))
+                  tag  (let [p (str/trim tag)]
+                         (if (str/blank? p) acc (update acc :pages conj p)))
                   uuid (update acc :blocks conj uuid)
                   :else acc)))
             {:pages [] :blocks []}
