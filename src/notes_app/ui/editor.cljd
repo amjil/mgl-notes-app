@@ -9,6 +9,7 @@
             [rich-editor.commands.editor-commands :as editor-cmd]
             [rich-editor.config :as rich-config]
             [rich-editor.defaults :as rich-defaults]
+            [rich-editor.model.node :as node]
             [rich-editor.services.ime-service :as ime]
             [shared-ime.controller :as ime-ctrl]
             [shared-ime.overlay-view :as overlay]
@@ -245,10 +246,40 @@
     (when (seq ids)
       (swap! !state
              (fn [s]
-               (-> s
-                   (update :root (fn [root] (vec (remove #(contains? ids %) root))))
-                   (update :blocks (fn [blocks] (apply dissoc blocks ids))))))
+               (let [s (-> s
+                           (update :root (fn [root] (vec (remove #(contains? ids %) root))))
+                           (update :blocks (fn [blocks] (apply dissoc blocks ids))))
+                     root (or (:root s) [])
+                     active (:active-block-id s)]
+                 (cond
+                   ;; If nothing left, create a new empty block so cursor can re-appear without reload.
+                   (empty? root)
+                   (let [new-id (str "b-" (.-millisecondsSinceEpoch (dart:core/DateTime.now)))
+                         block (-> (node/make-node new-id :paragraph "")
+                                   (assoc :attributes {:indent 0})
+                                   (assoc :selection (s/TextSelection. .baseOffset 0 .extentOffset 0)))]
+                     (-> s
+                         (assoc :root [new-id]
+                                :blocks {new-id block}
+                                :active-block-id new-id
+                                :cursor-visible true)))
+
+                   ;; If active got deleted, move focus to first remaining block.
+                   (and active (contains? ids active))
+                   (let [first-id (first root)]
+                     (cond-> (assoc s :active-block-id first-id :cursor-visible true)
+                       (and first-id (not (get-in s [:blocks first-id :selection])))
+                       (assoc-in [:blocks first-id :selection]
+                                 (s/TextSelection. .baseOffset 0 .extentOffset 0))))
+
+                   :else
+                   s))))
       (reset! !selected-ids #{})
+      ;; Re-focus after state update so IME/cursor reattaches to the active block.
+      (async/Future.microtask
+       (fn []
+         (when-let [active-id (:active-block-id @!state)]
+           (editor-cmd/focus-block !state active-id 0))))
       (db/batch-delete-blocks! (vec ids)))))
 
 (defn- action-icon-button [icon tooltip on-press & {:keys [color] :or {color m.Colors/white}}]
@@ -319,7 +350,8 @@
          flash? (contains? flash-tokens block-id)
          bg-color (cond
                     flash? (-> m.Colors/amber (.withOpacity 0.30))
-                    selected? (-> m.Colors/blue (.withOpacity 0.05))
+                    ;; Selected highlight a bit deeper for clear feedback
+                    selected? (-> m.Colors/blue (.withOpacity 0.12))
                     :else m.Colors/transparent)]
    ;; Single mold: constraints + horizontal padding for both edit and read
    (m/AnimatedContainer
@@ -443,6 +475,7 @@
               _ !refresh-tick
               selecting? !selecting?
               rect !select-rect
+              selected-ids !selected-ids
               slash slash/!slash-state
               link !slash-layer-link]
      :let [prefs (get-prefs state)
@@ -506,6 +539,8 @@
                    ime-res
                    (let [logical-key (.-logicalKey event)
                         is-down? (= (.-runtimeType event) s/KeyDownEvent)
+                        is-meta? (or (.-isControlPressed (.-instance s/HardwareKeyboard))
+                                     (.-isMetaPressed (.-instance s/HardwareKeyboard)))
                          is-enter? (or (= logical-key s.LogicalKeyboardKey/enter)
                                        (= logical-key s.LogicalKeyboardKey/numpadEnter))
                          shift? (.-isShiftPressed (.-instance s/HardwareKeyboard))
@@ -519,6 +554,11 @@
                                         (.-isMetaPressed (.-instance s/HardwareKeyboard)))
                          visible (get-visible-root (:root @!state) (:blocks @!state))]
                      (cond
+                       ;; Ctrl/Cmd + A: select all currently visible blocks
+                       (and is-down? (= logical-key s.LogicalKeyboardKey/keyA) is-meta?)
+                       (do (reset! !selected-ids (set visible))
+                           m.KeyEventResult/handled)
+
                        ;; Slash menu open: arrow keys select, Enter confirm, Esc cancel
                        (and (:visible @slash/!slash-state) is-down?)
                        (cond
@@ -666,6 +706,7 @@
                       base-style (block-style-fn block-type)
                       font-size (or (.-fontSize base-style) 20.0)
                       is-active? (= id (:active-block-id state))
+                      selected? (contains? selected-ids id)
                       indent-level (get-in block [:attributes :indent] 0)
                       ;; List already has base-top-margin; only add indent offset so first block aligns
                       top-offset (* 32.0 indent-level)
@@ -674,9 +715,20 @@
                       collapse-icon (if show-arrow?
                                       (m/Icon (if is-collapsed? m.Icons/arrow_right m.Icons/arrow_drop_down)
                                               .size 16.0 .color m.Colors/blue)
-                                      (m/Icon m.Icons/lens .size 8.0 .color m.Colors/white54))
+                                      (m/Icon m.Icons/lens .size 8.0 .color (if selected? m.Colors/blue m.Colors/white54)))
                       handle-child (m/GestureDetector
-                                    .onTap (when show-arrow? #(toggle-collapse! !state id))
+                                    .onTap (fn []
+                                             (let [is-meta? (or (.-isControlPressed (.-instance s/HardwareKeyboard))
+                                                                (.-isMetaPressed (.-instance s/HardwareKeyboard)))]
+                                               (if is-meta?
+                                                 ;; Ctrl/Cmd + click: toggle selection
+                                                 (swap! !selected-ids (fn [ids]
+                                                                        (if (contains? ids id)
+                                                                          (disj ids id)
+                                                                          (conj ids id))))
+                                                 ;; Normal click: collapse/expand when applicable
+                                                 (when show-arrow?
+                                                   (toggle-collapse! !state id)))))
                                     .child (m/Padding
                                             .padding (m.EdgeInsets/all 4.0)
                                             .child collapse-icon))
