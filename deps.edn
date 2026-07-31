@@ -2,14 +2,18 @@
  :deps {tensegritics/clojuredart
         {:git/url "https://github.com/tensegritics/ClojureDart.git"
          :sha "4ee792f3044589c96b019c2a86db9b23f1b283ab"}
+        amjil/mgl-components
+        {:local/root "../mgl-components"}
+
         amjil/mongol-virtual-keyboard
-        {:git/url "https://github.com/amjil/mongol-virtual-keyboard.git"
-         :sha "bb83ef01b9610053e8529c453b102db74a40b5a7"}
-        amjil/mongol-ime
-        {;:git/url "https://github.com/amjil/mongol-ime.git"
-         ;:sha "5110cc95a51a9980f5f39599fdc94d85e9d77491"
-         :local/root "../m-h-k"
-         }
+        {:local/root "../m-v-k"}
+
+        amjil/mongol-desktop-ime
+        {:local/root "../m-h-k"}
+        
+        amjil/mgl-ime-core
+        {:local/root "../m-i-c"}
+        
         amjil/mgl-block-editor
         {;:git/url "https://github.com/amjil/mgl-block-editor.git"
          ;:sha "c37d5f1c4ad5ead95974507d889189bb455a42d6"

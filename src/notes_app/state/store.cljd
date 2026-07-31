@@ -1,0 +1,94 @@
+(ns notes-app.state.store
+  (:require ["package:shared_preferences/shared_preferences.dart" :as sp]))
+
+(def ^:private pref-keys
+  {:device-id "device_id"
+   :sync-base-url "sync_base_url"
+   :last-sync-time "last_sync_time"
+   :user-name "user_name"})
+
+(def default-sync-base-url "http://127.0.0.1:4000")
+
+(defonce app-ui-state
+  (atom {:selected-nav-id "today"
+         :open-document-id nil
+         :device-id nil
+         :sync-base-url default-sync-base-url
+         :last-sync-time nil
+         :user-name ""
+         :sync-status :idle ;; :idle :syncing :ok :error
+         :sync-message nil}))
+
+(defn- new-uuid []
+  (str (random-uuid)))
+
+(defn load-prefs!
+  "Load device_id / sync settings from SharedPreferences. Creates device_id once."
+  []
+  (let [prefs (await (.getInstance sp/SharedPreferences))
+        device-id (or (.getString prefs (:device-id pref-keys))
+                      (let [id (new-uuid)]
+                        (await (.setString prefs (:device-id pref-keys) id))
+                        id))
+        saved-url (.getString prefs (:sync-base-url pref-keys))
+        base-url (if (or (nil? saved-url) (= saved-url ""))
+                   default-sync-base-url
+                   saved-url)
+        last-sync (.getString prefs (:last-sync-time pref-keys))
+        user-name (or (.getString prefs (:user-name pref-keys)) "")]
+    ;; Persist default URL on first launch so Settings shows it immediately
+    (when (or (nil? saved-url) (= saved-url ""))
+      (await (.setString prefs (:sync-base-url pref-keys) default-sync-base-url)))
+    (swap! app-ui-state assoc
+           :device-id device-id
+           :sync-base-url base-url
+           :last-sync-time last-sync
+           :user-name user-name)))
+
+(defn set-nav! [nav-id]
+  (swap! app-ui-state assoc :selected-nav-id nav-id))
+
+(defn open-document! [doc-id]
+  (swap! app-ui-state assoc
+         :open-document-id doc-id
+         :selected-nav-id "editor"))
+
+(defn close-editor!
+  "Return to documents (or today if daily)."
+  ([]
+   (swap! app-ui-state assoc
+          :open-document-id nil
+          :selected-nav-id "documents"))
+  ([nav-id]
+   (swap! app-ui-state assoc
+          :open-document-id nil
+          :selected-nav-id nav-id)))
+
+(defn update-sync-base-url! [url]
+  (swap! app-ui-state assoc :sync-base-url (or url ""))
+  (let [prefs (await (.getInstance sp/SharedPreferences))]
+    (await (.setString prefs (:sync-base-url pref-keys) (or url "")))))
+
+(defn update-user-name! [name]
+  (swap! app-ui-state assoc :user-name (or name ""))
+  (let [prefs (await (.getInstance sp/SharedPreferences))]
+    (await (.setString prefs (:user-name pref-keys) (or name "")))))
+
+(defn set-last-sync-time! [iso-or-ms]
+  (let [v (str iso-or-ms)]
+    (swap! app-ui-state assoc :last-sync-time v)
+    (let [prefs (await (.getInstance sp/SharedPreferences))]
+      (await (.setString prefs (:last-sync-time pref-keys) v)))))
+
+(defn set-sync-status! [status message]
+  (swap! app-ui-state assoc :sync-status status :sync-message message))
+
+(defn device-id []
+  (:device-id @app-ui-state))
+
+
+(defn set-parent-doc! [id title]
+  (swap! app-ui-state assoc :parent-doc-id id :parent-doc-title title))
+
+(defn clear-parent-doc! []
+  (swap! app-ui-state dissoc :parent-doc-id :parent-doc-title))

@@ -1,0 +1,36 @@
+(ns notes-app.services.daily
+  (:require ["dart:core" :as dc]
+            [notes-app.db.core :as db]
+            [notes-app.services.document :as doc]))
+
+(defn date->title
+  "Format DateTime to YYYY-MM-DD"
+  [^dc/DateTime dt]
+  (let [y (.-year dt)
+        m (.-month dt)
+        d (.-day dt)]
+    (str y "-"
+         (if (< m 10) (str "0" m) (str m)) "-"
+         (if (< d 10) (str "0" d) (str d)))))
+
+(defn today-title []
+  (date->title (dc/DateTime.now)))
+
+(defn ensure-daily!
+  "Return daily Document id for a specific date, creating it if missing."
+  [^dc/DateTime dt]
+  (let [title (date->title dt)]
+    (-> (db/find-daily-by-title title)
+        (.then (fn [existing]
+                 (if existing
+                   (.-id existing)
+                   (doc/create! {:title title :type "daily"}))))
+        (.catchError (fn [e]
+                       (dart:core/print (str "ensure-daily! failed: " e))
+                       nil)))))
+
+;; Convenience wrapper restoring ensure-today! for main.cljd
+(defn ensure-today!
+  "Convenience wrapper for application startup."
+  []
+  (ensure-daily! (dc/DateTime.now)))

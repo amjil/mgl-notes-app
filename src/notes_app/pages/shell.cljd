@@ -1,0 +1,13 @@
+(ns notes-app.pages.shell
+  "Picks desktop or mobile chrome."
+  (:require [notes-app.platform :as platform]
+            [notes-app.pages.desktop.shell :as desktop]
+            [notes-app.pages.mobile.shell :as mobile]))
+
+(defn app-shell []
+  (if (platform/desktop?)
+    (desktop/desktop-shell)
+    (mobile/mobile-shell)))
+
+(defn register-lifecycle! []
+  nil)

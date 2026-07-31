@@ -1,0 +1,49 @@
+(ns notes-app.pages.desktop.shell
+  "Desktop app chrome: left NavigationRail + content pane."
+  (:require ["package:flutter/material.dart" :as m]
+            ["dart:core" :as dc]
+            [cljd.flutter :as f]
+            [notes-app.state.store :as store]
+            [notes-app.widgets.side-nav :as side-nav]
+            [notes-app.pages.today :as today]
+            [notes-app.pages.documents :as documents]
+            [notes-app.pages.tasks :as tasks]
+            [notes-app.pages.search :as search]
+            [notes-app.pages.settings :as settings]
+            [notes-app.pages.editor :as editor]))
+
+(defn- body-for [nav-id open-doc-id]
+  (case nav-id
+    "today" (today/today-page)
+    "documents" (documents/documents-page)
+    "tasks" (tasks/tasks-page)
+    "search" (search/search-page)
+    "settings" (settings/settings-page)
+    "editor" (if open-doc-id
+               (editor/document-editor open-doc-id
+                                       :show-back? true
+                                       :on-back #(store/close-editor! "documents"))
+               (documents/documents-page))
+    (today/today-page)))
+
+(defn desktop-shell []
+  (f/widget
+   :watch [{:keys [selected-nav-id open-document-id]} store/app-ui-state]
+   (let [show-rail? (not= selected-nav-id "editor")
+         content
+         (m/AnimatedSwitcher
+          .duration (dc/Duration. .milliseconds 200)
+          .child
+          (m/Container
+           .key (m/ValueKey (str selected-nav-id "-" open-document-id))
+           .child (body-for selected-nav-id open-document-id)))]
+     (m/Scaffold
+      .backgroundColor (m/Color 0xFF121212)
+      .body
+      (if show-rail?
+        (m/Row
+         .children
+         [(side-nav/side-navigation-rail)
+          (m/VerticalDivider .width 1.0 .thickness 1.0 .color m.Colors/white12)
+          (m/Expanded .child content)])
+        content)))))

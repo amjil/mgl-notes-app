@@ -1,0 +1,47 @@
+(ns notes-app.widgets.side-nav
+  "Desktop NavigationRail — Adapted for Traditional Mongolian."
+  (:require [cljd.flutter :as f]
+            ["package:flutter/material.dart" :as m]
+            ["package:mongol/mongol.dart" :as mgl] ;; mongol vertical text library
+            [notes-app.state.store :as store]))
+
+(def ^:private tabs
+  [;; Traditional Mongolian labels
+   {:id "today" :icon m.Icons/wb_sunny_outlined :selected-icon m.Icons/wb_sunny :label "ᠥᠨᠦᠳᠦᠷ"}       ;; Today
+   {:id "documents" :icon m.Icons/folder_outlined :selected-icon m.Icons/folder :label "ᠪᠠᠷᠢᠮᠲᠠ"}      ;; Docs
+   {:id "tasks" :icon m.Icons/check_box_outlined :selected-icon m.Icons/check_box :label "ᠠᠵᠢᠯ"}         ;; Tasks
+   {:id "search" :icon m.Icons/search :selected-icon m.Icons/search :label "ᠬᠠᠢᠬᠤ"}                    ;; Search
+   {:id "settings" :icon m.Icons/settings_outlined :selected-icon m.Icons/settings :label "ᠲᠣᠬᠢᠷᠠᠭᠤᠯᠭ᠎ᠠ"}]) ;; Settings
+
+(defn side-navigation-rail []
+  (f/widget
+   :watch [{:keys [selected-nav-id]} store/app-ui-state]
+   (let [idx (or (first (keep-indexed
+                         (fn [i t] (when (= (:id t) selected-nav-id) i))
+                         tabs))
+                 0)]
+     (m/NavigationRail
+      .backgroundColor (m/Color 0xFF1E1E1E)
+      .selectedIndex (int idx)
+      .labelType m.NavigationRailLabelType/all
+      
+      ;; Mongolian vertical text needs more space; shift group up slightly
+      ;; (-1.0 = top, 0 = center) to avoid overflow on short windows
+      .groupAlignment -0.85 
+      
+      .onDestinationSelected
+      (fn [i]
+        (store/set-nav! (:id (nth tabs (int i)))))
+      .destinations
+      (mapv (fn [{:keys [icon selected-icon label]}]
+              (m/NavigationRailDestination
+               .icon (m/Icon icon)
+               .selectedIcon (m/Icon selected-icon)
+               ;; Render vertical labels with MongolText
+               .label (m/Padding
+                       .padding (m.EdgeInsets/only .top 8.0)
+                       .child
+                       (mgl/MongolText label
+                                       .style (m/TextStyle .fontFamily "OyunQaganTig"
+                                                           .fontSize 14.0)))))
+            tabs)))))

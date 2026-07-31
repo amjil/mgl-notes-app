@@ -1,0 +1,160 @@
+(ns notes-app.services.sync
+  (:require ["package:http/http.dart" :as http]
+            ["dart:convert" :as convert]
+            ["dart:async" :as async]
+            [notes-app.db.core :as db]
+            [notes-app.state.store :as store]
+            [notes-app.services.operation :as op]
+            [notes-app.services.operation-apply :as apply]))
+
+(defonce ^:private !push-timer (atom nil))
+(defonce ^:private !pull-timer (atom nil))
+
+(defn- base-url []
+  (let [u (:sync-base-url @store/app-ui-state)]
+    (when (and u (not= u ""))
+      (.replaceFirst u (dart:core/RegExp. "/+$") ""))))
+
+(defn- operation->wire [row]
+  {:id (.-id row)
+   :device_id (.-deviceId row)
+   :entity_type (.-entityType row)
+   :entity_id (.-entityId row)
+   :action (.-action row)
+   :payload (or (db/decode-json (.-payload row)) {})
+   :created_at (.toIso8601String (.-createdAt row))})
+
+(defn- wire->op-map [item]
+  (let [m (if (map? item)
+            item
+            (reduce (fn [acc ^String k]
+                      (assoc acc (keyword k) (get item k)))
+                    {}
+                    (.-keys item)))]
+    {:id (or (:id m) (get m "id"))
+     :device-id (or (:device_id m) (:device-id m) (get m "device_id"))
+     :entity-type (or (:entity_type m) (get m "entity_type"))
+     :entity-id (or (:entity_id m) (get m "entity_id"))
+     :action (or (:action m) (get m "action"))
+     :payload (or (:payload m) (get m "payload") {})
+     :created-at (or (:created_at m) (get m "created_at"))}))
+
+(defn push!
+  "Push unsynced operations. No-op (returns :no-url) if base URL unset."
+  []
+  (if-let [base (base-url)]
+    (do
+      (store/set-sync-status! :syncing "Push…")
+      (-> (op/get-unsynced)
+          (.then (fn [ops]
+                   (let [ops (or ops [])]
+                     (if (empty? ops)
+                       (do (store/set-sync-status! :ok "Nothing to push")
+                           :empty)
+                       (let [body (convert/jsonEncode (mapv operation->wire ops))
+                             uri (dart:core/Uri.parse (str base "/api/sync/push"))]
+                         (-> (http/post uri
+                                        ;; Dart named arguments must use keyword :
+                                        :headers {"Content-Type" "application/json"}
+                                        :body body)
+                             (.then (fn [resp]
+                                      (if (and (>= (.-statusCode resp) 200)
+                                               (< (.-statusCode resp) 300))
+                                        (-> (op/mark-synced! (mapv #(.-id %) ops))
+                                            (.then (fn [_]
+                                                     (store/set-sync-status! :ok "Push OK")
+                                                     :ok)))
+                                        (do
+                                          (store/set-sync-status!
+                                           :error (str "Push failed: " (.-statusCode resp)))
+                                          :error))))))))))
+          ;; Keep catchError inside the outer -> threading form
+          (.catchError (fn [e]
+                         (store/set-sync-status! :error (str "Push error: " e))
+                         :error))))
+    (do
+      (store/set-sync-status! :error "Sync URL not configured")
+      (async/Future.value :no-url))))
+
+(defn pull!
+  "Pull operations since last_sync_time."
+  []
+  (if-let [base (base-url)]
+    (do
+      (store/set-sync-status! :syncing "Pull…")
+      (let [since (or (:last-sync-time @store/app-ui-state) "0")
+            uri (dart:core/Uri.parse (str base "/api/sync/pull?since="
+                                          (dart:core/Uri.encodeComponent since)))]
+        (-> (http/get uri)
+            (.then (fn [resp]
+                     (if (and (>= (.-statusCode resp) 200) (< (.-statusCode resp) 300))
+                       (let [decoded (convert/jsonDecode (.-body resp))
+                             items (cond
+                                     (dart/is? decoded dart:core/List) decoded
+                                     (and (dart/is? decoded dart:core/Map)
+                                          (contains? (into {} (map (fn [k] [(keyword k) (get decoded k)])
+                                                                   (.-keys decoded)))
+                                                     :operations))
+                                     (get decoded "operations")
+                                     :else [])]
+                         (-> (reduce (fn [fut item]
+                                       (.then fut
+                                              (fn [_]
+                                                (apply/apply-operation! (wire->op-map item)))))
+                                     (async/Future.value nil)
+                                     items)
+                             (.then (fn [_]
+                                      (store/set-last-sync-time! (.toIso8601String (db/now)))
+                                      (store/set-sync-status! :ok "Pull OK")
+                                      :ok))))
+                       (do
+                         (store/set-sync-status!
+                          :error (str "Pull failed: " (.-statusCode resp)))
+                         :error))))
+            ;; Likewise keep catchError inside the -> form
+            (.catchError (fn [e]
+                           (store/set-sync-status! :error (str "Pull error: " e))
+                           :error)))))
+    (do
+      (store/set-sync-status! :error "Sync URL not configured")
+      (async/Future.value :no-url))))
+
+(defn sync-now!
+  "Pull then push."
+  []
+  (-> (pull!)
+      (.then (fn [_] (push!)))))
+
+(defn schedule-push!
+  "Debounce push by 2 seconds after edits."
+  []
+  (when-let [t @!push-timer]
+    (.cancel ^async/Timer t))
+  (reset! !push-timer
+          (async/Timer. (dart:core/Duration. .seconds 2)
+                        #(push!))))
+
+(defn start-periodic-pull!
+  "Pull every 5 minutes."
+  []
+  (when-let [t @!pull-timer]
+    (.cancel ^async/Timer t))
+  (reset! !pull-timer
+          (async/Timer.periodic (dart:core/Duration. .minutes 5)
+                                (fn [_] (pull!)))))
+
+(defn on-app-start!
+  []
+  (when (base-url)
+    (pull!))
+  (start-periodic-pull!))
+
+(defn on-app-resume!
+  []
+  (when (base-url)
+    (pull!)))
+
+(defn on-app-pause!
+  []
+  (when (base-url)
+    (push!)))

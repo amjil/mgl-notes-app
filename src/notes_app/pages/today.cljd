@@ -1,0 +1,77 @@
+(ns notes-app.pages.today
+  (:require ["package:flutter/material.dart" :as m]
+            ["package:mongol/mongol.dart" :as mgl]
+            ["dart:core" :as dc]
+            [cljd.flutter :as f]
+            [notes-app.services.daily :as daily]
+            [notes-app.pages.editor :as editor]))
+
+(defn today-page []
+  (let [;; Currently viewed date
+        !current-date (atom (dc/DateTime.now))
+        ;; Document ID for the current date
+        !doc-id (atom nil)
+
+        ;; Async date loader
+        load-date! (fn [^dc/DateTime dt]
+                     (reset! !doc-id nil) ;; clear to show Loading UI
+                     (-> (daily/ensure-daily! dt)
+                         (.then #(reset! !doc-id %))))]
+
+    (load-date! (dc/DateTime.now))
+    (f/widget
+
+     :watch [current-date !current-date
+             doc-id !doc-id]
+
+     (m/Scaffold
+      .backgroundColor (m/Color 0xFF121212)
+      .appBar
+      (m/AppBar
+       .elevation 0.0
+       .backgroundColor (m/Color 0xFF1E1E1E)
+       .foregroundColor (m/Color 0xFFF5F5F5)
+
+       .title (m/Text (daily/date->title current-date)
+                      .style (m/TextStyle .fontFamily "OyunQaganTig"
+                                          .fontSize 20.0
+                                          .fontWeight m.FontWeight/bold
+                                          .color m.Colors/white))
+       .centerTitle true
+
+       .actions
+       [(m/IconButton
+         .icon (m/Icon m.Icons/chevron_left)
+         .tooltip "Previous day"
+         .onPressed (fn []
+                      (let [prev-day (.subtract current-date (dc/Duration. .days 1))]
+                        (reset! !current-date prev-day)
+                        (load-date! prev-day))))
+
+        (m/IconButton
+         .icon (m/Icon m.Icons/today .size 20.0)
+         .tooltip "Go to today"
+         .onPressed (fn []
+                      (let [today (dc/DateTime.now)]
+                        (reset! !current-date today)
+                        (load-date! today))))
+
+        (m/IconButton
+         .icon (m/Icon m.Icons/chevron_right)
+         .tooltip "Next day"
+         .onPressed (fn []
+                      (let [next-day (.add current-date (dc/Duration. .days 1))]
+                        (reset! !current-date next-day)
+                        (load-date! next-day))))
+        (m/SizedBox .width 8.0)])
+
+      .body
+      (if doc-id
+        (m/KeyedSubtree
+         .key (m/ValueKey doc-id)
+         .child (editor/document-editor doc-id :show-back? false :embedded? true))
+
+        (m/Center
+         .child (mgl/MongolText "Loading…"
+                                .style (m/TextStyle .fontFamily "OyunQaganTig"
+                                                    .color m.Colors/white54))))))))

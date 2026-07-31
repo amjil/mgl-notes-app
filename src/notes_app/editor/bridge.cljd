@@ -1,0 +1,159 @@
+(ns notes-app.editor.bridge
+  "Map Drift Block rows ↔ mgl-block-editor atom state; debounced diff persist."
+  (:require ["dart:convert" :as convert]
+            ["dart:async" :as async]
+            [clojure.set :as cset]
+            [notes-app.db.core :as db]
+            [notes-app.services.block :as block]
+            [notes-app.services.document :as doc]
+            [notes-app.services.sync :as sync]
+            [block-editor.utils.persistence :as persist]))
+
+(defn- encode-data-json [block]
+  (let [data (cond-> {}
+               (contains? block :data) (assoc :data (:data block))
+               (seq (:content-spans block)) (assoc :content-spans (:content-spans block)))]
+    (when (seq data)
+      (db/encode-json data))))
+
+(defn- decode-data-json [s]
+  (or (db/decode-json s) {}))
+
+(defn rows->editor-state
+  "Convert Drift Block rows into editor {:root :blocks …} state."
+  [rows]
+  (if (empty? rows)
+    (persist/create-empty-state)
+    (let [by-id (into {} (map (fn [r] [(.-id r) r]) rows))
+          children-of
+          (reduce
+           (fn [acc r]
+             (let [pid (.-parentId r)]
+               (update acc pid (fnil conj []) (.-id r))))
+           {}
+           rows)
+          ;; Sort each sibling group by orderIndex
+          children-of
+          (reduce-kv
+           (fn [acc pid ids]
+             (assoc acc pid
+                    (vec (sort-by (fn [id] (.-orderIndex (get by-id id))) ids))))
+           {}
+           children-of)
+          root-ids (or (get children-of nil) [])
+          blocks
+          (reduce
+           (fn [acc r]
+             (let [id (.-id r)
+                   extra (decode-data-json (.-dataJson r))
+                   ed-type (block/type->editor-kw (.-type r))
+                   ;; Skip image blocks in V1 (convert to paragraph placeholder)
+                   ed-type (if (= ed-type :image) :paragraph ed-type)
+                   children (or (get children-of id) [])
+                   parent (or (.-parentId r) :root)
+                   base {:id id
+                         :type ed-type
+                         :content (or (.-textContent r) "")
+                         :children children
+                         :parent parent}
+                   base (if (= ed-type :task)
+                          (assoc base :data {:checked (boolean (.-checked r))})
+                          base)
+                   base (if-let [d (:data extra)]
+                          (update base :data merge
+                                  (if (map? d) d
+                                      (reduce (fn [a ^String k]
+                                                (assoc a (keyword k) (get d k)))
+                                              {}
+                                              (.-keys d))))
+                          base)
+                   base (if-let [spans (:content-spans extra)]
+                          (assoc base :content-spans spans)
+                          base)]
+               (assoc acc id base)))
+           {}
+           rows)]
+      {:root root-ids
+       :blocks blocks
+       :active-block-id nil
+       :selected-block-ids #{}
+       :cursor-visible false
+       :history {:undo-stack [] :redo-stack []}})))
+
+(defn- flat-from-editor
+  "Flatten editor state to [{id parent-id type text checked data-json order-index} …]."
+  [state]
+  (let [blocks (:blocks state {})
+        root (:root state [])
+        result (atom [])]
+    (letfn [(walk [ids parent-id]
+              (doseq [[idx id] (map-indexed vector ids)]
+                (when-let [b (get blocks id)]
+                  (let [t (:type b :paragraph)
+                        ;; Do not persist image blocks
+                        t (if (= t :image) :paragraph t)
+                        order (* 1000.0 (inc idx))
+                        checked (boolean (get-in b [:data :checked] false))
+                        data-json (encode-data-json
+                                   (cond-> b
+                                     (= t :task)
+                                     (assoc :data (dissoc (:data b) :checked))))]
+                    (swap! result conj
+                           {:id id
+                            :parent-id (when (and parent-id (not= parent-id :root))
+                                         parent-id)
+                            :type t
+                            :text (or (:content b) "")
+                            :checked checked
+                            :data-json data-json
+                            :order-index order})
+                    (when (seq (:children b))
+                      (walk (:children b) id))))))]
+      (walk root nil)
+      @result)))
+
+(defn load-into!
+  "Reset !state from Drift for document-id."
+  [!state document-id]
+  (-> (db/get-blocks document-id)
+      (.then (fn [block-rows]
+               (reset! !state (rows->editor-state (or block-rows [])))
+               !state))
+      (.catchError (fn [e]
+                     (dart:core/print (str "load-into! failed: " e))
+                     !state))))
+
+(defn persist-diff!
+  "Diff editor state vs previous flat snapshot; write BlockService ops.
+   `!snapshot` holds last persisted flat map id→row."
+  [document-id state !snapshot]
+  (let [flat (flat-from-editor state)
+        by-id (into {} (map (fn [r] [(:id r) r]) flat))
+        prev (or @!snapshot {})
+        prev-ids (set (keys prev))
+        next-ids (set (keys by-id))
+        after-deletes
+        (reduce (fn [fut id]
+                  (.then fut (fn [_] (block/soft-delete! id))))
+                (async/Future.value nil)
+                (cset/difference prev-ids next-ids))
+        after-upserts
+        (reduce (fn [fut row]
+                  (.then fut
+                         (fn [_]
+                           (block/upsert-full! (assoc row :document-id document-id)))))
+                after-deletes
+                flat)]
+    (-> after-upserts
+        (.then (fn [_]
+                 (reset! !snapshot by-id)
+                 (doc/touch! document-id)))
+        (.then (fn [_]
+                 (sync/schedule-push!)
+                 true))
+        (.catchError (fn [e]
+                       (dart:core/print (str "persist-diff! failed: " e))
+                       false)))))
+
+(defn snapshot-from-state [state]
+  (into {} (map (fn [r] [(:id r) r]) (flat-from-editor state))))

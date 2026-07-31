@@ -1,0 +1,85 @@
+(ns notes-app.services.operation
+  (:require ["dart:core" :as dc]
+            ["dart:async" :as async]
+            ["package:mgl_notes_app/database.dart" :as drift]
+            ["package:drift/drift.dart" :as d]
+            [notes-app.db.core :as db]
+            [notes-app.state.store :as store]))
+
+(defn append!
+  "Create an Operation row (synced=false). Payload is a Clojure map → JSON."
+  [{:keys [entity-type entity-id action payload]}]
+  (if-let [^drift/AppDatabase database (db/get-database)]
+    (let [op-id (db/new-id)
+          device-id (or (store/device-id) "unknown")
+          payload-str (db/encode-json (or payload {}))
+          now (db/now)
+          ^bool unsynced false
+          companion (drift/OperationsCompanion.insert
+                     :id op-id
+                     :deviceId device-id
+                     :entityType entity-type
+                     :entityId entity-id
+                     :action action
+                     :payload payload-str
+                     :createdAt (d/Value ^dc/DateTime now)
+                     :synced (d/Value unsynced))]
+      (-> (.insert (.into database (.-operations database)) companion)
+          (.then (fn [_] op-id))))
+    (async/Future.value nil)))
+
+(defn get-unsynced []
+  (if-let [^drift/AppDatabase database (db/get-database)]
+    (.getUnsyncedOperations database)
+    (async/Future.value [])))
+
+(defn mark-synced! [op-ids]
+  (if-let [^drift/AppDatabase database (db/get-database)]
+    (reduce
+     (fn [fut op-id]
+       (.then fut
+              (fn [_]
+                (let [q (doto (.update database (.-operations database))
+                          (.where (fn [t] (.equals (.-id t) op-id))))
+                      ^bool synced true]
+                  (.write q (drift/OperationsCompanion. .synced (d/Value synced)))))))
+     (async/Future.value nil)
+     op-ids)
+    (async/Future.value nil)))
+
+(defn exists? [op-id]
+  (if-let [^drift/AppDatabase database (db/get-database)]
+    (let [q (doto (.select database (.-operations database))
+              (.where (fn [t] (.equals (.-id t) op-id)))
+              (.limit 1))]
+      (-> (.get q)
+          (.then (fn [rows] (boolean (seq rows))))))
+    (async/Future.value false)))
+
+(defn insert-remote-op!
+  "Store a pulled operation as already synced (audit / idempotency)."
+  [{:keys [id device-id entity-type entity-id action payload created-at]}]
+  (if-let [^drift/AppDatabase database (db/get-database)]
+    (-> (exists? id)
+        (.then (fn [ex?]
+                 (if ex?
+                   nil
+                   (let [created (if (dart/is? created-at dart:core/DateTime)
+                                   created-at
+                                   (or (try (dart:core/DateTime.parse (str created-at))
+                                            (catch Exception e nil))
+                                       (db/now)))
+                         ^bool synced true
+                         companion (drift/OperationsCompanion.insert
+                                    :id id
+                                    :deviceId (or device-id "")
+                                    :entityType (or entity-type "")
+                                    :entityId (or entity-id "")
+                                    :action action
+                                    :payload (if (string? payload)
+                                               payload
+                                               (db/encode-json (or payload {})))
+                                    :createdAt (d/Value ^dc/DateTime created)
+                                    :synced (d/Value synced))]
+                     (.insert (.into database (.-operations database)) companion))))))
+    (async/Future.value nil)))

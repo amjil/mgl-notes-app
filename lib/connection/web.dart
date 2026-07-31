@@ -1,7 +1,7 @@
 import 'package:drift/drift.dart';
 import 'package:drift/wasm.dart';
 
-const _dbName = "mgl_notes";
+const _dbName = 'mgl_notes';
 final _sqlite3Uri = Uri.parse('/sqlite3.wasm');
 final _driftWorkerUri = Uri.parse('/drift_worker.js');
 

@@ -1,0 +1,84 @@
+(ns notes-app.pages.tasks
+  (:require ["package:flutter/material.dart" :as m]
+            ["package:mongol/mongol.dart" :as mgl]
+            [cljd.flutter :as f]
+            [notes-app.db.core :as db]
+            [notes-app.state.store :as store]
+            [notes-app.services.block :as block]))
+
+(defn tasks-page []
+  (f/widget
+   :watch [tasks (stream
+                  (map (fn [rows] (or rows [])))
+                  (map (fn [[_ _]] []))
+                  :as-values (db/watch-uncompleted-tasks))]
+   (m/Scaffold
+    .backgroundColor (m/Color 0xFF121212)
+    .appBar
+    (m/AppBar
+     .backgroundColor (m/Color 0xFF1E1E1E))
+    .body
+    (m/SafeArea
+     .child
+     (if (empty? tasks)
+       (m/Center
+        .child (mgl/MongolText "No open tasks"
+                               .style (m/TextStyle .fontFamily "OyunQaganTig"
+                                                   .color m.Colors/white54)))
+       (m/ListView
+        .scrollDirection m.Axis/horizontal
+        .padding (m.EdgeInsets/all 16.0)
+        .children
+        (mapv
+         (fn [t]
+           (let [blk (.-block t)
+                 text (or (.-textContent blk) "")
+                 src (or (.-documentTitle t) "")
+                 doc-id (.-documentId t)]
+             (m/GestureDetector
+              .onTap #(store/open-document! doc-id)
+              .child
+              (m/Container
+               .margin (m.EdgeInsets/only .right 12.0)
+               .padding (m.EdgeInsets/symmetric .vertical 16.0 .horizontal 8.0)
+               .decoration (m/BoxDecoration
+                            .color (m/Color 0xFF1E1E1E)
+                            .borderRadius (m.BorderRadius/circular 12.0)
+                            .border (m/Border.all .color m.Colors/white12 .width 1.0))
+               .child
+               (m/Row
+                .crossAxisAlignment m.CrossAxisAlignment/start
+                .mainAxisSize m.MainAxisSize/min
+                .children
+                [(m/Column
+                  .mainAxisSize m.MainAxisSize/max
+                  .crossAxisAlignment m.CrossAxisAlignment/center
+                  .children
+                  [(m/Checkbox
+                    .value false
+                    .activeColor m.Colors/blue
+                    .side (m/BorderSide .color m.Colors/white54 .width 1.5)
+                    .onChanged
+                    (fn [_] (block/check! (.-id blk) true)))
+
+                   (m/SizedBox .height 16.0)
+
+                   (m/Expanded
+                    .child
+                    (mgl/MongolText
+                     (if (empty? text) "(empty)" text)
+                     .style (m/TextStyle .fontFamily "OyunQaganTig"
+                                         .fontSize 16.0
+                                         .color m.Colors/white)))
+
+                   (m/SizedBox .height 16.0)])
+
+                 (m/VerticalDivider .color m.Colors/white24)
+                 (m/Padding .padding (m.EdgeInsets/only .top 48.0)
+                            .child
+                            (mgl/MongolText
+                             src
+                             .style (m/TextStyle .fontFamily "OyunQaganTig"
+                                                 .fontSize 12.0
+                                                 .color m/Colors.blueGrey.shade300)))])))))
+         tasks)))))))

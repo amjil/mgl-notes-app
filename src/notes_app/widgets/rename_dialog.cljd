@@ -1,0 +1,36 @@
+(ns notes-app.widgets.rename-dialog
+  (:require ["package:flutter/material.dart" :as m]
+            ["package:mongol/mongol.dart" :as mgl]
+            [cljd.flutter :as f]
+            [components.dialog :as dialog]
+            [notes-app.widgets.keyboard-wrapper :as kw]))
+
+(defn rename-dialog
+  "Show a Mongolian rename dialog. Calls `on-ok` with the new title when confirmed."
+  [ctx current-title on-ok]
+  (m/showDialog
+   .context ctx
+   .builder
+   (fn [c]
+     (f/widget
+      :managed [controller (m/TextEditingController .text (or current-title ""))]
+      (kw/with-virtual-keyboard
+       (dialog/vertical-custom-dialog
+        {:title "Rename"
+         :height-factor 0.55
+         :width-factor 0.45
+         :body
+         (mgl/MongolTextField
+          .controller controller
+          .autofocus true
+          .style (m/TextStyle .fontFamily "OyunQaganTig" .fontSize 18.0))
+         :actions
+         [(mgl/MongolTextButton
+           .onPressed #(.pop (m/Navigator.of c))
+           .child (mgl/MongolText "Cancel"))
+          (mgl/MongolElevatedButton
+           .onPressed
+           (fn []
+             (on-ok (.-text controller))
+             (.pop (m/Navigator.of c)))
+           .child (mgl/MongolText "OK"))]}))))))

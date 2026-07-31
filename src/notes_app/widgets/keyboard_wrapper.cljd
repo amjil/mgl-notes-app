@@ -1,0 +1,34 @@
+(ns notes-app.widgets.keyboard-wrapper
+  "Reusable wrapper for the custom Native Mongolian virtual keyboard (Mobile) and global IME (Desktop)."
+  (:require
+   ["package:flutter/material.dart" :as m]
+   [cljd.flutter :as f]
+   
+   ;; Virtual Keyboard & IME dependencies
+   [rich-editor.components.editor :as editor]
+   [virtual-keyboard.keyboard :as keyboard]
+   [virtual-keyboard.options :as options]
+   [shared-ime.overlay-view :as overlay]))
+
+(defn with-virtual-keyboard 
+  "Wraps the main content with the custom Native Mongolian virtual keyboard for mobile, 
+   or the global IME overlay for desktop."
+  [main-content]
+  (if (editor/is-mobile?)
+    (f/widget
+     :let [info (merge options/keyboard-option {:keyboard/mongol-font-family "OyunQaganTig"
+                                                :keyboard/key-container-color m/Colors.grey.shade500
+                                                :keyboard/font-size 16})]
+     :bind {:info info}
+     (m/Column
+      .children
+      [(m/Expanded
+        .child
+        (m/Stack
+         .children
+         [main-content
+          (keyboard/candidates nil)]))
+
+       (keyboard/keyboard
+        {:custom-fns {}})]))
+    (overlay/ime-global-wrapper main-content)))

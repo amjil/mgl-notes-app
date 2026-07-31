@@ -1,0 +1,242 @@
+(ns notes-app.services.operation-apply
+  (:require ["dart:core" :as dc]
+            ["dart:async" :as async]
+            ["package:mgl_notes_app/database.dart" :as drift]
+            ["package:drift/drift.dart" :as d]
+            [notes-app.db.core :as db]
+            [notes-app.services.operation :as op]
+            [notes-app.state.store :as store]))
+
+(defn- parse-dt [v]
+  (cond
+    (nil? v) nil
+    (dart/is? v dart:core/DateTime) v
+    :else (try (dart:core/DateTime.parse (str v))
+               (catch Exception e nil))))
+
+(defn- payload-map [payload]
+  (cond
+    (map? payload) payload
+    (string? payload) (or (db/decode-json payload) {})
+    (dart/is? payload dart:core/Map)
+    (reduce (fn [acc ^String k]
+              (assoc acc (keyword k) (get payload k)))
+            {}
+            (.-keys payload))
+    :else {}))
+
+(defn- get-block [id]
+  (if-let [^drift/AppDatabase database (db/get-database)]
+    (-> (.get (doto (.select database (.-blocks database))
+                (.where (fn [t] (.equals (.-id t) id)))
+                (.limit 1)))
+        (.then (fn [rows] (first rows))))
+    (async/Future.value nil)))
+
+(defn- get-doc [id]
+  (if-let [^drift/AppDatabase database (db/get-database)]
+    (-> (.get (doto (.select database (.-documents database))
+                (.where (fn [t] (.equals (.-id t) id)))
+                (.limit 1)))
+        (.then (fn [rows] (first rows))))
+    (async/Future.value nil)))
+
+(defn- lww-ok?
+  "Apply remote change if local entity is missing or remote created-at >= local updated-at."
+  [local-updated-at remote-created-at]
+  (let [remote (parse-dt remote-created-at)
+        local local-updated-at]
+    (cond
+      (nil? local) true
+      (nil? remote) true
+      :else (not (.isAfter local remote)))))
+
+(defn- apply-document-create! [entity-id p created-at]
+  (if-let [^drift/AppDatabase database (db/get-database)]
+    (-> (get-doc entity-id)
+        (.then (fn [existing]
+                 (if existing
+                   nil
+                   (let [now (or (parse-dt created-at) (db/now))
+                         companion (drift/DocumentsCompanion.insert
+                                    :id entity-id
+                                    :title (d/Value ^String (or (:title p) ""))
+                                    :type (d/Value ^String (or (:type p) "normal"))
+                                    :parentId (if (:parent_id p) (d/Value ^String (:parent_id p)) (d/Value nil))
+                                    :icon (if (:icon p) (d/Value ^String (:icon p)) (d/Value nil))
+                                    :cover (if (:cover p) (d/Value ^String (:cover p)) (d/Value nil))
+                                    :createdAt (d/Value ^dc/DateTime now)
+                                    :updatedAt (d/Value ^dc/DateTime now))]
+                     (.insert (.into database (.-documents database)) companion))))))
+    (async/Future.value nil)))
+
+(defn- apply-document-update! [entity-id p created-at]
+  (if-let [^drift/AppDatabase database (db/get-database)]
+    (-> (get-doc entity-id)
+        (.then (fn [doc]
+                 (when (and doc (lww-ok? (.-updatedAt doc) created-at))
+                   (let [q (doto (.update database (.-documents database))
+                             (.where (fn [t] (.equals (.-id t) entity-id))))
+                         now (or (parse-dt created-at) (db/now))]
+                     (.write q
+                             (as-> (drift/DocumentsCompanion.
+                                    .updatedAt (d/Value ^dc/DateTime now)) c
+                               (if (contains? p :title)
+                                 (.copyWith c .title (d/Value ^String (or (:title p) "")))
+                                 c)
+                               (if (contains? p :icon)
+                                 (.copyWith c .icon (if-let [v (:icon p)]
+                                                      (d/Value ^String v)
+                                                      (d/Value nil)))
+                                 c)
+                               (if (contains? p :cover)
+                                 (.copyWith c .cover (if-let [v (:cover p)]
+                                                       (d/Value ^String v)
+                                                       (d/Value nil)))
+                                 c))))))))
+    (async/Future.value nil)))
+
+(defn- apply-document-delete! [entity-id created-at]
+  (if-let [^drift/AppDatabase database (db/get-database)]
+    (-> (get-doc entity-id)
+        (.then (fn [doc]
+                 (when (and doc (lww-ok? (.-updatedAt doc) created-at))
+                   (let [now (or (parse-dt created-at) (db/now))
+                         q (doto (.update database (.-documents database))
+                             (.where (fn [t] (.equals (.-id t) entity-id))))]
+                     (.write q (drift/DocumentsCompanion.
+                                .deletedAt (d/Value ^dc/DateTime now)
+                                .updatedAt (d/Value ^dc/DateTime now))))))))
+    (async/Future.value nil)))
+
+(defn- apply-document-move! [entity-id p created-at]
+  (if-let [^drift/AppDatabase database (db/get-database)]
+    (-> (get-doc entity-id)
+        (.then (fn [doc]
+                 (when (and doc (lww-ok? (.-updatedAt doc) created-at))
+                   (let [now (or (parse-dt created-at) (db/now))
+                         q (doto (.update database (.-documents database))
+                             (.where (fn [t] (.equals (.-id t) entity-id))))]
+                     (.write q (drift/DocumentsCompanion.
+                                .parentId (d/Value ^String (:parent_id p))
+                                .updatedAt (d/Value ^dc/DateTime now))))))))
+    (async/Future.value nil)))
+
+(defn- apply-block-create! [entity-id p created-at]
+  (if-let [^drift/AppDatabase database (db/get-database)]
+    (-> (get-block entity-id)
+        (.then (fn [existing]
+                 (if existing
+                   nil
+                   (let [now (or (parse-dt created-at) (db/now))
+                         companion (drift/BlocksCompanion.insert
+                                    :id entity-id
+                                    :documentId (or (:document_id p) "")
+                                    :parentId (if (:parent_id p) (d/Value ^String (:parent_id p)) (d/Value nil))
+                                    :type (or (:type p) "paragraph")
+                                    :textContent (d/Value ^String (or (:text p) ""))
+                                    :checked (d/Value ^bool (boolean (:checked p false)))
+                                    :dataJson (if (:data_json p) (d/Value ^String (:data_json p)) (d/Value nil))
+                                    :orderIndex (double (or (:order_index p) 1000.0))
+                                    :createdAt (d/Value ^dc/DateTime now)
+                                    :updatedAt (d/Value ^dc/DateTime now))]
+                     (.insert (.into database (.-blocks database)) companion))))))
+    (async/Future.value nil)))
+
+(defn- apply-block-update! [entity-id p created-at]
+  (if-let [^drift/AppDatabase database (db/get-database)]
+    (-> (get-block entity-id)
+        (.then (fn [blk]
+                 (when (and blk (lww-ok? (.-updatedAt blk) created-at))
+                   (let [now (or (parse-dt created-at) (db/now))
+                         q (doto (.update database (.-blocks database))
+                             (.where (fn [t] (.equals (.-id t) entity-id))))]
+                     (.write q
+                             (as-> (drift/BlocksCompanion.
+                                    .updatedAt (d/Value ^dc/DateTime now)) c
+                               (if (contains? p :text)
+                                 (.copyWith c .textContent (d/Value ^String (or (:text p) "")))
+                                 c)
+                               (if (contains? p :type)
+                                 (.copyWith c .type (d/Value ^String (:type p)))
+                                 c)
+                               (if (contains? p :data_json)
+                                 (.copyWith c .dataJson (if-let [v (:data_json p)]
+                                                          (d/Value ^String v)
+                                                          (d/Value nil)))
+                                 c))))))))
+    (async/Future.value nil)))
+
+(defn- apply-block-check! [entity-id p created-at]
+  (if-let [^drift/AppDatabase database (db/get-database)]
+    (-> (get-block entity-id)
+        (.then (fn [blk]
+                 (when (and blk (lww-ok? (.-updatedAt blk) created-at))
+                   (let [now (or (parse-dt created-at) (db/now))
+                         q (doto (.update database (.-blocks database))
+                             (.where (fn [t] (.equals (.-id t) entity-id))))]
+                     (.write q (drift/BlocksCompanion.
+                                .checked (d/Value ^bool (boolean (:checked p)))
+                                .updatedAt (d/Value ^dc/DateTime now))))))))
+    (async/Future.value nil)))
+
+(defn- apply-block-move! [entity-id p created-at]
+  (if-let [^drift/AppDatabase database (db/get-database)]
+    (-> (get-block entity-id)
+        (.then (fn [blk]
+                 (when (and blk (lww-ok? (.-updatedAt blk) created-at))
+                   (let [now (or (parse-dt created-at) (db/now))
+                         q (doto (.update database (.-blocks database))
+                             (.where (fn [t] (.equals (.-id t) entity-id))))]
+                     (.write q (drift/BlocksCompanion.
+                                .parentId (d/Value ^String (:parent_id p))
+                                .orderIndex (d/Value ^double (double (or (:order_index p) 0.0)))
+                                .updatedAt (d/Value ^dc/DateTime now))))))))
+    (async/Future.value nil)))
+
+(defn- apply-block-delete! [entity-id created-at]
+  (if-let [^drift/AppDatabase database (db/get-database)]
+    (-> (get-block entity-id)
+        (.then (fn [blk]
+                 (when (and blk (lww-ok? (.-updatedAt blk) created-at))
+                   (let [now (or (parse-dt created-at) (db/now))
+                         q (doto (.update database (.-blocks database))
+                             (.where (fn [t] (.equals (.-id t) entity-id))))]
+                     (.write q (drift/BlocksCompanion.
+                                .deletedAt (d/Value ^dc/DateTime now)
+                                .updatedAt (d/Value ^dc/DateTime now))))))))
+    (async/Future.value nil)))
+
+(defn- dispatch-apply! [action eid p created-at]
+  (case action
+    "document_create" (apply-document-create! eid p created-at)
+    "document_update" (apply-document-update! eid p created-at)
+    "document_delete" (apply-document-delete! eid created-at)
+    "document_move" (apply-document-move! eid p created-at)
+    "block_create" (apply-block-create! eid p created-at)
+    "block_update" (apply-block-update! eid p created-at)
+    "block_check" (apply-block-check! eid p created-at)
+    "block_move" (apply-block-move! eid p created-at)
+    "block_delete" (apply-block-delete! eid created-at)
+    (do
+      (dart:core/print (str "Unknown action: " action))
+      (async/Future.value nil))))
+
+(defn apply-operation!
+  "Idempotently apply one remote Operation. Skips ops from this device and already-seen ids."
+  [{:keys [id device-id entity-type entity-id action payload created-at] :as op-map}]
+  (if-not (and id action)
+    (async/Future.value nil)
+    (if (= device-id (store/device-id))
+      (-> (op/insert-remote-op! op-map)
+          (.then (fn [_] :skipped-own)))
+      (-> (op/exists? id)
+          (.then (fn [ex?]
+                   (if ex?
+                     :already-applied
+                     (let [p (payload-map payload)
+                           eid (or entity-id (:id p) (:entity_id p))]
+                       (-> (dispatch-apply! action eid p created-at)
+                           (.then (fn [_]
+                                    (op/insert-remote-op! (assoc op-map :entity-id eid))))
+                           (.then (fn [_] :applied)))))))))))

@@ -1,0 +1,14 @@
+(ns notes-app.bootstrap.mobile
+  "Mobile-only startup (deferred). Virtual keyboard + input-control.
+   V1 focuses on desktop — this is a thin stub for later."
+  (:require [virtual-keyboard.input-control :as input-control]
+            [ime-core.fst-engine :as fst]
+            [ime-core.next-word :as next-word]))
+
+(defn init!
+  "Mobile IME path. Call only on Android/iOS."
+  []
+  (await (fst/ensure-loaded))
+  (await (next-word/ensure-loaded))
+  (input-control/set-control)
+  (dart:core/print "bootstrap.mobile: ready (stub path)"))

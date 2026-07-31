@@ -1,0 +1,150 @@
+(ns notes-app.services.document
+  (:require ["dart:core" :as dc]
+            ["dart:async" :as async]
+            ["package:mgl_notes_app/database.dart" :as drift]
+            ["package:drift/drift.dart" :as d]
+            [notes-app.db.core :as db]
+            [notes-app.services.operation :as op]))
+
+(defn- seed-paragraph!
+  "Insert empty root paragraph + block_create op (keeps document ns free of block require)."
+  [document-id]
+  (if-let [^drift/AppDatabase database (db/get-database)]
+    (let [block-id (db/new-id)
+          now (db/now)
+          ^String empty-text ""
+          ^bool unchecked false
+          companion (drift/BlocksCompanion.insert
+                     :id block-id
+                     :documentId document-id
+                     :parentId (d/Value nil)
+                     :type "paragraph"
+                     :textContent (d/Value empty-text)
+                     :checked (d/Value unchecked)
+                     :orderIndex 1000.0
+                     :createdAt (d/Value ^dc/DateTime now)
+                     :updatedAt (d/Value ^dc/DateTime now))]
+      (-> (.insert (.into database (.-blocks database)) companion)
+          (.then (fn [_]
+                   (op/append!
+                    {:entity-type "block"
+                     :entity-id block-id
+                     :action "block_create"
+                     :payload {:id block-id
+                               :document_id document-id
+                               :parent_id nil
+                               :type "paragraph"
+                               :text ""
+                               :checked false
+                               :order_index 1000.0}})))
+          (.then (fn [_] block-id))))
+    (async/Future.value nil)))
+
+(defn create!
+  "Create a Document, seed one empty paragraph, emit document_create + block_create."
+  [{:keys [id title type parent-id icon cover]
+    :or {type "normal" title ""}}]
+  (if-let [^drift/AppDatabase database (db/get-database)]
+    (let [doc-id (or id (db/new-id))
+          now (db/now)
+          companion (drift/DocumentsCompanion.insert
+                     :id doc-id
+                     :title (d/Value ^String (or title ""))
+                     :type (d/Value ^String type)
+                     :parentId (if parent-id (d/Value ^String parent-id) (d/Value nil))
+                     :icon (if icon (d/Value ^String icon) (d/Value nil))
+                     :cover (if cover (d/Value ^String cover) (d/Value nil))
+                     :createdAt (d/Value ^dc/DateTime now)
+                     :updatedAt (d/Value ^dc/DateTime now))]
+      (-> (.insert (.into database (.-documents database)) companion)
+          (.then (fn [_]
+                   (op/append!
+                    {:entity-type "document"
+                     :entity-id doc-id
+                     :action "document_create"
+                     :payload {:id doc-id
+                               :title (or title "")
+                               :type type
+                               :parent_id parent-id
+                               :icon icon
+                               :cover cover}})))
+          (.then (fn [_] (seed-paragraph! doc-id)))
+          (.then (fn [_] doc-id))))
+    (async/Future.value nil)))
+
+(defn update!
+  "Partial document update (title/icon/cover)."
+  [doc-id {:keys [title icon cover] :as patch}]
+  (if-let [^drift/AppDatabase database (db/get-database)]
+    (let [now (db/now)
+          q (doto (.update database (.-documents database))
+              (.where (fn [t] (.equals (.-id t) doc-id))))
+          ;; Only set present fields; (d/Value.absent) is Value<dynamic> and crashes.
+          companion
+          (as-> (drift/DocumentsCompanion.
+                 .updatedAt (d/Value ^dc/DateTime now)) c
+            (if (contains? patch :title)
+              (.copyWith c .title (d/Value ^String (or title "")))
+              c)
+            (if (contains? patch :icon)
+              (.copyWith c .icon (if icon (d/Value ^String icon) (d/Value nil)))
+              c)
+            (if (contains? patch :cover)
+              (.copyWith c .cover (if cover (d/Value ^String cover) (d/Value nil)))
+              c))]
+      (-> (.write q companion)
+          (.then (fn [_]
+                   (op/append!
+                    {:entity-type "document"
+                     :entity-id doc-id
+                     :action "document_update"
+                     :payload (cond-> {}
+                                (contains? patch :title) (assoc :title title)
+                                (contains? patch :icon) (assoc :icon icon)
+                                (contains? patch :cover) (assoc :cover cover))})))
+          (.then (fn [_] true))))
+    (async/Future.value false)))
+
+(defn rename! [doc-id title]
+  (update! doc-id {:title title}))
+
+(defn soft-delete! [doc-id]
+  (if-let [^drift/AppDatabase database (db/get-database)]
+    (let [now (db/now)
+          q (doto (.update database (.-documents database))
+              (.where (fn [t] (.equals (.-id t) doc-id))))]
+      (-> (.write q (drift/DocumentsCompanion.
+                     .deletedAt (d/Value ^dc/DateTime now)
+                     .updatedAt (d/Value ^dc/DateTime now)))
+          (.then (fn [_]
+                   (op/append!
+                    {:entity-type "document"
+                     :entity-id doc-id
+                     :action "document_delete"
+                     :payload {:deleted_at (.toIso8601String now)}})))
+          (.then (fn [_] true))))
+    (async/Future.value false)))
+
+(defn move! [doc-id parent-id]
+  (if-let [^drift/AppDatabase database (db/get-database)]
+    (let [now (db/now)
+          q (doto (.update database (.-documents database))
+              (.where (fn [t] (.equals (.-id t) doc-id))))]
+      (-> (.write q (drift/DocumentsCompanion.
+                     .parentId (d/Value ^String parent-id)
+                     .updatedAt (d/Value ^dc/DateTime now)))
+          (.then (fn [_]
+                   (op/append!
+                    {:entity-type "document"
+                     :entity-id doc-id
+                     :action "document_move"
+                     :payload {:parent_id parent-id}})))
+          (.then (fn [_] true))))
+    (async/Future.value false)))
+
+(defn touch! [doc-id]
+  (if-let [^drift/AppDatabase database (db/get-database)]
+    (let [q (doto (.update database (.-documents database))
+              (.where (fn [t] (.equals (.-id t) doc-id))))]
+      (.write q (drift/DocumentsCompanion. .updatedAt (d/Value ^dc/DateTime (db/now)))))
+    (async/Future.value nil)))

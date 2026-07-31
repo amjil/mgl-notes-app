@@ -3,34 +3,47 @@
 part of 'database.dart';
 
 // ignore_for_file: type=lint
-class $PagesTable extends Pages with TableInfo<$PagesTable, Page> {
+class $DocumentsTable extends Documents
+    with TableInfo<$DocumentsTable, Document> {
   @override
   final GeneratedDatabase attachedDatabase;
   final String? _alias;
-  $PagesTable(this.attachedDatabase, [this._alias]);
+  $DocumentsTable(this.attachedDatabase, [this._alias]);
   static const VerificationMeta _idMeta = const VerificationMeta('id');
   @override
-  late final GeneratedColumn<int> id = GeneratedColumn<int>(
+  late final GeneratedColumn<String> id = GeneratedColumn<String>(
       'id', aliasedName, false,
-      hasAutoIncrement: true,
-      type: DriftSqlType.int,
-      requiredDuringInsert: false,
-      defaultConstraints:
-          GeneratedColumn.constraintIsAlways('PRIMARY KEY AUTOINCREMENT'));
-  static const VerificationMeta _nameMeta = const VerificationMeta('name');
+      type: DriftSqlType.string, requiredDuringInsert: true);
+  static const VerificationMeta _parentIdMeta =
+      const VerificationMeta('parentId');
   @override
-  late final GeneratedColumn<String> name = GeneratedColumn<String>(
-      'name', aliasedName, false,
+  late final GeneratedColumn<String> parentId = GeneratedColumn<String>(
+      'parent_id', aliasedName, true,
+      type: DriftSqlType.string, requiredDuringInsert: false);
+  static const VerificationMeta _titleMeta = const VerificationMeta('title');
+  @override
+  late final GeneratedColumn<String> title = GeneratedColumn<String>(
+      'title', aliasedName, false,
       type: DriftSqlType.string,
-      requiredDuringInsert: true,
-      defaultConstraints: GeneratedColumn.constraintIsAlways('UNIQUE'));
+      requiredDuringInsert: false,
+      defaultValue: const Constant(''));
+  static const VerificationMeta _iconMeta = const VerificationMeta('icon');
+  @override
+  late final GeneratedColumn<String> icon = GeneratedColumn<String>(
+      'icon', aliasedName, true,
+      type: DriftSqlType.string, requiredDuringInsert: false);
   static const VerificationMeta _typeMeta = const VerificationMeta('type');
   @override
   late final GeneratedColumn<String> type = GeneratedColumn<String>(
       'type', aliasedName, false,
       type: DriftSqlType.string,
       requiredDuringInsert: false,
-      defaultValue: const Constant('page'));
+      defaultValue: const Constant('normal'));
+  static const VerificationMeta _coverMeta = const VerificationMeta('cover');
+  @override
+  late final GeneratedColumn<String> cover = GeneratedColumn<String>(
+      'cover', aliasedName, true,
+      type: DriftSqlType.string, requiredDuringInsert: false);
   static const VerificationMeta _createdAtMeta =
       const VerificationMeta('createdAt');
   @override
@@ -39,34 +52,69 @@ class $PagesTable extends Pages with TableInfo<$PagesTable, Page> {
       type: DriftSqlType.dateTime,
       requiredDuringInsert: false,
       defaultValue: currentDateAndTime);
+  static const VerificationMeta _updatedAtMeta =
+      const VerificationMeta('updatedAt');
   @override
-  List<GeneratedColumn> get $columns => [id, name, type, createdAt];
+  late final GeneratedColumn<DateTime> updatedAt = GeneratedColumn<DateTime>(
+      'updated_at', aliasedName, false,
+      type: DriftSqlType.dateTime,
+      requiredDuringInsert: false,
+      defaultValue: currentDateAndTime);
+  static const VerificationMeta _deletedAtMeta =
+      const VerificationMeta('deletedAt');
+  @override
+  late final GeneratedColumn<DateTime> deletedAt = GeneratedColumn<DateTime>(
+      'deleted_at', aliasedName, true,
+      type: DriftSqlType.dateTime, requiredDuringInsert: false);
+  @override
+  List<GeneratedColumn> get $columns =>
+      [id, parentId, title, icon, type, cover, createdAt, updatedAt, deletedAt];
   @override
   String get aliasedName => _alias ?? actualTableName;
   @override
   String get actualTableName => $name;
-  static const String $name = 'pages';
+  static const String $name = 'documents';
   @override
-  VerificationContext validateIntegrity(Insertable<Page> instance,
+  VerificationContext validateIntegrity(Insertable<Document> instance,
       {bool isInserting = false}) {
     final context = VerificationContext();
     final data = instance.toColumns(true);
     if (data.containsKey('id')) {
       context.handle(_idMeta, id.isAcceptableOrUnknown(data['id']!, _idMeta));
-    }
-    if (data.containsKey('name')) {
-      context.handle(
-          _nameMeta, name.isAcceptableOrUnknown(data['name']!, _nameMeta));
     } else if (isInserting) {
-      context.missing(_nameMeta);
+      context.missing(_idMeta);
+    }
+    if (data.containsKey('parent_id')) {
+      context.handle(_parentIdMeta,
+          parentId.isAcceptableOrUnknown(data['parent_id']!, _parentIdMeta));
+    }
+    if (data.containsKey('title')) {
+      context.handle(
+          _titleMeta, title.isAcceptableOrUnknown(data['title']!, _titleMeta));
+    }
+    if (data.containsKey('icon')) {
+      context.handle(
+          _iconMeta, icon.isAcceptableOrUnknown(data['icon']!, _iconMeta));
     }
     if (data.containsKey('type')) {
       context.handle(
           _typeMeta, type.isAcceptableOrUnknown(data['type']!, _typeMeta));
     }
+    if (data.containsKey('cover')) {
+      context.handle(
+          _coverMeta, cover.isAcceptableOrUnknown(data['cover']!, _coverMeta));
+    }
     if (data.containsKey('created_at')) {
       context.handle(_createdAtMeta,
           createdAt.isAcceptableOrUnknown(data['created_at']!, _createdAtMeta));
+    }
+    if (data.containsKey('updated_at')) {
+      context.handle(_updatedAtMeta,
+          updatedAt.isAcceptableOrUnknown(data['updated_at']!, _updatedAtMeta));
+    }
+    if (data.containsKey('deleted_at')) {
+      context.handle(_deletedAtMeta,
+          deletedAt.isAcceptableOrUnknown(data['deleted_at']!, _deletedAtMeta));
     }
     return context;
   }
@@ -74,156 +122,281 @@ class $PagesTable extends Pages with TableInfo<$PagesTable, Page> {
   @override
   Set<GeneratedColumn> get $primaryKey => {id};
   @override
-  Page map(Map<String, dynamic> data, {String? tablePrefix}) {
+  Document map(Map<String, dynamic> data, {String? tablePrefix}) {
     final effectivePrefix = tablePrefix != null ? '$tablePrefix.' : '';
-    return Page(
+    return Document(
       id: attachedDatabase.typeMapping
-          .read(DriftSqlType.int, data['${effectivePrefix}id'])!,
-      name: attachedDatabase.typeMapping
-          .read(DriftSqlType.string, data['${effectivePrefix}name'])!,
+          .read(DriftSqlType.string, data['${effectivePrefix}id'])!,
+      parentId: attachedDatabase.typeMapping
+          .read(DriftSqlType.string, data['${effectivePrefix}parent_id']),
+      title: attachedDatabase.typeMapping
+          .read(DriftSqlType.string, data['${effectivePrefix}title'])!,
+      icon: attachedDatabase.typeMapping
+          .read(DriftSqlType.string, data['${effectivePrefix}icon']),
       type: attachedDatabase.typeMapping
           .read(DriftSqlType.string, data['${effectivePrefix}type'])!,
+      cover: attachedDatabase.typeMapping
+          .read(DriftSqlType.string, data['${effectivePrefix}cover']),
       createdAt: attachedDatabase.typeMapping
           .read(DriftSqlType.dateTime, data['${effectivePrefix}created_at'])!,
+      updatedAt: attachedDatabase.typeMapping
+          .read(DriftSqlType.dateTime, data['${effectivePrefix}updated_at'])!,
+      deletedAt: attachedDatabase.typeMapping
+          .read(DriftSqlType.dateTime, data['${effectivePrefix}deleted_at']),
     );
   }
 
   @override
-  $PagesTable createAlias(String alias) {
-    return $PagesTable(attachedDatabase, alias);
+  $DocumentsTable createAlias(String alias) {
+    return $DocumentsTable(attachedDatabase, alias);
   }
 }
 
-class Page extends DataClass implements Insertable<Page> {
-  final int id;
-  final String name;
+class Document extends DataClass implements Insertable<Document> {
+  final String id;
+  final String? parentId;
+  final String title;
+  final String? icon;
   final String type;
+  final String? cover;
   final DateTime createdAt;
-  const Page(
+  final DateTime updatedAt;
+  final DateTime? deletedAt;
+  const Document(
       {required this.id,
-      required this.name,
+      this.parentId,
+      required this.title,
+      this.icon,
       required this.type,
-      required this.createdAt});
+      this.cover,
+      required this.createdAt,
+      required this.updatedAt,
+      this.deletedAt});
   @override
   Map<String, Expression> toColumns(bool nullToAbsent) {
     final map = <String, Expression>{};
-    map['id'] = Variable<int>(id);
-    map['name'] = Variable<String>(name);
+    map['id'] = Variable<String>(id);
+    if (!nullToAbsent || parentId != null) {
+      map['parent_id'] = Variable<String>(parentId);
+    }
+    map['title'] = Variable<String>(title);
+    if (!nullToAbsent || icon != null) {
+      map['icon'] = Variable<String>(icon);
+    }
     map['type'] = Variable<String>(type);
+    if (!nullToAbsent || cover != null) {
+      map['cover'] = Variable<String>(cover);
+    }
     map['created_at'] = Variable<DateTime>(createdAt);
+    map['updated_at'] = Variable<DateTime>(updatedAt);
+    if (!nullToAbsent || deletedAt != null) {
+      map['deleted_at'] = Variable<DateTime>(deletedAt);
+    }
     return map;
   }
 
-  PagesCompanion toCompanion(bool nullToAbsent) {
-    return PagesCompanion(
+  DocumentsCompanion toCompanion(bool nullToAbsent) {
+    return DocumentsCompanion(
       id: Value(id),
-      name: Value(name),
+      parentId: parentId == null && nullToAbsent
+          ? const Value.absent()
+          : Value(parentId),
+      title: Value(title),
+      icon: icon == null && nullToAbsent ? const Value.absent() : Value(icon),
       type: Value(type),
+      cover:
+          cover == null && nullToAbsent ? const Value.absent() : Value(cover),
       createdAt: Value(createdAt),
+      updatedAt: Value(updatedAt),
+      deletedAt: deletedAt == null && nullToAbsent
+          ? const Value.absent()
+          : Value(deletedAt),
     );
   }
 
-  factory Page.fromJson(Map<String, dynamic> json,
+  factory Document.fromJson(Map<String, dynamic> json,
       {ValueSerializer? serializer}) {
     serializer ??= driftRuntimeOptions.defaultSerializer;
-    return Page(
-      id: serializer.fromJson<int>(json['id']),
-      name: serializer.fromJson<String>(json['name']),
+    return Document(
+      id: serializer.fromJson<String>(json['id']),
+      parentId: serializer.fromJson<String?>(json['parentId']),
+      title: serializer.fromJson<String>(json['title']),
+      icon: serializer.fromJson<String?>(json['icon']),
       type: serializer.fromJson<String>(json['type']),
+      cover: serializer.fromJson<String?>(json['cover']),
       createdAt: serializer.fromJson<DateTime>(json['createdAt']),
+      updatedAt: serializer.fromJson<DateTime>(json['updatedAt']),
+      deletedAt: serializer.fromJson<DateTime?>(json['deletedAt']),
     );
   }
   @override
   Map<String, dynamic> toJson({ValueSerializer? serializer}) {
     serializer ??= driftRuntimeOptions.defaultSerializer;
     return <String, dynamic>{
-      'id': serializer.toJson<int>(id),
-      'name': serializer.toJson<String>(name),
+      'id': serializer.toJson<String>(id),
+      'parentId': serializer.toJson<String?>(parentId),
+      'title': serializer.toJson<String>(title),
+      'icon': serializer.toJson<String?>(icon),
       'type': serializer.toJson<String>(type),
+      'cover': serializer.toJson<String?>(cover),
       'createdAt': serializer.toJson<DateTime>(createdAt),
+      'updatedAt': serializer.toJson<DateTime>(updatedAt),
+      'deletedAt': serializer.toJson<DateTime?>(deletedAt),
     };
   }
 
-  Page copyWith({int? id, String? name, String? type, DateTime? createdAt}) =>
-      Page(
+  Document copyWith(
+          {String? id,
+          Value<String?> parentId = const Value.absent(),
+          String? title,
+          Value<String?> icon = const Value.absent(),
+          String? type,
+          Value<String?> cover = const Value.absent(),
+          DateTime? createdAt,
+          DateTime? updatedAt,
+          Value<DateTime?> deletedAt = const Value.absent()}) =>
+      Document(
         id: id ?? this.id,
-        name: name ?? this.name,
+        parentId: parentId.present ? parentId.value : this.parentId,
+        title: title ?? this.title,
+        icon: icon.present ? icon.value : this.icon,
         type: type ?? this.type,
+        cover: cover.present ? cover.value : this.cover,
         createdAt: createdAt ?? this.createdAt,
+        updatedAt: updatedAt ?? this.updatedAt,
+        deletedAt: deletedAt.present ? deletedAt.value : this.deletedAt,
       );
-  Page copyWithCompanion(PagesCompanion data) {
-    return Page(
+  Document copyWithCompanion(DocumentsCompanion data) {
+    return Document(
       id: data.id.present ? data.id.value : this.id,
-      name: data.name.present ? data.name.value : this.name,
+      parentId: data.parentId.present ? data.parentId.value : this.parentId,
+      title: data.title.present ? data.title.value : this.title,
+      icon: data.icon.present ? data.icon.value : this.icon,
       type: data.type.present ? data.type.value : this.type,
+      cover: data.cover.present ? data.cover.value : this.cover,
       createdAt: data.createdAt.present ? data.createdAt.value : this.createdAt,
+      updatedAt: data.updatedAt.present ? data.updatedAt.value : this.updatedAt,
+      deletedAt: data.deletedAt.present ? data.deletedAt.value : this.deletedAt,
     );
   }
 
   @override
   String toString() {
-    return (StringBuffer('Page(')
+    return (StringBuffer('Document(')
           ..write('id: $id, ')
-          ..write('name: $name, ')
+          ..write('parentId: $parentId, ')
+          ..write('title: $title, ')
+          ..write('icon: $icon, ')
           ..write('type: $type, ')
-          ..write('createdAt: $createdAt')
+          ..write('cover: $cover, ')
+          ..write('createdAt: $createdAt, ')
+          ..write('updatedAt: $updatedAt, ')
+          ..write('deletedAt: $deletedAt')
           ..write(')'))
         .toString();
   }
 
   @override
-  int get hashCode => Object.hash(id, name, type, createdAt);
+  int get hashCode => Object.hash(
+      id, parentId, title, icon, type, cover, createdAt, updatedAt, deletedAt);
   @override
   bool operator ==(Object other) =>
       identical(this, other) ||
-      (other is Page &&
+      (other is Document &&
           other.id == this.id &&
-          other.name == this.name &&
+          other.parentId == this.parentId &&
+          other.title == this.title &&
+          other.icon == this.icon &&
           other.type == this.type &&
-          other.createdAt == this.createdAt);
+          other.cover == this.cover &&
+          other.createdAt == this.createdAt &&
+          other.updatedAt == this.updatedAt &&
+          other.deletedAt == this.deletedAt);
 }
 
-class PagesCompanion extends UpdateCompanion<Page> {
-  final Value<int> id;
-  final Value<String> name;
+class DocumentsCompanion extends UpdateCompanion<Document> {
+  final Value<String> id;
+  final Value<String?> parentId;
+  final Value<String> title;
+  final Value<String?> icon;
   final Value<String> type;
+  final Value<String?> cover;
   final Value<DateTime> createdAt;
-  const PagesCompanion({
+  final Value<DateTime> updatedAt;
+  final Value<DateTime?> deletedAt;
+  final Value<int> rowid;
+  const DocumentsCompanion({
     this.id = const Value.absent(),
-    this.name = const Value.absent(),
+    this.parentId = const Value.absent(),
+    this.title = const Value.absent(),
+    this.icon = const Value.absent(),
     this.type = const Value.absent(),
+    this.cover = const Value.absent(),
     this.createdAt = const Value.absent(),
+    this.updatedAt = const Value.absent(),
+    this.deletedAt = const Value.absent(),
+    this.rowid = const Value.absent(),
   });
-  PagesCompanion.insert({
-    this.id = const Value.absent(),
-    required String name,
+  DocumentsCompanion.insert({
+    required String id,
+    this.parentId = const Value.absent(),
+    this.title = const Value.absent(),
+    this.icon = const Value.absent(),
     this.type = const Value.absent(),
+    this.cover = const Value.absent(),
     this.createdAt = const Value.absent(),
-  }) : name = Value(name);
-  static Insertable<Page> custom({
-    Expression<int>? id,
-    Expression<String>? name,
+    this.updatedAt = const Value.absent(),
+    this.deletedAt = const Value.absent(),
+    this.rowid = const Value.absent(),
+  }) : id = Value(id);
+  static Insertable<Document> custom({
+    Expression<String>? id,
+    Expression<String>? parentId,
+    Expression<String>? title,
+    Expression<String>? icon,
     Expression<String>? type,
+    Expression<String>? cover,
     Expression<DateTime>? createdAt,
+    Expression<DateTime>? updatedAt,
+    Expression<DateTime>? deletedAt,
+    Expression<int>? rowid,
   }) {
     return RawValuesInsertable({
       if (id != null) 'id': id,
-      if (name != null) 'name': name,
+      if (parentId != null) 'parent_id': parentId,
+      if (title != null) 'title': title,
+      if (icon != null) 'icon': icon,
       if (type != null) 'type': type,
+      if (cover != null) 'cover': cover,
       if (createdAt != null) 'created_at': createdAt,
+      if (updatedAt != null) 'updated_at': updatedAt,
+      if (deletedAt != null) 'deleted_at': deletedAt,
+      if (rowid != null) 'rowid': rowid,
     });
   }
 
-  PagesCompanion copyWith(
-      {Value<int>? id,
-      Value<String>? name,
+  DocumentsCompanion copyWith(
+      {Value<String>? id,
+      Value<String?>? parentId,
+      Value<String>? title,
+      Value<String?>? icon,
       Value<String>? type,
-      Value<DateTime>? createdAt}) {
-    return PagesCompanion(
+      Value<String?>? cover,
+      Value<DateTime>? createdAt,
+      Value<DateTime>? updatedAt,
+      Value<DateTime?>? deletedAt,
+      Value<int>? rowid}) {
+    return DocumentsCompanion(
       id: id ?? this.id,
-      name: name ?? this.name,
+      parentId: parentId ?? this.parentId,
+      title: title ?? this.title,
+      icon: icon ?? this.icon,
       type: type ?? this.type,
+      cover: cover ?? this.cover,
       createdAt: createdAt ?? this.createdAt,
+      updatedAt: updatedAt ?? this.updatedAt,
+      deletedAt: deletedAt ?? this.deletedAt,
+      rowid: rowid ?? this.rowid,
     );
   }
 
@@ -231,27 +404,51 @@ class PagesCompanion extends UpdateCompanion<Page> {
   Map<String, Expression> toColumns(bool nullToAbsent) {
     final map = <String, Expression>{};
     if (id.present) {
-      map['id'] = Variable<int>(id.value);
+      map['id'] = Variable<String>(id.value);
     }
-    if (name.present) {
-      map['name'] = Variable<String>(name.value);
+    if (parentId.present) {
+      map['parent_id'] = Variable<String>(parentId.value);
+    }
+    if (title.present) {
+      map['title'] = Variable<String>(title.value);
+    }
+    if (icon.present) {
+      map['icon'] = Variable<String>(icon.value);
     }
     if (type.present) {
       map['type'] = Variable<String>(type.value);
     }
+    if (cover.present) {
+      map['cover'] = Variable<String>(cover.value);
+    }
     if (createdAt.present) {
       map['created_at'] = Variable<DateTime>(createdAt.value);
+    }
+    if (updatedAt.present) {
+      map['updated_at'] = Variable<DateTime>(updatedAt.value);
+    }
+    if (deletedAt.present) {
+      map['deleted_at'] = Variable<DateTime>(deletedAt.value);
+    }
+    if (rowid.present) {
+      map['rowid'] = Variable<int>(rowid.value);
     }
     return map;
   }
 
   @override
   String toString() {
-    return (StringBuffer('PagesCompanion(')
+    return (StringBuffer('DocumentsCompanion(')
           ..write('id: $id, ')
-          ..write('name: $name, ')
+          ..write('parentId: $parentId, ')
+          ..write('title: $title, ')
+          ..write('icon: $icon, ')
           ..write('type: $type, ')
-          ..write('createdAt: $createdAt')
+          ..write('cover: $cover, ')
+          ..write('createdAt: $createdAt, ')
+          ..write('updatedAt: $updatedAt, ')
+          ..write('deletedAt: $deletedAt, ')
+          ..write('rowid: $rowid')
           ..write(')'))
         .toString();
   }
@@ -267,51 +464,92 @@ class $BlocksTable extends Blocks with TableInfo<$BlocksTable, Block> {
   late final GeneratedColumn<String> id = GeneratedColumn<String>(
       'id', aliasedName, false,
       type: DriftSqlType.string, requiredDuringInsert: true);
-  static const VerificationMeta _pageIdMeta = const VerificationMeta('pageId');
+  static const VerificationMeta _documentIdMeta =
+      const VerificationMeta('documentId');
   @override
-  late final GeneratedColumn<String> pageId = GeneratedColumn<String>(
-      'page_id', aliasedName, false,
+  late final GeneratedColumn<String> documentId = GeneratedColumn<String>(
+      'document_id', aliasedName, false,
       type: DriftSqlType.string,
       requiredDuringInsert: true,
       defaultConstraints: GeneratedColumn.constraintIsAlways(
-          'REFERENCES pages (name) ON DELETE CASCADE'));
-  static const VerificationMeta _orderIndexMeta =
-      const VerificationMeta('orderIndex');
+          'REFERENCES documents (id) ON DELETE CASCADE'));
+  static const VerificationMeta _parentIdMeta =
+      const VerificationMeta('parentId');
   @override
-  late final GeneratedColumn<int> orderIndex = GeneratedColumn<int>(
-      'order_index', aliasedName, false,
-      type: DriftSqlType.int, requiredDuringInsert: true);
-  static const VerificationMeta _indentMeta = const VerificationMeta('indent');
-  @override
-  late final GeneratedColumn<int> indent = GeneratedColumn<int>(
-      'indent', aliasedName, false,
-      type: DriftSqlType.int,
-      requiredDuringInsert: false,
-      defaultValue: const Constant(0));
+  late final GeneratedColumn<String> parentId = GeneratedColumn<String>(
+      'parent_id', aliasedName, true,
+      type: DriftSqlType.string, requiredDuringInsert: false);
   static const VerificationMeta _typeMeta = const VerificationMeta('type');
   @override
   late final GeneratedColumn<String> type = GeneratedColumn<String>(
       'type', aliasedName, false,
       type: DriftSqlType.string, requiredDuringInsert: true);
-  static const VerificationMeta _contentMeta =
-      const VerificationMeta('content');
+  static const VerificationMeta _textContentMeta =
+      const VerificationMeta('textContent');
   @override
-  late final GeneratedColumn<String> content = GeneratedColumn<String>(
-      'content', aliasedName, false,
+  late final GeneratedColumn<String> textContent = GeneratedColumn<String>(
+      'text', aliasedName, false,
       type: DriftSqlType.string,
       requiredDuringInsert: false,
       defaultValue: const Constant(''));
+  static const VerificationMeta _checkedMeta =
+      const VerificationMeta('checked');
+  @override
+  late final GeneratedColumn<bool> checked = GeneratedColumn<bool>(
+      'checked', aliasedName, false,
+      type: DriftSqlType.bool,
+      requiredDuringInsert: false,
+      defaultConstraints:
+          GeneratedColumn.constraintIsAlways('CHECK ("checked" IN (0, 1))'),
+      defaultValue: const Constant(false));
   static const VerificationMeta _dataJsonMeta =
       const VerificationMeta('dataJson');
   @override
   late final GeneratedColumn<String> dataJson = GeneratedColumn<String>(
-      'data_json', aliasedName, false,
-      type: DriftSqlType.string,
-      requiredDuringInsert: false,
-      defaultValue: const Constant('{}'));
+      'data_json', aliasedName, true,
+      type: DriftSqlType.string, requiredDuringInsert: false);
+  static const VerificationMeta _orderIndexMeta =
+      const VerificationMeta('orderIndex');
   @override
-  List<GeneratedColumn> get $columns =>
-      [id, pageId, orderIndex, indent, type, content, dataJson];
+  late final GeneratedColumn<double> orderIndex = GeneratedColumn<double>(
+      'order_index', aliasedName, false,
+      type: DriftSqlType.double, requiredDuringInsert: true);
+  static const VerificationMeta _createdAtMeta =
+      const VerificationMeta('createdAt');
+  @override
+  late final GeneratedColumn<DateTime> createdAt = GeneratedColumn<DateTime>(
+      'created_at', aliasedName, false,
+      type: DriftSqlType.dateTime,
+      requiredDuringInsert: false,
+      defaultValue: currentDateAndTime);
+  static const VerificationMeta _updatedAtMeta =
+      const VerificationMeta('updatedAt');
+  @override
+  late final GeneratedColumn<DateTime> updatedAt = GeneratedColumn<DateTime>(
+      'updated_at', aliasedName, false,
+      type: DriftSqlType.dateTime,
+      requiredDuringInsert: false,
+      defaultValue: currentDateAndTime);
+  static const VerificationMeta _deletedAtMeta =
+      const VerificationMeta('deletedAt');
+  @override
+  late final GeneratedColumn<DateTime> deletedAt = GeneratedColumn<DateTime>(
+      'deleted_at', aliasedName, true,
+      type: DriftSqlType.dateTime, requiredDuringInsert: false);
+  @override
+  List<GeneratedColumn> get $columns => [
+        id,
+        documentId,
+        parentId,
+        type,
+        textContent,
+        checked,
+        dataJson,
+        orderIndex,
+        createdAt,
+        updatedAt,
+        deletedAt
+      ];
   @override
   String get aliasedName => _alias ?? actualTableName;
   @override
@@ -327,11 +565,35 @@ class $BlocksTable extends Blocks with TableInfo<$BlocksTable, Block> {
     } else if (isInserting) {
       context.missing(_idMeta);
     }
-    if (data.containsKey('page_id')) {
-      context.handle(_pageIdMeta,
-          pageId.isAcceptableOrUnknown(data['page_id']!, _pageIdMeta));
+    if (data.containsKey('document_id')) {
+      context.handle(
+          _documentIdMeta,
+          documentId.isAcceptableOrUnknown(
+              data['document_id']!, _documentIdMeta));
     } else if (isInserting) {
-      context.missing(_pageIdMeta);
+      context.missing(_documentIdMeta);
+    }
+    if (data.containsKey('parent_id')) {
+      context.handle(_parentIdMeta,
+          parentId.isAcceptableOrUnknown(data['parent_id']!, _parentIdMeta));
+    }
+    if (data.containsKey('type')) {
+      context.handle(
+          _typeMeta, type.isAcceptableOrUnknown(data['type']!, _typeMeta));
+    } else if (isInserting) {
+      context.missing(_typeMeta);
+    }
+    if (data.containsKey('text')) {
+      context.handle(_textContentMeta,
+          textContent.isAcceptableOrUnknown(data['text']!, _textContentMeta));
+    }
+    if (data.containsKey('checked')) {
+      context.handle(_checkedMeta,
+          checked.isAcceptableOrUnknown(data['checked']!, _checkedMeta));
+    }
+    if (data.containsKey('data_json')) {
+      context.handle(_dataJsonMeta,
+          dataJson.isAcceptableOrUnknown(data['data_json']!, _dataJsonMeta));
     }
     if (data.containsKey('order_index')) {
       context.handle(
@@ -341,23 +603,17 @@ class $BlocksTable extends Blocks with TableInfo<$BlocksTable, Block> {
     } else if (isInserting) {
       context.missing(_orderIndexMeta);
     }
-    if (data.containsKey('indent')) {
-      context.handle(_indentMeta,
-          indent.isAcceptableOrUnknown(data['indent']!, _indentMeta));
+    if (data.containsKey('created_at')) {
+      context.handle(_createdAtMeta,
+          createdAt.isAcceptableOrUnknown(data['created_at']!, _createdAtMeta));
     }
-    if (data.containsKey('type')) {
-      context.handle(
-          _typeMeta, type.isAcceptableOrUnknown(data['type']!, _typeMeta));
-    } else if (isInserting) {
-      context.missing(_typeMeta);
+    if (data.containsKey('updated_at')) {
+      context.handle(_updatedAtMeta,
+          updatedAt.isAcceptableOrUnknown(data['updated_at']!, _updatedAtMeta));
     }
-    if (data.containsKey('content')) {
-      context.handle(_contentMeta,
-          content.isAcceptableOrUnknown(data['content']!, _contentMeta));
-    }
-    if (data.containsKey('data_json')) {
-      context.handle(_dataJsonMeta,
-          dataJson.isAcceptableOrUnknown(data['data_json']!, _dataJsonMeta));
+    if (data.containsKey('deleted_at')) {
+      context.handle(_deletedAtMeta,
+          deletedAt.isAcceptableOrUnknown(data['deleted_at']!, _deletedAtMeta));
     }
     return context;
   }
@@ -370,18 +626,26 @@ class $BlocksTable extends Blocks with TableInfo<$BlocksTable, Block> {
     return Block(
       id: attachedDatabase.typeMapping
           .read(DriftSqlType.string, data['${effectivePrefix}id'])!,
-      pageId: attachedDatabase.typeMapping
-          .read(DriftSqlType.string, data['${effectivePrefix}page_id'])!,
-      orderIndex: attachedDatabase.typeMapping
-          .read(DriftSqlType.int, data['${effectivePrefix}order_index'])!,
-      indent: attachedDatabase.typeMapping
-          .read(DriftSqlType.int, data['${effectivePrefix}indent'])!,
+      documentId: attachedDatabase.typeMapping
+          .read(DriftSqlType.string, data['${effectivePrefix}document_id'])!,
+      parentId: attachedDatabase.typeMapping
+          .read(DriftSqlType.string, data['${effectivePrefix}parent_id']),
       type: attachedDatabase.typeMapping
           .read(DriftSqlType.string, data['${effectivePrefix}type'])!,
-      content: attachedDatabase.typeMapping
-          .read(DriftSqlType.string, data['${effectivePrefix}content'])!,
+      textContent: attachedDatabase.typeMapping
+          .read(DriftSqlType.string, data['${effectivePrefix}text'])!,
+      checked: attachedDatabase.typeMapping
+          .read(DriftSqlType.bool, data['${effectivePrefix}checked'])!,
       dataJson: attachedDatabase.typeMapping
-          .read(DriftSqlType.string, data['${effectivePrefix}data_json'])!,
+          .read(DriftSqlType.string, data['${effectivePrefix}data_json']),
+      orderIndex: attachedDatabase.typeMapping
+          .read(DriftSqlType.double, data['${effectivePrefix}order_index'])!,
+      createdAt: attachedDatabase.typeMapping
+          .read(DriftSqlType.dateTime, data['${effectivePrefix}created_at'])!,
+      updatedAt: attachedDatabase.typeMapping
+          .read(DriftSqlType.dateTime, data['${effectivePrefix}updated_at'])!,
+      deletedAt: attachedDatabase.typeMapping
+          .read(DriftSqlType.dateTime, data['${effectivePrefix}deleted_at']),
     );
   }
 
@@ -392,46 +656,71 @@ class $BlocksTable extends Blocks with TableInfo<$BlocksTable, Block> {
 }
 
 class Block extends DataClass implements Insertable<Block> {
-  /// Block id (e.g. UUID string)
   final String id;
-
-  /// Page identifier (page name)
-  final String pageId;
-  final int orderIndex;
-  final int indent;
+  final String documentId;
+  final String? parentId;
   final String type;
-  final String content;
-  final String dataJson;
+  final String textContent;
+  final bool checked;
+  final String? dataJson;
+  final double orderIndex;
+  final DateTime createdAt;
+  final DateTime updatedAt;
+  final DateTime? deletedAt;
   const Block(
       {required this.id,
-      required this.pageId,
-      required this.orderIndex,
-      required this.indent,
+      required this.documentId,
+      this.parentId,
       required this.type,
-      required this.content,
-      required this.dataJson});
+      required this.textContent,
+      required this.checked,
+      this.dataJson,
+      required this.orderIndex,
+      required this.createdAt,
+      required this.updatedAt,
+      this.deletedAt});
   @override
   Map<String, Expression> toColumns(bool nullToAbsent) {
     final map = <String, Expression>{};
     map['id'] = Variable<String>(id);
-    map['page_id'] = Variable<String>(pageId);
-    map['order_index'] = Variable<int>(orderIndex);
-    map['indent'] = Variable<int>(indent);
+    map['document_id'] = Variable<String>(documentId);
+    if (!nullToAbsent || parentId != null) {
+      map['parent_id'] = Variable<String>(parentId);
+    }
     map['type'] = Variable<String>(type);
-    map['content'] = Variable<String>(content);
-    map['data_json'] = Variable<String>(dataJson);
+    map['text'] = Variable<String>(textContent);
+    map['checked'] = Variable<bool>(checked);
+    if (!nullToAbsent || dataJson != null) {
+      map['data_json'] = Variable<String>(dataJson);
+    }
+    map['order_index'] = Variable<double>(orderIndex);
+    map['created_at'] = Variable<DateTime>(createdAt);
+    map['updated_at'] = Variable<DateTime>(updatedAt);
+    if (!nullToAbsent || deletedAt != null) {
+      map['deleted_at'] = Variable<DateTime>(deletedAt);
+    }
     return map;
   }
 
   BlocksCompanion toCompanion(bool nullToAbsent) {
     return BlocksCompanion(
       id: Value(id),
-      pageId: Value(pageId),
-      orderIndex: Value(orderIndex),
-      indent: Value(indent),
+      documentId: Value(documentId),
+      parentId: parentId == null && nullToAbsent
+          ? const Value.absent()
+          : Value(parentId),
       type: Value(type),
-      content: Value(content),
-      dataJson: Value(dataJson),
+      textContent: Value(textContent),
+      checked: Value(checked),
+      dataJson: dataJson == null && nullToAbsent
+          ? const Value.absent()
+          : Value(dataJson),
+      orderIndex: Value(orderIndex),
+      createdAt: Value(createdAt),
+      updatedAt: Value(updatedAt),
+      deletedAt: deletedAt == null && nullToAbsent
+          ? const Value.absent()
+          : Value(deletedAt),
     );
   }
 
@@ -440,12 +729,16 @@ class Block extends DataClass implements Insertable<Block> {
     serializer ??= driftRuntimeOptions.defaultSerializer;
     return Block(
       id: serializer.fromJson<String>(json['id']),
-      pageId: serializer.fromJson<String>(json['pageId']),
-      orderIndex: serializer.fromJson<int>(json['orderIndex']),
-      indent: serializer.fromJson<int>(json['indent']),
+      documentId: serializer.fromJson<String>(json['documentId']),
+      parentId: serializer.fromJson<String?>(json['parentId']),
       type: serializer.fromJson<String>(json['type']),
-      content: serializer.fromJson<String>(json['content']),
-      dataJson: serializer.fromJson<String>(json['dataJson']),
+      textContent: serializer.fromJson<String>(json['textContent']),
+      checked: serializer.fromJson<bool>(json['checked']),
+      dataJson: serializer.fromJson<String?>(json['dataJson']),
+      orderIndex: serializer.fromJson<double>(json['orderIndex']),
+      createdAt: serializer.fromJson<DateTime>(json['createdAt']),
+      updatedAt: serializer.fromJson<DateTime>(json['updatedAt']),
+      deletedAt: serializer.fromJson<DateTime?>(json['deletedAt']),
     );
   }
   @override
@@ -453,42 +746,60 @@ class Block extends DataClass implements Insertable<Block> {
     serializer ??= driftRuntimeOptions.defaultSerializer;
     return <String, dynamic>{
       'id': serializer.toJson<String>(id),
-      'pageId': serializer.toJson<String>(pageId),
-      'orderIndex': serializer.toJson<int>(orderIndex),
-      'indent': serializer.toJson<int>(indent),
+      'documentId': serializer.toJson<String>(documentId),
+      'parentId': serializer.toJson<String?>(parentId),
       'type': serializer.toJson<String>(type),
-      'content': serializer.toJson<String>(content),
-      'dataJson': serializer.toJson<String>(dataJson),
+      'textContent': serializer.toJson<String>(textContent),
+      'checked': serializer.toJson<bool>(checked),
+      'dataJson': serializer.toJson<String?>(dataJson),
+      'orderIndex': serializer.toJson<double>(orderIndex),
+      'createdAt': serializer.toJson<DateTime>(createdAt),
+      'updatedAt': serializer.toJson<DateTime>(updatedAt),
+      'deletedAt': serializer.toJson<DateTime?>(deletedAt),
     };
   }
 
   Block copyWith(
           {String? id,
-          String? pageId,
-          int? orderIndex,
-          int? indent,
+          String? documentId,
+          Value<String?> parentId = const Value.absent(),
           String? type,
-          String? content,
-          String? dataJson}) =>
+          String? textContent,
+          bool? checked,
+          Value<String?> dataJson = const Value.absent(),
+          double? orderIndex,
+          DateTime? createdAt,
+          DateTime? updatedAt,
+          Value<DateTime?> deletedAt = const Value.absent()}) =>
       Block(
         id: id ?? this.id,
-        pageId: pageId ?? this.pageId,
-        orderIndex: orderIndex ?? this.orderIndex,
-        indent: indent ?? this.indent,
+        documentId: documentId ?? this.documentId,
+        parentId: parentId.present ? parentId.value : this.parentId,
         type: type ?? this.type,
-        content: content ?? this.content,
-        dataJson: dataJson ?? this.dataJson,
+        textContent: textContent ?? this.textContent,
+        checked: checked ?? this.checked,
+        dataJson: dataJson.present ? dataJson.value : this.dataJson,
+        orderIndex: orderIndex ?? this.orderIndex,
+        createdAt: createdAt ?? this.createdAt,
+        updatedAt: updatedAt ?? this.updatedAt,
+        deletedAt: deletedAt.present ? deletedAt.value : this.deletedAt,
       );
   Block copyWithCompanion(BlocksCompanion data) {
     return Block(
       id: data.id.present ? data.id.value : this.id,
-      pageId: data.pageId.present ? data.pageId.value : this.pageId,
+      documentId:
+          data.documentId.present ? data.documentId.value : this.documentId,
+      parentId: data.parentId.present ? data.parentId.value : this.parentId,
+      type: data.type.present ? data.type.value : this.type,
+      textContent:
+          data.textContent.present ? data.textContent.value : this.textContent,
+      checked: data.checked.present ? data.checked.value : this.checked,
+      dataJson: data.dataJson.present ? data.dataJson.value : this.dataJson,
       orderIndex:
           data.orderIndex.present ? data.orderIndex.value : this.orderIndex,
-      indent: data.indent.present ? data.indent.value : this.indent,
-      type: data.type.present ? data.type.value : this.type,
-      content: data.content.present ? data.content.value : this.content,
-      dataJson: data.dataJson.present ? data.dataJson.value : this.dataJson,
+      createdAt: data.createdAt.present ? data.createdAt.value : this.createdAt,
+      updatedAt: data.updatedAt.present ? data.updatedAt.value : this.updatedAt,
+      deletedAt: data.deletedAt.present ? data.deletedAt.value : this.deletedAt,
     );
   }
 
@@ -496,103 +807,139 @@ class Block extends DataClass implements Insertable<Block> {
   String toString() {
     return (StringBuffer('Block(')
           ..write('id: $id, ')
-          ..write('pageId: $pageId, ')
-          ..write('orderIndex: $orderIndex, ')
-          ..write('indent: $indent, ')
+          ..write('documentId: $documentId, ')
+          ..write('parentId: $parentId, ')
           ..write('type: $type, ')
-          ..write('content: $content, ')
-          ..write('dataJson: $dataJson')
+          ..write('textContent: $textContent, ')
+          ..write('checked: $checked, ')
+          ..write('dataJson: $dataJson, ')
+          ..write('orderIndex: $orderIndex, ')
+          ..write('createdAt: $createdAt, ')
+          ..write('updatedAt: $updatedAt, ')
+          ..write('deletedAt: $deletedAt')
           ..write(')'))
         .toString();
   }
 
   @override
-  int get hashCode =>
-      Object.hash(id, pageId, orderIndex, indent, type, content, dataJson);
+  int get hashCode => Object.hash(id, documentId, parentId, type, textContent,
+      checked, dataJson, orderIndex, createdAt, updatedAt, deletedAt);
   @override
   bool operator ==(Object other) =>
       identical(this, other) ||
       (other is Block &&
           other.id == this.id &&
-          other.pageId == this.pageId &&
-          other.orderIndex == this.orderIndex &&
-          other.indent == this.indent &&
+          other.documentId == this.documentId &&
+          other.parentId == this.parentId &&
           other.type == this.type &&
-          other.content == this.content &&
-          other.dataJson == this.dataJson);
+          other.textContent == this.textContent &&
+          other.checked == this.checked &&
+          other.dataJson == this.dataJson &&
+          other.orderIndex == this.orderIndex &&
+          other.createdAt == this.createdAt &&
+          other.updatedAt == this.updatedAt &&
+          other.deletedAt == this.deletedAt);
 }
 
 class BlocksCompanion extends UpdateCompanion<Block> {
   final Value<String> id;
-  final Value<String> pageId;
-  final Value<int> orderIndex;
-  final Value<int> indent;
+  final Value<String> documentId;
+  final Value<String?> parentId;
   final Value<String> type;
-  final Value<String> content;
-  final Value<String> dataJson;
+  final Value<String> textContent;
+  final Value<bool> checked;
+  final Value<String?> dataJson;
+  final Value<double> orderIndex;
+  final Value<DateTime> createdAt;
+  final Value<DateTime> updatedAt;
+  final Value<DateTime?> deletedAt;
   final Value<int> rowid;
   const BlocksCompanion({
     this.id = const Value.absent(),
-    this.pageId = const Value.absent(),
-    this.orderIndex = const Value.absent(),
-    this.indent = const Value.absent(),
+    this.documentId = const Value.absent(),
+    this.parentId = const Value.absent(),
     this.type = const Value.absent(),
-    this.content = const Value.absent(),
+    this.textContent = const Value.absent(),
+    this.checked = const Value.absent(),
     this.dataJson = const Value.absent(),
+    this.orderIndex = const Value.absent(),
+    this.createdAt = const Value.absent(),
+    this.updatedAt = const Value.absent(),
+    this.deletedAt = const Value.absent(),
     this.rowid = const Value.absent(),
   });
   BlocksCompanion.insert({
     required String id,
-    required String pageId,
-    required int orderIndex,
-    this.indent = const Value.absent(),
+    required String documentId,
+    this.parentId = const Value.absent(),
     required String type,
-    this.content = const Value.absent(),
+    this.textContent = const Value.absent(),
+    this.checked = const Value.absent(),
     this.dataJson = const Value.absent(),
+    required double orderIndex,
+    this.createdAt = const Value.absent(),
+    this.updatedAt = const Value.absent(),
+    this.deletedAt = const Value.absent(),
     this.rowid = const Value.absent(),
   })  : id = Value(id),
-        pageId = Value(pageId),
-        orderIndex = Value(orderIndex),
-        type = Value(type);
+        documentId = Value(documentId),
+        type = Value(type),
+        orderIndex = Value(orderIndex);
   static Insertable<Block> custom({
     Expression<String>? id,
-    Expression<String>? pageId,
-    Expression<int>? orderIndex,
-    Expression<int>? indent,
+    Expression<String>? documentId,
+    Expression<String>? parentId,
     Expression<String>? type,
-    Expression<String>? content,
+    Expression<String>? textContent,
+    Expression<bool>? checked,
     Expression<String>? dataJson,
+    Expression<double>? orderIndex,
+    Expression<DateTime>? createdAt,
+    Expression<DateTime>? updatedAt,
+    Expression<DateTime>? deletedAt,
     Expression<int>? rowid,
   }) {
     return RawValuesInsertable({
       if (id != null) 'id': id,
-      if (pageId != null) 'page_id': pageId,
-      if (orderIndex != null) 'order_index': orderIndex,
-      if (indent != null) 'indent': indent,
+      if (documentId != null) 'document_id': documentId,
+      if (parentId != null) 'parent_id': parentId,
       if (type != null) 'type': type,
-      if (content != null) 'content': content,
+      if (textContent != null) 'text': textContent,
+      if (checked != null) 'checked': checked,
       if (dataJson != null) 'data_json': dataJson,
+      if (orderIndex != null) 'order_index': orderIndex,
+      if (createdAt != null) 'created_at': createdAt,
+      if (updatedAt != null) 'updated_at': updatedAt,
+      if (deletedAt != null) 'deleted_at': deletedAt,
       if (rowid != null) 'rowid': rowid,
     });
   }
 
   BlocksCompanion copyWith(
       {Value<String>? id,
-      Value<String>? pageId,
-      Value<int>? orderIndex,
-      Value<int>? indent,
+      Value<String>? documentId,
+      Value<String?>? parentId,
       Value<String>? type,
-      Value<String>? content,
-      Value<String>? dataJson,
+      Value<String>? textContent,
+      Value<bool>? checked,
+      Value<String?>? dataJson,
+      Value<double>? orderIndex,
+      Value<DateTime>? createdAt,
+      Value<DateTime>? updatedAt,
+      Value<DateTime?>? deletedAt,
       Value<int>? rowid}) {
     return BlocksCompanion(
       id: id ?? this.id,
-      pageId: pageId ?? this.pageId,
-      orderIndex: orderIndex ?? this.orderIndex,
-      indent: indent ?? this.indent,
+      documentId: documentId ?? this.documentId,
+      parentId: parentId ?? this.parentId,
       type: type ?? this.type,
-      content: content ?? this.content,
+      textContent: textContent ?? this.textContent,
+      checked: checked ?? this.checked,
       dataJson: dataJson ?? this.dataJson,
+      orderIndex: orderIndex ?? this.orderIndex,
+      createdAt: createdAt ?? this.createdAt,
+      updatedAt: updatedAt ?? this.updatedAt,
+      deletedAt: deletedAt ?? this.deletedAt,
       rowid: rowid ?? this.rowid,
     );
   }
@@ -603,23 +950,35 @@ class BlocksCompanion extends UpdateCompanion<Block> {
     if (id.present) {
       map['id'] = Variable<String>(id.value);
     }
-    if (pageId.present) {
-      map['page_id'] = Variable<String>(pageId.value);
+    if (documentId.present) {
+      map['document_id'] = Variable<String>(documentId.value);
     }
-    if (orderIndex.present) {
-      map['order_index'] = Variable<int>(orderIndex.value);
-    }
-    if (indent.present) {
-      map['indent'] = Variable<int>(indent.value);
+    if (parentId.present) {
+      map['parent_id'] = Variable<String>(parentId.value);
     }
     if (type.present) {
       map['type'] = Variable<String>(type.value);
     }
-    if (content.present) {
-      map['content'] = Variable<String>(content.value);
+    if (textContent.present) {
+      map['text'] = Variable<String>(textContent.value);
+    }
+    if (checked.present) {
+      map['checked'] = Variable<bool>(checked.value);
     }
     if (dataJson.present) {
       map['data_json'] = Variable<String>(dataJson.value);
+    }
+    if (orderIndex.present) {
+      map['order_index'] = Variable<double>(orderIndex.value);
+    }
+    if (createdAt.present) {
+      map['created_at'] = Variable<DateTime>(createdAt.value);
+    }
+    if (updatedAt.present) {
+      map['updated_at'] = Variable<DateTime>(updatedAt.value);
+    }
+    if (deletedAt.present) {
+      map['deleted_at'] = Variable<DateTime>(deletedAt.value);
     }
     if (rowid.present) {
       map['rowid'] = Variable<int>(rowid.value);
@@ -631,217 +990,390 @@ class BlocksCompanion extends UpdateCompanion<Block> {
   String toString() {
     return (StringBuffer('BlocksCompanion(')
           ..write('id: $id, ')
-          ..write('pageId: $pageId, ')
-          ..write('orderIndex: $orderIndex, ')
-          ..write('indent: $indent, ')
+          ..write('documentId: $documentId, ')
+          ..write('parentId: $parentId, ')
           ..write('type: $type, ')
-          ..write('content: $content, ')
+          ..write('textContent: $textContent, ')
+          ..write('checked: $checked, ')
           ..write('dataJson: $dataJson, ')
+          ..write('orderIndex: $orderIndex, ')
+          ..write('createdAt: $createdAt, ')
+          ..write('updatedAt: $updatedAt, ')
+          ..write('deletedAt: $deletedAt, ')
           ..write('rowid: $rowid')
           ..write(')'))
         .toString();
   }
 }
 
-class $BlockLinksTable extends BlockLinks
-    with TableInfo<$BlockLinksTable, BlockLink> {
+class $OperationsTable extends Operations
+    with TableInfo<$OperationsTable, Operation> {
   @override
   final GeneratedDatabase attachedDatabase;
   final String? _alias;
-  $BlockLinksTable(this.attachedDatabase, [this._alias]);
-  static const VerificationMeta _sourceIdMeta =
-      const VerificationMeta('sourceId');
+  $OperationsTable(this.attachedDatabase, [this._alias]);
+  static const VerificationMeta _idMeta = const VerificationMeta('id');
   @override
-  late final GeneratedColumn<String> sourceId = GeneratedColumn<String>(
-      'source_id', aliasedName, false,
-      type: DriftSqlType.string,
-      requiredDuringInsert: true,
-      defaultConstraints: GeneratedColumn.constraintIsAlways(
-          'REFERENCES blocks (id) ON DELETE CASCADE'));
-  static const VerificationMeta _targetIdMeta =
-      const VerificationMeta('targetId');
-  @override
-  late final GeneratedColumn<String> targetId = GeneratedColumn<String>(
-      'target_id', aliasedName, false,
+  late final GeneratedColumn<String> id = GeneratedColumn<String>(
+      'id', aliasedName, false,
       type: DriftSqlType.string, requiredDuringInsert: true);
-  static const VerificationMeta _linkTypeMeta =
-      const VerificationMeta('linkType');
+  static const VerificationMeta _deviceIdMeta =
+      const VerificationMeta('deviceId');
   @override
-  late final GeneratedColumn<String> linkType = GeneratedColumn<String>(
-      'link_type', aliasedName, false,
-      type: DriftSqlType.string,
+  late final GeneratedColumn<String> deviceId = GeneratedColumn<String>(
+      'device_id', aliasedName, false,
+      type: DriftSqlType.string, requiredDuringInsert: true);
+  static const VerificationMeta _entityTypeMeta =
+      const VerificationMeta('entityType');
+  @override
+  late final GeneratedColumn<String> entityType = GeneratedColumn<String>(
+      'entity_type', aliasedName, false,
+      type: DriftSqlType.string, requiredDuringInsert: true);
+  static const VerificationMeta _entityIdMeta =
+      const VerificationMeta('entityId');
+  @override
+  late final GeneratedColumn<String> entityId = GeneratedColumn<String>(
+      'entity_id', aliasedName, false,
+      type: DriftSqlType.string, requiredDuringInsert: true);
+  static const VerificationMeta _actionMeta = const VerificationMeta('action');
+  @override
+  late final GeneratedColumn<String> action = GeneratedColumn<String>(
+      'action', aliasedName, false,
+      type: DriftSqlType.string, requiredDuringInsert: true);
+  static const VerificationMeta _payloadMeta =
+      const VerificationMeta('payload');
+  @override
+  late final GeneratedColumn<String> payload = GeneratedColumn<String>(
+      'payload', aliasedName, false,
+      type: DriftSqlType.string, requiredDuringInsert: true);
+  static const VerificationMeta _createdAtMeta =
+      const VerificationMeta('createdAt');
+  @override
+  late final GeneratedColumn<DateTime> createdAt = GeneratedColumn<DateTime>(
+      'created_at', aliasedName, false,
+      type: DriftSqlType.dateTime,
       requiredDuringInsert: false,
-      defaultValue: const Constant('ref'));
+      defaultValue: currentDateAndTime);
+  static const VerificationMeta _syncedMeta = const VerificationMeta('synced');
   @override
-  List<GeneratedColumn> get $columns => [sourceId, targetId, linkType];
+  late final GeneratedColumn<bool> synced = GeneratedColumn<bool>(
+      'synced', aliasedName, false,
+      type: DriftSqlType.bool,
+      requiredDuringInsert: false,
+      defaultConstraints:
+          GeneratedColumn.constraintIsAlways('CHECK ("synced" IN (0, 1))'),
+      defaultValue: const Constant(false));
+  @override
+  List<GeneratedColumn> get $columns =>
+      [id, deviceId, entityType, entityId, action, payload, createdAt, synced];
   @override
   String get aliasedName => _alias ?? actualTableName;
   @override
   String get actualTableName => $name;
-  static const String $name = 'block_links';
+  static const String $name = 'operations';
   @override
-  VerificationContext validateIntegrity(Insertable<BlockLink> instance,
+  VerificationContext validateIntegrity(Insertable<Operation> instance,
       {bool isInserting = false}) {
     final context = VerificationContext();
     final data = instance.toColumns(true);
-    if (data.containsKey('source_id')) {
-      context.handle(_sourceIdMeta,
-          sourceId.isAcceptableOrUnknown(data['source_id']!, _sourceIdMeta));
+    if (data.containsKey('id')) {
+      context.handle(_idMeta, id.isAcceptableOrUnknown(data['id']!, _idMeta));
     } else if (isInserting) {
-      context.missing(_sourceIdMeta);
+      context.missing(_idMeta);
     }
-    if (data.containsKey('target_id')) {
-      context.handle(_targetIdMeta,
-          targetId.isAcceptableOrUnknown(data['target_id']!, _targetIdMeta));
+    if (data.containsKey('device_id')) {
+      context.handle(_deviceIdMeta,
+          deviceId.isAcceptableOrUnknown(data['device_id']!, _deviceIdMeta));
     } else if (isInserting) {
-      context.missing(_targetIdMeta);
+      context.missing(_deviceIdMeta);
     }
-    if (data.containsKey('link_type')) {
-      context.handle(_linkTypeMeta,
-          linkType.isAcceptableOrUnknown(data['link_type']!, _linkTypeMeta));
+    if (data.containsKey('entity_type')) {
+      context.handle(
+          _entityTypeMeta,
+          entityType.isAcceptableOrUnknown(
+              data['entity_type']!, _entityTypeMeta));
+    } else if (isInserting) {
+      context.missing(_entityTypeMeta);
+    }
+    if (data.containsKey('entity_id')) {
+      context.handle(_entityIdMeta,
+          entityId.isAcceptableOrUnknown(data['entity_id']!, _entityIdMeta));
+    } else if (isInserting) {
+      context.missing(_entityIdMeta);
+    }
+    if (data.containsKey('action')) {
+      context.handle(_actionMeta,
+          action.isAcceptableOrUnknown(data['action']!, _actionMeta));
+    } else if (isInserting) {
+      context.missing(_actionMeta);
+    }
+    if (data.containsKey('payload')) {
+      context.handle(_payloadMeta,
+          payload.isAcceptableOrUnknown(data['payload']!, _payloadMeta));
+    } else if (isInserting) {
+      context.missing(_payloadMeta);
+    }
+    if (data.containsKey('created_at')) {
+      context.handle(_createdAtMeta,
+          createdAt.isAcceptableOrUnknown(data['created_at']!, _createdAtMeta));
+    }
+    if (data.containsKey('synced')) {
+      context.handle(_syncedMeta,
+          synced.isAcceptableOrUnknown(data['synced']!, _syncedMeta));
     }
     return context;
   }
 
   @override
-  Set<GeneratedColumn> get $primaryKey => {sourceId, targetId};
+  Set<GeneratedColumn> get $primaryKey => {id};
   @override
-  BlockLink map(Map<String, dynamic> data, {String? tablePrefix}) {
+  Operation map(Map<String, dynamic> data, {String? tablePrefix}) {
     final effectivePrefix = tablePrefix != null ? '$tablePrefix.' : '';
-    return BlockLink(
-      sourceId: attachedDatabase.typeMapping
-          .read(DriftSqlType.string, data['${effectivePrefix}source_id'])!,
-      targetId: attachedDatabase.typeMapping
-          .read(DriftSqlType.string, data['${effectivePrefix}target_id'])!,
-      linkType: attachedDatabase.typeMapping
-          .read(DriftSqlType.string, data['${effectivePrefix}link_type'])!,
+    return Operation(
+      id: attachedDatabase.typeMapping
+          .read(DriftSqlType.string, data['${effectivePrefix}id'])!,
+      deviceId: attachedDatabase.typeMapping
+          .read(DriftSqlType.string, data['${effectivePrefix}device_id'])!,
+      entityType: attachedDatabase.typeMapping
+          .read(DriftSqlType.string, data['${effectivePrefix}entity_type'])!,
+      entityId: attachedDatabase.typeMapping
+          .read(DriftSqlType.string, data['${effectivePrefix}entity_id'])!,
+      action: attachedDatabase.typeMapping
+          .read(DriftSqlType.string, data['${effectivePrefix}action'])!,
+      payload: attachedDatabase.typeMapping
+          .read(DriftSqlType.string, data['${effectivePrefix}payload'])!,
+      createdAt: attachedDatabase.typeMapping
+          .read(DriftSqlType.dateTime, data['${effectivePrefix}created_at'])!,
+      synced: attachedDatabase.typeMapping
+          .read(DriftSqlType.bool, data['${effectivePrefix}synced'])!,
     );
   }
 
   @override
-  $BlockLinksTable createAlias(String alias) {
-    return $BlockLinksTable(attachedDatabase, alias);
+  $OperationsTable createAlias(String alias) {
+    return $OperationsTable(attachedDatabase, alias);
   }
 }
 
-class BlockLink extends DataClass implements Insertable<BlockLink> {
-  final String sourceId;
-  final String targetId;
-  final String linkType;
-  const BlockLink(
-      {required this.sourceId, required this.targetId, required this.linkType});
+class Operation extends DataClass implements Insertable<Operation> {
+  final String id;
+  final String deviceId;
+  final String entityType;
+  final String entityId;
+  final String action;
+  final String payload;
+  final DateTime createdAt;
+  final bool synced;
+  const Operation(
+      {required this.id,
+      required this.deviceId,
+      required this.entityType,
+      required this.entityId,
+      required this.action,
+      required this.payload,
+      required this.createdAt,
+      required this.synced});
   @override
   Map<String, Expression> toColumns(bool nullToAbsent) {
     final map = <String, Expression>{};
-    map['source_id'] = Variable<String>(sourceId);
-    map['target_id'] = Variable<String>(targetId);
-    map['link_type'] = Variable<String>(linkType);
+    map['id'] = Variable<String>(id);
+    map['device_id'] = Variable<String>(deviceId);
+    map['entity_type'] = Variable<String>(entityType);
+    map['entity_id'] = Variable<String>(entityId);
+    map['action'] = Variable<String>(action);
+    map['payload'] = Variable<String>(payload);
+    map['created_at'] = Variable<DateTime>(createdAt);
+    map['synced'] = Variable<bool>(synced);
     return map;
   }
 
-  BlockLinksCompanion toCompanion(bool nullToAbsent) {
-    return BlockLinksCompanion(
-      sourceId: Value(sourceId),
-      targetId: Value(targetId),
-      linkType: Value(linkType),
+  OperationsCompanion toCompanion(bool nullToAbsent) {
+    return OperationsCompanion(
+      id: Value(id),
+      deviceId: Value(deviceId),
+      entityType: Value(entityType),
+      entityId: Value(entityId),
+      action: Value(action),
+      payload: Value(payload),
+      createdAt: Value(createdAt),
+      synced: Value(synced),
     );
   }
 
-  factory BlockLink.fromJson(Map<String, dynamic> json,
+  factory Operation.fromJson(Map<String, dynamic> json,
       {ValueSerializer? serializer}) {
     serializer ??= driftRuntimeOptions.defaultSerializer;
-    return BlockLink(
-      sourceId: serializer.fromJson<String>(json['sourceId']),
-      targetId: serializer.fromJson<String>(json['targetId']),
-      linkType: serializer.fromJson<String>(json['linkType']),
+    return Operation(
+      id: serializer.fromJson<String>(json['id']),
+      deviceId: serializer.fromJson<String>(json['deviceId']),
+      entityType: serializer.fromJson<String>(json['entityType']),
+      entityId: serializer.fromJson<String>(json['entityId']),
+      action: serializer.fromJson<String>(json['action']),
+      payload: serializer.fromJson<String>(json['payload']),
+      createdAt: serializer.fromJson<DateTime>(json['createdAt']),
+      synced: serializer.fromJson<bool>(json['synced']),
     );
   }
   @override
   Map<String, dynamic> toJson({ValueSerializer? serializer}) {
     serializer ??= driftRuntimeOptions.defaultSerializer;
     return <String, dynamic>{
-      'sourceId': serializer.toJson<String>(sourceId),
-      'targetId': serializer.toJson<String>(targetId),
-      'linkType': serializer.toJson<String>(linkType),
+      'id': serializer.toJson<String>(id),
+      'deviceId': serializer.toJson<String>(deviceId),
+      'entityType': serializer.toJson<String>(entityType),
+      'entityId': serializer.toJson<String>(entityId),
+      'action': serializer.toJson<String>(action),
+      'payload': serializer.toJson<String>(payload),
+      'createdAt': serializer.toJson<DateTime>(createdAt),
+      'synced': serializer.toJson<bool>(synced),
     };
   }
 
-  BlockLink copyWith({String? sourceId, String? targetId, String? linkType}) =>
-      BlockLink(
-        sourceId: sourceId ?? this.sourceId,
-        targetId: targetId ?? this.targetId,
-        linkType: linkType ?? this.linkType,
+  Operation copyWith(
+          {String? id,
+          String? deviceId,
+          String? entityType,
+          String? entityId,
+          String? action,
+          String? payload,
+          DateTime? createdAt,
+          bool? synced}) =>
+      Operation(
+        id: id ?? this.id,
+        deviceId: deviceId ?? this.deviceId,
+        entityType: entityType ?? this.entityType,
+        entityId: entityId ?? this.entityId,
+        action: action ?? this.action,
+        payload: payload ?? this.payload,
+        createdAt: createdAt ?? this.createdAt,
+        synced: synced ?? this.synced,
       );
-  BlockLink copyWithCompanion(BlockLinksCompanion data) {
-    return BlockLink(
-      sourceId: data.sourceId.present ? data.sourceId.value : this.sourceId,
-      targetId: data.targetId.present ? data.targetId.value : this.targetId,
-      linkType: data.linkType.present ? data.linkType.value : this.linkType,
+  Operation copyWithCompanion(OperationsCompanion data) {
+    return Operation(
+      id: data.id.present ? data.id.value : this.id,
+      deviceId: data.deviceId.present ? data.deviceId.value : this.deviceId,
+      entityType:
+          data.entityType.present ? data.entityType.value : this.entityType,
+      entityId: data.entityId.present ? data.entityId.value : this.entityId,
+      action: data.action.present ? data.action.value : this.action,
+      payload: data.payload.present ? data.payload.value : this.payload,
+      createdAt: data.createdAt.present ? data.createdAt.value : this.createdAt,
+      synced: data.synced.present ? data.synced.value : this.synced,
     );
   }
 
   @override
   String toString() {
-    return (StringBuffer('BlockLink(')
-          ..write('sourceId: $sourceId, ')
-          ..write('targetId: $targetId, ')
-          ..write('linkType: $linkType')
+    return (StringBuffer('Operation(')
+          ..write('id: $id, ')
+          ..write('deviceId: $deviceId, ')
+          ..write('entityType: $entityType, ')
+          ..write('entityId: $entityId, ')
+          ..write('action: $action, ')
+          ..write('payload: $payload, ')
+          ..write('createdAt: $createdAt, ')
+          ..write('synced: $synced')
           ..write(')'))
         .toString();
   }
 
   @override
-  int get hashCode => Object.hash(sourceId, targetId, linkType);
+  int get hashCode => Object.hash(
+      id, deviceId, entityType, entityId, action, payload, createdAt, synced);
   @override
   bool operator ==(Object other) =>
       identical(this, other) ||
-      (other is BlockLink &&
-          other.sourceId == this.sourceId &&
-          other.targetId == this.targetId &&
-          other.linkType == this.linkType);
+      (other is Operation &&
+          other.id == this.id &&
+          other.deviceId == this.deviceId &&
+          other.entityType == this.entityType &&
+          other.entityId == this.entityId &&
+          other.action == this.action &&
+          other.payload == this.payload &&
+          other.createdAt == this.createdAt &&
+          other.synced == this.synced);
 }
 
-class BlockLinksCompanion extends UpdateCompanion<BlockLink> {
-  final Value<String> sourceId;
-  final Value<String> targetId;
-  final Value<String> linkType;
+class OperationsCompanion extends UpdateCompanion<Operation> {
+  final Value<String> id;
+  final Value<String> deviceId;
+  final Value<String> entityType;
+  final Value<String> entityId;
+  final Value<String> action;
+  final Value<String> payload;
+  final Value<DateTime> createdAt;
+  final Value<bool> synced;
   final Value<int> rowid;
-  const BlockLinksCompanion({
-    this.sourceId = const Value.absent(),
-    this.targetId = const Value.absent(),
-    this.linkType = const Value.absent(),
+  const OperationsCompanion({
+    this.id = const Value.absent(),
+    this.deviceId = const Value.absent(),
+    this.entityType = const Value.absent(),
+    this.entityId = const Value.absent(),
+    this.action = const Value.absent(),
+    this.payload = const Value.absent(),
+    this.createdAt = const Value.absent(),
+    this.synced = const Value.absent(),
     this.rowid = const Value.absent(),
   });
-  BlockLinksCompanion.insert({
-    required String sourceId,
-    required String targetId,
-    this.linkType = const Value.absent(),
+  OperationsCompanion.insert({
+    required String id,
+    required String deviceId,
+    required String entityType,
+    required String entityId,
+    required String action,
+    required String payload,
+    this.createdAt = const Value.absent(),
+    this.synced = const Value.absent(),
     this.rowid = const Value.absent(),
-  })  : sourceId = Value(sourceId),
-        targetId = Value(targetId);
-  static Insertable<BlockLink> custom({
-    Expression<String>? sourceId,
-    Expression<String>? targetId,
-    Expression<String>? linkType,
+  })  : id = Value(id),
+        deviceId = Value(deviceId),
+        entityType = Value(entityType),
+        entityId = Value(entityId),
+        action = Value(action),
+        payload = Value(payload);
+  static Insertable<Operation> custom({
+    Expression<String>? id,
+    Expression<String>? deviceId,
+    Expression<String>? entityType,
+    Expression<String>? entityId,
+    Expression<String>? action,
+    Expression<String>? payload,
+    Expression<DateTime>? createdAt,
+    Expression<bool>? synced,
     Expression<int>? rowid,
   }) {
     return RawValuesInsertable({
-      if (sourceId != null) 'source_id': sourceId,
-      if (targetId != null) 'target_id': targetId,
-      if (linkType != null) 'link_type': linkType,
+      if (id != null) 'id': id,
+      if (deviceId != null) 'device_id': deviceId,
+      if (entityType != null) 'entity_type': entityType,
+      if (entityId != null) 'entity_id': entityId,
+      if (action != null) 'action': action,
+      if (payload != null) 'payload': payload,
+      if (createdAt != null) 'created_at': createdAt,
+      if (synced != null) 'synced': synced,
       if (rowid != null) 'rowid': rowid,
     });
   }
 
-  BlockLinksCompanion copyWith(
-      {Value<String>? sourceId,
-      Value<String>? targetId,
-      Value<String>? linkType,
+  OperationsCompanion copyWith(
+      {Value<String>? id,
+      Value<String>? deviceId,
+      Value<String>? entityType,
+      Value<String>? entityId,
+      Value<String>? action,
+      Value<String>? payload,
+      Value<DateTime>? createdAt,
+      Value<bool>? synced,
       Value<int>? rowid}) {
-    return BlockLinksCompanion(
-      sourceId: sourceId ?? this.sourceId,
-      targetId: targetId ?? this.targetId,
-      linkType: linkType ?? this.linkType,
+    return OperationsCompanion(
+      id: id ?? this.id,
+      deviceId: deviceId ?? this.deviceId,
+      entityType: entityType ?? this.entityType,
+      entityId: entityId ?? this.entityId,
+      action: action ?? this.action,
+      payload: payload ?? this.payload,
+      createdAt: createdAt ?? this.createdAt,
+      synced: synced ?? this.synced,
       rowid: rowid ?? this.rowid,
     );
   }
@@ -849,14 +1381,29 @@ class BlockLinksCompanion extends UpdateCompanion<BlockLink> {
   @override
   Map<String, Expression> toColumns(bool nullToAbsent) {
     final map = <String, Expression>{};
-    if (sourceId.present) {
-      map['source_id'] = Variable<String>(sourceId.value);
+    if (id.present) {
+      map['id'] = Variable<String>(id.value);
     }
-    if (targetId.present) {
-      map['target_id'] = Variable<String>(targetId.value);
+    if (deviceId.present) {
+      map['device_id'] = Variable<String>(deviceId.value);
     }
-    if (linkType.present) {
-      map['link_type'] = Variable<String>(linkType.value);
+    if (entityType.present) {
+      map['entity_type'] = Variable<String>(entityType.value);
+    }
+    if (entityId.present) {
+      map['entity_id'] = Variable<String>(entityId.value);
+    }
+    if (action.present) {
+      map['action'] = Variable<String>(action.value);
+    }
+    if (payload.present) {
+      map['payload'] = Variable<String>(payload.value);
+    }
+    if (createdAt.present) {
+      map['created_at'] = Variable<DateTime>(createdAt.value);
+    }
+    if (synced.present) {
+      map['synced'] = Variable<bool>(synced.value);
     }
     if (rowid.present) {
       map['rowid'] = Variable<int>(rowid.value);
@@ -866,273 +1413,16 @@ class BlockLinksCompanion extends UpdateCompanion<BlockLink> {
 
   @override
   String toString() {
-    return (StringBuffer('BlockLinksCompanion(')
-          ..write('sourceId: $sourceId, ')
-          ..write('targetId: $targetId, ')
-          ..write('linkType: $linkType, ')
+    return (StringBuffer('OperationsCompanion(')
+          ..write('id: $id, ')
+          ..write('deviceId: $deviceId, ')
+          ..write('entityType: $entityType, ')
+          ..write('entityId: $entityId, ')
+          ..write('action: $action, ')
+          ..write('payload: $payload, ')
+          ..write('createdAt: $createdAt, ')
+          ..write('synced: $synced, ')
           ..write('rowid: $rowid')
-          ..write(')'))
-        .toString();
-  }
-}
-
-class $PropertiesTable extends Properties
-    with TableInfo<$PropertiesTable, Property> {
-  @override
-  final GeneratedDatabase attachedDatabase;
-  final String? _alias;
-  $PropertiesTable(this.attachedDatabase, [this._alias]);
-  static const VerificationMeta _idMeta = const VerificationMeta('id');
-  @override
-  late final GeneratedColumn<int> id = GeneratedColumn<int>(
-      'id', aliasedName, false,
-      hasAutoIncrement: true,
-      type: DriftSqlType.int,
-      requiredDuringInsert: false,
-      defaultConstraints:
-          GeneratedColumn.constraintIsAlways('PRIMARY KEY AUTOINCREMENT'));
-  static const VerificationMeta _blockIdMeta =
-      const VerificationMeta('blockId');
-  @override
-  late final GeneratedColumn<String> blockId = GeneratedColumn<String>(
-      'block_id', aliasedName, false,
-      type: DriftSqlType.string,
-      requiredDuringInsert: true,
-      defaultConstraints: GeneratedColumn.constraintIsAlways(
-          'REFERENCES blocks (id) ON DELETE CASCADE'));
-  static const VerificationMeta _keyMeta = const VerificationMeta('key');
-  @override
-  late final GeneratedColumn<String> key = GeneratedColumn<String>(
-      'key', aliasedName, false,
-      type: DriftSqlType.string, requiredDuringInsert: true);
-  static const VerificationMeta _valueMeta = const VerificationMeta('value');
-  @override
-  late final GeneratedColumn<String> value = GeneratedColumn<String>(
-      'value', aliasedName, false,
-      type: DriftSqlType.string, requiredDuringInsert: true);
-  @override
-  List<GeneratedColumn> get $columns => [id, blockId, key, value];
-  @override
-  String get aliasedName => _alias ?? actualTableName;
-  @override
-  String get actualTableName => $name;
-  static const String $name = 'properties';
-  @override
-  VerificationContext validateIntegrity(Insertable<Property> instance,
-      {bool isInserting = false}) {
-    final context = VerificationContext();
-    final data = instance.toColumns(true);
-    if (data.containsKey('id')) {
-      context.handle(_idMeta, id.isAcceptableOrUnknown(data['id']!, _idMeta));
-    }
-    if (data.containsKey('block_id')) {
-      context.handle(_blockIdMeta,
-          blockId.isAcceptableOrUnknown(data['block_id']!, _blockIdMeta));
-    } else if (isInserting) {
-      context.missing(_blockIdMeta);
-    }
-    if (data.containsKey('key')) {
-      context.handle(
-          _keyMeta, key.isAcceptableOrUnknown(data['key']!, _keyMeta));
-    } else if (isInserting) {
-      context.missing(_keyMeta);
-    }
-    if (data.containsKey('value')) {
-      context.handle(
-          _valueMeta, value.isAcceptableOrUnknown(data['value']!, _valueMeta));
-    } else if (isInserting) {
-      context.missing(_valueMeta);
-    }
-    return context;
-  }
-
-  @override
-  Set<GeneratedColumn> get $primaryKey => {id};
-  @override
-  List<Set<GeneratedColumn>> get uniqueKeys => [
-        {blockId, key},
-      ];
-  @override
-  Property map(Map<String, dynamic> data, {String? tablePrefix}) {
-    final effectivePrefix = tablePrefix != null ? '$tablePrefix.' : '';
-    return Property(
-      id: attachedDatabase.typeMapping
-          .read(DriftSqlType.int, data['${effectivePrefix}id'])!,
-      blockId: attachedDatabase.typeMapping
-          .read(DriftSqlType.string, data['${effectivePrefix}block_id'])!,
-      key: attachedDatabase.typeMapping
-          .read(DriftSqlType.string, data['${effectivePrefix}key'])!,
-      value: attachedDatabase.typeMapping
-          .read(DriftSqlType.string, data['${effectivePrefix}value'])!,
-    );
-  }
-
-  @override
-  $PropertiesTable createAlias(String alias) {
-    return $PropertiesTable(attachedDatabase, alias);
-  }
-}
-
-class Property extends DataClass implements Insertable<Property> {
-  final int id;
-  final String blockId;
-  final String key;
-  final String value;
-  const Property(
-      {required this.id,
-      required this.blockId,
-      required this.key,
-      required this.value});
-  @override
-  Map<String, Expression> toColumns(bool nullToAbsent) {
-    final map = <String, Expression>{};
-    map['id'] = Variable<int>(id);
-    map['block_id'] = Variable<String>(blockId);
-    map['key'] = Variable<String>(key);
-    map['value'] = Variable<String>(value);
-    return map;
-  }
-
-  PropertiesCompanion toCompanion(bool nullToAbsent) {
-    return PropertiesCompanion(
-      id: Value(id),
-      blockId: Value(blockId),
-      key: Value(key),
-      value: Value(value),
-    );
-  }
-
-  factory Property.fromJson(Map<String, dynamic> json,
-      {ValueSerializer? serializer}) {
-    serializer ??= driftRuntimeOptions.defaultSerializer;
-    return Property(
-      id: serializer.fromJson<int>(json['id']),
-      blockId: serializer.fromJson<String>(json['blockId']),
-      key: serializer.fromJson<String>(json['key']),
-      value: serializer.fromJson<String>(json['value']),
-    );
-  }
-  @override
-  Map<String, dynamic> toJson({ValueSerializer? serializer}) {
-    serializer ??= driftRuntimeOptions.defaultSerializer;
-    return <String, dynamic>{
-      'id': serializer.toJson<int>(id),
-      'blockId': serializer.toJson<String>(blockId),
-      'key': serializer.toJson<String>(key),
-      'value': serializer.toJson<String>(value),
-    };
-  }
-
-  Property copyWith({int? id, String? blockId, String? key, String? value}) =>
-      Property(
-        id: id ?? this.id,
-        blockId: blockId ?? this.blockId,
-        key: key ?? this.key,
-        value: value ?? this.value,
-      );
-  Property copyWithCompanion(PropertiesCompanion data) {
-    return Property(
-      id: data.id.present ? data.id.value : this.id,
-      blockId: data.blockId.present ? data.blockId.value : this.blockId,
-      key: data.key.present ? data.key.value : this.key,
-      value: data.value.present ? data.value.value : this.value,
-    );
-  }
-
-  @override
-  String toString() {
-    return (StringBuffer('Property(')
-          ..write('id: $id, ')
-          ..write('blockId: $blockId, ')
-          ..write('key: $key, ')
-          ..write('value: $value')
-          ..write(')'))
-        .toString();
-  }
-
-  @override
-  int get hashCode => Object.hash(id, blockId, key, value);
-  @override
-  bool operator ==(Object other) =>
-      identical(this, other) ||
-      (other is Property &&
-          other.id == this.id &&
-          other.blockId == this.blockId &&
-          other.key == this.key &&
-          other.value == this.value);
-}
-
-class PropertiesCompanion extends UpdateCompanion<Property> {
-  final Value<int> id;
-  final Value<String> blockId;
-  final Value<String> key;
-  final Value<String> value;
-  const PropertiesCompanion({
-    this.id = const Value.absent(),
-    this.blockId = const Value.absent(),
-    this.key = const Value.absent(),
-    this.value = const Value.absent(),
-  });
-  PropertiesCompanion.insert({
-    this.id = const Value.absent(),
-    required String blockId,
-    required String key,
-    required String value,
-  })  : blockId = Value(blockId),
-        key = Value(key),
-        value = Value(value);
-  static Insertable<Property> custom({
-    Expression<int>? id,
-    Expression<String>? blockId,
-    Expression<String>? key,
-    Expression<String>? value,
-  }) {
-    return RawValuesInsertable({
-      if (id != null) 'id': id,
-      if (blockId != null) 'block_id': blockId,
-      if (key != null) 'key': key,
-      if (value != null) 'value': value,
-    });
-  }
-
-  PropertiesCompanion copyWith(
-      {Value<int>? id,
-      Value<String>? blockId,
-      Value<String>? key,
-      Value<String>? value}) {
-    return PropertiesCompanion(
-      id: id ?? this.id,
-      blockId: blockId ?? this.blockId,
-      key: key ?? this.key,
-      value: value ?? this.value,
-    );
-  }
-
-  @override
-  Map<String, Expression> toColumns(bool nullToAbsent) {
-    final map = <String, Expression>{};
-    if (id.present) {
-      map['id'] = Variable<int>(id.value);
-    }
-    if (blockId.present) {
-      map['block_id'] = Variable<String>(blockId.value);
-    }
-    if (key.present) {
-      map['key'] = Variable<String>(key.value);
-    }
-    if (value.present) {
-      map['value'] = Variable<String>(value.value);
-    }
-    return map;
-  }
-
-  @override
-  String toString() {
-    return (StringBuffer('PropertiesCompanion(')
-          ..write('id: $id, ')
-          ..write('blockId: $blockId, ')
-          ..write('key: $key, ')
-          ..write('value: $value')
           ..write(')'))
         .toString();
   }
@@ -1141,69 +1431,67 @@ class PropertiesCompanion extends UpdateCompanion<Property> {
 abstract class _$AppDatabase extends GeneratedDatabase {
   _$AppDatabase(QueryExecutor e) : super(e);
   $AppDatabaseManager get managers => $AppDatabaseManager(this);
-  late final $PagesTable pages = $PagesTable(this);
+  late final $DocumentsTable documents = $DocumentsTable(this);
   late final $BlocksTable blocks = $BlocksTable(this);
-  late final $BlockLinksTable blockLinks = $BlockLinksTable(this);
-  late final $PropertiesTable properties = $PropertiesTable(this);
+  late final $OperationsTable operations = $OperationsTable(this);
   @override
   Iterable<TableInfo<Table, Object?>> get allTables =>
       allSchemaEntities.whereType<TableInfo<Table, Object?>>();
   @override
   List<DatabaseSchemaEntity> get allSchemaEntities =>
-      [pages, blocks, blockLinks, properties];
+      [documents, blocks, operations];
   @override
   StreamQueryUpdateRules get streamUpdateRules => const StreamQueryUpdateRules(
         [
           WritePropagation(
-            on: TableUpdateQuery.onTableName('pages',
+            on: TableUpdateQuery.onTableName('documents',
                 limitUpdateKind: UpdateKind.delete),
             result: [
               TableUpdate('blocks', kind: UpdateKind.delete),
-            ],
-          ),
-          WritePropagation(
-            on: TableUpdateQuery.onTableName('blocks',
-                limitUpdateKind: UpdateKind.delete),
-            result: [
-              TableUpdate('block_links', kind: UpdateKind.delete),
-            ],
-          ),
-          WritePropagation(
-            on: TableUpdateQuery.onTableName('blocks',
-                limitUpdateKind: UpdateKind.delete),
-            result: [
-              TableUpdate('properties', kind: UpdateKind.delete),
             ],
           ),
         ],
       );
 }
 
-typedef $$PagesTableCreateCompanionBuilder = PagesCompanion Function({
-  Value<int> id,
-  required String name,
+typedef $$DocumentsTableCreateCompanionBuilder = DocumentsCompanion Function({
+  required String id,
+  Value<String?> parentId,
+  Value<String> title,
+  Value<String?> icon,
   Value<String> type,
+  Value<String?> cover,
   Value<DateTime> createdAt,
+  Value<DateTime> updatedAt,
+  Value<DateTime?> deletedAt,
+  Value<int> rowid,
 });
-typedef $$PagesTableUpdateCompanionBuilder = PagesCompanion Function({
-  Value<int> id,
-  Value<String> name,
+typedef $$DocumentsTableUpdateCompanionBuilder = DocumentsCompanion Function({
+  Value<String> id,
+  Value<String?> parentId,
+  Value<String> title,
+  Value<String?> icon,
   Value<String> type,
+  Value<String?> cover,
   Value<DateTime> createdAt,
+  Value<DateTime> updatedAt,
+  Value<DateTime?> deletedAt,
+  Value<int> rowid,
 });
 
-final class $$PagesTableReferences
-    extends BaseReferences<_$AppDatabase, $PagesTable, Page> {
-  $$PagesTableReferences(super.$_db, super.$_table, super.$_typedResult);
+final class $$DocumentsTableReferences
+    extends BaseReferences<_$AppDatabase, $DocumentsTable, Document> {
+  $$DocumentsTableReferences(super.$_db, super.$_table, super.$_typedResult);
 
   static MultiTypedResultKey<$BlocksTable, List<Block>> _blocksRefsTable(
           _$AppDatabase db) =>
       MultiTypedResultKey.fromTable(db.blocks,
-          aliasName: $_aliasNameGenerator(db.pages.name, db.blocks.pageId));
+          aliasName:
+              $_aliasNameGenerator(db.documents.id, db.blocks.documentId));
 
   $$BlocksTableProcessedTableManager get blocksRefs {
     final manager = $$BlocksTableTableManager($_db, $_db.blocks)
-        .filter((f) => f.pageId.name.sqlEquals($_itemColumn<String>('name')!));
+        .filter((f) => f.documentId.id.sqlEquals($_itemColumn<String>('id')!));
 
     final cache = $_typedResult.readTableOrNull(_blocksRefsTable($_db));
     return ProcessedTableManager(
@@ -1211,33 +1499,49 @@ final class $$PagesTableReferences
   }
 }
 
-class $$PagesTableFilterComposer extends Composer<_$AppDatabase, $PagesTable> {
-  $$PagesTableFilterComposer({
+class $$DocumentsTableFilterComposer
+    extends Composer<_$AppDatabase, $DocumentsTable> {
+  $$DocumentsTableFilterComposer({
     required super.$db,
     required super.$table,
     super.joinBuilder,
     super.$addJoinBuilderToRootComposer,
     super.$removeJoinBuilderFromRootComposer,
   });
-  ColumnFilters<int> get id => $composableBuilder(
+  ColumnFilters<String> get id => $composableBuilder(
       column: $table.id, builder: (column) => ColumnFilters(column));
 
-  ColumnFilters<String> get name => $composableBuilder(
-      column: $table.name, builder: (column) => ColumnFilters(column));
+  ColumnFilters<String> get parentId => $composableBuilder(
+      column: $table.parentId, builder: (column) => ColumnFilters(column));
+
+  ColumnFilters<String> get title => $composableBuilder(
+      column: $table.title, builder: (column) => ColumnFilters(column));
+
+  ColumnFilters<String> get icon => $composableBuilder(
+      column: $table.icon, builder: (column) => ColumnFilters(column));
 
   ColumnFilters<String> get type => $composableBuilder(
       column: $table.type, builder: (column) => ColumnFilters(column));
 
+  ColumnFilters<String> get cover => $composableBuilder(
+      column: $table.cover, builder: (column) => ColumnFilters(column));
+
   ColumnFilters<DateTime> get createdAt => $composableBuilder(
       column: $table.createdAt, builder: (column) => ColumnFilters(column));
+
+  ColumnFilters<DateTime> get updatedAt => $composableBuilder(
+      column: $table.updatedAt, builder: (column) => ColumnFilters(column));
+
+  ColumnFilters<DateTime> get deletedAt => $composableBuilder(
+      column: $table.deletedAt, builder: (column) => ColumnFilters(column));
 
   Expression<bool> blocksRefs(
       Expression<bool> Function($$BlocksTableFilterComposer f) f) {
     final $$BlocksTableFilterComposer composer = $composerBuilder(
         composer: this,
-        getCurrentColumn: (t) => t.name,
+        getCurrentColumn: (t) => t.id,
         referencedTable: $db.blocks,
-        getReferencedColumn: (t) => t.pageId,
+        getReferencedColumn: (t) => t.documentId,
         builder: (joinBuilder,
                 {$addJoinBuilderToRootComposer,
                 $removeJoinBuilderFromRootComposer}) =>
@@ -1253,56 +1557,86 @@ class $$PagesTableFilterComposer extends Composer<_$AppDatabase, $PagesTable> {
   }
 }
 
-class $$PagesTableOrderingComposer
-    extends Composer<_$AppDatabase, $PagesTable> {
-  $$PagesTableOrderingComposer({
+class $$DocumentsTableOrderingComposer
+    extends Composer<_$AppDatabase, $DocumentsTable> {
+  $$DocumentsTableOrderingComposer({
     required super.$db,
     required super.$table,
     super.joinBuilder,
     super.$addJoinBuilderToRootComposer,
     super.$removeJoinBuilderFromRootComposer,
   });
-  ColumnOrderings<int> get id => $composableBuilder(
+  ColumnOrderings<String> get id => $composableBuilder(
       column: $table.id, builder: (column) => ColumnOrderings(column));
 
-  ColumnOrderings<String> get name => $composableBuilder(
-      column: $table.name, builder: (column) => ColumnOrderings(column));
+  ColumnOrderings<String> get parentId => $composableBuilder(
+      column: $table.parentId, builder: (column) => ColumnOrderings(column));
+
+  ColumnOrderings<String> get title => $composableBuilder(
+      column: $table.title, builder: (column) => ColumnOrderings(column));
+
+  ColumnOrderings<String> get icon => $composableBuilder(
+      column: $table.icon, builder: (column) => ColumnOrderings(column));
 
   ColumnOrderings<String> get type => $composableBuilder(
       column: $table.type, builder: (column) => ColumnOrderings(column));
 
+  ColumnOrderings<String> get cover => $composableBuilder(
+      column: $table.cover, builder: (column) => ColumnOrderings(column));
+
   ColumnOrderings<DateTime> get createdAt => $composableBuilder(
       column: $table.createdAt, builder: (column) => ColumnOrderings(column));
+
+  ColumnOrderings<DateTime> get updatedAt => $composableBuilder(
+      column: $table.updatedAt, builder: (column) => ColumnOrderings(column));
+
+  ColumnOrderings<DateTime> get deletedAt => $composableBuilder(
+      column: $table.deletedAt, builder: (column) => ColumnOrderings(column));
 }
 
-class $$PagesTableAnnotationComposer
-    extends Composer<_$AppDatabase, $PagesTable> {
-  $$PagesTableAnnotationComposer({
+class $$DocumentsTableAnnotationComposer
+    extends Composer<_$AppDatabase, $DocumentsTable> {
+  $$DocumentsTableAnnotationComposer({
     required super.$db,
     required super.$table,
     super.joinBuilder,
     super.$addJoinBuilderToRootComposer,
     super.$removeJoinBuilderFromRootComposer,
   });
-  GeneratedColumn<int> get id =>
+  GeneratedColumn<String> get id =>
       $composableBuilder(column: $table.id, builder: (column) => column);
 
-  GeneratedColumn<String> get name =>
-      $composableBuilder(column: $table.name, builder: (column) => column);
+  GeneratedColumn<String> get parentId =>
+      $composableBuilder(column: $table.parentId, builder: (column) => column);
+
+  GeneratedColumn<String> get title =>
+      $composableBuilder(column: $table.title, builder: (column) => column);
+
+  GeneratedColumn<String> get icon =>
+      $composableBuilder(column: $table.icon, builder: (column) => column);
 
   GeneratedColumn<String> get type =>
       $composableBuilder(column: $table.type, builder: (column) => column);
 
+  GeneratedColumn<String> get cover =>
+      $composableBuilder(column: $table.cover, builder: (column) => column);
+
   GeneratedColumn<DateTime> get createdAt =>
       $composableBuilder(column: $table.createdAt, builder: (column) => column);
+
+  GeneratedColumn<DateTime> get updatedAt =>
+      $composableBuilder(column: $table.updatedAt, builder: (column) => column);
+
+  GeneratedColumn<DateTime> get deletedAt =>
+      $composableBuilder(column: $table.deletedAt, builder: (column) => column);
 
   Expression<T> blocksRefs<T extends Object>(
       Expression<T> Function($$BlocksTableAnnotationComposer a) f) {
     final $$BlocksTableAnnotationComposer composer = $composerBuilder(
         composer: this,
-        getCurrentColumn: (t) => t.name,
+        getCurrentColumn: (t) => t.id,
         referencedTable: $db.blocks,
-        getReferencedColumn: (t) => t.pageId,
+        getReferencedColumn: (t) => t.documentId,
         builder: (joinBuilder,
                 {$addJoinBuilderToRootComposer,
                 $removeJoinBuilderFromRootComposer}) =>
@@ -1318,55 +1652,81 @@ class $$PagesTableAnnotationComposer
   }
 }
 
-class $$PagesTableTableManager extends RootTableManager<
+class $$DocumentsTableTableManager extends RootTableManager<
     _$AppDatabase,
-    $PagesTable,
-    Page,
-    $$PagesTableFilterComposer,
-    $$PagesTableOrderingComposer,
-    $$PagesTableAnnotationComposer,
-    $$PagesTableCreateCompanionBuilder,
-    $$PagesTableUpdateCompanionBuilder,
-    (Page, $$PagesTableReferences),
-    Page,
+    $DocumentsTable,
+    Document,
+    $$DocumentsTableFilterComposer,
+    $$DocumentsTableOrderingComposer,
+    $$DocumentsTableAnnotationComposer,
+    $$DocumentsTableCreateCompanionBuilder,
+    $$DocumentsTableUpdateCompanionBuilder,
+    (Document, $$DocumentsTableReferences),
+    Document,
     PrefetchHooks Function({bool blocksRefs})> {
-  $$PagesTableTableManager(_$AppDatabase db, $PagesTable table)
+  $$DocumentsTableTableManager(_$AppDatabase db, $DocumentsTable table)
       : super(TableManagerState(
           db: db,
           table: table,
           createFilteringComposer: () =>
-              $$PagesTableFilterComposer($db: db, $table: table),
+              $$DocumentsTableFilterComposer($db: db, $table: table),
           createOrderingComposer: () =>
-              $$PagesTableOrderingComposer($db: db, $table: table),
+              $$DocumentsTableOrderingComposer($db: db, $table: table),
           createComputedFieldComposer: () =>
-              $$PagesTableAnnotationComposer($db: db, $table: table),
+              $$DocumentsTableAnnotationComposer($db: db, $table: table),
           updateCompanionCallback: ({
-            Value<int> id = const Value.absent(),
-            Value<String> name = const Value.absent(),
+            Value<String> id = const Value.absent(),
+            Value<String?> parentId = const Value.absent(),
+            Value<String> title = const Value.absent(),
+            Value<String?> icon = const Value.absent(),
             Value<String> type = const Value.absent(),
+            Value<String?> cover = const Value.absent(),
             Value<DateTime> createdAt = const Value.absent(),
+            Value<DateTime> updatedAt = const Value.absent(),
+            Value<DateTime?> deletedAt = const Value.absent(),
+            Value<int> rowid = const Value.absent(),
           }) =>
-              PagesCompanion(
+              DocumentsCompanion(
             id: id,
-            name: name,
+            parentId: parentId,
+            title: title,
+            icon: icon,
             type: type,
+            cover: cover,
             createdAt: createdAt,
+            updatedAt: updatedAt,
+            deletedAt: deletedAt,
+            rowid: rowid,
           ),
           createCompanionCallback: ({
-            Value<int> id = const Value.absent(),
-            required String name,
+            required String id,
+            Value<String?> parentId = const Value.absent(),
+            Value<String> title = const Value.absent(),
+            Value<String?> icon = const Value.absent(),
             Value<String> type = const Value.absent(),
+            Value<String?> cover = const Value.absent(),
             Value<DateTime> createdAt = const Value.absent(),
+            Value<DateTime> updatedAt = const Value.absent(),
+            Value<DateTime?> deletedAt = const Value.absent(),
+            Value<int> rowid = const Value.absent(),
           }) =>
-              PagesCompanion.insert(
+              DocumentsCompanion.insert(
             id: id,
-            name: name,
+            parentId: parentId,
+            title: title,
+            icon: icon,
             type: type,
+            cover: cover,
             createdAt: createdAt,
+            updatedAt: updatedAt,
+            deletedAt: deletedAt,
+            rowid: rowid,
           ),
           withReferenceMapper: (p0) => p0
-              .map((e) =>
-                  (e.readTable(table), $$PagesTableReferences(db, table, e)))
+              .map((e) => (
+                    e.readTable(table),
+                    $$DocumentsTableReferences(db, table, e)
+                  ))
               .toList(),
           prefetchHooksCallback: ({blocksRefs = false}) {
             return PrefetchHooks(
@@ -1376,15 +1736,16 @@ class $$PagesTableTableManager extends RootTableManager<
               getPrefetchedDataCallback: (items) async {
                 return [
                   if (blocksRefs)
-                    await $_getPrefetchedData<Page, $PagesTable, Block>(
+                    await $_getPrefetchedData<Document, $DocumentsTable, Block>(
                         currentTable: table,
                         referencedTable:
-                            $$PagesTableReferences._blocksRefsTable(db),
+                            $$DocumentsTableReferences._blocksRefsTable(db),
                         managerFromTypedResult: (p0) =>
-                            $$PagesTableReferences(db, table, p0).blocksRefs,
-                        referencedItemsForCurrentItem: (item,
-                                referencedItems) =>
-                            referencedItems.where((e) => e.pageId == item.name),
+                            $$DocumentsTableReferences(db, table, p0)
+                                .blocksRefs,
+                        referencedItemsForCurrentItem:
+                            (item, referencedItems) => referencedItems
+                                .where((e) => e.documentId == item.id),
                         typedResults: items)
                 ];
               },
@@ -1393,36 +1754,44 @@ class $$PagesTableTableManager extends RootTableManager<
         ));
 }
 
-typedef $$PagesTableProcessedTableManager = ProcessedTableManager<
+typedef $$DocumentsTableProcessedTableManager = ProcessedTableManager<
     _$AppDatabase,
-    $PagesTable,
-    Page,
-    $$PagesTableFilterComposer,
-    $$PagesTableOrderingComposer,
-    $$PagesTableAnnotationComposer,
-    $$PagesTableCreateCompanionBuilder,
-    $$PagesTableUpdateCompanionBuilder,
-    (Page, $$PagesTableReferences),
-    Page,
+    $DocumentsTable,
+    Document,
+    $$DocumentsTableFilterComposer,
+    $$DocumentsTableOrderingComposer,
+    $$DocumentsTableAnnotationComposer,
+    $$DocumentsTableCreateCompanionBuilder,
+    $$DocumentsTableUpdateCompanionBuilder,
+    (Document, $$DocumentsTableReferences),
+    Document,
     PrefetchHooks Function({bool blocksRefs})>;
 typedef $$BlocksTableCreateCompanionBuilder = BlocksCompanion Function({
   required String id,
-  required String pageId,
-  required int orderIndex,
-  Value<int> indent,
+  required String documentId,
+  Value<String?> parentId,
   required String type,
-  Value<String> content,
-  Value<String> dataJson,
+  Value<String> textContent,
+  Value<bool> checked,
+  Value<String?> dataJson,
+  required double orderIndex,
+  Value<DateTime> createdAt,
+  Value<DateTime> updatedAt,
+  Value<DateTime?> deletedAt,
   Value<int> rowid,
 });
 typedef $$BlocksTableUpdateCompanionBuilder = BlocksCompanion Function({
   Value<String> id,
-  Value<String> pageId,
-  Value<int> orderIndex,
-  Value<int> indent,
+  Value<String> documentId,
+  Value<String?> parentId,
   Value<String> type,
-  Value<String> content,
-  Value<String> dataJson,
+  Value<String> textContent,
+  Value<bool> checked,
+  Value<String?> dataJson,
+  Value<double> orderIndex,
+  Value<DateTime> createdAt,
+  Value<DateTime> updatedAt,
+  Value<DateTime?> deletedAt,
   Value<int> rowid,
 });
 
@@ -1430,47 +1799,18 @@ final class $$BlocksTableReferences
     extends BaseReferences<_$AppDatabase, $BlocksTable, Block> {
   $$BlocksTableReferences(super.$_db, super.$_table, super.$_typedResult);
 
-  static $PagesTable _pageIdTable(_$AppDatabase db) => db.pages
-      .createAlias($_aliasNameGenerator(db.blocks.pageId, db.pages.name));
+  static $DocumentsTable _documentIdTable(_$AppDatabase db) => db.documents
+      .createAlias($_aliasNameGenerator(db.blocks.documentId, db.documents.id));
 
-  $$PagesTableProcessedTableManager get pageId {
-    final $_column = $_itemColumn<String>('page_id')!;
+  $$DocumentsTableProcessedTableManager get documentId {
+    final $_column = $_itemColumn<String>('document_id')!;
 
-    final manager = $$PagesTableTableManager($_db, $_db.pages)
-        .filter((f) => f.name.sqlEquals($_column));
-    final item = $_typedResult.readTableOrNull(_pageIdTable($_db));
+    final manager = $$DocumentsTableTableManager($_db, $_db.documents)
+        .filter((f) => f.id.sqlEquals($_column));
+    final item = $_typedResult.readTableOrNull(_documentIdTable($_db));
     if (item == null) return manager;
     return ProcessedTableManager(
         manager.$state.copyWith(prefetchedData: [item]));
-  }
-
-  static MultiTypedResultKey<$BlockLinksTable, List<BlockLink>>
-      _blockLinksRefsTable(_$AppDatabase db) =>
-          MultiTypedResultKey.fromTable(db.blockLinks,
-              aliasName:
-                  $_aliasNameGenerator(db.blocks.id, db.blockLinks.sourceId));
-
-  $$BlockLinksTableProcessedTableManager get blockLinksRefs {
-    final manager = $$BlockLinksTableTableManager($_db, $_db.blockLinks)
-        .filter((f) => f.sourceId.id.sqlEquals($_itemColumn<String>('id')!));
-
-    final cache = $_typedResult.readTableOrNull(_blockLinksRefsTable($_db));
-    return ProcessedTableManager(
-        manager.$state.copyWith(prefetchedData: cache));
-  }
-
-  static MultiTypedResultKey<$PropertiesTable, List<Property>>
-      _propertiesRefsTable(_$AppDatabase db) => MultiTypedResultKey.fromTable(
-          db.properties,
-          aliasName: $_aliasNameGenerator(db.blocks.id, db.properties.blockId));
-
-  $$PropertiesTableProcessedTableManager get propertiesRefs {
-    final manager = $$PropertiesTableTableManager($_db, $_db.properties)
-        .filter((f) => f.blockId.id.sqlEquals($_itemColumn<String>('id')!));
-
-    final cache = $_typedResult.readTableOrNull(_propertiesRefsTable($_db));
-    return ProcessedTableManager(
-        manager.$state.copyWith(prefetchedData: cache));
   }
 }
 
@@ -1486,81 +1826,51 @@ class $$BlocksTableFilterComposer
   ColumnFilters<String> get id => $composableBuilder(
       column: $table.id, builder: (column) => ColumnFilters(column));
 
-  ColumnFilters<int> get orderIndex => $composableBuilder(
-      column: $table.orderIndex, builder: (column) => ColumnFilters(column));
-
-  ColumnFilters<int> get indent => $composableBuilder(
-      column: $table.indent, builder: (column) => ColumnFilters(column));
+  ColumnFilters<String> get parentId => $composableBuilder(
+      column: $table.parentId, builder: (column) => ColumnFilters(column));
 
   ColumnFilters<String> get type => $composableBuilder(
       column: $table.type, builder: (column) => ColumnFilters(column));
 
-  ColumnFilters<String> get content => $composableBuilder(
-      column: $table.content, builder: (column) => ColumnFilters(column));
+  ColumnFilters<String> get textContent => $composableBuilder(
+      column: $table.textContent, builder: (column) => ColumnFilters(column));
+
+  ColumnFilters<bool> get checked => $composableBuilder(
+      column: $table.checked, builder: (column) => ColumnFilters(column));
 
   ColumnFilters<String> get dataJson => $composableBuilder(
       column: $table.dataJson, builder: (column) => ColumnFilters(column));
 
-  $$PagesTableFilterComposer get pageId {
-    final $$PagesTableFilterComposer composer = $composerBuilder(
+  ColumnFilters<double> get orderIndex => $composableBuilder(
+      column: $table.orderIndex, builder: (column) => ColumnFilters(column));
+
+  ColumnFilters<DateTime> get createdAt => $composableBuilder(
+      column: $table.createdAt, builder: (column) => ColumnFilters(column));
+
+  ColumnFilters<DateTime> get updatedAt => $composableBuilder(
+      column: $table.updatedAt, builder: (column) => ColumnFilters(column));
+
+  ColumnFilters<DateTime> get deletedAt => $composableBuilder(
+      column: $table.deletedAt, builder: (column) => ColumnFilters(column));
+
+  $$DocumentsTableFilterComposer get documentId {
+    final $$DocumentsTableFilterComposer composer = $composerBuilder(
         composer: this,
-        getCurrentColumn: (t) => t.pageId,
-        referencedTable: $db.pages,
-        getReferencedColumn: (t) => t.name,
+        getCurrentColumn: (t) => t.documentId,
+        referencedTable: $db.documents,
+        getReferencedColumn: (t) => t.id,
         builder: (joinBuilder,
                 {$addJoinBuilderToRootComposer,
                 $removeJoinBuilderFromRootComposer}) =>
-            $$PagesTableFilterComposer(
+            $$DocumentsTableFilterComposer(
               $db: $db,
-              $table: $db.pages,
+              $table: $db.documents,
               $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
               joinBuilder: joinBuilder,
               $removeJoinBuilderFromRootComposer:
                   $removeJoinBuilderFromRootComposer,
             ));
     return composer;
-  }
-
-  Expression<bool> blockLinksRefs(
-      Expression<bool> Function($$BlockLinksTableFilterComposer f) f) {
-    final $$BlockLinksTableFilterComposer composer = $composerBuilder(
-        composer: this,
-        getCurrentColumn: (t) => t.id,
-        referencedTable: $db.blockLinks,
-        getReferencedColumn: (t) => t.sourceId,
-        builder: (joinBuilder,
-                {$addJoinBuilderToRootComposer,
-                $removeJoinBuilderFromRootComposer}) =>
-            $$BlockLinksTableFilterComposer(
-              $db: $db,
-              $table: $db.blockLinks,
-              $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
-              joinBuilder: joinBuilder,
-              $removeJoinBuilderFromRootComposer:
-                  $removeJoinBuilderFromRootComposer,
-            ));
-    return f(composer);
-  }
-
-  Expression<bool> propertiesRefs(
-      Expression<bool> Function($$PropertiesTableFilterComposer f) f) {
-    final $$PropertiesTableFilterComposer composer = $composerBuilder(
-        composer: this,
-        getCurrentColumn: (t) => t.id,
-        referencedTable: $db.properties,
-        getReferencedColumn: (t) => t.blockId,
-        builder: (joinBuilder,
-                {$addJoinBuilderToRootComposer,
-                $removeJoinBuilderFromRootComposer}) =>
-            $$PropertiesTableFilterComposer(
-              $db: $db,
-              $table: $db.properties,
-              $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
-              joinBuilder: joinBuilder,
-              $removeJoinBuilderFromRootComposer:
-                  $removeJoinBuilderFromRootComposer,
-            ));
-    return f(composer);
   }
 }
 
@@ -1576,33 +1886,45 @@ class $$BlocksTableOrderingComposer
   ColumnOrderings<String> get id => $composableBuilder(
       column: $table.id, builder: (column) => ColumnOrderings(column));
 
-  ColumnOrderings<int> get orderIndex => $composableBuilder(
-      column: $table.orderIndex, builder: (column) => ColumnOrderings(column));
-
-  ColumnOrderings<int> get indent => $composableBuilder(
-      column: $table.indent, builder: (column) => ColumnOrderings(column));
+  ColumnOrderings<String> get parentId => $composableBuilder(
+      column: $table.parentId, builder: (column) => ColumnOrderings(column));
 
   ColumnOrderings<String> get type => $composableBuilder(
       column: $table.type, builder: (column) => ColumnOrderings(column));
 
-  ColumnOrderings<String> get content => $composableBuilder(
-      column: $table.content, builder: (column) => ColumnOrderings(column));
+  ColumnOrderings<String> get textContent => $composableBuilder(
+      column: $table.textContent, builder: (column) => ColumnOrderings(column));
+
+  ColumnOrderings<bool> get checked => $composableBuilder(
+      column: $table.checked, builder: (column) => ColumnOrderings(column));
 
   ColumnOrderings<String> get dataJson => $composableBuilder(
       column: $table.dataJson, builder: (column) => ColumnOrderings(column));
 
-  $$PagesTableOrderingComposer get pageId {
-    final $$PagesTableOrderingComposer composer = $composerBuilder(
+  ColumnOrderings<double> get orderIndex => $composableBuilder(
+      column: $table.orderIndex, builder: (column) => ColumnOrderings(column));
+
+  ColumnOrderings<DateTime> get createdAt => $composableBuilder(
+      column: $table.createdAt, builder: (column) => ColumnOrderings(column));
+
+  ColumnOrderings<DateTime> get updatedAt => $composableBuilder(
+      column: $table.updatedAt, builder: (column) => ColumnOrderings(column));
+
+  ColumnOrderings<DateTime> get deletedAt => $composableBuilder(
+      column: $table.deletedAt, builder: (column) => ColumnOrderings(column));
+
+  $$DocumentsTableOrderingComposer get documentId {
+    final $$DocumentsTableOrderingComposer composer = $composerBuilder(
         composer: this,
-        getCurrentColumn: (t) => t.pageId,
-        referencedTable: $db.pages,
-        getReferencedColumn: (t) => t.name,
+        getCurrentColumn: (t) => t.documentId,
+        referencedTable: $db.documents,
+        getReferencedColumn: (t) => t.id,
         builder: (joinBuilder,
                 {$addJoinBuilderToRootComposer,
                 $removeJoinBuilderFromRootComposer}) =>
-            $$PagesTableOrderingComposer(
+            $$DocumentsTableOrderingComposer(
               $db: $db,
-              $table: $db.pages,
+              $table: $db.documents,
               $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
               joinBuilder: joinBuilder,
               $removeJoinBuilderFromRootComposer:
@@ -1624,81 +1946,51 @@ class $$BlocksTableAnnotationComposer
   GeneratedColumn<String> get id =>
       $composableBuilder(column: $table.id, builder: (column) => column);
 
-  GeneratedColumn<int> get orderIndex => $composableBuilder(
-      column: $table.orderIndex, builder: (column) => column);
-
-  GeneratedColumn<int> get indent =>
-      $composableBuilder(column: $table.indent, builder: (column) => column);
+  GeneratedColumn<String> get parentId =>
+      $composableBuilder(column: $table.parentId, builder: (column) => column);
 
   GeneratedColumn<String> get type =>
       $composableBuilder(column: $table.type, builder: (column) => column);
 
-  GeneratedColumn<String> get content =>
-      $composableBuilder(column: $table.content, builder: (column) => column);
+  GeneratedColumn<String> get textContent => $composableBuilder(
+      column: $table.textContent, builder: (column) => column);
+
+  GeneratedColumn<bool> get checked =>
+      $composableBuilder(column: $table.checked, builder: (column) => column);
 
   GeneratedColumn<String> get dataJson =>
       $composableBuilder(column: $table.dataJson, builder: (column) => column);
 
-  $$PagesTableAnnotationComposer get pageId {
-    final $$PagesTableAnnotationComposer composer = $composerBuilder(
+  GeneratedColumn<double> get orderIndex => $composableBuilder(
+      column: $table.orderIndex, builder: (column) => column);
+
+  GeneratedColumn<DateTime> get createdAt =>
+      $composableBuilder(column: $table.createdAt, builder: (column) => column);
+
+  GeneratedColumn<DateTime> get updatedAt =>
+      $composableBuilder(column: $table.updatedAt, builder: (column) => column);
+
+  GeneratedColumn<DateTime> get deletedAt =>
+      $composableBuilder(column: $table.deletedAt, builder: (column) => column);
+
+  $$DocumentsTableAnnotationComposer get documentId {
+    final $$DocumentsTableAnnotationComposer composer = $composerBuilder(
         composer: this,
-        getCurrentColumn: (t) => t.pageId,
-        referencedTable: $db.pages,
-        getReferencedColumn: (t) => t.name,
+        getCurrentColumn: (t) => t.documentId,
+        referencedTable: $db.documents,
+        getReferencedColumn: (t) => t.id,
         builder: (joinBuilder,
                 {$addJoinBuilderToRootComposer,
                 $removeJoinBuilderFromRootComposer}) =>
-            $$PagesTableAnnotationComposer(
+            $$DocumentsTableAnnotationComposer(
               $db: $db,
-              $table: $db.pages,
+              $table: $db.documents,
               $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
               joinBuilder: joinBuilder,
               $removeJoinBuilderFromRootComposer:
                   $removeJoinBuilderFromRootComposer,
             ));
     return composer;
-  }
-
-  Expression<T> blockLinksRefs<T extends Object>(
-      Expression<T> Function($$BlockLinksTableAnnotationComposer a) f) {
-    final $$BlockLinksTableAnnotationComposer composer = $composerBuilder(
-        composer: this,
-        getCurrentColumn: (t) => t.id,
-        referencedTable: $db.blockLinks,
-        getReferencedColumn: (t) => t.sourceId,
-        builder: (joinBuilder,
-                {$addJoinBuilderToRootComposer,
-                $removeJoinBuilderFromRootComposer}) =>
-            $$BlockLinksTableAnnotationComposer(
-              $db: $db,
-              $table: $db.blockLinks,
-              $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
-              joinBuilder: joinBuilder,
-              $removeJoinBuilderFromRootComposer:
-                  $removeJoinBuilderFromRootComposer,
-            ));
-    return f(composer);
-  }
-
-  Expression<T> propertiesRefs<T extends Object>(
-      Expression<T> Function($$PropertiesTableAnnotationComposer a) f) {
-    final $$PropertiesTableAnnotationComposer composer = $composerBuilder(
-        composer: this,
-        getCurrentColumn: (t) => t.id,
-        referencedTable: $db.properties,
-        getReferencedColumn: (t) => t.blockId,
-        builder: (joinBuilder,
-                {$addJoinBuilderToRootComposer,
-                $removeJoinBuilderFromRootComposer}) =>
-            $$PropertiesTableAnnotationComposer(
-              $db: $db,
-              $table: $db.properties,
-              $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
-              joinBuilder: joinBuilder,
-              $removeJoinBuilderFromRootComposer:
-                  $removeJoinBuilderFromRootComposer,
-            ));
-    return f(composer);
   }
 }
 
@@ -1713,8 +2005,7 @@ class $$BlocksTableTableManager extends RootTableManager<
     $$BlocksTableUpdateCompanionBuilder,
     (Block, $$BlocksTableReferences),
     Block,
-    PrefetchHooks Function(
-        {bool pageId, bool blockLinksRefs, bool propertiesRefs})> {
+    PrefetchHooks Function({bool documentId})> {
   $$BlocksTableTableManager(_$AppDatabase db, $BlocksTable table)
       : super(TableManagerState(
           db: db,
@@ -1727,58 +2018,68 @@ class $$BlocksTableTableManager extends RootTableManager<
               $$BlocksTableAnnotationComposer($db: db, $table: table),
           updateCompanionCallback: ({
             Value<String> id = const Value.absent(),
-            Value<String> pageId = const Value.absent(),
-            Value<int> orderIndex = const Value.absent(),
-            Value<int> indent = const Value.absent(),
+            Value<String> documentId = const Value.absent(),
+            Value<String?> parentId = const Value.absent(),
             Value<String> type = const Value.absent(),
-            Value<String> content = const Value.absent(),
-            Value<String> dataJson = const Value.absent(),
+            Value<String> textContent = const Value.absent(),
+            Value<bool> checked = const Value.absent(),
+            Value<String?> dataJson = const Value.absent(),
+            Value<double> orderIndex = const Value.absent(),
+            Value<DateTime> createdAt = const Value.absent(),
+            Value<DateTime> updatedAt = const Value.absent(),
+            Value<DateTime?> deletedAt = const Value.absent(),
             Value<int> rowid = const Value.absent(),
           }) =>
               BlocksCompanion(
             id: id,
-            pageId: pageId,
-            orderIndex: orderIndex,
-            indent: indent,
+            documentId: documentId,
+            parentId: parentId,
             type: type,
-            content: content,
+            textContent: textContent,
+            checked: checked,
             dataJson: dataJson,
+            orderIndex: orderIndex,
+            createdAt: createdAt,
+            updatedAt: updatedAt,
+            deletedAt: deletedAt,
             rowid: rowid,
           ),
           createCompanionCallback: ({
             required String id,
-            required String pageId,
-            required int orderIndex,
-            Value<int> indent = const Value.absent(),
+            required String documentId,
+            Value<String?> parentId = const Value.absent(),
             required String type,
-            Value<String> content = const Value.absent(),
-            Value<String> dataJson = const Value.absent(),
+            Value<String> textContent = const Value.absent(),
+            Value<bool> checked = const Value.absent(),
+            Value<String?> dataJson = const Value.absent(),
+            required double orderIndex,
+            Value<DateTime> createdAt = const Value.absent(),
+            Value<DateTime> updatedAt = const Value.absent(),
+            Value<DateTime?> deletedAt = const Value.absent(),
             Value<int> rowid = const Value.absent(),
           }) =>
               BlocksCompanion.insert(
             id: id,
-            pageId: pageId,
-            orderIndex: orderIndex,
-            indent: indent,
+            documentId: documentId,
+            parentId: parentId,
             type: type,
-            content: content,
+            textContent: textContent,
+            checked: checked,
             dataJson: dataJson,
+            orderIndex: orderIndex,
+            createdAt: createdAt,
+            updatedAt: updatedAt,
+            deletedAt: deletedAt,
             rowid: rowid,
           ),
           withReferenceMapper: (p0) => p0
               .map((e) =>
                   (e.readTable(table), $$BlocksTableReferences(db, table, e)))
               .toList(),
-          prefetchHooksCallback: (
-              {pageId = false,
-              blockLinksRefs = false,
-              propertiesRefs = false}) {
+          prefetchHooksCallback: ({documentId = false}) {
             return PrefetchHooks(
               db: db,
-              explicitlyWatchedTables: [
-                if (blockLinksRefs) db.blockLinks,
-                if (propertiesRefs) db.properties
-              ],
+              explicitlyWatchedTables: [],
               addJoins: <
                   T extends TableManagerState<
                       dynamic,
@@ -1792,45 +2093,21 @@ class $$BlocksTableTableManager extends RootTableManager<
                       dynamic,
                       dynamic,
                       dynamic>>(state) {
-                if (pageId) {
+                if (documentId) {
                   state = state.withJoin(
                     currentTable: table,
-                    currentColumn: table.pageId,
-                    referencedTable: $$BlocksTableReferences._pageIdTable(db),
+                    currentColumn: table.documentId,
+                    referencedTable:
+                        $$BlocksTableReferences._documentIdTable(db),
                     referencedColumn:
-                        $$BlocksTableReferences._pageIdTable(db).name,
+                        $$BlocksTableReferences._documentIdTable(db).id,
                   ) as T;
                 }
 
                 return state;
               },
               getPrefetchedDataCallback: (items) async {
-                return [
-                  if (blockLinksRefs)
-                    await $_getPrefetchedData<Block, $BlocksTable, BlockLink>(
-                        currentTable: table,
-                        referencedTable:
-                            $$BlocksTableReferences._blockLinksRefsTable(db),
-                        managerFromTypedResult: (p0) =>
-                            $$BlocksTableReferences(db, table, p0)
-                                .blockLinksRefs,
-                        referencedItemsForCurrentItem: (item,
-                                referencedItems) =>
-                            referencedItems.where((e) => e.sourceId == item.id),
-                        typedResults: items),
-                  if (propertiesRefs)
-                    await $_getPrefetchedData<Block, $BlocksTable, Property>(
-                        currentTable: table,
-                        referencedTable:
-                            $$BlocksTableReferences._propertiesRefsTable(db),
-                        managerFromTypedResult: (p0) =>
-                            $$BlocksTableReferences(db, table, p0)
-                                .propertiesRefs,
-                        referencedItemsForCurrentItem: (item,
-                                referencedItems) =>
-                            referencedItems.where((e) => e.blockId == item.id),
-                        typedResults: items)
-                ];
+                return [];
               },
             );
           },
@@ -1848,511 +2125,225 @@ typedef $$BlocksTableProcessedTableManager = ProcessedTableManager<
     $$BlocksTableUpdateCompanionBuilder,
     (Block, $$BlocksTableReferences),
     Block,
-    PrefetchHooks Function(
-        {bool pageId, bool blockLinksRefs, bool propertiesRefs})>;
-typedef $$BlockLinksTableCreateCompanionBuilder = BlockLinksCompanion Function({
-  required String sourceId,
-  required String targetId,
-  Value<String> linkType,
+    PrefetchHooks Function({bool documentId})>;
+typedef $$OperationsTableCreateCompanionBuilder = OperationsCompanion Function({
+  required String id,
+  required String deviceId,
+  required String entityType,
+  required String entityId,
+  required String action,
+  required String payload,
+  Value<DateTime> createdAt,
+  Value<bool> synced,
   Value<int> rowid,
 });
-typedef $$BlockLinksTableUpdateCompanionBuilder = BlockLinksCompanion Function({
-  Value<String> sourceId,
-  Value<String> targetId,
-  Value<String> linkType,
+typedef $$OperationsTableUpdateCompanionBuilder = OperationsCompanion Function({
+  Value<String> id,
+  Value<String> deviceId,
+  Value<String> entityType,
+  Value<String> entityId,
+  Value<String> action,
+  Value<String> payload,
+  Value<DateTime> createdAt,
+  Value<bool> synced,
   Value<int> rowid,
 });
 
-final class $$BlockLinksTableReferences
-    extends BaseReferences<_$AppDatabase, $BlockLinksTable, BlockLink> {
-  $$BlockLinksTableReferences(super.$_db, super.$_table, super.$_typedResult);
-
-  static $BlocksTable _sourceIdTable(_$AppDatabase db) => db.blocks
-      .createAlias($_aliasNameGenerator(db.blockLinks.sourceId, db.blocks.id));
-
-  $$BlocksTableProcessedTableManager get sourceId {
-    final $_column = $_itemColumn<String>('source_id')!;
-
-    final manager = $$BlocksTableTableManager($_db, $_db.blocks)
-        .filter((f) => f.id.sqlEquals($_column));
-    final item = $_typedResult.readTableOrNull(_sourceIdTable($_db));
-    if (item == null) return manager;
-    return ProcessedTableManager(
-        manager.$state.copyWith(prefetchedData: [item]));
-  }
-}
-
-class $$BlockLinksTableFilterComposer
-    extends Composer<_$AppDatabase, $BlockLinksTable> {
-  $$BlockLinksTableFilterComposer({
+class $$OperationsTableFilterComposer
+    extends Composer<_$AppDatabase, $OperationsTable> {
+  $$OperationsTableFilterComposer({
     required super.$db,
     required super.$table,
     super.joinBuilder,
     super.$addJoinBuilderToRootComposer,
     super.$removeJoinBuilderFromRootComposer,
   });
-  ColumnFilters<String> get targetId => $composableBuilder(
-      column: $table.targetId, builder: (column) => ColumnFilters(column));
-
-  ColumnFilters<String> get linkType => $composableBuilder(
-      column: $table.linkType, builder: (column) => ColumnFilters(column));
-
-  $$BlocksTableFilterComposer get sourceId {
-    final $$BlocksTableFilterComposer composer = $composerBuilder(
-        composer: this,
-        getCurrentColumn: (t) => t.sourceId,
-        referencedTable: $db.blocks,
-        getReferencedColumn: (t) => t.id,
-        builder: (joinBuilder,
-                {$addJoinBuilderToRootComposer,
-                $removeJoinBuilderFromRootComposer}) =>
-            $$BlocksTableFilterComposer(
-              $db: $db,
-              $table: $db.blocks,
-              $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
-              joinBuilder: joinBuilder,
-              $removeJoinBuilderFromRootComposer:
-                  $removeJoinBuilderFromRootComposer,
-            ));
-    return composer;
-  }
-}
-
-class $$BlockLinksTableOrderingComposer
-    extends Composer<_$AppDatabase, $BlockLinksTable> {
-  $$BlockLinksTableOrderingComposer({
-    required super.$db,
-    required super.$table,
-    super.joinBuilder,
-    super.$addJoinBuilderToRootComposer,
-    super.$removeJoinBuilderFromRootComposer,
-  });
-  ColumnOrderings<String> get targetId => $composableBuilder(
-      column: $table.targetId, builder: (column) => ColumnOrderings(column));
-
-  ColumnOrderings<String> get linkType => $composableBuilder(
-      column: $table.linkType, builder: (column) => ColumnOrderings(column));
-
-  $$BlocksTableOrderingComposer get sourceId {
-    final $$BlocksTableOrderingComposer composer = $composerBuilder(
-        composer: this,
-        getCurrentColumn: (t) => t.sourceId,
-        referencedTable: $db.blocks,
-        getReferencedColumn: (t) => t.id,
-        builder: (joinBuilder,
-                {$addJoinBuilderToRootComposer,
-                $removeJoinBuilderFromRootComposer}) =>
-            $$BlocksTableOrderingComposer(
-              $db: $db,
-              $table: $db.blocks,
-              $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
-              joinBuilder: joinBuilder,
-              $removeJoinBuilderFromRootComposer:
-                  $removeJoinBuilderFromRootComposer,
-            ));
-    return composer;
-  }
-}
-
-class $$BlockLinksTableAnnotationComposer
-    extends Composer<_$AppDatabase, $BlockLinksTable> {
-  $$BlockLinksTableAnnotationComposer({
-    required super.$db,
-    required super.$table,
-    super.joinBuilder,
-    super.$addJoinBuilderToRootComposer,
-    super.$removeJoinBuilderFromRootComposer,
-  });
-  GeneratedColumn<String> get targetId =>
-      $composableBuilder(column: $table.targetId, builder: (column) => column);
-
-  GeneratedColumn<String> get linkType =>
-      $composableBuilder(column: $table.linkType, builder: (column) => column);
-
-  $$BlocksTableAnnotationComposer get sourceId {
-    final $$BlocksTableAnnotationComposer composer = $composerBuilder(
-        composer: this,
-        getCurrentColumn: (t) => t.sourceId,
-        referencedTable: $db.blocks,
-        getReferencedColumn: (t) => t.id,
-        builder: (joinBuilder,
-                {$addJoinBuilderToRootComposer,
-                $removeJoinBuilderFromRootComposer}) =>
-            $$BlocksTableAnnotationComposer(
-              $db: $db,
-              $table: $db.blocks,
-              $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
-              joinBuilder: joinBuilder,
-              $removeJoinBuilderFromRootComposer:
-                  $removeJoinBuilderFromRootComposer,
-            ));
-    return composer;
-  }
-}
-
-class $$BlockLinksTableTableManager extends RootTableManager<
-    _$AppDatabase,
-    $BlockLinksTable,
-    BlockLink,
-    $$BlockLinksTableFilterComposer,
-    $$BlockLinksTableOrderingComposer,
-    $$BlockLinksTableAnnotationComposer,
-    $$BlockLinksTableCreateCompanionBuilder,
-    $$BlockLinksTableUpdateCompanionBuilder,
-    (BlockLink, $$BlockLinksTableReferences),
-    BlockLink,
-    PrefetchHooks Function({bool sourceId})> {
-  $$BlockLinksTableTableManager(_$AppDatabase db, $BlockLinksTable table)
-      : super(TableManagerState(
-          db: db,
-          table: table,
-          createFilteringComposer: () =>
-              $$BlockLinksTableFilterComposer($db: db, $table: table),
-          createOrderingComposer: () =>
-              $$BlockLinksTableOrderingComposer($db: db, $table: table),
-          createComputedFieldComposer: () =>
-              $$BlockLinksTableAnnotationComposer($db: db, $table: table),
-          updateCompanionCallback: ({
-            Value<String> sourceId = const Value.absent(),
-            Value<String> targetId = const Value.absent(),
-            Value<String> linkType = const Value.absent(),
-            Value<int> rowid = const Value.absent(),
-          }) =>
-              BlockLinksCompanion(
-            sourceId: sourceId,
-            targetId: targetId,
-            linkType: linkType,
-            rowid: rowid,
-          ),
-          createCompanionCallback: ({
-            required String sourceId,
-            required String targetId,
-            Value<String> linkType = const Value.absent(),
-            Value<int> rowid = const Value.absent(),
-          }) =>
-              BlockLinksCompanion.insert(
-            sourceId: sourceId,
-            targetId: targetId,
-            linkType: linkType,
-            rowid: rowid,
-          ),
-          withReferenceMapper: (p0) => p0
-              .map((e) => (
-                    e.readTable(table),
-                    $$BlockLinksTableReferences(db, table, e)
-                  ))
-              .toList(),
-          prefetchHooksCallback: ({sourceId = false}) {
-            return PrefetchHooks(
-              db: db,
-              explicitlyWatchedTables: [],
-              addJoins: <
-                  T extends TableManagerState<
-                      dynamic,
-                      dynamic,
-                      dynamic,
-                      dynamic,
-                      dynamic,
-                      dynamic,
-                      dynamic,
-                      dynamic,
-                      dynamic,
-                      dynamic,
-                      dynamic>>(state) {
-                if (sourceId) {
-                  state = state.withJoin(
-                    currentTable: table,
-                    currentColumn: table.sourceId,
-                    referencedTable:
-                        $$BlockLinksTableReferences._sourceIdTable(db),
-                    referencedColumn:
-                        $$BlockLinksTableReferences._sourceIdTable(db).id,
-                  ) as T;
-                }
-
-                return state;
-              },
-              getPrefetchedDataCallback: (items) async {
-                return [];
-              },
-            );
-          },
-        ));
-}
-
-typedef $$BlockLinksTableProcessedTableManager = ProcessedTableManager<
-    _$AppDatabase,
-    $BlockLinksTable,
-    BlockLink,
-    $$BlockLinksTableFilterComposer,
-    $$BlockLinksTableOrderingComposer,
-    $$BlockLinksTableAnnotationComposer,
-    $$BlockLinksTableCreateCompanionBuilder,
-    $$BlockLinksTableUpdateCompanionBuilder,
-    (BlockLink, $$BlockLinksTableReferences),
-    BlockLink,
-    PrefetchHooks Function({bool sourceId})>;
-typedef $$PropertiesTableCreateCompanionBuilder = PropertiesCompanion Function({
-  Value<int> id,
-  required String blockId,
-  required String key,
-  required String value,
-});
-typedef $$PropertiesTableUpdateCompanionBuilder = PropertiesCompanion Function({
-  Value<int> id,
-  Value<String> blockId,
-  Value<String> key,
-  Value<String> value,
-});
-
-final class $$PropertiesTableReferences
-    extends BaseReferences<_$AppDatabase, $PropertiesTable, Property> {
-  $$PropertiesTableReferences(super.$_db, super.$_table, super.$_typedResult);
-
-  static $BlocksTable _blockIdTable(_$AppDatabase db) => db.blocks
-      .createAlias($_aliasNameGenerator(db.properties.blockId, db.blocks.id));
-
-  $$BlocksTableProcessedTableManager get blockId {
-    final $_column = $_itemColumn<String>('block_id')!;
-
-    final manager = $$BlocksTableTableManager($_db, $_db.blocks)
-        .filter((f) => f.id.sqlEquals($_column));
-    final item = $_typedResult.readTableOrNull(_blockIdTable($_db));
-    if (item == null) return manager;
-    return ProcessedTableManager(
-        manager.$state.copyWith(prefetchedData: [item]));
-  }
-}
-
-class $$PropertiesTableFilterComposer
-    extends Composer<_$AppDatabase, $PropertiesTable> {
-  $$PropertiesTableFilterComposer({
-    required super.$db,
-    required super.$table,
-    super.joinBuilder,
-    super.$addJoinBuilderToRootComposer,
-    super.$removeJoinBuilderFromRootComposer,
-  });
-  ColumnFilters<int> get id => $composableBuilder(
+  ColumnFilters<String> get id => $composableBuilder(
       column: $table.id, builder: (column) => ColumnFilters(column));
 
-  ColumnFilters<String> get key => $composableBuilder(
-      column: $table.key, builder: (column) => ColumnFilters(column));
+  ColumnFilters<String> get deviceId => $composableBuilder(
+      column: $table.deviceId, builder: (column) => ColumnFilters(column));
 
-  ColumnFilters<String> get value => $composableBuilder(
-      column: $table.value, builder: (column) => ColumnFilters(column));
+  ColumnFilters<String> get entityType => $composableBuilder(
+      column: $table.entityType, builder: (column) => ColumnFilters(column));
 
-  $$BlocksTableFilterComposer get blockId {
-    final $$BlocksTableFilterComposer composer = $composerBuilder(
-        composer: this,
-        getCurrentColumn: (t) => t.blockId,
-        referencedTable: $db.blocks,
-        getReferencedColumn: (t) => t.id,
-        builder: (joinBuilder,
-                {$addJoinBuilderToRootComposer,
-                $removeJoinBuilderFromRootComposer}) =>
-            $$BlocksTableFilterComposer(
-              $db: $db,
-              $table: $db.blocks,
-              $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
-              joinBuilder: joinBuilder,
-              $removeJoinBuilderFromRootComposer:
-                  $removeJoinBuilderFromRootComposer,
-            ));
-    return composer;
-  }
+  ColumnFilters<String> get entityId => $composableBuilder(
+      column: $table.entityId, builder: (column) => ColumnFilters(column));
+
+  ColumnFilters<String> get action => $composableBuilder(
+      column: $table.action, builder: (column) => ColumnFilters(column));
+
+  ColumnFilters<String> get payload => $composableBuilder(
+      column: $table.payload, builder: (column) => ColumnFilters(column));
+
+  ColumnFilters<DateTime> get createdAt => $composableBuilder(
+      column: $table.createdAt, builder: (column) => ColumnFilters(column));
+
+  ColumnFilters<bool> get synced => $composableBuilder(
+      column: $table.synced, builder: (column) => ColumnFilters(column));
 }
 
-class $$PropertiesTableOrderingComposer
-    extends Composer<_$AppDatabase, $PropertiesTable> {
-  $$PropertiesTableOrderingComposer({
+class $$OperationsTableOrderingComposer
+    extends Composer<_$AppDatabase, $OperationsTable> {
+  $$OperationsTableOrderingComposer({
     required super.$db,
     required super.$table,
     super.joinBuilder,
     super.$addJoinBuilderToRootComposer,
     super.$removeJoinBuilderFromRootComposer,
   });
-  ColumnOrderings<int> get id => $composableBuilder(
+  ColumnOrderings<String> get id => $composableBuilder(
       column: $table.id, builder: (column) => ColumnOrderings(column));
 
-  ColumnOrderings<String> get key => $composableBuilder(
-      column: $table.key, builder: (column) => ColumnOrderings(column));
+  ColumnOrderings<String> get deviceId => $composableBuilder(
+      column: $table.deviceId, builder: (column) => ColumnOrderings(column));
 
-  ColumnOrderings<String> get value => $composableBuilder(
-      column: $table.value, builder: (column) => ColumnOrderings(column));
+  ColumnOrderings<String> get entityType => $composableBuilder(
+      column: $table.entityType, builder: (column) => ColumnOrderings(column));
 
-  $$BlocksTableOrderingComposer get blockId {
-    final $$BlocksTableOrderingComposer composer = $composerBuilder(
-        composer: this,
-        getCurrentColumn: (t) => t.blockId,
-        referencedTable: $db.blocks,
-        getReferencedColumn: (t) => t.id,
-        builder: (joinBuilder,
-                {$addJoinBuilderToRootComposer,
-                $removeJoinBuilderFromRootComposer}) =>
-            $$BlocksTableOrderingComposer(
-              $db: $db,
-              $table: $db.blocks,
-              $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
-              joinBuilder: joinBuilder,
-              $removeJoinBuilderFromRootComposer:
-                  $removeJoinBuilderFromRootComposer,
-            ));
-    return composer;
-  }
+  ColumnOrderings<String> get entityId => $composableBuilder(
+      column: $table.entityId, builder: (column) => ColumnOrderings(column));
+
+  ColumnOrderings<String> get action => $composableBuilder(
+      column: $table.action, builder: (column) => ColumnOrderings(column));
+
+  ColumnOrderings<String> get payload => $composableBuilder(
+      column: $table.payload, builder: (column) => ColumnOrderings(column));
+
+  ColumnOrderings<DateTime> get createdAt => $composableBuilder(
+      column: $table.createdAt, builder: (column) => ColumnOrderings(column));
+
+  ColumnOrderings<bool> get synced => $composableBuilder(
+      column: $table.synced, builder: (column) => ColumnOrderings(column));
 }
 
-class $$PropertiesTableAnnotationComposer
-    extends Composer<_$AppDatabase, $PropertiesTable> {
-  $$PropertiesTableAnnotationComposer({
+class $$OperationsTableAnnotationComposer
+    extends Composer<_$AppDatabase, $OperationsTable> {
+  $$OperationsTableAnnotationComposer({
     required super.$db,
     required super.$table,
     super.joinBuilder,
     super.$addJoinBuilderToRootComposer,
     super.$removeJoinBuilderFromRootComposer,
   });
-  GeneratedColumn<int> get id =>
+  GeneratedColumn<String> get id =>
       $composableBuilder(column: $table.id, builder: (column) => column);
 
-  GeneratedColumn<String> get key =>
-      $composableBuilder(column: $table.key, builder: (column) => column);
+  GeneratedColumn<String> get deviceId =>
+      $composableBuilder(column: $table.deviceId, builder: (column) => column);
 
-  GeneratedColumn<String> get value =>
-      $composableBuilder(column: $table.value, builder: (column) => column);
+  GeneratedColumn<String> get entityType => $composableBuilder(
+      column: $table.entityType, builder: (column) => column);
 
-  $$BlocksTableAnnotationComposer get blockId {
-    final $$BlocksTableAnnotationComposer composer = $composerBuilder(
-        composer: this,
-        getCurrentColumn: (t) => t.blockId,
-        referencedTable: $db.blocks,
-        getReferencedColumn: (t) => t.id,
-        builder: (joinBuilder,
-                {$addJoinBuilderToRootComposer,
-                $removeJoinBuilderFromRootComposer}) =>
-            $$BlocksTableAnnotationComposer(
-              $db: $db,
-              $table: $db.blocks,
-              $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
-              joinBuilder: joinBuilder,
-              $removeJoinBuilderFromRootComposer:
-                  $removeJoinBuilderFromRootComposer,
-            ));
-    return composer;
-  }
+  GeneratedColumn<String> get entityId =>
+      $composableBuilder(column: $table.entityId, builder: (column) => column);
+
+  GeneratedColumn<String> get action =>
+      $composableBuilder(column: $table.action, builder: (column) => column);
+
+  GeneratedColumn<String> get payload =>
+      $composableBuilder(column: $table.payload, builder: (column) => column);
+
+  GeneratedColumn<DateTime> get createdAt =>
+      $composableBuilder(column: $table.createdAt, builder: (column) => column);
+
+  GeneratedColumn<bool> get synced =>
+      $composableBuilder(column: $table.synced, builder: (column) => column);
 }
 
-class $$PropertiesTableTableManager extends RootTableManager<
+class $$OperationsTableTableManager extends RootTableManager<
     _$AppDatabase,
-    $PropertiesTable,
-    Property,
-    $$PropertiesTableFilterComposer,
-    $$PropertiesTableOrderingComposer,
-    $$PropertiesTableAnnotationComposer,
-    $$PropertiesTableCreateCompanionBuilder,
-    $$PropertiesTableUpdateCompanionBuilder,
-    (Property, $$PropertiesTableReferences),
-    Property,
-    PrefetchHooks Function({bool blockId})> {
-  $$PropertiesTableTableManager(_$AppDatabase db, $PropertiesTable table)
+    $OperationsTable,
+    Operation,
+    $$OperationsTableFilterComposer,
+    $$OperationsTableOrderingComposer,
+    $$OperationsTableAnnotationComposer,
+    $$OperationsTableCreateCompanionBuilder,
+    $$OperationsTableUpdateCompanionBuilder,
+    (Operation, BaseReferences<_$AppDatabase, $OperationsTable, Operation>),
+    Operation,
+    PrefetchHooks Function()> {
+  $$OperationsTableTableManager(_$AppDatabase db, $OperationsTable table)
       : super(TableManagerState(
           db: db,
           table: table,
           createFilteringComposer: () =>
-              $$PropertiesTableFilterComposer($db: db, $table: table),
+              $$OperationsTableFilterComposer($db: db, $table: table),
           createOrderingComposer: () =>
-              $$PropertiesTableOrderingComposer($db: db, $table: table),
+              $$OperationsTableOrderingComposer($db: db, $table: table),
           createComputedFieldComposer: () =>
-              $$PropertiesTableAnnotationComposer($db: db, $table: table),
+              $$OperationsTableAnnotationComposer($db: db, $table: table),
           updateCompanionCallback: ({
-            Value<int> id = const Value.absent(),
-            Value<String> blockId = const Value.absent(),
-            Value<String> key = const Value.absent(),
-            Value<String> value = const Value.absent(),
+            Value<String> id = const Value.absent(),
+            Value<String> deviceId = const Value.absent(),
+            Value<String> entityType = const Value.absent(),
+            Value<String> entityId = const Value.absent(),
+            Value<String> action = const Value.absent(),
+            Value<String> payload = const Value.absent(),
+            Value<DateTime> createdAt = const Value.absent(),
+            Value<bool> synced = const Value.absent(),
+            Value<int> rowid = const Value.absent(),
           }) =>
-              PropertiesCompanion(
+              OperationsCompanion(
             id: id,
-            blockId: blockId,
-            key: key,
-            value: value,
+            deviceId: deviceId,
+            entityType: entityType,
+            entityId: entityId,
+            action: action,
+            payload: payload,
+            createdAt: createdAt,
+            synced: synced,
+            rowid: rowid,
           ),
           createCompanionCallback: ({
-            Value<int> id = const Value.absent(),
-            required String blockId,
-            required String key,
-            required String value,
+            required String id,
+            required String deviceId,
+            required String entityType,
+            required String entityId,
+            required String action,
+            required String payload,
+            Value<DateTime> createdAt = const Value.absent(),
+            Value<bool> synced = const Value.absent(),
+            Value<int> rowid = const Value.absent(),
           }) =>
-              PropertiesCompanion.insert(
+              OperationsCompanion.insert(
             id: id,
-            blockId: blockId,
-            key: key,
-            value: value,
+            deviceId: deviceId,
+            entityType: entityType,
+            entityId: entityId,
+            action: action,
+            payload: payload,
+            createdAt: createdAt,
+            synced: synced,
+            rowid: rowid,
           ),
           withReferenceMapper: (p0) => p0
-              .map((e) => (
-                    e.readTable(table),
-                    $$PropertiesTableReferences(db, table, e)
-                  ))
+              .map((e) => (e.readTable(table), BaseReferences(db, table, e)))
               .toList(),
-          prefetchHooksCallback: ({blockId = false}) {
-            return PrefetchHooks(
-              db: db,
-              explicitlyWatchedTables: [],
-              addJoins: <
-                  T extends TableManagerState<
-                      dynamic,
-                      dynamic,
-                      dynamic,
-                      dynamic,
-                      dynamic,
-                      dynamic,
-                      dynamic,
-                      dynamic,
-                      dynamic,
-                      dynamic,
-                      dynamic>>(state) {
-                if (blockId) {
-                  state = state.withJoin(
-                    currentTable: table,
-                    currentColumn: table.blockId,
-                    referencedTable:
-                        $$PropertiesTableReferences._blockIdTable(db),
-                    referencedColumn:
-                        $$PropertiesTableReferences._blockIdTable(db).id,
-                  ) as T;
-                }
-
-                return state;
-              },
-              getPrefetchedDataCallback: (items) async {
-                return [];
-              },
-            );
-          },
+          prefetchHooksCallback: null,
         ));
 }
 
-typedef $$PropertiesTableProcessedTableManager = ProcessedTableManager<
+typedef $$OperationsTableProcessedTableManager = ProcessedTableManager<
     _$AppDatabase,
-    $PropertiesTable,
-    Property,
-    $$PropertiesTableFilterComposer,
-    $$PropertiesTableOrderingComposer,
-    $$PropertiesTableAnnotationComposer,
-    $$PropertiesTableCreateCompanionBuilder,
-    $$PropertiesTableUpdateCompanionBuilder,
-    (Property, $$PropertiesTableReferences),
-    Property,
-    PrefetchHooks Function({bool blockId})>;
+    $OperationsTable,
+    Operation,
+    $$OperationsTableFilterComposer,
+    $$OperationsTableOrderingComposer,
+    $$OperationsTableAnnotationComposer,
+    $$OperationsTableCreateCompanionBuilder,
+    $$OperationsTableUpdateCompanionBuilder,
+    (Operation, BaseReferences<_$AppDatabase, $OperationsTable, Operation>),
+    Operation,
+    PrefetchHooks Function()>;
 
 class $AppDatabaseManager {
   final _$AppDatabase _db;
   $AppDatabaseManager(this._db);
-  $$PagesTableTableManager get pages =>
-      $$PagesTableTableManager(_db, _db.pages);
+  $$DocumentsTableTableManager get documents =>
+      $$DocumentsTableTableManager(_db, _db.documents);
   $$BlocksTableTableManager get blocks =>
       $$BlocksTableTableManager(_db, _db.blocks);
-  $$BlockLinksTableTableManager get blockLinks =>
-      $$BlockLinksTableTableManager(_db, _db.blockLinks);
-  $$PropertiesTableTableManager get properties =>
-      $$PropertiesTableTableManager(_db, _db.properties);
+  $$OperationsTableTableManager get operations =>
+      $$OperationsTableTableManager(_db, _db.operations);
 }

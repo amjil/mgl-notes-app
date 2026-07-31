@@ -1,0 +1,95 @@
+(ns notes-app.pages.settings
+  (:require ["package:flutter/material.dart" :as m]
+            ["package:mongol/mongol.dart" :as mgl]
+            [cljd.flutter :as f]
+            [components.dialog :as dialog]
+            [components.setting :as setting]
+            [notes-app.state.store :as store]
+            [notes-app.services.sync :as sync]
+            [notes-app.widgets.keyboard-wrapper :as kw]))
+
+(defn- edit-field-dialog
+  "Edit a settings string. Calls `on-ok` with the new value when confirmed."
+  [ctx title current-value on-ok]
+  (m/showDialog
+   .context ctx
+   .builder
+   (fn [c]
+     (f/widget
+      :managed [controller (m/TextEditingController .text (or current-value ""))]
+      (kw/with-virtual-keyboard
+       (dialog/vertical-custom-dialog
+        {:title title
+         :height-factor 0.55
+         :width-factor 0.45
+         :body
+         (mgl/MongolTextField
+          .controller controller
+          .autofocus true
+          .style (m/TextStyle .fontFamily "OyunQaganTig" .fontSize 18.0))
+         :actions
+         [(mgl/MongolTextButton
+           .onPressed #(.pop (m/Navigator.of c))
+           .child (mgl/MongolText "Cancel"))
+          (mgl/MongolElevatedButton
+           .onPressed
+           (fn []
+             (on-ok (.-text controller))
+             (.pop (m/Navigator.of c)))
+           .child (mgl/MongolText "OK"))]}))))))
+
+(defn settings-page []
+  (f/widget
+   :context ctx
+   :watch [{:keys [user-name sync-base-url device-id last-sync-time
+                   sync-status sync-message]} store/app-ui-state]
+   :let [status-text (str (name (or sync-status :idle))
+                          (when sync-message (str " — " sync-message)))]
+   (m/Scaffold
+    .backgroundColor (m/Color 0xFF121212)
+    .appBar
+    (m/AppBar
+     .backgroundColor (m/Color 0xFF1E1E1E))
+    .body
+    (m/SafeArea
+     .child
+     (m/ListView
+      .scrollDirection m.Axis/horizontal
+      .padding (m.EdgeInsets/all 16.0)
+      .children
+      [(setting/settings-section
+        "Account"
+        [{:title "User"
+          :subtitle (if (empty? user-name) "Display name" user-name)
+          :leading m.Icons/person_outline
+          :show-arrow? true
+          :on-tap #(edit-field-dialog ctx "User" user-name store/update-user-name!)}
+         {:title "Device ID"
+          :subtitle (or device-id "")
+          :leading m.Icons/devices}])
+
+       (setting/settings-section
+        "Sync"
+        [{:title "Sync URL"
+          :subtitle (or sync-base-url store/default-sync-base-url)
+          :leading m.Icons/link
+          :show-arrow? true
+          :on-tap #(edit-field-dialog ctx "Sync URL" sync-base-url
+                                      store/update-sync-base-url!)}
+         {:title "Sync status"
+          :subtitle status-text
+          :leading m.Icons/sync}
+         {:title "Last sync"
+          :subtitle (or last-sync-time "never")
+          :leading m.Icons/schedule}
+         {:title "Sync now"
+          :leading m.Icons/cloud_sync
+          :show-arrow? true
+          :on-tap #(sync/sync-now!)}])
+
+       (setting/settings-section
+        "About"
+        [{:title "About"
+          :subtitle "Amjil Notes V1 — Offline First"
+          :leading m.Icons/info_outline}])]))))
+)

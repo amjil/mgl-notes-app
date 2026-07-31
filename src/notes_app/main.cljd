@@ -1,54 +1,54 @@
 (ns notes-app.main
   (:require ["package:flutter/material.dart" :as m]
             [cljd.flutter :as f]
-            [block-editor.widgets.editor-container :as be-container]
+            [notes-app.platform :as platform]
+            [notes-app.bootstrap.desktop :as desktop-boot]
+            [notes-app.bootstrap.mobile :as mobile-boot]
             [notes-app.db.core :as db]
-            [notes-app.prefs-storage :as prefs-storage]
-            [notes-app.ui.shell :as shell]
-            [rich-editor.commands.editor-commands :as editor-cmd]
-            [rich-editor.components.node-view :as node-view]
-            [rich-editor.services.ime-service :as ime]
-            [shared-ime.fst-reader :as fst]
-            [shared-ime.next :as next]))
+            [notes-app.state.store :as store]
+            [notes-app.pages.shell :as shell]
+            [notes-app.services.sync :as sync]
+            [notes-app.services.daily :as daily]))
+
+(defn- boot!
+  "Init DB, prefs, and today's daily doc. Resolves to true when ready."
+  []
+  (-> (db/initialize-database!)
+      (.then (fn [_] (store/load-prefs!)))
+      (.then (fn [_] (daily/ensure-today!)))
+      (.then (fn [_]
+               (shell/register-lifecycle!)
+               (sync/on-app-start!)
+               true))
+      (.catchError (fn [e]
+                     (dart:core/print (str "Startup failed: " e))
+                     false))))
 
 (defn main []
   (m/WidgetsFlutterBinding.ensureInitialized)
 
-  ;; Mongol IME data (must match block-editor example for input and candidates)
-  (fst/ensure-loaded)
-  (next/ensure-loaded)
-
-  ;; IME callbacks initialized in main; not deferred to first editor open
-  (ime/set-merge-focus-callback! (fn [!state prev-id new-offset]
-                                   (editor-cmd/focus-block !state prev-id new-offset)))
-  (ime/set-split-focus-callback! (fn [!state new-id _]
-                                   (editor-cmd/focus-block !state new-id 0)))
-  (ime/set-after-update-callback! (fn [] (swap! be-container/!refresh-tick inc)))
-  (ime/set-get-caret-offset-callback!
-   (fn [block-id]
-     (when-let [text-key (get @node-view/!block-text-keys block-id)]
-       (when-let [ctx (.-currentContext text-key)]
-         (try
-           (let [^m/RenderBox rb (.findRenderObject ctx)]
-             (.localToGlobal rb m.Offset/zero))
-           (catch Exception _ nil))))))
-
-  ;; Initialize Drift DB first (async then store in db atom)
-  (await (db/initialize-database!))
-  ;; Start loading persisted typography/theme prefs (used when opening a page)
-  (prefs-storage/load-prefs!)
+  (if (platform/desktop?)
+    (desktop-boot/init!)
+    (mobile-boot/init!))
 
   (f/run
+   :watch [ready? (boot!)]
    (m/MaterialApp
     .title "Amjil Notes"
     .debugShowCheckedModeBanner false
     .theme (m/ThemeData
             .primarySwatch m.Colors/blue
-            .scaffoldBackgroundColor m.Colors/black
+            .scaffoldBackgroundColor (m/Color 0xFF121212)
             .fontFamily "OyunQaganTig"
             .brightness m.Brightness/dark
             .textTheme (m/TextTheme
                         .bodyMedium (m/TextStyle .color m.Colors/white
                                                  .fontSize 16.0
                                                  .fontFamily "OyunQaganTig")))
-    .home (shell/app-shell))))
+    .home (if ready?
+            (shell/app-shell)
+            (m/Scaffold
+             .backgroundColor (m/Color 0xFF121212)
+             .body (m/Center
+                    .child (m/CircularProgressIndicator.
+                            .color (m/Color 0xFFF5F5F5))))))))

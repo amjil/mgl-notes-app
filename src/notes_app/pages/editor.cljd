@@ -1,0 +1,157 @@
+(ns notes-app.pages.editor
+  "Document editor — elegantly managed state, persistence, and performance.
+   Uses f/widget's :managed [:dispose] hook for safe teardown and final save.
+   Caches the editor-body outside f/widget to prevent unnecessary subtree rebuilds."
+  (:require ["package:flutter/material.dart" :as m]
+            ["dart:async" :as async]
+            [cljd.flutter :as f]
+            [block-editor.widgets.editor :as editor]
+            [notes-app.widgets.editor-toolbar :as tb]
+            [notes-app.widgets.rename-dialog :as rename]
+            [notes-app.editor.bridge :as bridge]
+            [notes-app.db.core :as db]
+            [notes-app.services.document :as doc]
+            [notes-app.state.store :as store]))
+
+;; =============================================================================
+;; Editor config
+;; =============================================================================
+
+(def notes-editor-config
+  {:block-plugins
+   [{:type :image
+     :render (fn [_id _!state _idx _cfg] (m/SizedBox.shrink))
+     :render-read (fn [_block _style _on-link _!state] (m/SizedBox.shrink))}]
+   :text-block-types #{:paragraph :heading-1 :heading-2 :heading-3
+                       :blockquote :list-item :ordered-list-item :task :callout :toggle}
+   :block-style
+   (fn [b-type]
+     (case b-type
+       :heading-1 (m/TextStyle .fontSize 32.0 .fontWeight m/FontWeight.bold
+                               .color (m/Color 0xFFF5F5F5) .fontFamily "OyunQaganTig")
+       :heading-2 (m/TextStyle .fontSize 24.0 .fontWeight m/FontWeight.bold
+                               .color (m/Color 0xFFF5F5F5) .fontFamily "OyunQaganTig")
+       :heading-3 (m/TextStyle .fontSize 20.0 .fontWeight m/FontWeight.w600
+                               .color (m/Color 0xFFF5F5F5) .fontFamily "OyunQaganTig")
+       :task (m/TextStyle .fontSize 18.0 .color (m/Color 0xFFF5F5F5)
+                          .fontFamily "OyunQaganTig")
+       (m/TextStyle .fontSize 18.0 .color (m/Color 0xFFD0D0D0)
+                    .fontFamily "OyunQaganTig")))})
+
+;; =============================================================================
+;; Per-document session cache
+;; =============================================================================
+
+(defonce ^:private !sessions (atom {}))
+
+(defn- load-session! [document-id]
+  (-> (db/get-document document-id)
+      (.then (fn [doc]
+               (-> (db/get-blocks document-id)
+                   (.then (fn [block-rows]
+                            (let [rows (or block-rows [])
+                                  initial (bridge/rows->editor-state rows)]
+                              {:!state (atom initial)
+                               :!snapshot (atom (bridge/snapshot-from-state initial))
+                               :!title (atom (if doc (or (.-title doc) "") ""))
+                               :!save-timer (atom nil)}))))))
+      (.catchError (fn [e]
+                     (dart:core/print (str "load-session! failed: " e))
+                     nil))))
+
+(defn- ensure-session! [document-id]
+  (if-let [s (get @!sessions document-id)]
+    (async/Future.value s)
+    (-> (load-session! document-id)
+        (.then (fn [s]
+                 (when s
+                   (swap! !sessions assoc document-id s))
+                 s)))))
+
+(defn invalidate-session!
+  "Drop cached editor state."
+  [document-id]
+  (swap! !sessions dissoc document-id))
+
+(defn- show-rename! [ctx document-id !title]
+  (rename/rename-dialog ctx @!title
+                        (fn [t]
+                          (doc/rename! document-id t)
+                          (reset! !title t))))
+
+;; =============================================================================
+;; Core Editor UI
+;; =============================================================================
+
+(defn- editor-chrome
+  [document-id session ctx show-back? on-back embedded?]
+  (let [{:keys [!state !snapshot !title !save-timer]} session
+        
+        ;; 1. Caching Widget: avoid rebuilding the whole Scaffold while typing
+        editor-body
+        (editor/mongol-block-editor
+         !state
+         :editor-config notes-editor-config
+         :toolbar (tb/notes-toolbar !state notes-editor-config)
+         :background-color (m/Color 0xFF121212)
+         :show-block-handles? true
+         :padding (m.EdgeInsets/all 32.0))
+        
+        cleanup!
+        (fn [_]
+          (when-let [t @!save-timer] (.cancel ^async/Timer t))
+          (try
+            (bridge/persist-diff! document-id @!state !snapshot)
+            (catch Exception _ nil))
+          (invalidate-session! document-id)
+          (dart:core/print (str "🧹 [Editor] Teardown & final save for doc: " document-id)))]
+    
+    (f/widget
+     
+     :managed [_ !save-timer :dispose cleanup!]
+     
+     :watch [current-state !state]
+     
+     (let [_ (when-let [t @!save-timer]
+               (.cancel ^async/Timer t)
+               nil)
+           _ (reset! !save-timer
+                     (async/Timer.
+                      (dart:core/Duration .seconds 2)
+                      #(bridge/persist-diff! document-id current-state !snapshot)))]
+       
+       (if embedded?
+         (m/SafeArea .child editor-body)
+         (m/Scaffold
+          .backgroundColor (m/Color 0xFF121212)
+          .appBar
+          (m/AppBar
+           .elevation 0.0
+           .backgroundColor (m/Color 0xFF1E1E1E)
+           .foregroundColor (m/Color 0xFFF5F5F5)
+           .leading (if show-back?
+                      (m/IconButton
+                       .icon (m/Icon m.Icons/arrow_back)
+                       .onPressed (or on-back #(store/close-editor!)))
+                      nil)
+           .actions
+           [(m/IconButton
+             .icon (m/Icon m.Icons/drive_file_rename_outline)
+             .onPressed #(show-rename! ctx document-id !title))])
+          .body (m/SafeArea .child editor-body)))))))
+
+;; =============================================================================
+;; Public widget
+;; =============================================================================
+
+(defn document-editor
+  "Mount mongol-block-editor for a document."
+  [document-id & {:keys [show-back? on-back embedded?]
+                  :or {show-back? true embedded? false}}]
+  (f/widget
+   :context ctx
+   :watch [session (ensure-session! document-id)]
+   (if-not session
+     (m/Center
+      .child (m/CircularProgressIndicator. .color (m/Color 0xFFF5F5F5)))
+     (editor-chrome document-id session ctx show-back? on-back embedded?))))

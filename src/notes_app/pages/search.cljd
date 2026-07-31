@@ -1,0 +1,99 @@
+(ns notes-app.pages.search
+  (:require ["package:flutter/material.dart" :as m]
+            ["package:mongol/mongol.dart" :as mgl]
+            ["dart:async" :as async]
+            [cljd.flutter :as f]
+            [notes-app.db.core :as db]
+            [notes-app.widgets.keyboard-wrapper :as kw]
+            [notes-app.state.store :as store]
+            [rich-editor.components.text-field :as custom-tf]))
+
+(defonce !search-state
+  (atom {:external-keyboard-delegate nil}))
+
+(defn search-page []
+  (let [!query (atom "")
+        !results (atom [])
+        !timer (atom nil)
+        run-search!
+        (fn [q]
+          (if (or (nil? q) (= q ""))
+            (reset! !results [])
+            (-> (db/search-documents-and-blocks q)
+                (.then (fn [rows]
+                         (when (= q @!query)
+                           (reset! !results (or rows [])))))
+                (.catchError (fn [_]
+                               (when (= q @!query)
+                                 (reset! !results [])))))))
+        schedule-search!
+        (fn [v]
+          (reset! !query v)
+          (when @!timer (.cancel ^async/Timer @!timer))
+          (reset! !timer
+                  (async/Timer. (dart:core/Duration. .milliseconds 300)
+                                #(run-search! v))))]
+    (f/widget
+     :managed [search-ctrl (m/TextEditingController.)
+               search-focus-node (m/FocusNode)]
+     ;; IME / virtual keyboard writes the controller directly and skips
+     ;; MongolTextField.onChanged — watch the controller instead.
+     :bg-watcher ([^m/TextEditingValue {v .-text} search-ctrl]
+                  (schedule-search! (or v "")))
+     :watch [query !query
+             results !results
+             search-state !search-state]
+     (m/Scaffold
+      .backgroundColor (m/Color 0xFF121212)
+      .resizeToAvoidBottomInset false
+      .appBar
+      (m/AppBar
+       .backgroundColor (m/Color 0xFF1E1E1E))
+      .body
+      (m/SafeArea
+       .child
+       (kw/with-virtual-keyboard
+         (m/Row
+          .children
+          [(m/Padding
+            .padding (m.EdgeInsets/symmetric .horizontal 8.0 .vertical 16.0)
+            .child
+            (custom-tf/text-field
+             !search-state
+             {:controller search-ctrl
+              :on-changed (fn [v] (schedule-search! (or v "")))
+              :focus-node search-focus-node
+              :hint "Search…"
+              :max-lines 1
+              :style (m/TextStyle .color m.Colors/white .fontFamily "OyunQaganTig")
+              :decoration (m/InputDecoration .border m/InputBorder.none)}))
+           (m/Expanded
+            .child
+            (if (empty? results)
+              (m/Center
+               .child (mgl/MongolText
+                       (if (empty? query) "Type to search" "No results")
+                       .style (m/TextStyle .fontFamily "OyunQaganTig"
+                                           .color m.Colors/white54)))
+              (m/ListView
+               .scrollDirection m.Axis/horizontal
+               .children
+               (mapv
+                (fn [r]
+                  (m/Container
+                   .key (m/ValueKey (str (:document-id r) "-" (:block-id r) "-" (:hit r)))
+                   .child
+                   (mgl/MongolListTile
+                    .title (mgl/MongolText
+                            (or (:document-title r) "")
+                            .style (m/TextStyle .fontFamily "OyunQaganTig"
+                                                .color m.Colors/white
+                                                .fontSize 16.0))
+                    .subtitle (when (:block-text r)
+                                (mgl/MongolText
+                                 (or (:block-text r) "")
+                                 .style (m/TextStyle .fontFamily "OyunQaganTig"
+                                                     .color m.Colors/white54
+                                                     .fontSize 13.0)))
+                    .onTap (fn [] (store/open-document! (:document-id r)) nil))))
+                results))))])))))))

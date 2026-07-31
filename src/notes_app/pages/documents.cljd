@@ -1,0 +1,175 @@
+(ns notes-app.pages.documents
+  (:require ["package:flutter/material.dart" :as m]
+            ["package:mongol/mongol.dart" :as mgl]
+            [cljd.flutter :as f]
+            [components.menu :as menu]
+            [notes-app.db.core :as db]
+            [notes-app.services.document :as doc]
+            [notes-app.state.store :as store]
+            [notes-app.widgets.rename-dialog :as rename]))
+
+(defn- doc-tile [ctx ^Object row]
+  (let [d (.-document row)
+        id (.-id d)
+        title (or (.-title d) "")
+        display (if (empty? title) "Untitled" title)
+        is-daily? (= (.-type d) "daily") 
+        has-parent? (some? (.-parentId d))
+        has-children? (pos? (.-childrenNum row))]
+    
+    (m/Container
+     .width 100.0 ;; limit card width
+     .margin (m.EdgeInsets/only .right 16.0)
+     .decoration (m/BoxDecoration
+                  .color (m/Color 0xFF1E1E1E)
+                  .borderRadius (m.BorderRadius/circular 12.0)
+                  .border (m/Border.all .color (if is-daily? (.-shade800 m.Colors/blueGrey) m.Colors/white12)
+                                        .width 1.0))
+     .child
+     (mgl/MongolListTile
+      .leading (m/Icon (if is-daily? m.Icons/calendar_today m.Icons/description_outlined)
+                       .color (if is-daily? m.Colors/blue m.Colors/white70))
+      
+      .title (mgl/MongolText display
+                             .style (m/TextStyle .fontFamily "OyunQaganTig"
+                                                 .fontSize 18.0
+                                                 .fontWeight (if is-daily? m.FontWeight/bold m.FontWeight/normal)
+                                                 .color m.Colors/white))
+      
+      .subtitle (when has-parent?
+                  (mgl/MongolText "nested"
+                                  .style (m/TextStyle .color m.Colors/white54 .fontSize 12.0)))
+      
+      ;; Core routing: drill into list if children exist, otherwise open editor
+      .onTap (fn []
+               (if has-children?
+                 (store/set-parent-doc! id display) ;; write global store to drill down
+                 (store/open-document! id)))
+      
+      .trailing
+      (menu/custom-popup-menu
+       {:trigger-builder
+        (fn [show-menu]
+          (m/IconButton
+           .icon (m/Icon m.Icons/more_vert .color m.Colors/white54)
+           .onPressed show-menu))
+        :bg-color (m/Color 0xFF2C2C2C)
+        :items [;; Edit this document directly
+                {:type :item
+                 :title "Edit"
+                 :leading m.Icons/edit_note
+                 :leading-color m.Colors/greenAccent
+                 :title-style (m/TextStyle .color m.Colors/white)
+                 :on-tap #(store/open-document! id)}
+                
+                {:type :item
+                 :title "New Sub-doc"
+                 :leading m.Icons/post_add
+                 :leading-color m.Colors/blue
+                 :title-style (m/TextStyle .color m.Colors/white)
+                 :on-tap (fn []
+                           (store/set-parent-doc! id display) ;; auto-enter this level when creating
+                           (-> (doc/create! {:title "" :type "normal" :parent-id id})
+                               (.then (fn [new-id]
+                                        (when new-id (store/open-document! new-id))))
+                               (.catchError (fn [_] nil))))}
+                {:type :item
+                 :title "Rename"
+                 :leading m.Icons/edit
+                 :leading-color m.Colors/white70
+                 :title-style (m/TextStyle .color m.Colors/white)
+                 :on-tap #(rename/rename-dialog ctx title
+                                                (fn [t] (doc/rename! id t)))}
+                {:type :item
+                 :title "Delete"
+                 :leading m.Icons/delete
+                 :leading-color m.Colors/red
+                 :title-style (m/TextStyle .color m.Colors/white)
+                 :on-tap #(doc/soft-delete! id)}]})))))
+
+(defn documents-page []
+  (f/widget
+   :context ctx
+   
+   :watch [docs (stream
+                 (map (fn [rows] (or rows [])))
+                 :as-values (db/watch-documents))
+           ;; Watch global store state
+           {:keys [parent-doc-id parent-doc-title]} store/app-ui-state]
+   
+   (let [display-docs (if parent-doc-id
+                        (filter #(= (.-parentId (.-document %)) parent-doc-id) docs)
+                        (filter #(nil? (.-parentId (.-document %))) docs))
+         
+         ;; Right-side list component
+         list-view
+         (if (empty? display-docs)
+           (m/Center
+            .child (mgl/MongolText "Empty"
+                                   .style (m/TextStyle .fontFamily "OyunQaganTig"
+                                                       .color m.Colors/white54)))
+           (m/ListView
+            .scrollDirection m.Axis/horizontal
+            .padding (m.EdgeInsets/all 16.0)
+            .children
+            (mapv (fn [row]
+                    (m/KeyedSubtree
+                     .key (m/ValueKey (.-id (.-document row)))
+                     .child (doc-tile ctx row))) 
+                  display-docs)))]
+     
+     (m/Scaffold
+      .backgroundColor (m/Color 0xFF121212)
+      .appBar
+      (m/AppBar
+       .backgroundColor (m/Color 0xFF1E1E1E)
+       .actions
+       [(m/IconButton
+         .icon (m/Icon m.Icons/add)
+         .onPressed
+         (fn []
+           ;; In drill-down view, new docs are children of the current parent
+           (-> (doc/create! {:title "" :type "normal" :parent-id parent-doc-id})
+               (.then (fn [id] (when id (store/open-document! id))))
+               (.catchError (fn [_] nil)))
+           nil))])
+      .body
+      (m/SafeArea
+       .child
+       (if parent-doc-id
+         ;; Drill-down view layout
+         (m/Row
+          .crossAxisAlignment m.CrossAxisAlignment/stretch
+          .children
+          [(m/Container
+            .width 100.0
+            .decoration (m/BoxDecoration
+                         .color (m/Color 0xFF1A1A1A)
+                         .border (m/Border .right (m/BorderSide .color m.Colors/white12 .width 1.0)))
+            .child
+            (m/Column
+             .children
+             [(m/Padding
+               .padding (m.EdgeInsets/only .top 16.0 .bottom 16.0)
+               .child
+               (m/IconButton
+                .icon (m/Icon m.Icons/arrow_back .color m.Colors/white54)
+                .onPressed #(store/clear-parent-doc!))) ;; clear store state, return to root
+              
+              (m/Expanded
+               .child
+               (m/InkWell
+                .onTap #(store/open-document! parent-doc-id)
+                .child
+                (m/Align
+                 .alignment m.Alignment/topCenter
+                 .child (mgl/MongolText parent-doc-title
+                                        .style (m/TextStyle .fontFamily "OyunQaganTig"
+                                                            .fontSize 24.0
+                                                            .fontWeight m.FontWeight/bold
+                                                            .color m.Colors/white)))))]))
+           
+           (m/Expanded .child list-view)])
+         
+         ;; Root view layout
+         list-view))))))

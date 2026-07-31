@@ -1,0 +1,187 @@
+(ns notes-app.services.block
+  (:require ["dart:core" :as dc]
+            ["dart:async" :as async]
+            ["package:mgl_notes_app/database.dart" :as drift]
+            ["package:drift/drift.dart" :as d]
+            [notes-app.db.core :as db]
+            [notes-app.services.operation :as op]))
+
+(defn- type->db [t]
+  (let [s (if (keyword? t) (name t) (str t))]
+    (if (= s "task") "todo" s)))
+
+(defn- type->editor [s]
+  (if (= s "todo") :task (keyword s)))
+
+(defn create!
+  [{:keys [id document-id parent-id type text checked data-json order-index]
+    :or {type "paragraph" text "" checked false order-index 1000.0}}]
+  (if-let [^drift/AppDatabase database (db/get-database)]
+    (let [block-id (or id (db/new-id))
+          db-type (type->db type)
+          now (db/now)
+          companion (drift/BlocksCompanion.insert
+                     :id block-id
+                     :documentId document-id
+                     :parentId (if parent-id (d/Value ^String parent-id) (d/Value nil))
+                     :type db-type
+                     :textContent (d/Value ^String (or text ""))
+                     :checked (d/Value ^bool (boolean checked))
+                     :dataJson (if data-json (d/Value ^String data-json) (d/Value nil))
+                     :orderIndex (double order-index)
+                     :createdAt (d/Value ^dc/DateTime now)
+                     :updatedAt (d/Value ^dc/DateTime now))]
+      (-> (.insert (.into database (.-blocks database)) companion)
+          (.then (fn [_]
+                   (op/append!
+                    {:entity-type "block"
+                     :entity-id block-id
+                     :action "block_create"
+                     :payload {:id block-id
+                               :document_id document-id
+                               :parent_id parent-id
+                               :type db-type
+                               :text (or text "")
+                               :checked (boolean checked)
+                               :data_json data-json
+                               :order_index order-index}})))
+          (.then (fn [_] block-id))))
+    (async/Future.value nil)))
+
+(defn check!
+  [block-id checked]
+  (if-let [^drift/AppDatabase database (db/get-database)]
+    (let [now (db/now)
+          q (doto (.update database (.-blocks database))
+              (.where (fn [t] (.equals (.-id t) block-id))))]
+      (-> (.write q (drift/BlocksCompanion.
+                     .checked (d/Value ^bool (boolean checked))
+                     .updatedAt (d/Value ^dc/DateTime now)))
+          (.then (fn [_]
+                   (op/append!
+                    {:entity-type "block"
+                     :entity-id block-id
+                     :action "block_check"
+                     :payload {:checked (boolean checked)}})))
+          (.then (fn [_] true))))
+    (async/Future.value false)))
+
+(defn soft-delete! [block-id]
+  (if-let [^drift/AppDatabase database (db/get-database)]
+    (let [now (db/now)
+          q (doto (.update database (.-blocks database))
+              (.where (fn [t] (.equals (.-id t) block-id))))]
+      (-> (.write q (drift/BlocksCompanion.
+                     .deletedAt (d/Value ^dc/DateTime now)
+                     .updatedAt (d/Value ^dc/DateTime now)))
+          (.then (fn [_]
+                   (op/append!
+                    {:entity-type "block"
+                     :entity-id block-id
+                     :action "block_delete"
+                     :payload {:deleted_at (.toIso8601String now)}})))
+          (.then (fn [_] true))))
+    (async/Future.value false)))
+
+(defn- write-row!
+  "UPDATE all fields for an existing block id."
+  [^drift/AppDatabase database
+   {:keys [id parent-id type text checked data-json order-index]}]
+  (let [now (db/now)
+        db-type (type->db type)
+        q (doto (.update database (.-blocks database))
+            (.where (fn [t] (.equals (.-id t) id))))]
+    (.write q (drift/BlocksCompanion.
+               .parentId (if parent-id
+                           (d/Value ^String parent-id)
+                           (d/Value nil))
+               .type (d/Value ^String db-type)
+               .textContent (d/Value ^String (or text ""))
+               .checked (d/Value ^bool (boolean checked))
+               .dataJson (if data-json
+                           (d/Value ^String data-json)
+                           (d/Value nil))
+               .orderIndex (d/Value ^double (double order-index))
+               .deletedAt (d/Value nil)
+               .updatedAt (d/Value ^dc/DateTime now)))))
+
+(defn- emit-change-ops!
+  "Append ops for fields that changed vs existing row."
+  [existing
+   {:keys [id parent-id type text checked data-json order-index]}]
+  (let [db-type (type->db type)
+        text-changed? (not= (.-textContent existing) (or text ""))
+        checked-changed? (not= (.-checked existing) (boolean checked))
+        type-changed? (not= (.-type existing) db-type)
+        data-changed? (not= (.-dataJson existing) data-json)
+        parent-changed? (not= (.-parentId existing) parent-id)
+        order-changed? (not= (.-orderIndex existing) (double order-index))
+        step0 (async/Future.value nil)
+        step1 (if (or text-changed? type-changed? data-changed?)
+                (.then step0
+                       (fn [_]
+                         (op/append!
+                          {:entity-type "block"
+                           :entity-id id
+                           :action "block_update"
+                           :payload (cond-> {}
+                                      text-changed? (assoc :text (or text ""))
+                                      type-changed? (assoc :type db-type)
+                                      data-changed? (assoc :data_json data-json))})))
+                step0)
+        step2 (if checked-changed?
+                (.then step1
+                       (fn [_]
+                         (op/append!
+                          {:entity-type "block"
+                           :entity-id id
+                           :action "block_check"
+                           :payload {:checked (boolean checked)}})))
+                step1)
+        step3 (if (or parent-changed? order-changed?)
+                (.then step2
+                       (fn [_]
+                         (op/append!
+                          {:entity-type "block"
+                           :entity-id id
+                           :action "block_move"
+                           :payload {:parent_id parent-id
+                                     :order_index order-index}})))
+                step2)]
+    step3))
+
+(defn- update-existing!
+  [^drift/AppDatabase database existing row]
+  (-> (write-row! database row)
+      (.then (fn [_] (emit-change-ops! existing row)))
+      (.then (fn [_] :updated))))
+
+(defn upsert-full!
+  "Insert or update a full block snapshot (used by editor bridge)."
+  [{:keys [id] :as row}]
+  (if-let [^drift/AppDatabase database (db/get-database)]
+    (let [q (doto (.select database (.-blocks database))
+              (.where (fn [t] (.equals (.-id t) id)))
+              (.limit 1))
+          update-after-select!
+          (fn [rows]
+            (if-let [existing (first rows)]
+              (update-existing! database existing row)
+              (-> (create! row)
+                  (.then (fn [_] :created))
+                  ;; Concurrent persist can race past the SELECT.
+                  (.catchError (fn [_]
+                                 (-> (.get q)
+                                     (.then (fn [rows2]
+                                              (if-let [ex2 (first rows2)]
+                                                (update-existing! database ex2 row)
+                                                nil)))))))))]
+      (-> (.get q)
+          (.then update-after-select!)
+          (.catchError (fn [e]
+                         (dart:core/print (str "upsert-full! failed: " e))
+                         nil))))
+    (async/Future.value nil)))
+
+(def type->editor-kw type->editor)
+(def type->db-str type->db)
