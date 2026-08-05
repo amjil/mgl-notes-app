@@ -1,0 +1,142 @@
+(ns notes-app.services.export
+  "Export documents to HTML files via block-editor.utils.html."
+  (:require ["dart:async" :as async]
+            ["dart:io" :as io]
+            ["package:path/path.dart" :as path]
+            ["package:path_provider/path_provider.dart" :as pathp]
+            ["package:flutter/material.dart" :as m]
+            [clojure.string :as str]
+            [block-editor.utils.html :as html]
+            [notes-app.db.core :as db]
+            [notes-app.editor.bridge :as bridge]
+            [notes-app.platform :as platform]))
+
+(defn- escape-html [s]
+  (-> (or s "")
+      (str/replace "&" "&amp;")
+      (str/replace "<" "&lt;")
+      (str/replace ">" "&gt;")
+      (str/replace "\"" "&quot;")))
+
+(defn- safe-filename [title]
+  (let [base (if (str/blank? title) "untitled" (str/trim title))
+        cleaned (-> base
+                    (str/replace #"\\" "_")
+                    (str/replace #"/" "_")
+                    (str/replace #":" "_")
+                    (str/replace #"\*" "_")
+                    (str/replace #"\?" "_")
+                    (str/replace #"\"" "_")
+                    (str/replace #"<" "_")
+                    (str/replace #">" "_")
+                    (str/replace #"\|" "_")
+                    (str/replace #"[\n\r\t]" "_")
+                    (str/replace #" +" " ")
+                    (str/trim))]
+    (str (if (str/blank? cleaned) "untitled" cleaned) ".html")))
+
+(defn wrap-html-document
+  "Wrap an HTML fragment into a full standalone HTML document."
+  [title fragment]
+  (let [safe-title (escape-html (if (str/blank? title) "Untitled" title))]
+    (str "<!DOCTYPE html>\n"
+         "<html lang=\"mn\">\n"
+         "<head>\n"
+         "<meta charset=\"utf-8\">\n"
+         "<meta name=\"viewport\" content=\"width=device-width, initial-scale=1\">\n"
+         "<title>" safe-title "</title>\n"
+         "<style>\n"
+         "  body { font-family: system-ui, -apple-system, sans-serif;"
+         " max-width: 720px; margin: 2rem auto; padding: 0 1.25rem;"
+         " line-height: 1.6; color: #1a1a1a; }\n"
+         "  .doc-title { font-size: 1.75rem; margin-bottom: 1.5rem; }\n"
+         "  .children { margin-left: 1.25rem; margin-top: 0.35rem; }\n"
+         "  .task { display: flex; gap: 0.5rem; align-items: flex-start; }\n"
+         "  .callout { border-left: 3px solid #888; padding: 0.5rem 0.75rem;"
+         " background: #f5f5f5; margin: 0.75rem 0; }\n"
+         "  .bookmark { display: block; padding: 0.75rem; border: 1px solid #ddd;"
+         " border-radius: 6px; text-decoration: none; color: inherit; margin: 0.75rem 0; }\n"
+         "  .bookmark-desc { display: block; color: #666; font-size: 0.9em; margin-top: 0.25rem; }\n"
+         "  pre { background: #f4f4f4; padding: 0.75rem; overflow-x: auto;"
+         " border-radius: 4px; }\n"
+         "  blockquote { border-left: 3px solid #ccc; margin: 0.75rem 0;"
+         " padding-left: 1rem; color: #555; }\n"
+         "  hr { border: none; border-top: 1px solid #ddd; margin: 1.5rem 0; }\n"
+         "</style>\n"
+         "</head>\n"
+         "<body>\n"
+         "<h1 class=\"doc-title\">" safe-title "</h1>\n"
+         (or fragment "")
+         "\n</body>\n"
+         "</html>\n")))
+
+(defn state->html-string
+  "Convert editor state to a full HTML document string."
+  ([state] (state->html-string state "" nil))
+  ([state title] (state->html-string state title nil))
+  ([state title opts]
+   (wrap-html-document title (html/export-to-html state opts))))
+
+(defn- resolve-export-dir!
+  "Prefer Downloads; fall back to app documents."
+  []
+  (-> (pathp/getDownloadsDirectory)
+      (.then (fn [dir]
+               (if dir
+                 (async/Future.value dir)
+                 (pathp/getApplicationDocumentsDirectory))))
+      (.catchError (fn [_]
+                     (pathp/getApplicationDocumentsDirectory)))))
+
+(defn write-html-file!
+  "Write HTML string to a file. Returns Future of absolute path, or nil on web."
+  [html-str title]
+  (if (platform/web?)
+    (do
+      (dart:core/print "HTML export is not supported on web")
+      (async/Future.value nil))
+    (-> (resolve-export-dir!)
+        (.then (fn [dir]
+                 (let [name (safe-filename title)
+                       filepath (path/join (.-path dir) name)
+                       file (io/File filepath)]
+                   (-> (.writeAsString file (or html-str ""))
+                       (.then (fn [_] filepath)))))))))
+
+(defn export-state-to-file!
+  "Export live editor state to an HTML file. Returns Future of path."
+  ([state title] (export-state-to-file! state title nil))
+  ([state title opts]
+   (write-html-file! (state->html-string state title opts) title)))
+
+(defn export-document-to-file!
+  "Load document from DB and export as HTML file. Returns Future of path."
+  ([document-id] (export-document-to-file! document-id nil))
+  ([document-id opts]
+   (-> (db/get-document document-id)
+       (.then
+        (fn [doc]
+          (-> (db/get-blocks document-id)
+              (.then
+               (fn [rows]
+                 (let [title (if doc (or (.-title doc) "") "")
+                       state (bridge/rows->editor-state (or rows []))]
+                   (export-state-to-file! state title opts)))))))
+       (.catchError
+        (fn [e]
+          (dart:core/print (str "export-document-to-file! failed: " e))
+          nil)))))
+
+(defn show-export-result!
+  "Show a SnackBar with the export path (or error)."
+  [ctx path]
+  (when ctx
+    (let [messenger (m/ScaffoldMessenger.of ctx)
+          msg (if path
+                (str "Exported: " path)
+                "Export failed")]
+      (.showSnackBar
+       messenger
+       (m/SnackBar
+        .content (m/Text msg .style (m/TextStyle .fontFamily "OyunQaganTig"))
+        .duration (dart:core/Duration .seconds 4))))))

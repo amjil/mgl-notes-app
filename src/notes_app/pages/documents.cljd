@@ -5,6 +5,7 @@
             [components.menu :as menu]
             [notes-app.db.core :as db]
             [notes-app.services.document :as doc]
+            [notes-app.services.export :as export]
             [notes-app.state.store :as store]
             [notes-app.widgets.rename-dialog :as rename]))
 
@@ -80,6 +81,17 @@
                  :title-style (m/TextStyle .color m.Colors/white)
                  :on-tap #(rename/rename-dialog ctx title
                                                 (fn [t] (doc/rename! id t)))}
+                {:type :item
+                 :title "Export HTML"
+                 :leading m.Icons/file_download_outlined
+                 :leading-color m.Colors/tealAccent
+                 :title-style (m/TextStyle .color m.Colors/white)
+                 :on-tap (fn []
+                           (-> (export/export-document-to-file! id)
+                               (.then (fn [path]
+                                        (export/show-export-result! ctx path)))
+                               (.catchError (fn [_]
+                                              (export/show-export-result! ctx nil)))))}
                 {:type :item
                  :title "Delete"
                  :leading m.Icons/delete

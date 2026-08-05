@@ -11,6 +11,7 @@
             [notes-app.editor.bridge :as bridge]
             [notes-app.db.core :as db]
             [notes-app.services.document :as doc]
+            [notes-app.services.export :as export]
             [notes-app.state.store :as store]))
 
 ;; =============================================================================
@@ -79,6 +80,11 @@
                           (doc/rename! document-id t)
                           (reset! !title t))))
 
+(defn- export-html! [ctx !state !title]
+  (-> (export/export-state-to-file! @!state @!title)
+      (.then (fn [path] (export/show-export-result! ctx path)))
+      (.catchError (fn [_] (export/show-export-result! ctx nil)))))
+
 ;; =============================================================================
 ;; Core Editor UI
 ;; =============================================================================
@@ -136,6 +142,10 @@
                       nil)
            .actions
            [(m/IconButton
+             .icon (m/Icon m.Icons/file_download_outlined)
+             .tooltip "Export HTML"
+             .onPressed #(export-html! ctx !state !title))
+            (m/IconButton
              .icon (m/Icon m.Icons/drive_file_rename_outline)
              .onPressed #(show-rename! ctx document-id !title))])
           .body (m/SafeArea .child editor-body)))))))
