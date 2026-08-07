@@ -2,6 +2,7 @@
   "In-app toolbar: same as mgl-block-editor toolbar but without Image.
    Kept local so we do not patch the dependency."
   (:require ["package:flutter/material.dart" :as m]
+            ["package:flutter/services.dart" :as s] ;; 🌟 For Clipboard
             [cljd.flutter :as f]
             [clojure.string :as str]
             [rich-editor.commands.transaction :as tx]
@@ -15,7 +16,7 @@
    .onPressed on-tap))
 
 (defn notes-toolbar
-  "Toolbar without image button."
+  "Toolbar without image button, added 'Copy Block Ref'."
   [!state cfg]
   (f/widget
    :context ctx
@@ -79,8 +80,21 @@
                                  :after-selection nil)))))
            (toolbar-button m.Icons/lightbulb_outline "Callout" (= block-type :callout)
                            #(ops/convert-block! !state active-id :callout))
-           (toolbar-button m/Icons.arrow_right "Toggle" (= block-type :toggle)
+           (toolbar-button m.Icons/arrow_right "Toggle" (= block-type :toggle)
                            #(ops/convert-block! !state active-id :toggle))
+           
+           (m/VerticalDivider .indent 12.0 .endIndent 12.0 .width 16.0)
+           ;; 🌟 Embed Button: Copy current block ID as ((uuid))
+           (toolbar-button m.Icons/content_copy "Copy Block Ref" false
+                           (fn []
+                             (let [ref-text (str "((" active-id "))")]
+                               (s/Clipboard.setData (s/ClipboardData .text ref-text))
+                               (when ctx
+                                 (-> (m/ScaffoldMessenger.of ctx)
+                                     (.showSnackBar (m/SnackBar 
+                                                     .content (m/Text "Block reference copied to clipboard!"
+                                                                      .style (m/TextStyle .fontFamily "OyunQaganTig"))
+                                                     .duration (dart:core/Duration .seconds 2))))))))
            (m/SizedBox .width 16.0)]))
         (m/Center
          .child

@@ -96,6 +96,20 @@
     (stream-handle-error (.watchBlocksForDocument database doc-id))
     (async/Stream.empty)))
 
+(defn watch-block
+  "Stream a single block by its ID. Yields nil if soft-deleted or missing."
+  [block-id]
+  (if-let [^drift/AppDatabase database @db]
+    (stream-handle-error
+     (.map (.watch (doto (.select database (.-blocks database))
+                     (.where (fn [t]
+                               (d/Expression.and
+                                [(.equals (.-id t) block-id)
+                                 (.isNull (.-deletedAt t))])))
+                     (.limit 1)))
+           (fn [rows] (first rows))))
+    (async/Stream.empty)))
+
 (defn watch-uncompleted-tasks []
   (if-let [^drift/AppDatabase database @db]
     (stream-handle-error (.watchUncompletedTasks database))

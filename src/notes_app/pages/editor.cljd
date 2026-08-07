@@ -3,7 +3,9 @@
    Uses f/widget's :managed [:dispose] hook for safe teardown and final save.
    Caches the editor-body outside f/widget to prevent unnecessary subtree rebuilds."
   (:require ["package:flutter/material.dart" :as m]
+            ["package:mongol/mongol.dart" :as mgl]
             ["dart:async" :as async]
+            [clojure.string :as str]
             [cljd.flutter :as f]
             [block-editor.widgets.editor :as editor]
             [notes-app.widgets.editor-toolbar :as tb]
@@ -17,14 +19,87 @@
             [notes-app.state.store :as store]))
 
 ;; =============================================================================
-;; Editor config (wikilink hooks)
+;; Block Transclusion (Embed) Widget
+;; =============================================================================
+
+;; A simple local cache to prevent infinite SQLite queries during Flutter rebuilds
+(defonce ^:private !embed-cache (atom {}))
+
+(defn- get-cached-block! [target-id]
+  (if (contains? @!embed-cache target-id)
+    (async/Future.value (get @!embed-cache target-id))
+    (-> (db/get-block target-id)
+        (.then (fn [blk]
+                 (swap! !embed-cache assoc target-id blk)
+                 blk))
+        (.catchError (fn [_] nil)))))
+
+(defn- embed-widget
+  "Renders a read-only mirrored view of another block."
+  [target-id current-block-id !state]
+  (f/widget
+   ;; :watch natively supports unwrapping Futures. It will trigger a rebuild when resolved.
+   :watch [blk-row (get-cached-block! target-id)]
+   
+   (if-not blk-row
+     (m/Container
+      .padding (m.EdgeInsets/all 8.0)
+      .child (mgl/MongolText "(Loading block or not found...)" 
+                             .style (m/TextStyle .color m.Colors/white38 
+                                                 .fontFamily "OyunQaganTig")))
+     (let [text (or (.-textContent blk-row) "")
+           doc-id (.-documentId blk-row)]
+       (m/GestureDetector
+        .onTap #(store/open-document! doc-id)
+        .child
+        (m/Container
+         .margin (m.EdgeInsets/symmetric .horizontal 8.0 .vertical 4.0)
+         .padding (m.EdgeInsets/all 12.0)
+         .decoration (m/BoxDecoration
+                      .color (m/Color 0x1A64B5F6) ;; Soft blue tint
+                      .borderRadius (m/BorderRadius.circular 8.0)
+                      .border (m/Border .right (m/BorderSide .color (m/Color 0xFF64B5F6) .width 3.0)))
+         .child
+         (m/Column
+          .mainAxisSize m.MainAxisSize/min
+          .crossAxisAlignment m.CrossAxisAlignment/start
+          .children
+          [(m/Row
+            .mainAxisSize m.MainAxisSize/min
+            .children
+            [(m/Icon m.Icons/link .size 16.0 .color (m/Color 0xFF64B5F6))
+             (m/SizedBox .width 8.0)
+             ;; Revert back to raw text so user can edit/delete it
+             (m/GestureDetector
+              .onTap (fn []
+                       (swap! !state update-in [:blocks current-block-id]
+                              assoc :type :paragraph :content (str "((" target-id "))")))
+              .child
+              (m/Icon m.Icons/close .size 16.0 .color m.Colors/white38))])
+           (m/SizedBox .height 12.0)
+           (mgl/MongolText (if (empty? text) "(Empty block)" text)
+                           .style (m/TextStyle .fontFamily "OyunQaganTig"
+                                               .color m.Colors/white70
+                                               .fontSize 16.0))])))))))
+
+;; =============================================================================
+;; Editor config
 ;; =============================================================================
 
 (defn- make-editor-config []
   {:block-plugins
    [{:type :image
      :render (fn [_id _!state _idx _cfg] (m/SizedBox.shrink))
-     :render-read (fn [_block _style _on-link _!state] (m/SizedBox.shrink))}]
+     :render-read (fn [_block _style _on-link _!state] (m/SizedBox.shrink))}
+    ;; Add the new embed block plugin
+    {:type :embed
+     :render (fn [block-id !state _idx _cfg]
+               (let [block (get-in @!state [:blocks block-id])
+                     target-id (get-in block [:data :target-id])]
+                 (embed-widget target-id block-id !state)))
+     :render-read (fn [block _style _on-link !state]
+                    (let [target-id (get-in block [:data :target-id])]
+                      (embed-widget target-id (:id block) !state)))}]
    :text-block-types #{:paragraph :heading-1 :heading-2 :heading-3
                        :blockquote :list-item :ordered-list-item :task :callout :toggle}
    :on-link-tap link/handle-link-tap!
@@ -77,7 +152,7 @@
                  s)))))
 
 (defn invalidate-session!
-  "Drop cached editor state (e.g. after remote promote / sync reload)."
+  "Drop cached editor state."
   [document-id]
   (swap! !sessions dissoc document-id))
 
@@ -119,7 +194,8 @@
             (bridge/persist-diff! document-id @!state !snapshot)
             (catch Exception _ nil))
           (invalidate-session! document-id)
-          (dart:core/print (str "🧹 [Editor] Teardown & final save for doc: " document-id)))]
+          (dart:core/print (str "🧹 [Editor] Teardown & final save for doc: " document-id))
+          nil)]
 
     (f/widget
 
@@ -129,13 +205,35 @@
              title !title
              show-refs? !show-backlinks]
 
-     (let [_ (when-let [t @!save-timer]
-               (.cancel ^async/Timer t)
-               nil)
+     (let [_ (when-let [t @!save-timer] (.cancel ^async/Timer t) nil)
            _ (reset! !save-timer
                      (async/Timer.
                       (dart:core/Duration. .seconds 2)
                       #(bridge/persist-diff! document-id current-state !snapshot)))
+           
+           ;; Auto Embed Converter logic: find paragraphs that exactly match ((uuid))
+           blocks (:blocks current-state)
+           embeds-to-convert
+           (keep (fn [[id b]]
+                   (when (= (:type b) :paragraph)
+                     (let [content (str/trim (or (:content b) ""))]
+                       (when-let [match (re-matches #"^\(\((.+)\)\)$" content)]
+                         [id (second match)]))))
+                 blocks)
+           
+           ;; Apply conversions asynchronously to avoid mutating state during render
+           _ (when (seq embeds-to-convert)
+               (async/Timer.
+                (dart:core/Duration.zero)
+                (fn []
+                  (swap! !state
+                         (fn [s]
+                           (reduce (fn [acc [id target-id]]
+                                     (update-in acc [:blocks id]
+                                                assoc :type :embed :data {:target-id target-id} :content ""))
+                                   s
+                                   embeds-to-convert))))))
+
            show-panel? (and show-refs? (not= (or title "") ""))
            body-row
            (m/Row
