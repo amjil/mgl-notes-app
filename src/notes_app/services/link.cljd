@@ -1,5 +1,5 @@
 (ns notes-app.services.link
-  "Bidirectional wiki-links.
+  "Bidirectional wiki-links and #tags.
 
    Design: `block_links` is a **local derived index** — never synced as ops.
    Source of truth is block text (`[[Title]]` / `#tag`). Rebuild after:
@@ -29,10 +29,17 @@
     (async/Future.value nil)))
 
 (defn rebuild-links-for-block!
-  "Parse wiki/tag refs from text and replace block_links for this block."
+  "Parse wiki and #tag refs from text and replace block_links for this block."
   [block-id text]
   (if-let [^drift/AppDatabase database (db/get-database)]
-    (let [targets (->> (inline/parse-bidirectional-links (or text ""))
+    (let [text-val (or text "")
+          ;; 1. Existing [[wiki]] links
+          wiki-targets (inline/parse-bidirectional-links text-val)
+          ;; 2. Extract #tag (ignore adjacent punctuation)
+          tag-matches (re-seq #"(?:^|\s)#([^\s#,.\?!:;\"\'\]\[]+)" text-val)
+          tag-targets (map second tag-matches)
+          ;; 3. Merge and dedupe
+          targets (->> (concat wiki-targets tag-targets)
                        (map str/trim)
                        (remove str/blank?)
                        distinct
@@ -124,7 +131,11 @@
     (open-block-ref! (:id target))
 
     (string? target)
-    (open-or-create-by-title! target)
+    ;; If the target is a #tag, strip the leading # into a page title
+    (let [clean-target (if (str/starts-with? target "#")
+                         (subs target 1)
+                         target)]
+      (open-or-create-by-title! clean-target))
 
     :else nil))
 
@@ -167,3 +178,83 @@
                 (.then (fn [_] (rebuild-links-for-block! block-id new-text)))
                 (.then (fn [_] document-id))))
           (async/Future.value nil))))))
+
+;; =============================================================================
+;; Derived-index watches and queries (moved from db.core)
+;; =============================================================================
+
+(defn- row->backlink [row]
+  (let [data (.-data row)]
+    {:block-id (get data "block_id")
+     :block-text (get data "block_text")
+     :document-id (get data "document_id")
+     :document-title (get data "document_title")}))
+
+(defn watch-unlinked-references
+  "Blocks whose text mentions `title` but have no block_links row to it.
+   Excludes the current page (same document-id or same document title)."
+  [title document-id]
+  (if (or (nil? title) (< (count title) 2) (nil? document-id) (= document-id ""))
+    (async/Stream.empty)
+    (if-let [^drift/AppDatabase database (db/get-database)]
+      (let [pattern (str "%" title "%")
+            wiki (str "%[[" title "]]%")
+            tag (str "%#" title "%")]
+        (.map
+         (.watch
+          (.customSelect
+           database
+           (str "SELECT b.id AS block_id, b.text AS block_text, "
+                "d.id AS document_id, d.title AS document_title "
+                "FROM blocks b "
+                "INNER JOIN documents d ON d.id = b.document_id "
+                "WHERE b.deleted_at IS NULL AND d.deleted_at IS NULL "
+                "AND b.text LIKE ? "
+                "AND b.text NOT LIKE ? "
+                "AND b.text NOT LIKE ? " 
+                "AND b.id NOT IN (SELECT source_id FROM block_links WHERE target_id = ?) "
+                "AND d.id != ? "
+                "AND d.title != ? "
+                "ORDER BY b.updated_at DESC "
+                "LIMIT 50")
+           .variables [(d/Variable. pattern)
+                       (d/Variable. wiki)
+                       (d/Variable. tag)
+                       (d/Variable. title)
+                       (d/Variable. document-id)
+                       (d/Variable. title)]
+           .readsFrom #{(.-blocks database)
+                        (.-documents database)
+                        (.-blockLinks database)}))
+         (fn [rows]
+           (->> rows
+                (mapv row->backlink)
+                (filterv (fn [item]
+                           (and (not= (:document-id item) document-id)
+                                (not= (:document-title item) title))))))))
+      (async/Stream.empty))))
+
+(defn watch-backlinks
+  "Blocks that link to `title` via block_links. Excludes soft-deleted sources."
+  [title]
+  (if (or (nil? title) (= title ""))
+    (async/Stream.empty)
+    (if-let [^drift/AppDatabase database (db/get-database)]
+      (.map
+       (.watch
+        (.customSelect
+         database
+         (str "SELECT b.id AS block_id, b.text AS block_text, "
+              "d.id AS document_id, d.title AS document_title "
+              "FROM block_links bl "
+              "INNER JOIN blocks b ON b.id = bl.source_id "
+              "INNER JOIN documents d ON d.id = b.document_id "
+              "WHERE bl.target_id = ? "
+              "AND b.deleted_at IS NULL AND d.deleted_at IS NULL "
+              "ORDER BY b.updated_at DESC")
+         .variables [(d/Variable. title)]
+         .readsFrom #{(.-blockLinks database)
+                      (.-blocks database)
+                      (.-documents database)}))
+       (fn [rows] (mapv row->backlink rows)))
+      (async/Stream.empty))))

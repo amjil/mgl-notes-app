@@ -3,7 +3,6 @@
   (:require ["package:flutter/material.dart" :as m]
             ["package:mongol/mongol.dart" :as mgl]
             [cljd.flutter :as f]
-            [notes-app.db.core :as db]
             [notes-app.services.link :as link]
             [notes-app.services.sync :as sync]
             [notes-app.state.store :as store]))
@@ -100,10 +99,12 @@
   (f/widget
    :watch [backlinks (stream
                       (map (fn [rows] (or rows [])))
-                      :as-values (db/watch-backlinks page-title))
+                      ;; Query via the link namespace
+                      :as-values (link/watch-backlinks page-title))
            unlinked (stream
                      (map (fn [rows] (or rows [])))
-                     :as-values (db/watch-unlinked-references page-title document-id))]
+                     ;; Query via the link namespace
+                     :as-values (link/watch-unlinked-references page-title document-id))]
    :let [backlinks (or backlinks [])
          unlinked (->> (or unlinked [])
                        (remove (fn [item]
