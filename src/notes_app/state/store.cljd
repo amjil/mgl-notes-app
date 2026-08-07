@@ -5,7 +5,8 @@
   {:device-id "device_id"
    :sync-base-url "sync_base_url"
    :last-sync-time "last_sync_time"
-   :user-name "user_name"})
+   :user-name "user_name"
+   :show-daily-only "show_daily_only"})
 
 (def default-sync-base-url "http://127.0.0.1:4000")
 
@@ -16,6 +17,7 @@
          :sync-base-url default-sync-base-url
          :last-sync-time nil
          :user-name ""
+         :show-daily-only false
          :sync-status :idle ;; :idle :syncing :ok :error
          :sync-message nil}))
 
@@ -35,7 +37,8 @@
                    default-sync-base-url
                    saved-url)
         last-sync (.getString prefs (:last-sync-time pref-keys))
-        user-name (or (.getString prefs (:user-name pref-keys)) "")]
+        user-name (or (.getString prefs (:user-name pref-keys)) "")
+        show-daily-only? (or (.getBool prefs (:show-daily-only pref-keys)) false)]
     ;; Persist default URL on first launch so Settings shows it immediately
     (when (or (nil? saved-url) (= saved-url ""))
       (await (.setString prefs (:sync-base-url pref-keys) default-sync-base-url)))
@@ -43,7 +46,8 @@
            :device-id device-id
            :sync-base-url base-url
            :last-sync-time last-sync
-           :user-name user-name)))
+           :user-name user-name
+           :show-daily-only show-daily-only?)))
 
 (defn set-nav! [nav-id]
   (swap! app-ui-state assoc :selected-nav-id nav-id))
@@ -92,3 +96,12 @@
 
 (defn clear-parent-doc! []
   (swap! app-ui-state dissoc :parent-doc-id :parent-doc-title))
+
+(defn set-show-daily-only! [enabled?]
+  (let [v (boolean enabled?)]
+    (swap! app-ui-state assoc :show-daily-only v)
+    (let [prefs (await (.getInstance sp/SharedPreferences))]
+      (await (.setBool prefs (:show-daily-only pref-keys) v)))))
+
+(defn toggle-show-daily-only! []
+  (set-show-daily-only! (not (:show-daily-only @app-ui-state))))
