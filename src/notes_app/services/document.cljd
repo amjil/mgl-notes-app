@@ -69,6 +69,7 @@
                                :icon icon
                                :cover cover}})))
           (.then (fn [_] (seed-paragraph! doc-id)))
+          (.then (fn [_] (db/refresh-document-titles!)))
           (.then (fn [_] doc-id))))
     (async/Future.value nil)))
 
@@ -102,7 +103,10 @@
                                 (contains? patch :title) (assoc :title title)
                                 (contains? patch :icon) (assoc :icon icon)
                                 (contains? patch :cover) (assoc :cover cover))})))
-          (.then (fn [_] true))))
+          (.then (fn [_]
+                   (when (contains? patch :title)
+                     (db/refresh-document-titles!))
+                   true))))
     (async/Future.value false)))
 
 (defn rename! [doc-id title]
@@ -122,6 +126,7 @@
                      :entity-id doc-id
                      :action "document_delete"
                      :payload {:deleted_at (.toIso8601String now)}})))
+          (.then (fn [_] (db/refresh-document-titles!)))
           (.then (fn [_] true))))
     (async/Future.value false)))
 

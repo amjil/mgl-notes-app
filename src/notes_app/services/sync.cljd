@@ -77,7 +77,8 @@
       (async/Future.value :no-url))))
 
 (defn pull!
-  "Pull operations since last_sync_time."
+  "Pull operations since last_sync_time.
+   After apply, refresh title cache (link autocomplete)."
   []
   (if-let [base (base-url)]
     (do
@@ -103,6 +104,7 @@
                                                 (apply/apply-operation! (wire->op-map item)))))
                                      (async/Future.value nil)
                                      items)
+                             (.then (fn [_] (db/refresh-document-titles!)))
                              (.then (fn [_]
                                       (store/set-last-sync-time! (.toIso8601String (db/now)))
                                       (store/set-sync-status! :ok "Pull OK")
@@ -111,7 +113,6 @@
                          (store/set-sync-status!
                           :error (str "Pull failed: " (.-statusCode resp)))
                          :error))))
-            ;; Likewise keep catchError inside the -> form
             (.catchError (fn [e]
                            (store/set-sync-status! :error (str "Pull error: " e))
                            :error)))))

@@ -61,18 +61,35 @@ class Operations extends Table {
   Set<Column> get primaryKey => {id};
 }
 
-@DriftDatabase(tables: [Documents, Blocks, Operations])
+/// Wiki-style outbound links: block → target document title (`[[Title]]`).
+class BlockLinks extends Table {
+  TextColumn get sourceId =>
+      text().references(Blocks, #id, onDelete: KeyAction.cascade)();
+  /// Target is the document title string (matches `[[Title]]` / `#tag`).
+  TextColumn get targetId => text()();
+  TextColumn get linkType => text().withDefault(const Constant('ref'))();
+
+  @override
+  Set<Column> get primaryKey => {sourceId, targetId};
+}
+
+@DriftDatabase(tables: [Documents, Blocks, Operations, BlockLinks])
 class AppDatabase extends _$AppDatabase {
   AppDatabase() : super(impl.connect());
 
   @override
-  int get schemaVersion => 1;
+  int get schemaVersion => 2;
 
   @override
-  MigrationStrategy get migrations {
+  MigrationStrategy get migration {
     return MigrationStrategy(
       onCreate: (Migrator m) async {
         await m.createAll();
+      },
+      onUpgrade: (Migrator m, int from, int to) async {
+        if (from < 2) {
+          await m.createTable(blockLinks);
+        }
       },
     );
   }

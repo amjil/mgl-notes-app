@@ -1,0 +1,169 @@
+(ns notes-app.services.link
+  "Bidirectional wiki-links.
+
+   Design: `block_links` is a **local derived index** — never synced as ops.
+   Source of truth is block text (`[[Title]]` / `#tag`). Rebuild after:
+   - local editor persist
+   - remote pull apply (block_create / block_update / block_delete)
+   - soft-delete
+
+   Creating a doc via link-tap emits normal document_create (synced)."
+  (:require ["dart:async" :as async]
+            ["dart:core" :as dc]
+            ["package:mgl_notes_app/database.dart" :as drift]
+            ["package:drift/drift.dart" :as d]
+            [clojure.string :as str]
+            [block-editor.utils.inline :as inline]
+            [notes-app.db.core :as db]
+            [notes-app.services.document :as doc]
+            [notes-app.services.operation :as op]
+            [notes-app.state.store :as store]))
+
+(defn clear-links-for-block!
+  "Remove all outbound links for a source block."
+  [block-id]
+  (if-let [^drift/AppDatabase database (db/get-database)]
+    (let [q (doto (.delete database (.-blockLinks database))
+              (.where (fn [t] (.equals (.-sourceId t) block-id))))]
+      (.go q))
+    (async/Future.value nil)))
+
+(defn rebuild-links-for-block!
+  "Parse wiki/tag refs from text and replace block_links for this block."
+  [block-id text]
+  (if-let [^drift/AppDatabase database (db/get-database)]
+    (let [targets (->> (inline/parse-bidirectional-links (or text ""))
+                       (map str/trim)
+                       (remove str/blank?)
+                       distinct
+                       vec)]
+      (-> (clear-links-for-block! block-id)
+          (.then (fn [_]
+                   (if (empty? targets)
+                     nil
+                     ;; InsertStatement has no insertAll — use batch instead.
+                     (.batch database
+                             (fn [b]
+                               (doseq [target targets]
+                                 (.insert b
+                                          (.-blockLinks database)
+                                          (drift/BlockLinksCompanion.insert
+                                           :sourceId block-id
+                                           :targetId target
+                                           :linkType (d/Value "ref")))))))))))
+    (async/Future.value nil)))
+
+(defn sync-links-from-db-block!
+  "Re-read block from DB and rebuild or clear its link index (after pull apply)."
+  [block-id]
+  (-> (db/get-block block-id)
+      (.then (fn [blk]
+               (cond
+                 (nil? blk) (clear-links-for-block! block-id)
+                 (.-deletedAt blk) (clear-links-for-block! block-id)
+                 :else (rebuild-links-for-block! block-id
+                                                 (or (.-textContent blk) "")))))))
+
+(defn rebuild-links-for-rows!
+  "Rebuild link index for a seq of {:id :text} rows (after local persist)."
+  [rows]
+  (reduce (fn [fut row]
+            (.then fut
+                   (fn [_]
+                     (rebuild-links-for-block! (:id row) (:text row)))))
+          (async/Future.value nil)
+          rows))
+
+(defn clear-links-for-ids!
+  [ids]
+  (reduce (fn [fut id]
+            (.then fut (fn [_] (clear-links-for-block! id))))
+          (async/Future.value nil)
+          ids))
+
+(defn reindex-all-links!
+  "Full rebuild of block_links from all active block texts.
+   Run once after DB init / schema upgrade so pull'd history is indexed."
+  []
+  (-> (db/all-active-blocks-for-reindex)
+      (.then (fn [rows]
+               (rebuild-links-for-rows! (or rows []))))
+      (.catchError (fn [e]
+                     (dart:core/print (str "reindex-all-links! failed: " e))
+                     nil))))
+
+(defn open-or-create-by-title!
+  "Resolve `[[Title]]` / `#tag`: open existing doc or create then open."
+  [title]
+  (let [title (str/trim (or title ""))]
+    (when-not (str/blank? title)
+      (-> (db/find-document-by-title title)
+          (.then (fn [found]
+                   (if found
+                     (do (store/open-document! (.-id found))
+                         (.-id found))
+                     (-> (doc/create! {:title title :type "normal"})
+                         (.then (fn [doc-id]
+                                  (db/refresh-document-titles!)
+                                  (store/open-document! doc-id)
+                                  doc-id))))))))))
+
+(defn open-block-ref!
+  "Navigate to the document that owns block-id."
+  [block-id]
+  (-> (db/get-block block-id)
+      (.then (fn [blk]
+               (when (and blk (nil? (.-deletedAt blk)))
+                 (store/open-document! (.-documentId blk)))))))
+
+(defn handle-link-tap!
+  "Editor `:on-link-tap` handler. Accepts title string or `{:type :block :id uuid}`."
+  [target]
+  (cond
+    (and (map? target) (= (:type target) :block) (:id target))
+    (open-block-ref! (:id target))
+
+    (string? target)
+    (open-or-create-by-title! target)
+
+    :else nil))
+
+(defn link-suggestions
+  "Filter document titles for `[[` autocomplete (sync; uses title cache)."
+  [query]
+  (let [q (str/lower-case (or query ""))
+        titles (or (db/cached-document-titles) [])]
+    (->> titles
+         (filter (fn [t]
+                   (and (not (str/blank? t))
+                        (or (str/blank? q)
+                            (str/includes? (str/lower-case t) q)))))
+         (take 20)
+         vec)))
+
+(defn promote-unlinked-to-link!
+  "Wrap bare title mention with `[[title]]`, emit block_update for sync, rebuild index.
+   Returns Future of affected document-id (or nil)."
+  [{:keys [block-id text document-id]} title]
+  (if-not (and block-id title (not (str/blank? title)))
+    (async/Future.value nil)
+    (let [^String old (or text "")
+          ^String new-text (.replaceFirst old title (str "[[" title "]]"))]
+      (if (= old new-text)
+        (async/Future.value nil)
+        (if-let [^drift/AppDatabase database (db/get-database)]
+          (let [now (db/now)
+                q (doto (.update database (.-blocks database))
+                    (.where (fn [t] (.equals (.-id t) block-id))))]
+            (-> (.write q (drift/BlocksCompanion.
+                           .textContent (d/Value ^String new-text)
+                           .updatedAt (d/Value ^dc/DateTime now)))
+                (.then (fn [_]
+                         (op/append!
+                          {:entity-type "block"
+                           :entity-id block-id
+                           :action "block_update"
+                           :payload {:text new-text}})))
+                (.then (fn [_] (rebuild-links-for-block! block-id new-text)))
+                (.then (fn [_] document-id))))
+          (async/Future.value nil))))))

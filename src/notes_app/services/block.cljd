@@ -4,7 +4,8 @@
             ["package:mgl_notes_app/database.dart" :as drift]
             ["package:drift/drift.dart" :as d]
             [notes-app.db.core :as db]
-            [notes-app.services.operation :as op]))
+            [notes-app.services.operation :as op]
+            [notes-app.services.link :as link]))
 
 (defn- type->db [t]
   (let [s (if (keyword? t) (name t) (str t))]
@@ -80,6 +81,8 @@
                      :entity-id block-id
                      :action "block_delete"
                      :payload {:deleted_at (.toIso8601String now)}})))
+          ;; Soft-delete does not cascade FK — clear derived link index.
+          (.then (fn [_] (link/clear-links-for-block! block-id)))
           (.then (fn [_] true))))
     (async/Future.value false)))
 

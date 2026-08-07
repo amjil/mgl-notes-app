@@ -1,0 +1,134 @@
+(ns notes-app.widgets.backlinks
+  "Linked + unlinked references sidebar for the current document title."
+  (:require ["package:flutter/material.dart" :as m]
+            ["package:mongol/mongol.dart" :as mgl]
+            [cljd.flutter :as f]
+            [notes-app.db.core :as db]
+            [notes-app.services.link :as link]
+            [notes-app.services.sync :as sync]
+            [notes-app.state.store :as store]))
+
+(defn- preview-text [text]
+  (let [t (or text "")
+        n (min (count t) 80)]
+    (if (<= (count t) 80)
+      t
+      (str (.substring t 0 n) "…"))))
+
+(defn- reference-card
+  [{:keys [block-text document-id document-title]} kind on-promote]
+  (let [unlinked? (= kind :unlinked)]
+    (m/Container
+     .margin (m.EdgeInsets/only .right 16.0)
+     .padding (m.EdgeInsets/all 12.0)
+     .decoration (m/BoxDecoration
+                  .color (if unlinked?
+                           (m/Color 0x14FF9800)
+                           (m/Color 0x14FFFFFF))
+                  .borderRadius (m.BorderRadius/circular 8.0)
+                  .border (when unlinked?
+                            (m/Border.all .color (m/Color 0x33FF9800) .width 1.0)))
+     .child
+     (m/Column
+      .crossAxisAlignment m.CrossAxisAlignment/start
+      .mainAxisSize m.MainAxisSize/min
+      .children
+      (into []
+            (remove nil?
+                    [(m/GestureDetector
+                      .onTap #(when document-id (store/open-document! document-id))
+                      .child
+                      (mgl/MongolText
+                       (or document-title "")
+                       .style (m/TextStyle
+                               .color (if unlinked? (m/Color 0xFFFFB74D) (m/Color 0xFF64B5F6))
+                               .fontWeight m.FontWeight/bold
+                               .fontFamily "OyunQaganTig"
+                               .fontSize 14.0)))
+                     (m/SizedBox .height 10.0)
+                     (mgl/MongolText
+                      (preview-text block-text)
+                      .style (m/TextStyle
+                              .color (m/Color 0xFFBDBDBD)
+                              .fontFamily "OyunQaganTig"
+                              .fontSize 13.0))
+                     (when (and unlinked? on-promote)
+                       (m/Padding
+                        .padding (m.EdgeInsets/only .top 10.0)
+                        .child
+                        (mgl/MongolTextButton
+                         .style (m/TextButton.styleFrom
+                                 .foregroundColor (m/Color 0xFFFFB74D)
+                                 .padding (m.EdgeInsets/zero))
+                         .onPressed on-promote
+                         .child
+                         (mgl/MongolText
+                          "Link"
+                          .style (m/TextStyle .fontFamily "OyunQaganTig"
+                                              .fontSize 12.0
+                                              .color (m/Color 0xFFFFB74D))))))]))))))
+
+(defn- section-header [label color]
+  (m/Padding
+   .padding (m.EdgeInsets/only .bottom 12.0)
+   .child
+   (mgl/MongolText
+    label
+    .style (m/TextStyle .fontSize 15.0
+                        .color color
+                        .fontFamily "OyunQaganTig"))))
+
+(defn- cards-row [cards]
+  (m/SingleChildScrollView
+   .scrollDirection m.Axis/horizontal
+   .child
+   (m/Row
+    .crossAxisAlignment m.CrossAxisAlignment/start
+    .children (vec cards))))
+
+(defn references-sidebar
+  "Watch linked + unlinked refs for `page-title`.
+   Optional `on-promoted` receives affected document-id after promote."
+  [page-title & {:keys [on-promoted]}]
+  (f/widget
+   :watch [backlinks (stream
+                      (map (fn [rows] (or rows [])))
+                      :as-values (db/watch-backlinks page-title))
+           unlinked (stream
+                     (map (fn [rows] (or rows [])))
+                     :as-values (db/watch-unlinked-references page-title))]
+   :let [backlinks (or backlinks [])
+         unlinked (or unlinked [])
+         linked-cards (mapv (fn [item] (reference-card item :linked nil)) backlinks)
+         unlinked-cards
+         (mapv (fn [item]
+                 (reference-card
+                  item
+                  :unlinked
+                  (fn []
+                    (-> (link/promote-unlinked-to-link! item page-title)
+                        (.then (fn [doc-id]
+                                 (when (and doc-id on-promoted)
+                                   (on-promoted doc-id))
+                                 (sync/schedule-push!)))))))
+               unlinked)]
+   (m/Column
+    .crossAxisAlignment m.CrossAxisAlignment/start
+    .children
+    (into []
+          (remove nil?
+                  [(section-header
+                    (if (empty? backlinks)
+                      "No linked references"
+                      (str "Linked (" (count backlinks) ")"))
+                    (m/Color 0xB3FFFFFF))
+                   (m/Expanded .child (cards-row linked-cards))
+                   (when (seq unlinked)
+                     (m/Padding
+                      .padding (m.EdgeInsets/only .top 16.0)
+                      .child
+                      (section-header
+                       (str "Unlinked (" (count unlinked) ")")
+                       (m/Color 0xFFFFB74D))))
+                   (when (seq unlinked)
+                     (m/Expanded .child (cards-row unlinked-cards)))])))))

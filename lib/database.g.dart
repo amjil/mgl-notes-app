@@ -1428,18 +1428,254 @@ class OperationsCompanion extends UpdateCompanion<Operation> {
   }
 }
 
+class $BlockLinksTable extends BlockLinks
+    with TableInfo<$BlockLinksTable, BlockLink> {
+  @override
+  final GeneratedDatabase attachedDatabase;
+  final String? _alias;
+  $BlockLinksTable(this.attachedDatabase, [this._alias]);
+  static const VerificationMeta _sourceIdMeta =
+      const VerificationMeta('sourceId');
+  @override
+  late final GeneratedColumn<String> sourceId = GeneratedColumn<String>(
+      'source_id', aliasedName, false,
+      type: DriftSqlType.string,
+      requiredDuringInsert: true,
+      defaultConstraints: GeneratedColumn.constraintIsAlways(
+          'REFERENCES blocks (id) ON DELETE CASCADE'));
+  static const VerificationMeta _targetIdMeta =
+      const VerificationMeta('targetId');
+  @override
+  late final GeneratedColumn<String> targetId = GeneratedColumn<String>(
+      'target_id', aliasedName, false,
+      type: DriftSqlType.string, requiredDuringInsert: true);
+  static const VerificationMeta _linkTypeMeta =
+      const VerificationMeta('linkType');
+  @override
+  late final GeneratedColumn<String> linkType = GeneratedColumn<String>(
+      'link_type', aliasedName, false,
+      type: DriftSqlType.string,
+      requiredDuringInsert: false,
+      defaultValue: const Constant('ref'));
+  @override
+  List<GeneratedColumn> get $columns => [sourceId, targetId, linkType];
+  @override
+  String get aliasedName => _alias ?? actualTableName;
+  @override
+  String get actualTableName => $name;
+  static const String $name = 'block_links';
+  @override
+  VerificationContext validateIntegrity(Insertable<BlockLink> instance,
+      {bool isInserting = false}) {
+    final context = VerificationContext();
+    final data = instance.toColumns(true);
+    if (data.containsKey('source_id')) {
+      context.handle(_sourceIdMeta,
+          sourceId.isAcceptableOrUnknown(data['source_id']!, _sourceIdMeta));
+    } else if (isInserting) {
+      context.missing(_sourceIdMeta);
+    }
+    if (data.containsKey('target_id')) {
+      context.handle(_targetIdMeta,
+          targetId.isAcceptableOrUnknown(data['target_id']!, _targetIdMeta));
+    } else if (isInserting) {
+      context.missing(_targetIdMeta);
+    }
+    if (data.containsKey('link_type')) {
+      context.handle(_linkTypeMeta,
+          linkType.isAcceptableOrUnknown(data['link_type']!, _linkTypeMeta));
+    }
+    return context;
+  }
+
+  @override
+  Set<GeneratedColumn> get $primaryKey => {sourceId, targetId};
+  @override
+  BlockLink map(Map<String, dynamic> data, {String? tablePrefix}) {
+    final effectivePrefix = tablePrefix != null ? '$tablePrefix.' : '';
+    return BlockLink(
+      sourceId: attachedDatabase.typeMapping
+          .read(DriftSqlType.string, data['${effectivePrefix}source_id'])!,
+      targetId: attachedDatabase.typeMapping
+          .read(DriftSqlType.string, data['${effectivePrefix}target_id'])!,
+      linkType: attachedDatabase.typeMapping
+          .read(DriftSqlType.string, data['${effectivePrefix}link_type'])!,
+    );
+  }
+
+  @override
+  $BlockLinksTable createAlias(String alias) {
+    return $BlockLinksTable(attachedDatabase, alias);
+  }
+}
+
+class BlockLink extends DataClass implements Insertable<BlockLink> {
+  final String sourceId;
+
+  /// Target is the document title string (matches `[[Title]]` / `#tag`).
+  final String targetId;
+  final String linkType;
+  const BlockLink(
+      {required this.sourceId, required this.targetId, required this.linkType});
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    map['source_id'] = Variable<String>(sourceId);
+    map['target_id'] = Variable<String>(targetId);
+    map['link_type'] = Variable<String>(linkType);
+    return map;
+  }
+
+  BlockLinksCompanion toCompanion(bool nullToAbsent) {
+    return BlockLinksCompanion(
+      sourceId: Value(sourceId),
+      targetId: Value(targetId),
+      linkType: Value(linkType),
+    );
+  }
+
+  factory BlockLink.fromJson(Map<String, dynamic> json,
+      {ValueSerializer? serializer}) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return BlockLink(
+      sourceId: serializer.fromJson<String>(json['sourceId']),
+      targetId: serializer.fromJson<String>(json['targetId']),
+      linkType: serializer.fromJson<String>(json['linkType']),
+    );
+  }
+  @override
+  Map<String, dynamic> toJson({ValueSerializer? serializer}) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return <String, dynamic>{
+      'sourceId': serializer.toJson<String>(sourceId),
+      'targetId': serializer.toJson<String>(targetId),
+      'linkType': serializer.toJson<String>(linkType),
+    };
+  }
+
+  BlockLink copyWith({String? sourceId, String? targetId, String? linkType}) =>
+      BlockLink(
+        sourceId: sourceId ?? this.sourceId,
+        targetId: targetId ?? this.targetId,
+        linkType: linkType ?? this.linkType,
+      );
+  BlockLink copyWithCompanion(BlockLinksCompanion data) {
+    return BlockLink(
+      sourceId: data.sourceId.present ? data.sourceId.value : this.sourceId,
+      targetId: data.targetId.present ? data.targetId.value : this.targetId,
+      linkType: data.linkType.present ? data.linkType.value : this.linkType,
+    );
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('BlockLink(')
+          ..write('sourceId: $sourceId, ')
+          ..write('targetId: $targetId, ')
+          ..write('linkType: $linkType')
+          ..write(')'))
+        .toString();
+  }
+
+  @override
+  int get hashCode => Object.hash(sourceId, targetId, linkType);
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      (other is BlockLink &&
+          other.sourceId == this.sourceId &&
+          other.targetId == this.targetId &&
+          other.linkType == this.linkType);
+}
+
+class BlockLinksCompanion extends UpdateCompanion<BlockLink> {
+  final Value<String> sourceId;
+  final Value<String> targetId;
+  final Value<String> linkType;
+  final Value<int> rowid;
+  const BlockLinksCompanion({
+    this.sourceId = const Value.absent(),
+    this.targetId = const Value.absent(),
+    this.linkType = const Value.absent(),
+    this.rowid = const Value.absent(),
+  });
+  BlockLinksCompanion.insert({
+    required String sourceId,
+    required String targetId,
+    this.linkType = const Value.absent(),
+    this.rowid = const Value.absent(),
+  })  : sourceId = Value(sourceId),
+        targetId = Value(targetId);
+  static Insertable<BlockLink> custom({
+    Expression<String>? sourceId,
+    Expression<String>? targetId,
+    Expression<String>? linkType,
+    Expression<int>? rowid,
+  }) {
+    return RawValuesInsertable({
+      if (sourceId != null) 'source_id': sourceId,
+      if (targetId != null) 'target_id': targetId,
+      if (linkType != null) 'link_type': linkType,
+      if (rowid != null) 'rowid': rowid,
+    });
+  }
+
+  BlockLinksCompanion copyWith(
+      {Value<String>? sourceId,
+      Value<String>? targetId,
+      Value<String>? linkType,
+      Value<int>? rowid}) {
+    return BlockLinksCompanion(
+      sourceId: sourceId ?? this.sourceId,
+      targetId: targetId ?? this.targetId,
+      linkType: linkType ?? this.linkType,
+      rowid: rowid ?? this.rowid,
+    );
+  }
+
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    if (sourceId.present) {
+      map['source_id'] = Variable<String>(sourceId.value);
+    }
+    if (targetId.present) {
+      map['target_id'] = Variable<String>(targetId.value);
+    }
+    if (linkType.present) {
+      map['link_type'] = Variable<String>(linkType.value);
+    }
+    if (rowid.present) {
+      map['rowid'] = Variable<int>(rowid.value);
+    }
+    return map;
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('BlockLinksCompanion(')
+          ..write('sourceId: $sourceId, ')
+          ..write('targetId: $targetId, ')
+          ..write('linkType: $linkType, ')
+          ..write('rowid: $rowid')
+          ..write(')'))
+        .toString();
+  }
+}
+
 abstract class _$AppDatabase extends GeneratedDatabase {
   _$AppDatabase(QueryExecutor e) : super(e);
   $AppDatabaseManager get managers => $AppDatabaseManager(this);
   late final $DocumentsTable documents = $DocumentsTable(this);
   late final $BlocksTable blocks = $BlocksTable(this);
   late final $OperationsTable operations = $OperationsTable(this);
+  late final $BlockLinksTable blockLinks = $BlockLinksTable(this);
   @override
   Iterable<TableInfo<Table, Object?>> get allTables =>
       allSchemaEntities.whereType<TableInfo<Table, Object?>>();
   @override
   List<DatabaseSchemaEntity> get allSchemaEntities =>
-      [documents, blocks, operations];
+      [documents, blocks, operations, blockLinks];
   @override
   StreamQueryUpdateRules get streamUpdateRules => const StreamQueryUpdateRules(
         [
@@ -1448,6 +1684,13 @@ abstract class _$AppDatabase extends GeneratedDatabase {
                 limitUpdateKind: UpdateKind.delete),
             result: [
               TableUpdate('blocks', kind: UpdateKind.delete),
+            ],
+          ),
+          WritePropagation(
+            on: TableUpdateQuery.onTableName('blocks',
+                limitUpdateKind: UpdateKind.delete),
+            result: [
+              TableUpdate('block_links', kind: UpdateKind.delete),
             ],
           ),
         ],
@@ -1812,6 +2055,21 @@ final class $$BlocksTableReferences
     return ProcessedTableManager(
         manager.$state.copyWith(prefetchedData: [item]));
   }
+
+  static MultiTypedResultKey<$BlockLinksTable, List<BlockLink>>
+      _blockLinksRefsTable(_$AppDatabase db) =>
+          MultiTypedResultKey.fromTable(db.blockLinks,
+              aliasName:
+                  $_aliasNameGenerator(db.blocks.id, db.blockLinks.sourceId));
+
+  $$BlockLinksTableProcessedTableManager get blockLinksRefs {
+    final manager = $$BlockLinksTableTableManager($_db, $_db.blockLinks)
+        .filter((f) => f.sourceId.id.sqlEquals($_itemColumn<String>('id')!));
+
+    final cache = $_typedResult.readTableOrNull(_blockLinksRefsTable($_db));
+    return ProcessedTableManager(
+        manager.$state.copyWith(prefetchedData: cache));
+  }
 }
 
 class $$BlocksTableFilterComposer
@@ -1871,6 +2129,27 @@ class $$BlocksTableFilterComposer
                   $removeJoinBuilderFromRootComposer,
             ));
     return composer;
+  }
+
+  Expression<bool> blockLinksRefs(
+      Expression<bool> Function($$BlockLinksTableFilterComposer f) f) {
+    final $$BlockLinksTableFilterComposer composer = $composerBuilder(
+        composer: this,
+        getCurrentColumn: (t) => t.id,
+        referencedTable: $db.blockLinks,
+        getReferencedColumn: (t) => t.sourceId,
+        builder: (joinBuilder,
+                {$addJoinBuilderToRootComposer,
+                $removeJoinBuilderFromRootComposer}) =>
+            $$BlockLinksTableFilterComposer(
+              $db: $db,
+              $table: $db.blockLinks,
+              $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+              joinBuilder: joinBuilder,
+              $removeJoinBuilderFromRootComposer:
+                  $removeJoinBuilderFromRootComposer,
+            ));
+    return f(composer);
   }
 }
 
@@ -1992,6 +2271,27 @@ class $$BlocksTableAnnotationComposer
             ));
     return composer;
   }
+
+  Expression<T> blockLinksRefs<T extends Object>(
+      Expression<T> Function($$BlockLinksTableAnnotationComposer a) f) {
+    final $$BlockLinksTableAnnotationComposer composer = $composerBuilder(
+        composer: this,
+        getCurrentColumn: (t) => t.id,
+        referencedTable: $db.blockLinks,
+        getReferencedColumn: (t) => t.sourceId,
+        builder: (joinBuilder,
+                {$addJoinBuilderToRootComposer,
+                $removeJoinBuilderFromRootComposer}) =>
+            $$BlockLinksTableAnnotationComposer(
+              $db: $db,
+              $table: $db.blockLinks,
+              $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+              joinBuilder: joinBuilder,
+              $removeJoinBuilderFromRootComposer:
+                  $removeJoinBuilderFromRootComposer,
+            ));
+    return f(composer);
+  }
 }
 
 class $$BlocksTableTableManager extends RootTableManager<
@@ -2005,7 +2305,7 @@ class $$BlocksTableTableManager extends RootTableManager<
     $$BlocksTableUpdateCompanionBuilder,
     (Block, $$BlocksTableReferences),
     Block,
-    PrefetchHooks Function({bool documentId})> {
+    PrefetchHooks Function({bool documentId, bool blockLinksRefs})> {
   $$BlocksTableTableManager(_$AppDatabase db, $BlocksTable table)
       : super(TableManagerState(
           db: db,
@@ -2076,10 +2376,11 @@ class $$BlocksTableTableManager extends RootTableManager<
               .map((e) =>
                   (e.readTable(table), $$BlocksTableReferences(db, table, e)))
               .toList(),
-          prefetchHooksCallback: ({documentId = false}) {
+          prefetchHooksCallback: (
+              {documentId = false, blockLinksRefs = false}) {
             return PrefetchHooks(
               db: db,
-              explicitlyWatchedTables: [],
+              explicitlyWatchedTables: [if (blockLinksRefs) db.blockLinks],
               addJoins: <
                   T extends TableManagerState<
                       dynamic,
@@ -2107,7 +2408,20 @@ class $$BlocksTableTableManager extends RootTableManager<
                 return state;
               },
               getPrefetchedDataCallback: (items) async {
-                return [];
+                return [
+                  if (blockLinksRefs)
+                    await $_getPrefetchedData<Block, $BlocksTable, BlockLink>(
+                        currentTable: table,
+                        referencedTable:
+                            $$BlocksTableReferences._blockLinksRefsTable(db),
+                        managerFromTypedResult: (p0) =>
+                            $$BlocksTableReferences(db, table, p0)
+                                .blockLinksRefs,
+                        referencedItemsForCurrentItem: (item,
+                                referencedItems) =>
+                            referencedItems.where((e) => e.sourceId == item.id),
+                        typedResults: items)
+                ];
               },
             );
           },
@@ -2125,7 +2439,7 @@ typedef $$BlocksTableProcessedTableManager = ProcessedTableManager<
     $$BlocksTableUpdateCompanionBuilder,
     (Block, $$BlocksTableReferences),
     Block,
-    PrefetchHooks Function({bool documentId})>;
+    PrefetchHooks Function({bool documentId, bool blockLinksRefs})>;
 typedef $$OperationsTableCreateCompanionBuilder = OperationsCompanion Function({
   required String id,
   required String deviceId,
@@ -2336,6 +2650,248 @@ typedef $$OperationsTableProcessedTableManager = ProcessedTableManager<
     (Operation, BaseReferences<_$AppDatabase, $OperationsTable, Operation>),
     Operation,
     PrefetchHooks Function()>;
+typedef $$BlockLinksTableCreateCompanionBuilder = BlockLinksCompanion Function({
+  required String sourceId,
+  required String targetId,
+  Value<String> linkType,
+  Value<int> rowid,
+});
+typedef $$BlockLinksTableUpdateCompanionBuilder = BlockLinksCompanion Function({
+  Value<String> sourceId,
+  Value<String> targetId,
+  Value<String> linkType,
+  Value<int> rowid,
+});
+
+final class $$BlockLinksTableReferences
+    extends BaseReferences<_$AppDatabase, $BlockLinksTable, BlockLink> {
+  $$BlockLinksTableReferences(super.$_db, super.$_table, super.$_typedResult);
+
+  static $BlocksTable _sourceIdTable(_$AppDatabase db) => db.blocks
+      .createAlias($_aliasNameGenerator(db.blockLinks.sourceId, db.blocks.id));
+
+  $$BlocksTableProcessedTableManager get sourceId {
+    final $_column = $_itemColumn<String>('source_id')!;
+
+    final manager = $$BlocksTableTableManager($_db, $_db.blocks)
+        .filter((f) => f.id.sqlEquals($_column));
+    final item = $_typedResult.readTableOrNull(_sourceIdTable($_db));
+    if (item == null) return manager;
+    return ProcessedTableManager(
+        manager.$state.copyWith(prefetchedData: [item]));
+  }
+}
+
+class $$BlockLinksTableFilterComposer
+    extends Composer<_$AppDatabase, $BlockLinksTable> {
+  $$BlockLinksTableFilterComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnFilters<String> get targetId => $composableBuilder(
+      column: $table.targetId, builder: (column) => ColumnFilters(column));
+
+  ColumnFilters<String> get linkType => $composableBuilder(
+      column: $table.linkType, builder: (column) => ColumnFilters(column));
+
+  $$BlocksTableFilterComposer get sourceId {
+    final $$BlocksTableFilterComposer composer = $composerBuilder(
+        composer: this,
+        getCurrentColumn: (t) => t.sourceId,
+        referencedTable: $db.blocks,
+        getReferencedColumn: (t) => t.id,
+        builder: (joinBuilder,
+                {$addJoinBuilderToRootComposer,
+                $removeJoinBuilderFromRootComposer}) =>
+            $$BlocksTableFilterComposer(
+              $db: $db,
+              $table: $db.blocks,
+              $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+              joinBuilder: joinBuilder,
+              $removeJoinBuilderFromRootComposer:
+                  $removeJoinBuilderFromRootComposer,
+            ));
+    return composer;
+  }
+}
+
+class $$BlockLinksTableOrderingComposer
+    extends Composer<_$AppDatabase, $BlockLinksTable> {
+  $$BlockLinksTableOrderingComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnOrderings<String> get targetId => $composableBuilder(
+      column: $table.targetId, builder: (column) => ColumnOrderings(column));
+
+  ColumnOrderings<String> get linkType => $composableBuilder(
+      column: $table.linkType, builder: (column) => ColumnOrderings(column));
+
+  $$BlocksTableOrderingComposer get sourceId {
+    final $$BlocksTableOrderingComposer composer = $composerBuilder(
+        composer: this,
+        getCurrentColumn: (t) => t.sourceId,
+        referencedTable: $db.blocks,
+        getReferencedColumn: (t) => t.id,
+        builder: (joinBuilder,
+                {$addJoinBuilderToRootComposer,
+                $removeJoinBuilderFromRootComposer}) =>
+            $$BlocksTableOrderingComposer(
+              $db: $db,
+              $table: $db.blocks,
+              $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+              joinBuilder: joinBuilder,
+              $removeJoinBuilderFromRootComposer:
+                  $removeJoinBuilderFromRootComposer,
+            ));
+    return composer;
+  }
+}
+
+class $$BlockLinksTableAnnotationComposer
+    extends Composer<_$AppDatabase, $BlockLinksTable> {
+  $$BlockLinksTableAnnotationComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  GeneratedColumn<String> get targetId =>
+      $composableBuilder(column: $table.targetId, builder: (column) => column);
+
+  GeneratedColumn<String> get linkType =>
+      $composableBuilder(column: $table.linkType, builder: (column) => column);
+
+  $$BlocksTableAnnotationComposer get sourceId {
+    final $$BlocksTableAnnotationComposer composer = $composerBuilder(
+        composer: this,
+        getCurrentColumn: (t) => t.sourceId,
+        referencedTable: $db.blocks,
+        getReferencedColumn: (t) => t.id,
+        builder: (joinBuilder,
+                {$addJoinBuilderToRootComposer,
+                $removeJoinBuilderFromRootComposer}) =>
+            $$BlocksTableAnnotationComposer(
+              $db: $db,
+              $table: $db.blocks,
+              $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+              joinBuilder: joinBuilder,
+              $removeJoinBuilderFromRootComposer:
+                  $removeJoinBuilderFromRootComposer,
+            ));
+    return composer;
+  }
+}
+
+class $$BlockLinksTableTableManager extends RootTableManager<
+    _$AppDatabase,
+    $BlockLinksTable,
+    BlockLink,
+    $$BlockLinksTableFilterComposer,
+    $$BlockLinksTableOrderingComposer,
+    $$BlockLinksTableAnnotationComposer,
+    $$BlockLinksTableCreateCompanionBuilder,
+    $$BlockLinksTableUpdateCompanionBuilder,
+    (BlockLink, $$BlockLinksTableReferences),
+    BlockLink,
+    PrefetchHooks Function({bool sourceId})> {
+  $$BlockLinksTableTableManager(_$AppDatabase db, $BlockLinksTable table)
+      : super(TableManagerState(
+          db: db,
+          table: table,
+          createFilteringComposer: () =>
+              $$BlockLinksTableFilterComposer($db: db, $table: table),
+          createOrderingComposer: () =>
+              $$BlockLinksTableOrderingComposer($db: db, $table: table),
+          createComputedFieldComposer: () =>
+              $$BlockLinksTableAnnotationComposer($db: db, $table: table),
+          updateCompanionCallback: ({
+            Value<String> sourceId = const Value.absent(),
+            Value<String> targetId = const Value.absent(),
+            Value<String> linkType = const Value.absent(),
+            Value<int> rowid = const Value.absent(),
+          }) =>
+              BlockLinksCompanion(
+            sourceId: sourceId,
+            targetId: targetId,
+            linkType: linkType,
+            rowid: rowid,
+          ),
+          createCompanionCallback: ({
+            required String sourceId,
+            required String targetId,
+            Value<String> linkType = const Value.absent(),
+            Value<int> rowid = const Value.absent(),
+          }) =>
+              BlockLinksCompanion.insert(
+            sourceId: sourceId,
+            targetId: targetId,
+            linkType: linkType,
+            rowid: rowid,
+          ),
+          withReferenceMapper: (p0) => p0
+              .map((e) => (
+                    e.readTable(table),
+                    $$BlockLinksTableReferences(db, table, e)
+                  ))
+              .toList(),
+          prefetchHooksCallback: ({sourceId = false}) {
+            return PrefetchHooks(
+              db: db,
+              explicitlyWatchedTables: [],
+              addJoins: <
+                  T extends TableManagerState<
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic>>(state) {
+                if (sourceId) {
+                  state = state.withJoin(
+                    currentTable: table,
+                    currentColumn: table.sourceId,
+                    referencedTable:
+                        $$BlockLinksTableReferences._sourceIdTable(db),
+                    referencedColumn:
+                        $$BlockLinksTableReferences._sourceIdTable(db).id,
+                  ) as T;
+                }
+
+                return state;
+              },
+              getPrefetchedDataCallback: (items) async {
+                return [];
+              },
+            );
+          },
+        ));
+}
+
+typedef $$BlockLinksTableProcessedTableManager = ProcessedTableManager<
+    _$AppDatabase,
+    $BlockLinksTable,
+    BlockLink,
+    $$BlockLinksTableFilterComposer,
+    $$BlockLinksTableOrderingComposer,
+    $$BlockLinksTableAnnotationComposer,
+    $$BlockLinksTableCreateCompanionBuilder,
+    $$BlockLinksTableUpdateCompanionBuilder,
+    (BlockLink, $$BlockLinksTableReferences),
+    BlockLink,
+    PrefetchHooks Function({bool sourceId})>;
 
 class $AppDatabaseManager {
   final _$AppDatabase _db;
@@ -2346,4 +2902,6 @@ class $AppDatabaseManager {
       $$BlocksTableTableManager(_db, _db.blocks);
   $$OperationsTableTableManager get operations =>
       $$OperationsTableTableManager(_db, _db.operations);
+  $$BlockLinksTableTableManager get blockLinks =>
+      $$BlockLinksTableTableManager(_db, _db.blockLinks);
 }

@@ -6,6 +6,7 @@
             [notes-app.db.core :as db]
             [notes-app.services.block :as block]
             [notes-app.services.document :as doc]
+            [notes-app.services.link :as link]
             [notes-app.services.sync :as sync]
             [block-editor.utils.persistence :as persist]))
 
@@ -125,6 +126,7 @@
 
 (defn persist-diff!
   "Diff editor state vs previous flat snapshot; write BlockService ops.
+   Also rebuilds local block_links index from text (not synced — derived).
    `!snapshot` holds last persisted flat map id→row."
   [document-id state !snapshot]
   (let [flat (flat-from-editor state)
@@ -132,11 +134,18 @@
         prev (or @!snapshot {})
         prev-ids (set (keys prev))
         next-ids (set (keys by-id))
+        deleted-ids (vec (cset/difference prev-ids next-ids))
+        ;; Only rebuild links for rows whose text changed (or new).
+        link-rows
+        (filterv (fn [row]
+                   (let [old (get prev (:id row))]
+                     (or (nil? old) (not= (:text old) (:text row)))))
+                 flat)
         after-deletes
         (reduce (fn [fut id]
                   (.then fut (fn [_] (block/soft-delete! id))))
                 (async/Future.value nil)
-                (cset/difference prev-ids next-ids))
+                deleted-ids)
         after-upserts
         (reduce (fn [fut row]
                   (.then fut
@@ -145,6 +154,8 @@
                 after-deletes
                 flat)]
     (-> after-upserts
+        ;; soft-delete! already clears links for deleted ids
+        (.then (fn [_] (link/rebuild-links-for-rows! link-rows)))
         (.then (fn [_]
                  (reset! !snapshot by-id)
                  (doc/touch! document-id)))

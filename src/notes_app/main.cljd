@@ -8,13 +8,17 @@
             [notes-app.state.store :as store]
             [notes-app.pages.shell :as shell]
             [notes-app.services.sync :as sync]
+            [notes-app.services.link :as link]
             [notes-app.services.daily :as daily]))
 
 (defn- boot!
-  "Init DB, prefs, and today's daily doc. Resolves to true when ready."
+  "Init DB, prefs, link index, and today's daily doc. Resolves to true when ready."
   []
   (-> (db/initialize-database!)
       (.then (fn [_] (store/load-prefs!)))
+      (.then (fn [_] (db/refresh-document-titles!)))
+      ;; Local derived index — covers migration + text already on disk before first edit.
+      (.then (fn [_] (link/reindex-all-links!)))
       (.then (fn [_] (daily/ensure-today!)))
       (.then (fn [_]
                (shell/register-lifecycle!)
