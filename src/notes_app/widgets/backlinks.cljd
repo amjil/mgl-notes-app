@@ -15,6 +15,12 @@
       t
       (str (.substring t 0 n) "…"))))
 
+(defn- display-doc-title [title]
+  (let [t (or title "")]
+    (if (= (.trim ^String t) "")
+      "Untitled"
+      t)))
+
 (defn- reference-card
   [{:keys [block-text document-id document-title]} kind on-promote]
   (let [unlinked? (= kind :unlinked)]
@@ -39,7 +45,7 @@
                       .onTap #(when document-id (store/open-document! document-id))
                       .child
                       (mgl/MongolText
-                       (or document-title "")
+                       (display-doc-title document-title)
                        .style (m/TextStyle
                                .color (if unlinked? (m/Color 0xFFFFB74D) (m/Color 0xFF64B5F6))
                                .fontWeight m.FontWeight/bold
@@ -88,17 +94,22 @@
 
 (defn references-sidebar
   "Watch linked + unlinked refs for `page-title`.
+   `document-id` excludes the current page from unlinked results.
    Optional `on-promoted` receives affected document-id after promote."
-  [page-title & {:keys [on-promoted]}]
+  [page-title document-id & {:keys [on-promoted]}]
   (f/widget
    :watch [backlinks (stream
                       (map (fn [rows] (or rows [])))
                       :as-values (db/watch-backlinks page-title))
            unlinked (stream
                      (map (fn [rows] (or rows [])))
-                     :as-values (db/watch-unlinked-references page-title))]
+                     :as-values (db/watch-unlinked-references page-title document-id))]
    :let [backlinks (or backlinks [])
-         unlinked (or unlinked [])
+         unlinked (->> (or unlinked [])
+                       (remove (fn [item]
+                                 (or (= (:document-id item) document-id)
+                                     (= (:document-title item) page-title))))
+                       vec)
          linked-cards (mapv (fn [item] (reference-card item :linked nil)) backlinks)
          unlinked-cards
          (mapv (fn [item]

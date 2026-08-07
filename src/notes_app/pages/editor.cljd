@@ -140,19 +140,22 @@
            body-row
            (m/Row
             .children
-            [(m/Expanded .child editor-body)
-             (when show-panel?
-               (m/Container
-                .width 280.0
-                .decoration (m/BoxDecoration
-                             .border (m/Border
-                                      .left (m/BorderSide .color (m/Color 0x22FFFFFF)
-                                                          .width 1.0)))
-                .padding (m.EdgeInsets/all 16.0)
-                .child
-                (backlinks/references-sidebar
-                 title
-                 :on-promoted invalidate-session!)))])]
+            (into []
+                  (remove nil?
+                          [(m/Expanded .child editor-body)
+                           (when show-panel?
+                             (m/Container
+                              .width 280.0
+                              .decoration (m/BoxDecoration
+                                           .border (m/Border
+                                                    .left (m/BorderSide .color (m/Color 0x22FFFFFF)
+                                                                        .width 1.0)))
+                              .padding (m.EdgeInsets/all 16.0)
+                              .child
+                              (backlinks/references-sidebar
+                               title
+                               document-id
+                               :on-promoted invalidate-session!)))])))]
 
        (if embedded?
          (m/SafeArea .child body-row)
