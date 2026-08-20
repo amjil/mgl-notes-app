@@ -4,6 +4,7 @@
             ["dart:core" :as dc]
             [cljd.flutter :as f]
             [notes-app.services.daily :as daily]
+            [notes-app.services.export :as export]
             [notes-app.pages.editor :as editor]))
 
 (defn today-page []
@@ -20,6 +21,7 @@
 
     (load-date! (dc/DateTime.now))
     (f/widget
+     :context ctx
 
      :watch [current-date !current-date
              doc-id !doc-id]
@@ -63,6 +65,18 @@
                       (let [next-day (.add current-date (dc/Duration. .days 1))]
                         (reset! !current-date next-day)
                         (load-date! next-day))))
+
+        (if doc-id
+          (m/IconButton
+           .icon (m/Icon m.Icons/file_download_outlined)
+           .tooltip "Export HTML"
+           .onPressed
+           (fn []
+             (-> (export/export-document-to-file! doc-id)
+                 (.then (fn [path] (export/show-export-result! ctx path)))
+                 (.catchError (fn [_] (export/show-export-result! ctx nil))))))
+          (m/SizedBox.shrink))
+
         (m/SizedBox .width 8.0)])
 
       .body

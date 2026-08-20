@@ -5,11 +5,15 @@
             ["package:path/path.dart" :as path]
             ["package:path_provider/path_provider.dart" :as pathp]
             ["package:flutter/material.dart" :as m]
+            ["package:flutter/services.dart" :refer [rootBundle]]
             [clojure.string :as str]
             [block-editor.utils.html :as html]
             [notes-app.db.core :as db]
             [notes-app.editor.bridge :as bridge]
             [notes-app.platform :as platform]))
+
+(def ^:private export-font-asset "assets/fonts/OyunQaganTig.ttf")
+(def ^:private export-font-filename "OyunQaganTig.ttf")
 
 (defn- escape-html [s]
   (-> (or s "")
@@ -35,6 +39,68 @@
                     (str/trim))]
     (str (if (str/blank? cleaned) "untitled" cleaned) ".html")))
 
+(defn- export-document-css
+  "CSS for standalone exported HTML (vertical Mongol + bundled font)."
+  []
+  (str "@font-face {\n"
+       "  font-family: \"OyunQaganTig\";\n"
+       "  src: url(\"./" export-font-filename "\") format(\"truetype\");\n"
+       "  font-display: swap;\n"
+       "}\n"
+       "  *, *::before, *::after { box-sizing: border-box; }\n"
+       "  html { min-height: 100%; }\n"
+       "  body {\n"
+       "    font-family: \"OyunQaganTig\", serif;\n"
+       "    writing-mode: vertical-lr;\n"
+       "    text-orientation: mixed;\n"
+       "    min-height: 100vh;\n"
+       "    margin: 0;\n"
+       "    padding: 2rem 1.25rem;\n"
+       "    line-height: 1.8;\n"
+       "    color: #1a1a1a;\n"
+       "    background: #fff;\n"
+       "  }\n"
+       "  .doc-title { font-size: 1.75rem; margin-bottom: 1.5rem; font-weight: bold; }\n"
+       "  .children { margin-top: 1.25rem; }\n"
+       "  .task { display: flex; gap: 0.5rem; align-items: flex-start; }\n"
+       "  .callout {\n"
+       "    border-top: 3px solid #888;\n"
+       "    padding: 0.75rem 0.5rem;\n"
+       "    background: #f5f5f5;\n"
+       "    margin: 0.75rem 0;\n"
+       "  }\n"
+       "  .bookmark {\n"
+       "    display: block;\n"
+       "    padding: 0.75rem;\n"
+       "    border: 1px solid #ddd;\n"
+       "    border-radius: 6px;\n"
+       "    text-decoration: none;\n"
+       "    color: inherit;\n"
+       "    margin: 0.75rem 0;\n"
+       "  }\n"
+       "  .bookmark-desc { display: block; color: #666; font-size: 0.9em; margin-top: 0.25rem; }\n"
+       "  pre {\n"
+       "    background: #f4f4f4;\n"
+       "    padding: 0.75rem;\n"
+       "    overflow-y: auto;\n"
+       "    border-radius: 4px;\n"
+       "    writing-mode: horizontal-tb;\n"
+       "  }\n"
+       "  blockquote {\n"
+       "    border-top: 3px solid #ccc;\n"
+       "    margin: 0.75rem 0;\n"
+       "    padding-top: 1rem;\n"
+       "    color: #555;\n"
+       "  }\n"
+       "  hr {\n"
+       "    border: none;\n"
+       "    border-left: 1px solid #ddd;\n"
+       "    width: 0;\n"
+       "    height: 1.5rem;\n"
+       "    margin: 0 1.5rem;\n"
+       "  }\n"
+       "  a { color: #1565c0; }\n"))
+
 (defn wrap-html-document
   "Wrap an HTML fragment into a full standalone HTML document."
   [title fragment]
@@ -46,22 +112,7 @@
          "<meta name=\"viewport\" content=\"width=device-width, initial-scale=1\">\n"
          "<title>" safe-title "</title>\n"
          "<style>\n"
-         "  body { font-family: system-ui, -apple-system, sans-serif;"
-         " max-width: 720px; margin: 2rem auto; padding: 0 1.25rem;"
-         " line-height: 1.6; color: #1a1a1a; }\n"
-         "  .doc-title { font-size: 1.75rem; margin-bottom: 1.5rem; }\n"
-         "  .children { margin-left: 1.25rem; margin-top: 0.35rem; }\n"
-         "  .task { display: flex; gap: 0.5rem; align-items: flex-start; }\n"
-         "  .callout { border-left: 3px solid #888; padding: 0.5rem 0.75rem;"
-         " background: #f5f5f5; margin: 0.75rem 0; }\n"
-         "  .bookmark { display: block; padding: 0.75rem; border: 1px solid #ddd;"
-         " border-radius: 6px; text-decoration: none; color: inherit; margin: 0.75rem 0; }\n"
-         "  .bookmark-desc { display: block; color: #666; font-size: 0.9em; margin-top: 0.25rem; }\n"
-         "  pre { background: #f4f4f4; padding: 0.75rem; overflow-x: auto;"
-         " border-radius: 4px; }\n"
-         "  blockquote { border-left: 3px solid #ccc; margin: 0.75rem 0;"
-         " padding-left: 1rem; color: #555; }\n"
-         "  hr { border: none; border-top: 1px solid #ddd; margin: 1.5rem 0; }\n"
+         (export-document-css)
          "</style>\n"
          "</head>\n"
          "<body>\n"
@@ -70,12 +121,30 @@
          "\n</body>\n"
          "</html>\n")))
 
+(defn- normalize-state-for-export
+  "Prepare editor state for html/export-to-html (embed → block-ref paragraph)."
+  [state]
+  (update state :blocks
+          (fn [blocks]
+            (reduce-kv
+             (fn [acc id b]
+               (assoc acc id
+                      (if (= (:type b) :embed)
+                        (-> b
+                            (assoc :type :paragraph
+                                   :content (str "((" (or (get-in b [:data :target-id]) "") "))"))
+                            (dissoc :data))
+                        b)))
+             {}
+             (or blocks {})))))
+
 (defn state->html-string
   "Convert editor state to a full HTML document string."
   ([state] (state->html-string state "" nil))
   ([state title] (state->html-string state title nil))
   ([state title opts]
-   (wrap-html-document title (html/export-to-html state opts))))
+   (wrap-html-document title
+                       (html/export-to-html (normalize-state-for-export state) opts))))
 
 (defn- resolve-export-dir!
   "Prefer Downloads; fall back to app documents."
@@ -88,6 +157,18 @@
       (.catchError (fn [_]
                      (pathp/getApplicationDocumentsDirectory)))))
 
+(defn- copy-export-font!
+  "Copy bundled OyunQaganTig.ttf next to the exported HTML file."
+  [dir-path]
+  (-> (.load rootBundle export-font-asset)
+      (.then (fn [byte-data]
+               (let [bytes (.asUint8List (.-buffer byte-data))
+                     dest (path/join dir-path export-font-filename)]
+                 (.writeAsBytes (io/File dest) bytes))))
+      (.catchError (fn [e]
+                     (dart:core/print (str "Font copy skipped: " e))
+                     nil))))
+
 (defn write-html-file!
   "Write HTML string to a file. Returns Future of absolute path, or nil on web."
   [html-str title]
@@ -97,10 +178,12 @@
       (async/Future.value nil))
     (-> (resolve-export-dir!)
         (.then (fn [dir]
-                 (let [name (safe-filename title)
-                       filepath (path/join (.-path dir) name)
+                 (let [dir-path (.-path dir)
+                       name (safe-filename title)
+                       filepath (path/join dir-path name)
                        file (io/File filepath)]
                    (-> (.writeAsString file (or html-str ""))
+                       (.then (fn [_] (copy-export-font! dir-path)))
                        (.then (fn [_] filepath)))))))))
 
 (defn export-state-to-file!
