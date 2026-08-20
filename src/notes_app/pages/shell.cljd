@@ -1,13 +1,37 @@
 (ns notes-app.pages.shell
   "Picks desktop or mobile chrome."
-  (:require [notes-app.platform :as platform]
+  (:require ["package:flutter/material.dart" :as m]
+            [notes-app.platform :as platform]
             [notes-app.pages.desktop.shell :as desktop]
-            [notes-app.pages.mobile.shell :as mobile]))
+            [notes-app.pages.mobile.shell :as mobile]
+            [notes-app.services.sync :as sync]))
+
+(defonce ^:private !lifecycle-observer (atom nil))
+
+(defn- on-lifecycle-state! [^m/AppLifecycleState state]
+  (cond
+    (= state m/AppLifecycleState.resumed)
+    (sync/on-app-resume!)
+
+    (or (= state m/AppLifecycleState.paused)
+        (= state m/AppLifecycleState.hidden)
+        (= state m/AppLifecycleState.detached)
+        (= state m/AppLifecycleState.inactive))
+    (sync/on-app-pause!)
+
+    :else nil))
+
+(defn register-lifecycle!
+  "Register a global WidgetsBindingObserver for resume Pull / pause Push."
+  []
+  (when-not @!lifecycle-observer
+    (let [observer (reify ^:mixin m/WidgetsBindingObserver
+                     (didChangeAppLifecycleState [_ ^m/AppLifecycleState state]
+                       (on-lifecycle-state! state)))]
+      (.addObserver (m/WidgetsBinding.instance) observer)
+      (reset! !lifecycle-observer observer))))
 
 (defn app-shell []
   (if (platform/desktop?)
     (desktop/desktop-shell)
     (mobile/mobile-shell)))
-
-(defn register-lifecycle! []
-  nil)
