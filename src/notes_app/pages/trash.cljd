@@ -1,0 +1,88 @@
+(ns notes-app.pages.trash
+  "Trash / Recycle Bin view for restoring or permanently deleting documents."
+  (:require ["package:flutter/material.dart" :as m]
+            ["package:mongol/mongol.dart" :as mgl]
+            [cljd.flutter :as f]
+            [notes-app.db.core :as db]
+            [notes-app.services.document :as doc]
+            [notes-app.services.sync :as sync]))
+
+(defn trash-page []
+  (f/widget
+   :watch [deleted-docs (stream
+                         (map (fn [rows] (or rows [])))
+                         :as-values (db/watch-deleted-documents))]
+   (m/Scaffold
+    .backgroundColor (m/Color 0xFF121212)
+    .appBar (m/AppBar
+             .backgroundColor (m/Color 0xFF1E1E1E)
+             .elevation 0.0)
+    .body
+    (m/SafeArea
+     .child
+     (m/Row
+      .crossAxisAlignment m.CrossAxisAlignment/stretch
+      .children
+      [;; Left: Mongolian vertical page title
+       (m/Container
+        .width 56.0
+        .padding (m.EdgeInsets/symmetric .vertical 16.0)
+        .child
+        (m/Align
+         .alignment m.Alignment/topCenter
+         .child (mgl/MongolText "ᠬᠣᠭ᠎ᠤᠨ ᠰᠠᠪᠠ" ;; "Trash Bin"
+                                .style (m/TextStyle .fontFamily "OyunQaganTig"
+                                                    .color m.Colors/white
+                                                    .fontSize 20.0))))
+
+       (m/Expanded
+        .child
+        (if (empty? deleted-docs)
+          (m/Center
+           .child (mgl/MongolText "Trash is empty"
+                                  .style (m/TextStyle .fontFamily "OyunQaganTig"
+                                                      .color m.Colors/white54)))
+          (m/ListView.builder
+           .scrollDirection m.Axis/horizontal
+           .padding (m.EdgeInsets/all 16.0)
+           .itemCount (count deleted-docs)
+           .itemBuilder
+           (fn [_ idx]
+             (let [d (nth deleted-docs idx)
+                   id (:id d)
+                   title (if (empty? (:title d)) "Untitled" (:title d))]
+               (m/Container
+                .width 100.0
+                .margin (m.EdgeInsets/only .right 16.0)
+                .decoration (m/BoxDecoration
+                             .color (m/Color 0xFF1A1A1A)
+                             .borderRadius (m.BorderRadius/circular 12.0)
+                             .border (m/Border.all .color m.Colors/white12 .width 1.0))
+                .child
+                (mgl/MongolListTile
+                 .leading (m/Icon m.Icons/delete_outline .color m.Colors/white38)
+                 .title (mgl/MongolText title
+                                        .style (m/TextStyle .fontFamily "OyunQaganTig"
+                                                            .fontSize 18.0
+                                                            .color m.Colors/white70))
+                 .subtitle (mgl/MongolText "Deleted"
+                                           .style (m/TextStyle .color m.Colors/redAccent .fontSize 12.0))
+                 .trailing
+                 (m/Column
+                  .mainAxisSize m.MainAxisSize/min
+                  .mainAxisAlignment m.MainAxisAlignment/spaceEvenly
+                  .children
+                  [;; Restore Button
+                   (m/IconButton
+                    .icon (m/Icon m.Icons/restore .color m.Colors/greenAccent .size 24.0)
+                    .tooltip "Restore"
+                    .onPressed (fn []
+                                 (-> (doc/restore! id)
+                                     (.then (fn [_] (sync/schedule-push!))))))
+                   ;; Delete Forever Button
+                   (m/IconButton
+                    .icon (m/Icon m.Icons/delete_forever .color m.Colors/red .size 24.0)
+                    .tooltip "Delete Forever"
+                    .onPressed (fn []
+                                 (-> (doc/hard-delete! id)
+                                     (.then (fn [_] (sync/schedule-push!))))))]))))))))])))))

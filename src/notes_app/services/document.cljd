@@ -153,3 +153,39 @@
               (.where (fn [t] (.equals (.-id t) doc-id))))]
       (.write q (drift/DocumentsCompanion. .updatedAt (d/Value ^dc/DateTime (db/now)))))
     (async/Future.value nil)))
+
+(defn restore!
+  "Restore a soft-deleted document and emit sync operation."
+  [doc-id]
+  (if-let [^drift/AppDatabase database (db/get-database)]
+    (let [now (db/now)
+          q (doto (.update database (.-documents database))
+              (.where (fn [t] (.equals (.-id t) doc-id))))]
+      (-> (.write q (drift/DocumentsCompanion.
+                     .deletedAt (d/Value nil)
+                     .updatedAt (d/Value ^dc/DateTime now)))
+          (.then (fn [_]
+                   (op/append!
+                    {:entity-type "document"
+                     :entity-id doc-id
+                     :action "document_restore"
+                     :payload {}})))
+          (.then (fn [_] (db/refresh-document-titles!)))
+          (.then (fn [_] true))))
+    (async/Future.value false)))
+
+(defn hard-delete!
+  "Permanently delete a document from the local DB and emit sync operation."
+  [doc-id]
+  (if-let [^drift/AppDatabase database (db/get-database)]
+    (let [q (doto (.delete database (.-documents database))
+              (.where (fn [t] (.equals (.-id t) doc-id))))]
+      (-> (.go q)
+          (.then (fn [_]
+                   (op/append!
+                    {:entity-type "document"
+                     :entity-id doc-id
+                     :action "document_destroy"
+                     :payload {}})))
+          (.then (fn [_] true))))
+    (async/Future.value false)))

@@ -91,6 +91,58 @@
     (stream-handle-error (.watchAllActiveDocuments database))
     (async/Stream.empty)))
 
+(defn watch-paged-documents
+  "Watch documents with SQLite-level filtering (parent, type), children count, and LIMIT for infinite scrolling."
+  [parent-id show-daily-only? limit-count]
+  (if-let [^drift/AppDatabase database @db]
+    (let [parent-sql (if parent-id "d.parent_id = ?" "d.parent_id IS NULL")
+          type-sql (if show-daily-only? "d.type = 'daily'" "d.type != 'daily'")
+          sql (str "SELECT d.id, d.title, d.type, d.parent_id AS parentId, "
+                   "(SELECT COUNT(*) FROM documents c WHERE c.parent_id = d.id AND c.deleted_at IS NULL) AS childrenNum "
+                   "FROM documents d "
+                   "WHERE d.deleted_at IS NULL "
+                   "AND " parent-sql " "
+                   "AND " type-sql " "
+                   "ORDER BY d.updated_at DESC "
+                   "LIMIT ?")
+          vars (cond-> []
+                 parent-id (conj (d/Variable. parent-id))
+                 :always (conj (d/Variable. limit-count)))]
+      (stream-handle-error
+       (.map (.watch (.customSelect database sql
+                                    .variables vars
+                                    .readsFrom #{(.-documents database)}))
+             (fn [rows]
+               (mapv (fn [row]
+                       (let [data (.-data row)]
+                         ;; Map to a clean Clojure structure to decouple from Dart classes
+                         {:document {:id (get data "id")
+                                     :title (get data "title")
+                                     :type (get data "type")
+                                     :parentId (get data "parentId")}
+                          :childrenNum (get data "childrenNum" 0)}))
+                     rows)))))
+    (async/Stream.empty)))
+
+(defn watch-deleted-documents
+  "Watch soft-deleted documents for the Trash view."
+  []
+  (if-let [^drift/AppDatabase database @db]
+    (stream-handle-error
+     (.map (.watch (.customSelect database
+                                  "SELECT id, title, type, deleted_at FROM documents WHERE deleted_at IS NOT NULL ORDER BY deleted_at DESC"
+                                  .variables []
+                                  .readsFrom #{(.-documents database)}))
+           (fn [rows]
+             (mapv (fn [row]
+                     (let [data (.-data row)]
+                       {:id (get data "id")
+                        :title (get data "title")
+                        :type (get data "type")
+                        :deleted-at (get data "deleted_at")}))
+                   rows))))
+    (async/Stream.empty)))
+
 (defn watch-blocks [doc-id]
   (if-let [^drift/AppDatabase database @db]
     (stream-handle-error (.watchBlocksForDocument database doc-id))

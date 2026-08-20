@@ -11,6 +11,7 @@
    {:id "documents" :icon m.Icons/folder_outlined :selected-icon m.Icons/folder :label "ᠪᠠᠷᠢᠮᠲᠠ"}      ;; Docs
    {:id "tasks" :icon m.Icons/check_box_outlined :selected-icon m.Icons/check_box :label "ᠠᠵᠢᠯ"}         ;; Tasks
    {:id "search" :icon m.Icons/search :selected-icon m.Icons/search :label "ᠬᠠᠢᠬᠤ"}                    ;; Search
+   {:id "trash" :icon m.Icons/delete_outline :selected-icon m.Icons/delete :label "ᠬᠣᠭ᠎ᠤᠨ ᠰᠠᠪᠠ"}
    {:id "settings" :icon m.Icons/settings_outlined :selected-icon m.Icons/settings :label "ᠲᠣᠬᠢᠷᠠᠭᠤᠯᠭ᠎ᠠ"}]) ;; Settings
 
 (defn side-navigation-rail []

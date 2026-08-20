@@ -1,0 +1,152 @@
+(ns notes-app.services.backup
+  "Handles JSON serialization of the entire database for backup and restore."
+  (:require ["dart:core" :as dc]
+            ["dart:async" :as async]
+            ["dart:io" :as io]
+            ["package:mgl_notes_app/database.dart" :as drift]
+            ["package:drift/drift.dart" :as d]
+            ["package:path/path.dart" :as path]
+            ["package:path_provider/path_provider.dart" :as pathp]
+            ["package:file_picker/file_picker.dart" :as fp]
+            ["package:flutter/material.dart" :as m]
+            [notes-app.db.core :as db]
+            [notes-app.services.link :as link]))
+
+(defn- show-snack [ctx msg]
+  (when ctx
+    (-> (m/ScaffoldMessenger.of ctx)
+        (.showSnackBar (m/SnackBar 
+                        .content (m/Text msg .style (m/TextStyle .fontFamily "OyunQaganTig"))
+                        .duration (dart:core/Duration .seconds 3))))))
+
+(defn- dt->iso [dt]
+  (when dt (.toIso8601String dt)))
+
+(defn- iso->dt [s]
+  (when s (dc/DateTime.parse s)))
+
+;; =============================================================================
+;; Export / Backup
+;; =============================================================================
+
+(defn create-backup-data! []
+  (if-let [^drift/AppDatabase database (db/get-database)]
+    (-> (async/Future.wait
+         [(.get (.select database (.-documents database)))
+          (.get (.select database (.-blocks database)))])
+        (.then (fn [[docs blocks]]
+                 (let [doc-maps
+                       (mapv (fn [d]
+                               {:id (.-id d)
+                                :title (.-title d)
+                                :type (.-type d)
+                                :parent-id (.-parentId d)
+                                :icon (.-icon d)
+                                :cover (.-cover d)
+                                :created-at (dt->iso (.-createdAt d))
+                                :updated-at (dt->iso (.-updatedAt d))
+                                :deleted-at (dt->iso (.-deletedAt d))})
+                             docs)
+                       block-maps
+                       (mapv (fn [b]
+                               {:id (.-id b)
+                                :document-id (.-documentId b)
+                                :parent-id (.-parentId b)
+                                :type (.-type b)
+                                :text-content (.-textContent b)
+                                :checked (.-checked b)
+                                :data-json (.-dataJson b)
+                                :order-index (.-orderIndex b)
+                                :created-at (dt->iso (.-createdAt b))
+                                :updated-at (dt->iso (.-updatedAt b))
+                                :deleted-at (dt->iso (.-deletedAt b))})
+                             blocks)]
+                   (db/encode-json {:version 1
+                                    :timestamp (dt->iso (db/now))
+                                    :documents doc-maps
+                                    :blocks block-maps})))))
+    (async/Future.value nil)))
+
+(defn export-backup-file! [ctx]
+  (-> (create-backup-data!)
+      (.then (fn [json-str]
+               (if json-str
+                 ;; Save to Downloads folder by default
+                 (-> (pathp/getDownloadsDirectory)
+                     (.catchError (fn [_] (pathp/getApplicationDocumentsDirectory)))
+                     (.then (fn [dir]
+                              (let [filename (str "amjil_backup_" (.millisecondsSinceEpoch (db/now)) ".json")
+                                    filepath (path/join (.-path dir) filename)
+                                    file (io/File filepath)]
+                                (-> (.writeAsString file json-str)
+                                    (.then (fn [_]
+                                             (show-snack ctx (str "Backup saved to: " filepath)))))))))
+                 (show-snack ctx "Backup failed to generate."))))))
+
+;; =============================================================================
+;; Import / Restore
+;; =============================================================================
+
+(defn restore-backup-data! [json-str]
+  (if-let [^drift/AppDatabase database (db/get-database)]
+    (try
+      (let [data (db/decode-json json-str)
+            docs (:documents data [])
+            blocks (:blocks data [])]
+        (-> (.batch database
+                    (fn [b]
+                      ;; 1. Restore all documents
+                      (doseq [d docs]
+                        (.insert b (.-documents database)
+                                 (drift/DocumentsCompanion.insert
+                                  :id (:id d)
+                                  :title (d/Value ^String (or (:title d) ""))
+                                  :type (d/Value ^String (or (:type d) "normal"))
+                                  :parentId (if (:parent-id d) (d/Value ^String (:parent-id d)) (d/Value nil))
+                                  :icon (if (:icon d) (d/Value ^String (:icon d)) (d/Value nil))
+                                  :cover (if (:cover d) (d/Value ^String (:cover d)) (d/Value nil))
+                                  :createdAt (d/Value ^dc/DateTime (iso->dt (:created-at d)))
+                                  :updatedAt (d/Value ^dc/DateTime (iso->dt (:updated-at d)))
+                                  :deletedAt (if (:deleted-at d) (d/Value ^dc/DateTime (iso->dt (:deleted-at d))) (d/Value nil)))
+                                 .mode d/InsertMode.replace))
+                      ;; 2. Restore all blocks
+                      (doseq [blk blocks]
+                        (.insert b (.-blocks database)
+                                 (drift/BlocksCompanion.insert
+                                  :id (:id blk)
+                                  :documentId (:document-id blk)
+                                  :parentId (if (:parent-id blk) (d/Value ^String (:parent-id blk)) (d/Value nil))
+                                  :type (or (:type blk) "paragraph")
+                                  :textContent (d/Value ^String (or (:text-content blk) ""))
+                                  :checked (d/Value ^bool (boolean (:checked blk)))
+                                  :dataJson (if (:data-json blk) (d/Value ^String (:data-json blk)) (d/Value nil))
+                                  :orderIndex (double (or (:order-index blk) 1000.0))
+                                  :createdAt (d/Value ^dc/DateTime (iso->dt (:created-at blk)))
+                                  :updatedAt (d/Value ^dc/DateTime (iso->dt (:updated-at blk)))
+                                  :deletedAt (if (:deleted-at blk) (d/Value ^dc/DateTime (iso->dt (:deleted-at blk))) (d/Value nil)))
+                                 .mode d/InsertMode.replace))))
+            (.then (fn [_]
+                     (db/refresh-document-titles!)
+                     (link/reindex-all-links!) ;; Rebuild knowledge graph relationships
+                     true))))
+      (catch Exception e
+        (dart:core/print (str "Restore failed: " e))
+        (async/Future.value false)))
+    (async/Future.value false)))
+
+(defn import-backup-file! [ctx]
+  (-> (fp/FilePicker.pickFile .type fp/FileType.custom
+                             .allowedExtensions ["json"])
+      (.then (fn [file]
+               (if file
+                 (let [path (.-path file)]
+                   (if path
+                     (let [f (io/File path)]
+                       (-> (.readAsString f)
+                           (.then restore-backup-data!)
+                           (.then (fn [success?]
+                                    (if success?
+                                      (show-snack ctx "Restore successful! Knowledge graph reindexed.")
+                                      (show-snack ctx "Restore failed. Invalid format."))))))
+                     (show-snack ctx "Could not read file path.")))
+                 (show-snack ctx "Import cancelled."))))))

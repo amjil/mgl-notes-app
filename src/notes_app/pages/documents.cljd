@@ -9,17 +9,17 @@
             [notes-app.state.store :as store]
             [notes-app.widgets.rename-dialog :as rename]))
 
-(defn- doc-tile [ctx ^Object row]
-  (let [d (.-document row)
-        id (.-id d)
-        title (or (.-title d) "")
+(defn- doc-tile [ctx row]
+  (let [d (:document row)
+        id (:id d)
+        title (or (:title d) "")
         display (if (empty? title) "Untitled" title)
-        is-daily? (= (.-type d) "daily") 
-        has-parent? (some? (.-parentId d))
-        has-children? (pos? (.-childrenNum row))]
+        is-daily? (= (:type d) "daily") 
+        has-parent? (some? (:parentId d))
+        has-children? (pos? (:childrenNum row))]
     
     (m/Container
-     .width 100.0 ;; limit card width
+     .width 100.0 ;; Limit card width
      .margin (m.EdgeInsets/only .right 16.0)
      .decoration (m/BoxDecoration
                   .color (m/Color 0xFF1E1E1E)
@@ -44,7 +44,7 @@
       ;; Core routing: drill into list if children exist, otherwise open editor
       .onTap (fn []
                (if has-children?
-                 (store/set-parent-doc! id display) ;; write global store to drill down
+                 (store/set-parent-doc! id display) ;; Write global store to drill down
                  (store/open-document! id)))
       
       .trailing
@@ -69,7 +69,7 @@
                  :leading-color m.Colors/blue
                  :title-style (m/TextStyle .color m.Colors/white)
                  :on-tap (fn []
-                           (store/set-parent-doc! id display) ;; auto-enter this level when creating
+                           (store/set-parent-doc! id display) ;; Auto-enter this level when creating
                            (-> (doc/create! {:title "" :type "normal" :parent-id id})
                                (.then (fn [new-id]
                                         (when new-id (store/open-document! new-id))))
@@ -100,100 +100,110 @@
                  :on-tap #(doc/soft-delete! id)}]})))))
 
 (defn documents-page []
-  (f/widget
-   :context ctx
+  ;; Declare local state in outer let to form a closure for the widget
+  (let [!limit (atom 50)]
+    (f/widget
+     :context ctx
+     
+     :managed [scroll-ctrl (let [ctrl (m/ScrollController.)]
+                             (.addListener ctrl
+                              (fn []
+                                (let [pos (.-position ctrl)]
+                                  ;; When user is 200 pixels from the end, load 50 more
+                                  (when (>= (.-pixels pos) (- (.-maxScrollExtent pos) 200))
+                                    (swap! !limit + 50)))))
+                             ctrl)]
 
-   :watch [docs (stream
-                 (map (fn [rows] (or rows [])))
-                 :as-values (db/watch-documents))
-           ;; Watch global store state
-           {:keys [parent-doc-id parent-doc-title show-daily-only]} store/app-ui-state]
+     :watch [{:keys [parent-doc-id parent-doc-title show-daily-only]} store/app-ui-state
+             limit-val !limit
+             ;; Push all filtering and limits down to SQLite for high performance
+             docs (stream
+                   (map (fn [rows] (or rows [])))
+                   :as-values (db/watch-paged-documents parent-doc-id (boolean show-daily-only) limit-val))]
 
-   (let [show-daily-only? (boolean show-daily-only)
-         scoped-docs (if parent-doc-id
-                       (filter #(= (.-parentId (.-document %)) parent-doc-id) docs)
-                       (filter #(nil? (.-parentId (.-document %))) docs))
-         display-docs (if show-daily-only?
-                        (filter #(= (.-type (.-document %)) "daily") scoped-docs)
-                        (filter #(not= (.-type (.-document %)) "daily") scoped-docs))
+     (let [show-daily-only? (boolean show-daily-only)
+           display-docs-vec (vec docs) ;; Safe vector for ListView.builder
 
-         ;; Right-side list component
-         list-view
-         (if (empty? display-docs)
-           (m/Center
-            .child (mgl/MongolText (if show-daily-only? "No calendar notes" "Empty")
-                                   .style (m/TextStyle .fontFamily "OyunQaganTig"
-                                                       .color m.Colors/white54)))
-           (m/ListView
-            .scrollDirection m.Axis/horizontal
-            .padding (m.EdgeInsets/all 16.0)
+           ;; Right-side virtualized list component
+           list-view
+           (if (empty? display-docs-vec)
+             (m/Center
+              .child (mgl/MongolText (if show-daily-only? "No calendar notes" "Empty")
+                                     .style (m/TextStyle .fontFamily "OyunQaganTig"
+                                                         .color m.Colors/white54)))
+             ;; Use ListView.builder for memory virtualization
+             (m/ListView.builder
+              .controller scroll-ctrl
+              .scrollDirection m.Axis/horizontal
+              .padding (m.EdgeInsets/all 16.0)
+              .itemCount (count display-docs-vec)
+              .itemBuilder
+              (fn [_ idx]
+                (let [row (nth display-docs-vec idx)]
+                  (m/KeyedSubtree
+                   .key (m/ValueKey (:id (:document row)))
+                   .child (doc-tile ctx row))))))]
+
+       (m/Scaffold
+        .backgroundColor (m/Color 0xFF121212)
+        .appBar
+        (m/AppBar
+         .backgroundColor (m/Color 0xFF1E1E1E)
+         .actions
+         [;; Toggle calendar (daily) notes view
+          (m/IconButton
+           .tooltip (if show-daily-only? "Show documents" "Show calendar notes")
+           .icon (m/Icon (if show-daily-only?
+                           m.Icons/calendar_month
+                           m.Icons/calendar_today_outlined)
+                         .color (if show-daily-only? m.Colors/blue m.Colors/white70))
+           .onPressed store/toggle-show-daily-only!)
+          (m/IconButton
+           .icon (m/Icon m.Icons/add)
+           .onPressed
+           (fn []
+             ;; In drill-down view, new docs are children of the current parent
+             (-> (doc/create! {:title "" :type "normal" :parent-id parent-doc-id})
+                 (.then (fn [id] (when id (store/open-document! id))))
+                 (.catchError (fn [_] nil)))
+             nil))])
+        .body
+        (m/SafeArea
+         .child
+         (if parent-doc-id
+           ;; Drill-down view layout
+           (m/Row
+            .crossAxisAlignment m.CrossAxisAlignment/stretch
             .children
-            (mapv (fn [row]
-                    (m/KeyedSubtree
-                     .key (m/ValueKey (.-id (.-document row)))
-                     .child (doc-tile ctx row)))
-                  display-docs)))]
+            [(m/Container
+              .width 100.0
+              .decoration (m/BoxDecoration
+                           .color (m/Color 0xFF1A1A1A)
+                           .border (m/Border .right (m/BorderSide .color m.Colors/white12 .width 1.0)))
+              .child
+              (m/Column
+               .children
+               [(m/Padding
+                 .padding (m.EdgeInsets/only .top 16.0 .bottom 16.0)
+                 .child
+                 (m/IconButton
+                  .icon (m/Icon m.Icons/arrow_back .color m.Colors/white54)
+                  .onPressed #(store/clear-parent-doc!))) ;; Clear store state, return to root
 
-     (m/Scaffold
-      .backgroundColor (m/Color 0xFF121212)
-      .appBar
-      (m/AppBar
-       .backgroundColor (m/Color 0xFF1E1E1E)
-       .actions
-       [;; Toggle calendar (daily) notes view
-        (m/IconButton
-         .tooltip (if show-daily-only? "Show documents" "Show calendar notes")
-         .icon (m/Icon (if show-daily-only?
-                         m.Icons/calendar_month
-                         m.Icons/calendar_today_outlined)
-                       .color (if show-daily-only? m.Colors/blue m.Colors/white70))
-         .onPressed store/toggle-show-daily-only!)
-        (m/IconButton
-         .icon (m/Icon m.Icons/add)
-         .onPressed
-         (fn []
-           ;; In drill-down view, new docs are children of the current parent
-           (-> (doc/create! {:title "" :type "normal" :parent-id parent-doc-id})
-               (.then (fn [id] (when id (store/open-document! id))))
-               (.catchError (fn [_] nil)))
-           nil))])
-      .body
-      (m/SafeArea
-       .child
-       (if parent-doc-id
-         ;; Drill-down view layout
-         (m/Row
-          .crossAxisAlignment m.CrossAxisAlignment/stretch
-          .children
-          [(m/Container
-            .width 100.0
-            .decoration (m/BoxDecoration
-                         .color (m/Color 0xFF1A1A1A)
-                         .border (m/Border .right (m/BorderSide .color m.Colors/white12 .width 1.0)))
-            .child
-            (m/Column
-             .children
-             [(m/Padding
-               .padding (m.EdgeInsets/only .top 16.0 .bottom 16.0)
-               .child
-               (m/IconButton
-                .icon (m/Icon m.Icons/arrow_back .color m.Colors/white54)
-                .onPressed #(store/clear-parent-doc!))) ;; clear store state, return to root
+                (m/Expanded
+                 .child
+                 (m/InkWell
+                  .onTap #(store/open-document! parent-doc-id)
+                  .child
+                  (m/Align
+                   .alignment m.Alignment/topCenter
+                   .child (mgl/MongolText parent-doc-title
+                                          .style (m/TextStyle .fontFamily "OyunQaganTig"
+                                                              .fontSize 24.0
+                                                              .fontWeight m.FontWeight/bold
+                                                              .color m.Colors/white)))))]))
 
-              (m/Expanded
-               .child
-               (m/InkWell
-                .onTap #(store/open-document! parent-doc-id)
-                .child
-                (m/Align
-                 .alignment m.Alignment/topCenter
-                 .child (mgl/MongolText parent-doc-title
-                                        .style (m/TextStyle .fontFamily "OyunQaganTig"
-                                                            .fontSize 24.0
-                                                            .fontWeight m.FontWeight/bold
-                                                            .color m.Colors/white)))))]))
+             (m/Expanded .child list-view)])
 
-           (m/Expanded .child list-view)])
-
-         ;; Root view layout
-         list-view))))))
+           ;; Root view layout
+           list-view)))))))

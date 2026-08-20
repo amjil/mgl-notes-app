@@ -221,11 +221,34 @@
                          (.then (fn [_] (link/clear-links-for-block! entity-id)))))))))
     (async/Future.value nil)))
 
+(defn- apply-document-restore! [entity-id created-at]
+  (if-let [^drift/AppDatabase database (db/get-database)]
+    (-> (get-doc entity-id)
+        (.then (fn [doc]
+                 (when (and doc (lww-ok? (.-updatedAt doc) created-at))
+                   (let [now (or (parse-dt created-at) (db/now))
+                         q (doto (.update database (.-documents database))
+                             (.where (fn [t] (.equals (.-id t) entity-id))))]
+                     (-> (.write q (drift/DocumentsCompanion.
+                                    .deletedAt (d/Value nil)
+                                    .updatedAt (d/Value ^dc/DateTime now)))
+                         (.then (fn [_] (db/refresh-document-titles!)))))))))
+    (async/Future.value nil)))
+
+(defn- apply-document-destroy! [entity-id]
+  (if-let [^drift/AppDatabase database (db/get-database)]
+    (let [q (doto (.delete database (.-documents database))
+              (.where (fn [t] (.equals (.-id t) entity-id))))]
+      (.go q))
+    (async/Future.value nil)))
+
 (defn- dispatch-apply! [action eid p created-at]
   (case action
     "document_create" (apply-document-create! eid p created-at)
     "document_update" (apply-document-update! eid p created-at)
     "document_delete" (apply-document-delete! eid created-at)
+    "document_restore" (apply-document-restore! eid created-at)
+    "document_destroy" (apply-document-destroy! eid)
     "document_move" (apply-document-move! eid p created-at)
     "block_create" (apply-block-create! eid p created-at)
     "block_update" (apply-block-update! eid p created-at)

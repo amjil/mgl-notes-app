@@ -10,7 +10,8 @@
             [notes-app.pages.tasks :as tasks]
             [notes-app.pages.search :as search]
             [notes-app.pages.settings :as settings]
-            [notes-app.pages.editor :as editor]))
+            [notes-app.pages.editor :as editor]
+            [notes-app.pages.trash :as trash]))
 
 (defn- body-for [nav-id open-doc-id]
   (case nav-id
@@ -24,6 +25,7 @@
                                        :show-back? true
                                        :on-back #(store/close-editor! "documents"))
                (documents/documents-page))
+    "trash" (trash/trash-page)
     (today/today-page)))
 
 (defn desktop-shell []

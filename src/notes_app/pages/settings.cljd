@@ -6,6 +6,7 @@
             [components.setting :as setting]
             [notes-app.state.store :as store]
             [notes-app.services.sync :as sync]
+            [notes-app.services.backup :as backup]
             [notes-app.widgets.keyboard-wrapper :as kw]))
 
 (defn- edit-field-dialog
@@ -67,7 +68,7 @@
          {:title "Device ID"
           :subtitle (or device-id "")
           :leading m.Icons/devices}])
-
+      
        (setting/settings-section
         "Sync"
         [{:title "Sync URL"
@@ -86,7 +87,20 @@
           :leading m.Icons/cloud_sync
           :show-arrow? true
           :on-tap #(sync/sync-now!)}])
-
+      
+       (setting/settings-section
+        "Data Management"
+        [{:title "Backup Database"
+          :subtitle "Export all documents and blocks to a JSON file"
+          :leading m.Icons/save_alt
+          :show-arrow? true
+          :on-tap #(backup/export-backup-file! ctx)}
+         {:title "Import / Restore"
+          :subtitle "Restore notes from a JSON backup file"
+          :leading m.Icons/settings_backup_restore
+          :show-arrow? true
+          :on-tap #(backup/import-backup-file! ctx)}])
+      
        (setting/settings-section
         "About"
         [{:title "About"
