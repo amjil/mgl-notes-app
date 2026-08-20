@@ -1,0 +1,234 @@
+(ns notes-app.plugins.image
+  "Image block plugin — local asset-id and remote url.
+   Display caps: width ≤ 2/3 screen, height ≤ screen.
+   Layout shrink-wraps to the fitted image (no side letterboxing)."
+  (:require ["package:flutter/material.dart" :as m]
+            ["dart:io" :as io]
+            [cljd.flutter :as f]
+            [block-editor.commands.link :as link]
+            [rich-editor.commands.editor-commands :as editor-cmd]
+            [rich-editor.commands.transaction :as tx]
+            [notes-app.services.asset :as asset]))
+
+(def ^:private default-width-ratio (/ 2.0 3.0))
+(def ^:private min-width-ratio 0.15)
+(def ^:private max-width-ratio (/ 2.0 3.0))
+(def ^:private handle-size 10.0)
+(def ^:private handle-hit-slop 8.0)
+
+(defn- set-width-ratio! [!state block-id new-val]
+  (when (and !state block-id)
+    (tx/commit-transaction!
+     !state
+     (tx/make-transaction
+      :ops [(tx/update-data-op block-id {:width-ratio new-val})]
+      :after-selection nil)
+     :merge? true)))
+
+(defn- clamp-ratio [r]
+  (min max-width-ratio (max min-width-ratio r)))
+
+(defn- placeholder []
+  (m/Container
+   .width 120.0 .height 100.0
+   .color m.Colors/grey
+   .child (m/Center .child (m/Icon m.Icons/image .color m.Colors/white))))
+
+(defn- broken []
+  (m/Container
+   .width 120.0 .height 100.0
+   .color m.Colors/grey
+   .child (m/Center .child (m/Icon m.Icons/broken_image .color m.Colors/white))))
+
+(defn- constrained-image
+  "Fit inside max-w × max-h; widget size matches the painted image (no empty sides)."
+  [url local-path hero-tag max-w max-h]
+  (let [w (max 1.0 max-w)
+        h (max 1.0 max-h)
+        ;; Do NOT set Image.width/height — that forces a fixed box and letterboxes.
+        img
+        (cond
+          (and local-path (.existsSync (io/File. local-path)))
+          (m/Image.file (io/File. local-path)
+                        .fit m.BoxFit/contain
+                        .alignment m.Alignment/topLeft
+                        .errorBuilder (fn [_ _ _] (broken)))
+
+          (seq url)
+          (m/Image.network url
+                           .fit m.BoxFit/contain
+                           .alignment m.Alignment/topLeft
+                           .errorBuilder (fn [_ _ _] (broken)))
+
+          :else
+          (placeholder))
+        boxed
+        (m/ConstrainedBox
+         .constraints (m/BoxConstraints .maxWidth w .maxHeight h)
+         .child img)]
+    (if hero-tag
+      (m/Hero .tag hero-tag .child boxed)
+      boxed)))
+
+(defn- resize-handle [!state block-id screen-width]
+  (m/Positioned
+   .right 0.0 .bottom 0.0
+   .child
+   (m/MouseRegion
+    .cursor m.SystemMouseCursors/resizeDownRight
+    .child
+    (m/GestureDetector
+     .behavior m.HitTestBehavior/opaque
+     .onPanUpdate
+     (fn [^m/DragUpdateDetails details]
+       (let [dx (.-dx (.-delta details))
+             current (get-in @!state [:blocks block-id :data :width-ratio] default-width-ratio)
+             new-ratio (clamp-ratio (+ current (/ dx screen-width)))]
+         (set-width-ratio! !state block-id new-ratio)))
+     .child
+     (m/Container
+      .width (+ handle-size (* 2.0 handle-hit-slop))
+      .height (+ handle-size (* 2.0 handle-hit-slop))
+      .alignment m.Alignment/center
+      .color m.Colors/transparent
+      .child
+      (m/Container
+       .width handle-size .height handle-size
+       .decoration (m/BoxDecoration
+                    .color m.Colors/white
+                    .border (m/Border.all .color m.Colors/blue .width 1.5))))))))
+
+(defn- image-frame
+  "Chrome around the image; shrink-wraps to child size."
+  [child is-active? is-block-selected? cursor-visible? offset
+   on-tap on-long-press resize-child]
+  (m/Stack
+   .clipBehavior m.Clip/none
+   .children
+   [(m/GestureDetector
+     .behavior m.HitTestBehavior/opaque
+     .onTapUp (fn [^m/TapUpDetails _] (on-tap))
+     .onLongPress on-long-press
+     .child
+     (m/Container
+      .margin (m.EdgeInsets/only .bottom 8.0)
+      .padding (m.EdgeInsets/all 8.0)
+      .decoration (m/BoxDecoration
+                   .color m.Colors/white
+                   .border (if is-active?
+                             (m/Border.all .color m.Colors/blue .width 1.5)
+                             (m/Border.all .color m.Colors/transparent .width 1.5))
+                   .borderRadius (m.BorderRadius/circular 8.0))
+      .child
+      (m/ClipRRect
+       .borderRadius (m.BorderRadius/circular 4.0)
+       .child
+       (m/Stack
+        .clipBehavior m.Clip/hardEdge
+        .children
+        [child
+         (if is-block-selected?
+           (m/Positioned.fill
+            .child (m/Container
+                    .decoration (m/BoxDecoration
+                                 .color (-> m.Colors/blue (.withOpacity 0.3)))))
+           (m/SizedBox.shrink))
+         (if cursor-visible?
+           (m/Positioned
+            .left 0.0 .right 0.0
+            .top (if (== offset 0) -2.0 nil)
+            .bottom (if (== offset 1) -2.0 nil)
+            .child (m/Container .height 2.0 .color m.Colors/blue))
+           (m/SizedBox.shrink))]))))
+    (or resize-child (m/SizedBox.shrink))]))
+
+(defn- render-image-edit [id !state _index _cfg]
+  (f/widget
+   :watch [state-val !state
+           local-path (asset/resolve-display-path!
+                       (get-in @!state [:blocks id :data :asset-id]))]
+   (let [block* (get-in state-val [:blocks id])
+         url* (get-in block* [:data :url] "")
+         content* (:content block* "")
+         width-ratio (clamp-ratio
+                      (get-in block* [:data :width-ratio] default-width-ratio))
+         is-active? (= id (:active-block-id state-val))
+         sel (get-in state-val [:blocks id :selection])
+         offset (if sel (.-extentOffset sel) 0)
+         cursor-visible? (and is-active? (:cursor-visible state-val))
+         selected-ids (:selected-block-ids state-val #{})
+         is-block-selected? (contains? selected-ids id)
+         hero-tag (str "image-hero-" id)
+         show-caption? (and is-active? (seq content*))]
+     (m/LayoutBuilder
+      .builder
+      (fn [^m/BuildContext ctx ^m/BoxConstraints constraints]
+        (let [mq (m.MediaQuery/of ctx)
+              screen-width (.-width (.-size mq))
+              screen-height (.-height (.-size mq))
+              max-w (min (* screen-width width-ratio)
+                         (* screen-width max-width-ratio))
+              ;; Focused image sits inside Expanded with a bounded max height.
+              ;; Frame padding(8*2)+margin(8)+optional caption ≈ 40.
+              chrome (if show-caption? 56.0 32.0)
+              parent-max-h (.-maxHeight constraints)
+              max-h (cond
+                      (not (.-hasBoundedHeight constraints))
+                      screen-height
+
+                      (not (.isFinite parent-max-h))
+                      screen-height
+
+                      :else
+                      (max 48.0 (min screen-height (- parent-max-h chrome))))]
+          (m/Column
+           .mainAxisSize m.MainAxisSize/min
+           .crossAxisAlignment m.CrossAxisAlignment/start
+           .children
+           [(image-frame
+             (constrained-image url* local-path hero-tag max-w max-h)
+             is-active? is-block-selected? cursor-visible? offset
+             #(editor-cmd/focus-block !state id 0)
+             (fn []
+               (editor-cmd/focus-block !state id 0)
+               (link/open-image-url-dialog! !state id))
+             (when is-active? (resize-handle !state id screen-width)))
+            (if show-caption?
+              (m/Padding
+               .padding (m.EdgeInsets/only .bottom 4.0)
+               .child (m/Text content*
+                              .style (m/TextStyle .color m.Colors/grey
+                                                  .fontStyle m.FontStyle/italic)))
+              (m/SizedBox.shrink))])))))))
+
+(defn- render-image-read [block _base-style _on-link-tap _!state]
+  (f/widget
+   :watch [local-path (asset/resolve-display-path!
+                       (get-in block [:data :asset-id]))]
+   (let [url (get-in block [:data :url] "")
+         width-ratio (clamp-ratio
+                      (get-in block [:data :width-ratio] default-width-ratio))]
+     (if (and (empty? url) (nil? local-path))
+       (m/SizedBox.shrink)
+       (m/LayoutBuilder
+        .builder
+        (fn [^m/BuildContext ctx ^m/BoxConstraints constraints]
+          (let [mq (m.MediaQuery/of ctx)
+                screen-width (.-width (.-size mq))
+                screen-height (.-height (.-size mq))
+                max-w (min (* screen-width width-ratio)
+                           (* screen-width max-width-ratio))
+                parent-max-h (.-maxHeight constraints)
+                max-h (if (and (.-hasBoundedHeight constraints)
+                               (.isFinite parent-max-h))
+                        (max 48.0 (min screen-height parent-max-h))
+                        screen-height)]
+            (m/Align
+             .alignment m.Alignment/topLeft
+             .child (constrained-image url local-path nil max-w max-h)))))))))
+
+(defn image-plugin []
+  {:type :image
+   :text-block-type? false
+   :render render-image-edit
+   :render-read render-image-read})

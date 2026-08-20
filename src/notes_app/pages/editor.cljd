@@ -16,6 +16,8 @@
             [notes-app.services.document :as doc]
             [notes-app.services.export :as export]
             [notes-app.services.link :as link]
+            [notes-app.plugins.image :as img-plugin]
+            [notes-app.plugins.attachment :as attach-plugin]
             [notes-app.state.store :as store]))
 
 ;; =============================================================================
@@ -88,10 +90,8 @@
 
 (defn- make-editor-config []
   {:block-plugins
-   [{:type :image
-     :render (fn [_id _!state _idx _cfg] (m/SizedBox.shrink))
-     :render-read (fn [_block _style _on-link _!state] (m/SizedBox.shrink))}
-    ;; Add the new embed block plugin
+   [(img-plugin/image-plugin)
+    (attach-plugin/attachment-plugin)
     {:type :embed
      :render (fn [block-id !state _idx _cfg]
                (let [block (get-in @!state [:blocks block-id])

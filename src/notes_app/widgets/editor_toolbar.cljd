@@ -1,12 +1,13 @@
 (ns notes-app.widgets.editor-toolbar
-  "In-app toolbar: same as mgl-block-editor toolbar but without Image.
-   Kept local so we do not patch the dependency."
+  "In-app toolbar with image/attachment pickers."
   (:require ["package:flutter/material.dart" :as m]
-            ["package:flutter/services.dart" :as s] ;; 🌟 For Clipboard
+            ["package:flutter/services.dart" :as s]
             [cljd.flutter :as f]
             [clojure.string :as str]
             [rich-editor.commands.transaction :as tx]
-            [block-editor.commands.ops :as ops]))
+            [block-editor.commands.ops :as ops]
+            [notes-app.services.asset :as asset]
+            [notes-app.services.sync :as sync]))
 
 (defn- toolbar-button [icon tooltip is-active? on-tap]
   (m/IconButton
@@ -15,8 +16,42 @@
    .color (if is-active? m.Colors/blue m.Colors/black54)
    .onPressed on-tap))
 
+(defn- insert-image-from-picker! [!state active-id]
+  (-> (asset/pick-and-create! :image-only? true)
+      (.then (fn [asset-id]
+               (when asset-id
+                 (ops/convert-block! !state active-id :image)
+                 (tx/commit-transaction!
+                  !state
+                  (tx/make-transaction
+                   :ops [(tx/update-data-op active-id
+                                            {:asset-id asset-id
+                                             :width-ratio (/ 2.0 3.0)
+                                             :url ""})
+                         (tx/update-data-op active-id {:content ""})]
+                   :after-selection nil))
+                 (sync/schedule-push!))))))
+
+(defn- insert-attachment-from-picker! [!state active-id]
+  (-> (asset/pick-and-create!)
+      (.then (fn [asset-id]
+               (when asset-id
+                 (-> (asset/get-asset asset-id)
+                     (.then (fn [row]
+                              (ops/convert-block! !state active-id :attachment)
+                              (tx/commit-transaction!
+                               !state
+                               (tx/make-transaction
+                                :ops [(tx/update-data-op active-id
+                                                         {:asset-id asset-id
+                                                          :filename (when row (.-filename row))
+                                                          :mime (when row (.-mimeType row))})
+                                      (tx/update-data-op active-id {:content ""})]
+                                :after-selection nil))
+                              (sync/schedule-push!)))))))))
+
 (defn notes-toolbar
-  "Toolbar without image button, added 'Copy Block Ref'."
+  "Toolbar with image, attachment, and Copy Block Ref."
   [!state cfg]
   (f/widget
    :context ctx
@@ -62,6 +97,10 @@
            (toolbar-button m.Icons/format_quote "Quote" (= block-type :blockquote)
                            #(ops/convert-block! !state active-id :blockquote))
            (m/VerticalDivider .indent 12.0 .endIndent 12.0 .width 16.0)
+           (toolbar-button m.Icons/image "Image" (= block-type :image)
+                           #(insert-image-from-picker! !state active-id))
+           (toolbar-button m.Icons/attach_file "Attachment" (= block-type :attachment)
+                           #(insert-attachment-from-picker! !state active-id))
            (toolbar-button m.Icons/horizontal_rule "Divider" (= block-type :divider)
                            #(ops/convert-block! !state active-id :divider))
            (toolbar-button m.Icons/bookmark_border "Bookmark" (= block-type :bookmark)

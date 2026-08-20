@@ -61,6 +61,25 @@ class Operations extends Table {
   Set<Column> get primaryKey => {id};
 }
 
+/// Binary assets (images, attachments) referenced by blocks via asset-id.
+class Assets extends Table {
+  TextColumn get id => text()();
+  TextColumn get filename => text()();
+  TextColumn get mimeType => text().named('mime_type')();
+  IntColumn get sizeBytes => integer().named('size_bytes')();
+  TextColumn get sha256 => text()();
+  TextColumn get localPath => text().named('local_path').nullable()();
+  /// pending | uploaded | failed | pending_download
+  TextColumn get uploadStatus =>
+      text().named('upload_status').withDefault(const Constant('pending'))();
+
+  DateTimeColumn get createdAt => dateTime().withDefault(currentDateAndTime)();
+  DateTimeColumn get deletedAt => dateTime().nullable()();
+
+  @override
+  Set<Column> get primaryKey => {id};
+}
+
 /// Wiki-style outbound links: block → target document title (`[[Title]]`).
 class BlockLinks extends Table {
   TextColumn get sourceId =>
@@ -73,12 +92,12 @@ class BlockLinks extends Table {
   Set<Column> get primaryKey => {sourceId, targetId};
 }
 
-@DriftDatabase(tables: [Documents, Blocks, Operations, BlockLinks])
+@DriftDatabase(tables: [Documents, Blocks, Operations, BlockLinks, Assets])
 class AppDatabase extends _$AppDatabase {
   AppDatabase() : super(impl.connect());
 
   @override
-  int get schemaVersion => 2;
+  int get schemaVersion => 3;
 
   @override
   MigrationStrategy get migration {
@@ -89,6 +108,9 @@ class AppDatabase extends _$AppDatabase {
       onUpgrade: (Migrator m, int from, int to) async {
         if (from < 2) {
           await m.createTable(blockLinks);
+        }
+        if (from < 3) {
+          await m.createTable(assets);
         }
       },
     );
@@ -160,6 +182,22 @@ class AppDatabase extends _$AppDatabase {
   Future<List<Operation>> getUnsyncedOperations() {
     final query = select(operations)
       ..where((t) => t.synced.equals(false))
+      ..orderBy([(t) => OrderingTerm.asc(t.createdAt)]);
+    return query.get();
+  }
+
+  Future<List<Asset>> getPendingUploadAssets() {
+    final query = select(assets)
+      ..where((t) =>
+          t.uploadStatus.equals('pending') & t.deletedAt.isNull())
+      ..orderBy([(t) => OrderingTerm.asc(t.createdAt)]);
+    return query.get();
+  }
+
+  Future<List<Asset>> getPendingDownloadAssets() {
+    final query = select(assets)
+      ..where((t) =>
+          t.uploadStatus.equals('pending_download') & t.deletedAt.isNull())
       ..orderBy([(t) => OrderingTerm.asc(t.createdAt)]);
     return query.get();
   }

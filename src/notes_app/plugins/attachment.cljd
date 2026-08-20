@@ -1,0 +1,53 @@
+(ns notes-app.plugins.attachment
+  "Attachment block — non-image files referenced by asset-id."
+  (:require ["package:flutter/material.dart" :as m]
+            ["package:mongol/mongol.dart" :as mgl]
+            ["package:url_launcher/url_launcher.dart" :as launcher]
+            ["dart:io" :as io]
+            [cljd.flutter :as f]
+            [notes-app.services.asset :as asset]))
+
+(defn- open-file! [local-path]
+  (when (and local-path (.existsSync (io/File. local-path)))
+    (-> (launcher/launchUrl (dart:core/Uri.file local-path)
+                            .mode launcher/LaunchMode.externalApplication)
+        (.catchError (fn [_] nil)))))
+
+(defn- attachment-card [filename mime local-path]
+  (m/GestureDetector
+   .onTap #(open-file! local-path)
+   .child
+   (m/Container
+    .margin (m.EdgeInsets/symmetric .vertical 4.0)
+    .padding (m.EdgeInsets/all 12.0)
+    .decoration (m/BoxDecoration
+                 .color (m/Color 0xFF2A2A2A)
+                 .borderRadius (m/BorderRadius.circular 8.0)
+                 .border (m/Border.all .color (m/Color 0x44FFFFFF)))
+    .child
+    (m/Row
+     .mainAxisSize m.MainAxisSize/min
+     .children
+     [(m/Icon (if (asset/image-mime? mime)
+               m.Icons/insert_drive_file
+               m.Icons/attach_file)
+              .color (m/Color 0xFF64B5F6))
+      (m/SizedBox .width 12.0)
+      (mgl/MongolText (or filename "Attachment")
+                      .style (m/TextStyle .fontFamily "OyunQaganTig"
+                                          .color m.Colors/white70
+                                          .fontSize 16.0))]))))
+
+(defn- render-attachment [block _style _on-link _!state]
+  (f/widget
+   :watch [local-path (asset/resolve-display-path!
+                       (get-in block [:data :asset-id]))]
+   (attachment-card (get-in block [:data :filename] "Attachment")
+                    (get-in block [:data :mime] "")
+                    local-path)))
+
+(defn attachment-plugin []
+  {:type :attachment
+   :text-block-type? false
+   :render render-attachment
+   :render-read render-attachment})

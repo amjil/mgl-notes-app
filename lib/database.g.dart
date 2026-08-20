@@ -1663,6 +1663,477 @@ class BlockLinksCompanion extends UpdateCompanion<BlockLink> {
   }
 }
 
+class $AssetsTable extends Assets with TableInfo<$AssetsTable, Asset> {
+  @override
+  final GeneratedDatabase attachedDatabase;
+  final String? _alias;
+  $AssetsTable(this.attachedDatabase, [this._alias]);
+  static const VerificationMeta _idMeta = const VerificationMeta('id');
+  @override
+  late final GeneratedColumn<String> id = GeneratedColumn<String>(
+      'id', aliasedName, false,
+      type: DriftSqlType.string, requiredDuringInsert: true);
+  static const VerificationMeta _filenameMeta =
+      const VerificationMeta('filename');
+  @override
+  late final GeneratedColumn<String> filename = GeneratedColumn<String>(
+      'filename', aliasedName, false,
+      type: DriftSqlType.string, requiredDuringInsert: true);
+  static const VerificationMeta _mimeTypeMeta =
+      const VerificationMeta('mimeType');
+  @override
+  late final GeneratedColumn<String> mimeType = GeneratedColumn<String>(
+      'mime_type', aliasedName, false,
+      type: DriftSqlType.string, requiredDuringInsert: true);
+  static const VerificationMeta _sizeBytesMeta =
+      const VerificationMeta('sizeBytes');
+  @override
+  late final GeneratedColumn<int> sizeBytes = GeneratedColumn<int>(
+      'size_bytes', aliasedName, false,
+      type: DriftSqlType.int, requiredDuringInsert: true);
+  static const VerificationMeta _sha256Meta = const VerificationMeta('sha256');
+  @override
+  late final GeneratedColumn<String> sha256 = GeneratedColumn<String>(
+      'sha256', aliasedName, false,
+      type: DriftSqlType.string, requiredDuringInsert: true);
+  static const VerificationMeta _localPathMeta =
+      const VerificationMeta('localPath');
+  @override
+  late final GeneratedColumn<String> localPath = GeneratedColumn<String>(
+      'local_path', aliasedName, true,
+      type: DriftSqlType.string, requiredDuringInsert: false);
+  static const VerificationMeta _uploadStatusMeta =
+      const VerificationMeta('uploadStatus');
+  @override
+  late final GeneratedColumn<String> uploadStatus = GeneratedColumn<String>(
+      'upload_status', aliasedName, false,
+      type: DriftSqlType.string,
+      requiredDuringInsert: false,
+      defaultValue: const Constant('pending'));
+  static const VerificationMeta _createdAtMeta =
+      const VerificationMeta('createdAt');
+  @override
+  late final GeneratedColumn<DateTime> createdAt = GeneratedColumn<DateTime>(
+      'created_at', aliasedName, false,
+      type: DriftSqlType.dateTime,
+      requiredDuringInsert: false,
+      defaultValue: currentDateAndTime);
+  static const VerificationMeta _deletedAtMeta =
+      const VerificationMeta('deletedAt');
+  @override
+  late final GeneratedColumn<DateTime> deletedAt = GeneratedColumn<DateTime>(
+      'deleted_at', aliasedName, true,
+      type: DriftSqlType.dateTime, requiredDuringInsert: false);
+  @override
+  List<GeneratedColumn> get $columns => [
+        id,
+        filename,
+        mimeType,
+        sizeBytes,
+        sha256,
+        localPath,
+        uploadStatus,
+        createdAt,
+        deletedAt
+      ];
+  @override
+  String get aliasedName => _alias ?? actualTableName;
+  @override
+  String get actualTableName => $name;
+  static const String $name = 'assets';
+  @override
+  VerificationContext validateIntegrity(Insertable<Asset> instance,
+      {bool isInserting = false}) {
+    final context = VerificationContext();
+    final data = instance.toColumns(true);
+    if (data.containsKey('id')) {
+      context.handle(_idMeta, id.isAcceptableOrUnknown(data['id']!, _idMeta));
+    } else if (isInserting) {
+      context.missing(_idMeta);
+    }
+    if (data.containsKey('filename')) {
+      context.handle(_filenameMeta,
+          filename.isAcceptableOrUnknown(data['filename']!, _filenameMeta));
+    } else if (isInserting) {
+      context.missing(_filenameMeta);
+    }
+    if (data.containsKey('mime_type')) {
+      context.handle(_mimeTypeMeta,
+          mimeType.isAcceptableOrUnknown(data['mime_type']!, _mimeTypeMeta));
+    } else if (isInserting) {
+      context.missing(_mimeTypeMeta);
+    }
+    if (data.containsKey('size_bytes')) {
+      context.handle(_sizeBytesMeta,
+          sizeBytes.isAcceptableOrUnknown(data['size_bytes']!, _sizeBytesMeta));
+    } else if (isInserting) {
+      context.missing(_sizeBytesMeta);
+    }
+    if (data.containsKey('sha256')) {
+      context.handle(_sha256Meta,
+          sha256.isAcceptableOrUnknown(data['sha256']!, _sha256Meta));
+    } else if (isInserting) {
+      context.missing(_sha256Meta);
+    }
+    if (data.containsKey('local_path')) {
+      context.handle(_localPathMeta,
+          localPath.isAcceptableOrUnknown(data['local_path']!, _localPathMeta));
+    }
+    if (data.containsKey('upload_status')) {
+      context.handle(
+          _uploadStatusMeta,
+          uploadStatus.isAcceptableOrUnknown(
+              data['upload_status']!, _uploadStatusMeta));
+    }
+    if (data.containsKey('created_at')) {
+      context.handle(_createdAtMeta,
+          createdAt.isAcceptableOrUnknown(data['created_at']!, _createdAtMeta));
+    }
+    if (data.containsKey('deleted_at')) {
+      context.handle(_deletedAtMeta,
+          deletedAt.isAcceptableOrUnknown(data['deleted_at']!, _deletedAtMeta));
+    }
+    return context;
+  }
+
+  @override
+  Set<GeneratedColumn> get $primaryKey => {id};
+  @override
+  Asset map(Map<String, dynamic> data, {String? tablePrefix}) {
+    final effectivePrefix = tablePrefix != null ? '$tablePrefix.' : '';
+    return Asset(
+      id: attachedDatabase.typeMapping
+          .read(DriftSqlType.string, data['${effectivePrefix}id'])!,
+      filename: attachedDatabase.typeMapping
+          .read(DriftSqlType.string, data['${effectivePrefix}filename'])!,
+      mimeType: attachedDatabase.typeMapping
+          .read(DriftSqlType.string, data['${effectivePrefix}mime_type'])!,
+      sizeBytes: attachedDatabase.typeMapping
+          .read(DriftSqlType.int, data['${effectivePrefix}size_bytes'])!,
+      sha256: attachedDatabase.typeMapping
+          .read(DriftSqlType.string, data['${effectivePrefix}sha256'])!,
+      localPath: attachedDatabase.typeMapping
+          .read(DriftSqlType.string, data['${effectivePrefix}local_path']),
+      uploadStatus: attachedDatabase.typeMapping
+          .read(DriftSqlType.string, data['${effectivePrefix}upload_status'])!,
+      createdAt: attachedDatabase.typeMapping
+          .read(DriftSqlType.dateTime, data['${effectivePrefix}created_at'])!,
+      deletedAt: attachedDatabase.typeMapping
+          .read(DriftSqlType.dateTime, data['${effectivePrefix}deleted_at']),
+    );
+  }
+
+  @override
+  $AssetsTable createAlias(String alias) {
+    return $AssetsTable(attachedDatabase, alias);
+  }
+}
+
+class Asset extends DataClass implements Insertable<Asset> {
+  final String id;
+  final String filename;
+  final String mimeType;
+  final int sizeBytes;
+  final String sha256;
+  final String? localPath;
+
+  /// pending | uploaded | failed | pending_download
+  final String uploadStatus;
+  final DateTime createdAt;
+  final DateTime? deletedAt;
+  const Asset(
+      {required this.id,
+      required this.filename,
+      required this.mimeType,
+      required this.sizeBytes,
+      required this.sha256,
+      this.localPath,
+      required this.uploadStatus,
+      required this.createdAt,
+      this.deletedAt});
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    map['id'] = Variable<String>(id);
+    map['filename'] = Variable<String>(filename);
+    map['mime_type'] = Variable<String>(mimeType);
+    map['size_bytes'] = Variable<int>(sizeBytes);
+    map['sha256'] = Variable<String>(sha256);
+    if (!nullToAbsent || localPath != null) {
+      map['local_path'] = Variable<String>(localPath);
+    }
+    map['upload_status'] = Variable<String>(uploadStatus);
+    map['created_at'] = Variable<DateTime>(createdAt);
+    if (!nullToAbsent || deletedAt != null) {
+      map['deleted_at'] = Variable<DateTime>(deletedAt);
+    }
+    return map;
+  }
+
+  AssetsCompanion toCompanion(bool nullToAbsent) {
+    return AssetsCompanion(
+      id: Value(id),
+      filename: Value(filename),
+      mimeType: Value(mimeType),
+      sizeBytes: Value(sizeBytes),
+      sha256: Value(sha256),
+      localPath: localPath == null && nullToAbsent
+          ? const Value.absent()
+          : Value(localPath),
+      uploadStatus: Value(uploadStatus),
+      createdAt: Value(createdAt),
+      deletedAt: deletedAt == null && nullToAbsent
+          ? const Value.absent()
+          : Value(deletedAt),
+    );
+  }
+
+  factory Asset.fromJson(Map<String, dynamic> json,
+      {ValueSerializer? serializer}) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return Asset(
+      id: serializer.fromJson<String>(json['id']),
+      filename: serializer.fromJson<String>(json['filename']),
+      mimeType: serializer.fromJson<String>(json['mimeType']),
+      sizeBytes: serializer.fromJson<int>(json['sizeBytes']),
+      sha256: serializer.fromJson<String>(json['sha256']),
+      localPath: serializer.fromJson<String?>(json['localPath']),
+      uploadStatus: serializer.fromJson<String>(json['uploadStatus']),
+      createdAt: serializer.fromJson<DateTime>(json['createdAt']),
+      deletedAt: serializer.fromJson<DateTime?>(json['deletedAt']),
+    );
+  }
+  @override
+  Map<String, dynamic> toJson({ValueSerializer? serializer}) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return <String, dynamic>{
+      'id': serializer.toJson<String>(id),
+      'filename': serializer.toJson<String>(filename),
+      'mimeType': serializer.toJson<String>(mimeType),
+      'sizeBytes': serializer.toJson<int>(sizeBytes),
+      'sha256': serializer.toJson<String>(sha256),
+      'localPath': serializer.toJson<String?>(localPath),
+      'uploadStatus': serializer.toJson<String>(uploadStatus),
+      'createdAt': serializer.toJson<DateTime>(createdAt),
+      'deletedAt': serializer.toJson<DateTime?>(deletedAt),
+    };
+  }
+
+  Asset copyWith(
+          {String? id,
+          String? filename,
+          String? mimeType,
+          int? sizeBytes,
+          String? sha256,
+          Value<String?> localPath = const Value.absent(),
+          String? uploadStatus,
+          DateTime? createdAt,
+          Value<DateTime?> deletedAt = const Value.absent()}) =>
+      Asset(
+        id: id ?? this.id,
+        filename: filename ?? this.filename,
+        mimeType: mimeType ?? this.mimeType,
+        sizeBytes: sizeBytes ?? this.sizeBytes,
+        sha256: sha256 ?? this.sha256,
+        localPath: localPath.present ? localPath.value : this.localPath,
+        uploadStatus: uploadStatus ?? this.uploadStatus,
+        createdAt: createdAt ?? this.createdAt,
+        deletedAt: deletedAt.present ? deletedAt.value : this.deletedAt,
+      );
+  Asset copyWithCompanion(AssetsCompanion data) {
+    return Asset(
+      id: data.id.present ? data.id.value : this.id,
+      filename: data.filename.present ? data.filename.value : this.filename,
+      mimeType: data.mimeType.present ? data.mimeType.value : this.mimeType,
+      sizeBytes: data.sizeBytes.present ? data.sizeBytes.value : this.sizeBytes,
+      sha256: data.sha256.present ? data.sha256.value : this.sha256,
+      localPath: data.localPath.present ? data.localPath.value : this.localPath,
+      uploadStatus: data.uploadStatus.present
+          ? data.uploadStatus.value
+          : this.uploadStatus,
+      createdAt: data.createdAt.present ? data.createdAt.value : this.createdAt,
+      deletedAt: data.deletedAt.present ? data.deletedAt.value : this.deletedAt,
+    );
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('Asset(')
+          ..write('id: $id, ')
+          ..write('filename: $filename, ')
+          ..write('mimeType: $mimeType, ')
+          ..write('sizeBytes: $sizeBytes, ')
+          ..write('sha256: $sha256, ')
+          ..write('localPath: $localPath, ')
+          ..write('uploadStatus: $uploadStatus, ')
+          ..write('createdAt: $createdAt, ')
+          ..write('deletedAt: $deletedAt')
+          ..write(')'))
+        .toString();
+  }
+
+  @override
+  int get hashCode => Object.hash(id, filename, mimeType, sizeBytes, sha256,
+      localPath, uploadStatus, createdAt, deletedAt);
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      (other is Asset &&
+          other.id == this.id &&
+          other.filename == this.filename &&
+          other.mimeType == this.mimeType &&
+          other.sizeBytes == this.sizeBytes &&
+          other.sha256 == this.sha256 &&
+          other.localPath == this.localPath &&
+          other.uploadStatus == this.uploadStatus &&
+          other.createdAt == this.createdAt &&
+          other.deletedAt == this.deletedAt);
+}
+
+class AssetsCompanion extends UpdateCompanion<Asset> {
+  final Value<String> id;
+  final Value<String> filename;
+  final Value<String> mimeType;
+  final Value<int> sizeBytes;
+  final Value<String> sha256;
+  final Value<String?> localPath;
+  final Value<String> uploadStatus;
+  final Value<DateTime> createdAt;
+  final Value<DateTime?> deletedAt;
+  final Value<int> rowid;
+  const AssetsCompanion({
+    this.id = const Value.absent(),
+    this.filename = const Value.absent(),
+    this.mimeType = const Value.absent(),
+    this.sizeBytes = const Value.absent(),
+    this.sha256 = const Value.absent(),
+    this.localPath = const Value.absent(),
+    this.uploadStatus = const Value.absent(),
+    this.createdAt = const Value.absent(),
+    this.deletedAt = const Value.absent(),
+    this.rowid = const Value.absent(),
+  });
+  AssetsCompanion.insert({
+    required String id,
+    required String filename,
+    required String mimeType,
+    required int sizeBytes,
+    required String sha256,
+    this.localPath = const Value.absent(),
+    this.uploadStatus = const Value.absent(),
+    this.createdAt = const Value.absent(),
+    this.deletedAt = const Value.absent(),
+    this.rowid = const Value.absent(),
+  })  : id = Value(id),
+        filename = Value(filename),
+        mimeType = Value(mimeType),
+        sizeBytes = Value(sizeBytes),
+        sha256 = Value(sha256);
+  static Insertable<Asset> custom({
+    Expression<String>? id,
+    Expression<String>? filename,
+    Expression<String>? mimeType,
+    Expression<int>? sizeBytes,
+    Expression<String>? sha256,
+    Expression<String>? localPath,
+    Expression<String>? uploadStatus,
+    Expression<DateTime>? createdAt,
+    Expression<DateTime>? deletedAt,
+    Expression<int>? rowid,
+  }) {
+    return RawValuesInsertable({
+      if (id != null) 'id': id,
+      if (filename != null) 'filename': filename,
+      if (mimeType != null) 'mime_type': mimeType,
+      if (sizeBytes != null) 'size_bytes': sizeBytes,
+      if (sha256 != null) 'sha256': sha256,
+      if (localPath != null) 'local_path': localPath,
+      if (uploadStatus != null) 'upload_status': uploadStatus,
+      if (createdAt != null) 'created_at': createdAt,
+      if (deletedAt != null) 'deleted_at': deletedAt,
+      if (rowid != null) 'rowid': rowid,
+    });
+  }
+
+  AssetsCompanion copyWith(
+      {Value<String>? id,
+      Value<String>? filename,
+      Value<String>? mimeType,
+      Value<int>? sizeBytes,
+      Value<String>? sha256,
+      Value<String?>? localPath,
+      Value<String>? uploadStatus,
+      Value<DateTime>? createdAt,
+      Value<DateTime?>? deletedAt,
+      Value<int>? rowid}) {
+    return AssetsCompanion(
+      id: id ?? this.id,
+      filename: filename ?? this.filename,
+      mimeType: mimeType ?? this.mimeType,
+      sizeBytes: sizeBytes ?? this.sizeBytes,
+      sha256: sha256 ?? this.sha256,
+      localPath: localPath ?? this.localPath,
+      uploadStatus: uploadStatus ?? this.uploadStatus,
+      createdAt: createdAt ?? this.createdAt,
+      deletedAt: deletedAt ?? this.deletedAt,
+      rowid: rowid ?? this.rowid,
+    );
+  }
+
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    if (id.present) {
+      map['id'] = Variable<String>(id.value);
+    }
+    if (filename.present) {
+      map['filename'] = Variable<String>(filename.value);
+    }
+    if (mimeType.present) {
+      map['mime_type'] = Variable<String>(mimeType.value);
+    }
+    if (sizeBytes.present) {
+      map['size_bytes'] = Variable<int>(sizeBytes.value);
+    }
+    if (sha256.present) {
+      map['sha256'] = Variable<String>(sha256.value);
+    }
+    if (localPath.present) {
+      map['local_path'] = Variable<String>(localPath.value);
+    }
+    if (uploadStatus.present) {
+      map['upload_status'] = Variable<String>(uploadStatus.value);
+    }
+    if (createdAt.present) {
+      map['created_at'] = Variable<DateTime>(createdAt.value);
+    }
+    if (deletedAt.present) {
+      map['deleted_at'] = Variable<DateTime>(deletedAt.value);
+    }
+    if (rowid.present) {
+      map['rowid'] = Variable<int>(rowid.value);
+    }
+    return map;
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('AssetsCompanion(')
+          ..write('id: $id, ')
+          ..write('filename: $filename, ')
+          ..write('mimeType: $mimeType, ')
+          ..write('sizeBytes: $sizeBytes, ')
+          ..write('sha256: $sha256, ')
+          ..write('localPath: $localPath, ')
+          ..write('uploadStatus: $uploadStatus, ')
+          ..write('createdAt: $createdAt, ')
+          ..write('deletedAt: $deletedAt, ')
+          ..write('rowid: $rowid')
+          ..write(')'))
+        .toString();
+  }
+}
+
 abstract class _$AppDatabase extends GeneratedDatabase {
   _$AppDatabase(QueryExecutor e) : super(e);
   $AppDatabaseManager get managers => $AppDatabaseManager(this);
@@ -1670,12 +2141,13 @@ abstract class _$AppDatabase extends GeneratedDatabase {
   late final $BlocksTable blocks = $BlocksTable(this);
   late final $OperationsTable operations = $OperationsTable(this);
   late final $BlockLinksTable blockLinks = $BlockLinksTable(this);
+  late final $AssetsTable assets = $AssetsTable(this);
   @override
   Iterable<TableInfo<Table, Object?>> get allTables =>
       allSchemaEntities.whereType<TableInfo<Table, Object?>>();
   @override
   List<DatabaseSchemaEntity> get allSchemaEntities =>
-      [documents, blocks, operations, blockLinks];
+      [documents, blocks, operations, blockLinks, assets];
   @override
   StreamQueryUpdateRules get streamUpdateRules => const StreamQueryUpdateRules(
         [
@@ -2892,6 +3364,232 @@ typedef $$BlockLinksTableProcessedTableManager = ProcessedTableManager<
     (BlockLink, $$BlockLinksTableReferences),
     BlockLink,
     PrefetchHooks Function({bool sourceId})>;
+typedef $$AssetsTableCreateCompanionBuilder = AssetsCompanion Function({
+  required String id,
+  required String filename,
+  required String mimeType,
+  required int sizeBytes,
+  required String sha256,
+  Value<String?> localPath,
+  Value<String> uploadStatus,
+  Value<DateTime> createdAt,
+  Value<DateTime?> deletedAt,
+  Value<int> rowid,
+});
+typedef $$AssetsTableUpdateCompanionBuilder = AssetsCompanion Function({
+  Value<String> id,
+  Value<String> filename,
+  Value<String> mimeType,
+  Value<int> sizeBytes,
+  Value<String> sha256,
+  Value<String?> localPath,
+  Value<String> uploadStatus,
+  Value<DateTime> createdAt,
+  Value<DateTime?> deletedAt,
+  Value<int> rowid,
+});
+
+class $$AssetsTableFilterComposer
+    extends Composer<_$AppDatabase, $AssetsTable> {
+  $$AssetsTableFilterComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnFilters<String> get id => $composableBuilder(
+      column: $table.id, builder: (column) => ColumnFilters(column));
+
+  ColumnFilters<String> get filename => $composableBuilder(
+      column: $table.filename, builder: (column) => ColumnFilters(column));
+
+  ColumnFilters<String> get mimeType => $composableBuilder(
+      column: $table.mimeType, builder: (column) => ColumnFilters(column));
+
+  ColumnFilters<int> get sizeBytes => $composableBuilder(
+      column: $table.sizeBytes, builder: (column) => ColumnFilters(column));
+
+  ColumnFilters<String> get sha256 => $composableBuilder(
+      column: $table.sha256, builder: (column) => ColumnFilters(column));
+
+  ColumnFilters<String> get localPath => $composableBuilder(
+      column: $table.localPath, builder: (column) => ColumnFilters(column));
+
+  ColumnFilters<String> get uploadStatus => $composableBuilder(
+      column: $table.uploadStatus, builder: (column) => ColumnFilters(column));
+
+  ColumnFilters<DateTime> get createdAt => $composableBuilder(
+      column: $table.createdAt, builder: (column) => ColumnFilters(column));
+
+  ColumnFilters<DateTime> get deletedAt => $composableBuilder(
+      column: $table.deletedAt, builder: (column) => ColumnFilters(column));
+}
+
+class $$AssetsTableOrderingComposer
+    extends Composer<_$AppDatabase, $AssetsTable> {
+  $$AssetsTableOrderingComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnOrderings<String> get id => $composableBuilder(
+      column: $table.id, builder: (column) => ColumnOrderings(column));
+
+  ColumnOrderings<String> get filename => $composableBuilder(
+      column: $table.filename, builder: (column) => ColumnOrderings(column));
+
+  ColumnOrderings<String> get mimeType => $composableBuilder(
+      column: $table.mimeType, builder: (column) => ColumnOrderings(column));
+
+  ColumnOrderings<int> get sizeBytes => $composableBuilder(
+      column: $table.sizeBytes, builder: (column) => ColumnOrderings(column));
+
+  ColumnOrderings<String> get sha256 => $composableBuilder(
+      column: $table.sha256, builder: (column) => ColumnOrderings(column));
+
+  ColumnOrderings<String> get localPath => $composableBuilder(
+      column: $table.localPath, builder: (column) => ColumnOrderings(column));
+
+  ColumnOrderings<String> get uploadStatus => $composableBuilder(
+      column: $table.uploadStatus,
+      builder: (column) => ColumnOrderings(column));
+
+  ColumnOrderings<DateTime> get createdAt => $composableBuilder(
+      column: $table.createdAt, builder: (column) => ColumnOrderings(column));
+
+  ColumnOrderings<DateTime> get deletedAt => $composableBuilder(
+      column: $table.deletedAt, builder: (column) => ColumnOrderings(column));
+}
+
+class $$AssetsTableAnnotationComposer
+    extends Composer<_$AppDatabase, $AssetsTable> {
+  $$AssetsTableAnnotationComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  GeneratedColumn<String> get id =>
+      $composableBuilder(column: $table.id, builder: (column) => column);
+
+  GeneratedColumn<String> get filename =>
+      $composableBuilder(column: $table.filename, builder: (column) => column);
+
+  GeneratedColumn<String> get mimeType =>
+      $composableBuilder(column: $table.mimeType, builder: (column) => column);
+
+  GeneratedColumn<int> get sizeBytes =>
+      $composableBuilder(column: $table.sizeBytes, builder: (column) => column);
+
+  GeneratedColumn<String> get sha256 =>
+      $composableBuilder(column: $table.sha256, builder: (column) => column);
+
+  GeneratedColumn<String> get localPath =>
+      $composableBuilder(column: $table.localPath, builder: (column) => column);
+
+  GeneratedColumn<String> get uploadStatus => $composableBuilder(
+      column: $table.uploadStatus, builder: (column) => column);
+
+  GeneratedColumn<DateTime> get createdAt =>
+      $composableBuilder(column: $table.createdAt, builder: (column) => column);
+
+  GeneratedColumn<DateTime> get deletedAt =>
+      $composableBuilder(column: $table.deletedAt, builder: (column) => column);
+}
+
+class $$AssetsTableTableManager extends RootTableManager<
+    _$AppDatabase,
+    $AssetsTable,
+    Asset,
+    $$AssetsTableFilterComposer,
+    $$AssetsTableOrderingComposer,
+    $$AssetsTableAnnotationComposer,
+    $$AssetsTableCreateCompanionBuilder,
+    $$AssetsTableUpdateCompanionBuilder,
+    (Asset, BaseReferences<_$AppDatabase, $AssetsTable, Asset>),
+    Asset,
+    PrefetchHooks Function()> {
+  $$AssetsTableTableManager(_$AppDatabase db, $AssetsTable table)
+      : super(TableManagerState(
+          db: db,
+          table: table,
+          createFilteringComposer: () =>
+              $$AssetsTableFilterComposer($db: db, $table: table),
+          createOrderingComposer: () =>
+              $$AssetsTableOrderingComposer($db: db, $table: table),
+          createComputedFieldComposer: () =>
+              $$AssetsTableAnnotationComposer($db: db, $table: table),
+          updateCompanionCallback: ({
+            Value<String> id = const Value.absent(),
+            Value<String> filename = const Value.absent(),
+            Value<String> mimeType = const Value.absent(),
+            Value<int> sizeBytes = const Value.absent(),
+            Value<String> sha256 = const Value.absent(),
+            Value<String?> localPath = const Value.absent(),
+            Value<String> uploadStatus = const Value.absent(),
+            Value<DateTime> createdAt = const Value.absent(),
+            Value<DateTime?> deletedAt = const Value.absent(),
+            Value<int> rowid = const Value.absent(),
+          }) =>
+              AssetsCompanion(
+            id: id,
+            filename: filename,
+            mimeType: mimeType,
+            sizeBytes: sizeBytes,
+            sha256: sha256,
+            localPath: localPath,
+            uploadStatus: uploadStatus,
+            createdAt: createdAt,
+            deletedAt: deletedAt,
+            rowid: rowid,
+          ),
+          createCompanionCallback: ({
+            required String id,
+            required String filename,
+            required String mimeType,
+            required int sizeBytes,
+            required String sha256,
+            Value<String?> localPath = const Value.absent(),
+            Value<String> uploadStatus = const Value.absent(),
+            Value<DateTime> createdAt = const Value.absent(),
+            Value<DateTime?> deletedAt = const Value.absent(),
+            Value<int> rowid = const Value.absent(),
+          }) =>
+              AssetsCompanion.insert(
+            id: id,
+            filename: filename,
+            mimeType: mimeType,
+            sizeBytes: sizeBytes,
+            sha256: sha256,
+            localPath: localPath,
+            uploadStatus: uploadStatus,
+            createdAt: createdAt,
+            deletedAt: deletedAt,
+            rowid: rowid,
+          ),
+          withReferenceMapper: (p0) => p0
+              .map((e) => (e.readTable(table), BaseReferences(db, table, e)))
+              .toList(),
+          prefetchHooksCallback: null,
+        ));
+}
+
+typedef $$AssetsTableProcessedTableManager = ProcessedTableManager<
+    _$AppDatabase,
+    $AssetsTable,
+    Asset,
+    $$AssetsTableFilterComposer,
+    $$AssetsTableOrderingComposer,
+    $$AssetsTableAnnotationComposer,
+    $$AssetsTableCreateCompanionBuilder,
+    $$AssetsTableUpdateCompanionBuilder,
+    (Asset, BaseReferences<_$AppDatabase, $AssetsTable, Asset>),
+    Asset,
+    PrefetchHooks Function()>;
 
 class $AppDatabaseManager {
   final _$AppDatabase _db;
@@ -2904,4 +3602,6 @@ class $AppDatabaseManager {
       $$OperationsTableTableManager(_db, _db.operations);
   $$BlockLinksTableTableManager get blockLinks =>
       $$BlockLinksTableTableManager(_db, _db.blockLinks);
+  $$AssetsTableTableManager get assets =>
+      $$AssetsTableTableManager(_db, _db.assets);
 }

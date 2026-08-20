@@ -48,8 +48,6 @@
              (let [id (.-id r)
                    extra (decode-data-json (.-dataJson r))
                    ed-type (block/type->editor-kw (.-type r))
-                   ;; Skip image blocks in V1 (convert to paragraph placeholder)
-                   ed-type (if (= ed-type :image) :paragraph ed-type)
                    children (or (get children-of id) [])
                    parent (or (.-parentId r) :root)
                    base {:id id
@@ -91,8 +89,6 @@
               (doseq [[idx id] (map-indexed vector ids)]
                 (when-let [b (get blocks id)]
                   (let [t (:type b :paragraph)
-                        ;; Do not persist image blocks
-                        t (if (= t :image) :paragraph t)
                         order (* 1000.0 (inc idx))
                         checked (boolean (get-in b [:data :checked] false))
                         data-json (encode-data-json

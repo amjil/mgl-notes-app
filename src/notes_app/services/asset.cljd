@@ -1,0 +1,204 @@
+(ns notes-app.services.asset
+  "Local asset storage — images and file attachments referenced by blocks."
+  (:require ["dart:core" :as dc]
+            ["dart:async" :as async]
+            ["dart:io" :as io]
+            ["dart:convert" :as convert]
+            ["package:crypto/crypto.dart" :as crypto]
+            ["package:path/path.dart" :as path]
+            ["package:path_provider/path_provider.dart" :as pathp]
+            ["package:file_picker/file_picker.dart" :as fp]
+            ["package:mgl_notes_app/database.dart" :as drift]
+            ["package:drift/drift.dart" :as d]
+            [notes-app.db.core :as db]
+            [notes-app.services.operation :as op]))
+
+(defn- assets-dir!
+  []
+  (-> (pathp/getApplicationDocumentsDirectory)
+      (.then (fn [dir]
+               (let [assets-path (path/join (.-path dir) "assets")
+                     assets-dir (io/Directory. assets-path)]
+                 (when-not (.existsSync assets-dir)
+                   (.createSync assets-dir .recursive true))
+                 assets-path)))))
+
+(defn- sha256-file! [^io/File f]
+  (-> (.readAsBytes f)
+      (.then (fn [bytes]
+               (let [digest (crypto/sha256.convert bytes)]
+                 (.toString digest))))))
+
+(defn- ext-from-filename [^String filename]
+  (let [ext (path/extension filename)]
+    (if (empty? ext) "" ext)))
+
+(defn- mime-from-filename [^String filename]
+  (let [lower (.toLowerCase filename)]
+    (cond
+      (.endsWith lower ".jpg") "image/jpeg"
+      (.endsWith lower ".jpeg") "image/jpeg"
+      (.endsWith lower ".png") "image/png"
+      (.endsWith lower ".gif") "image/gif"
+      (.endsWith lower ".webp") "image/webp"
+      (.endsWith lower ".svg") "image/svg+xml"
+      (.endsWith lower ".pdf") "application/pdf"
+      (.endsWith lower ".txt") "text/plain"
+      (.endsWith lower ".zip") "application/zip"
+      :else "application/octet-stream")))
+
+(defn image-mime? [mime]
+  (and mime (.startsWith mime "image/")))
+
+(defn get-asset [asset-id]
+  (if (or (nil? asset-id) (= asset-id ""))
+    (async/Future.value nil)
+    (if-let [^drift/AppDatabase database (db/get-database)]
+      (let [q (doto (.select database (.-assets database))
+                (.where (fn [t] (.equals (.-id t) asset-id)))
+                (.limit 1))]
+        (-> (.get q)
+            (.then (fn [rows] (first rows)))))
+      (async/Future.value nil))))
+
+(defn local-file-path
+  "Return local filesystem path for asset-id, or nil."
+  [asset-id]
+  (-> (get-asset asset-id)
+      (.then (fn [row]
+               (when row (.-localPath row))))))
+
+(defn resolve-display-path!
+  "Local path if file exists; nil otherwise."
+  [asset-id]
+  (-> (local-file-path asset-id)
+      (.then (fn [p]
+               (when (and p (.existsSync (io/File. p)))
+                 p)))))
+
+(defn create-from-file!
+  "Copy picked file into app assets dir and record metadata.
+   Returns asset-id."
+  [^String source-path ^String filename]
+  (if-let [^drift/AppDatabase database (db/get-database)]
+    (let [asset-id (db/new-id)
+          src (io/File. source-path)]
+      (-> (sha256-file! src)
+          (.then (fn [hash]
+                   (-> (assets-dir!)
+                       (.then (fn [dir]
+                                (let [ext (ext-from-filename filename)
+                                      dest-path (path/join dir (str asset-id ext))
+                                      mime (mime-from-filename filename)]
+                                  (-> (.copy src dest-path)
+                                      (.then (fn [dest]
+                                               (let [size (int (.lengthSync dest))
+                                                     now (db/now)
+                                                     companion
+                                                     (drift/AssetsCompanion.insert
+                                                      :id asset-id
+                                                      :filename filename
+                                                      :mimeType mime
+                                                      :sizeBytes size
+                                                      :sha256 hash
+                                                      :localPath (d/Value ^String dest-path)
+                                                      :uploadStatus (d/Value "pending")
+                                                      :createdAt (d/Value ^dc/DateTime now))]
+                                                 (-> (.insert (.into database (.-assets database)) companion)
+                                                     (.then (fn [_]
+                                                              (op/append!
+                                                               {:entity-type "asset"
+                                                                :entity-id asset-id
+                                                                :action "asset_create"
+                                                                :payload {:id asset-id
+                                                                          :filename filename
+                                                                          :mime_type mime
+                                                                          :size_bytes size
+                                                                          :sha256 hash}})
+                                                              asset-id)))))))))))))))
+    (async/Future.value nil)))
+
+(defn- first-picked-file [result]
+  (when result
+    (if (dart/is? result dart:core/List)
+      (first result)
+      (first (.-files result)))))
+
+(defn pick-and-create!
+  "Open file picker; create asset from first selected file."
+  [& {:keys [image-only?] :or {image-only? false}}]
+  (-> (if image-only?
+        (fp/FilePicker.pickFiles .type fp/FileType.image)
+        (fp/FilePicker.pickFiles .type fp/FileType.any))
+      (.then (fn [result]
+               (if-let [^fp/PlatformFile file (first-picked-file result)]
+                 (let [path (.-path file)
+                       name (or (.-name file) "file")]
+                   (if path
+                     (create-from-file! path name)
+                     (async/Future.value nil)))
+                 (async/Future.value nil))))))
+
+(defn insert-remote-metadata!
+  "Create asset row from pulled operation (file not yet downloaded)."
+  [{:keys [id filename mime-type size-bytes sha256 created-at]}]
+  (if-let [^drift/AppDatabase database (db/get-database)]
+    (-> (get-asset id)
+        (.then (fn [existing]
+                 (if existing
+                   nil
+                   (let [now (or (when (dart/is? created-at dc/DateTime) created-at)
+                                 (try (dc/DateTime.parse (str created-at))
+                                      (catch Exception _ nil))
+                                 (db/now))
+                         companion
+                         (drift/AssetsCompanion.insert
+                          :id id
+                          :filename (or filename "file")
+                          :mimeType (or mime-type "application/octet-stream")
+                          :sizeBytes (int (or size-bytes 0))
+                          :sha256 (or sha256 "")
+                          :localPath (d/Value nil)
+                          :uploadStatus (d/Value "pending_download")
+                          :createdAt (d/Value ^dc/DateTime now))]
+                     (.insert (.into database (.-assets database)) companion))))))
+    (async/Future.value nil)))
+
+(defn mark-uploaded! [asset-id]
+  (if-let [^drift/AppDatabase database (db/get-database)]
+    (let [q (doto (.update database (.-assets database))
+              (.where (fn [t] (.equals (.-id t) asset-id))))]
+      (.write q (drift/AssetsCompanion. .uploadStatus (d/Value "uploaded"))))
+    (async/Future.value nil)))
+
+(defn mark-downloaded! [asset-id ^String local-path]
+  (if-let [^drift/AppDatabase database (db/get-database)]
+    (let [q (doto (.update database (.-assets database))
+              (.where (fn [t] (.equals (.-id t) asset-id))))]
+      (.write q (drift/AssetsCompanion.
+                 .localPath (d/Value local-path)
+                 .uploadStatus (d/Value "uploaded"))))
+    (async/Future.value nil)))
+
+(defn soft-delete! [asset-id]
+  (if-let [^drift/AppDatabase database (db/get-database)]
+    (let [now (db/now)
+          q (doto (.update database (.-assets database))
+              (.where (fn [t] (.equals (.-id t) asset-id))))]
+      (-> (.write q (drift/AssetsCompanion.
+                     .deletedAt (d/Value ^dc/DateTime now)
+                     .uploadStatus (d/Value "deleted")))
+          (.then (fn [_]
+                   (op/append!
+                    {:entity-type "asset"
+                     :entity-id asset-id
+                     :action "asset_delete"
+                     :payload {:deleted_at (.toIso8601String now)}})))))
+    (async/Future.value nil)))
+
+(defn all-active-assets []
+  (if-let [^drift/AppDatabase database (db/get-database)]
+    (let [q (doto (.select database (.-assets database))
+              (.where (fn [t] (.isNull (.-deletedAt t)))))]
+      (.get q))
+    (async/Future.value [])))

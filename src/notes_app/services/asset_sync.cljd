@@ -1,0 +1,99 @@
+(ns notes-app.services.asset-sync
+  "Upload / download binary assets to sync server (separate from Operation log)."
+  (:require ["dart:core" :as dc]
+            ["dart:async" :as async]
+            ["dart:io" :as io]
+            ["dart:convert" :as convert]
+            ["package:http/http.dart" :as http]
+            ["package:path/path.dart" :as path]
+            ["package:path_provider/path_provider.dart" :as pathp]
+            ["package:mgl_notes_app/database.dart" :as drift]
+            [notes-app.db.core :as db]
+            [notes-app.services.asset :as asset]
+            [notes-app.state.store :as store]))
+
+(defn- base-url []
+  (let [u (:sync-base-url @store/app-ui-state)]
+    (when (and u (not= u ""))
+      (.replaceFirst u (dart:core/RegExp. "/+$") ""))))
+
+(defn- assets-dir! []
+  (-> (pathp/getApplicationDocumentsDirectory)
+      (.then (fn [dir]
+               (let [p (path/join (.-path dir) "assets")
+                     d (io/Directory. p)]
+                 (when-not (.existsSync d)
+                   (.createSync d .recursive true))
+                 p)))))
+
+(defn- upload-one! [^drift/Asset row]
+  (if-let [base (base-url)]
+    (let [local (.-localPath row)]
+      (if (and local (.existsSync (io/File. local)))
+        (let [uri (dart:core/Uri.parse (str base "/api/assets/upload"))
+              req (http/MultipartRequest. "POST" uri)]
+          (.fields.add req (dc/MapEntry. "id" (.-id row)))
+          (.fields.add req (dc/MapEntry. "filename" (.-filename row)))
+          (.fields.add req (dc/MapEntry. "mime_type" (.-mimeType row)))
+          (.fields.add req (dc/MapEntry. "sha256" (.-sha256 row)))
+          (.fields.add req (dc/MapEntry. "size_bytes" (str (.-sizeBytes row))))
+          (-> (http/MultipartFile.fromPath "file" local
+                                           .filename (.-filename row))
+              (.then (fn [mf]
+                       (.files.add req mf)
+                       (-> (.send req)
+                           (.then (fn [resp]
+                                    (if (and (>= (.-statusCode resp) 200)
+                                             (< (.-statusCode resp) 300))
+                                      (asset/mark-uploaded! (.-id row))
+                                      (dart:core/print
+                                       (str "Asset upload failed: " (.-statusCode resp) " " (.-id row))))))
+                           (.catchError (fn [e]
+                                          (dart:core/print (str "Asset upload error: " e)))))))))
+        (async/Future.value nil)))
+    (async/Future.value nil)))
+
+(defn upload-pending!
+  "Upload all assets with upload_status=pending."
+  []
+  (if-let [^drift/AppDatabase database (db/get-database)]
+    (-> (.getPendingUploadAssets database)
+        (.then (fn [rows]
+                 (reduce (fn [fut row]
+                           (.then fut (fn [_] (upload-one! row))))
+                         (async/Future.value nil)
+                         (or rows [])))))
+    (async/Future.value nil)))
+
+(defn- download-one! [^drift/Asset row]
+  (if-let [base (base-url)]
+    (let [uri (dart:core/Uri.parse (str base "/api/assets/" (.-id row)))]
+      (-> (http/get uri)
+          (.then (fn [resp]
+                   (if (and (>= (.-statusCode resp) 200)
+                            (< (.-statusCode resp) 300))
+                     (-> (assets-dir!)
+                         (.then (fn [dir]
+                                  (let [ext (path/extension (.-filename row))
+                                        dest-path (path/join dir (str (.-id row) ext))
+                                        file (io/File. dest-path)]
+                                    (-> (.writeAsBytes file (.-bodyBytes resp))
+                                        (.then (fn [_]
+                                                 (asset/mark-downloaded! (.-id row) dest-path))))))))
+                     (dart:core/print
+                      (str "Asset download failed: " (.-statusCode resp) " " (.-id row))))))
+          (.catchError (fn [e]
+                         (dart:core/print (str "Asset download error: " e))))))
+    (async/Future.value nil)))
+
+(defn download-missing!
+  "Download assets marked pending_download."
+  []
+  (if-let [^drift/AppDatabase database (db/get-database)]
+    (-> (.getPendingDownloadAssets database)
+        (.then (fn [rows]
+                 (reduce (fn [fut row]
+                           (.then fut (fn [_] (download-one! row))))
+                         (async/Future.value nil)
+                         (or rows [])))))
+    (async/Future.value nil)))

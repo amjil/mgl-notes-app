@@ -5,7 +5,8 @@
             [notes-app.db.core :as db]
             [notes-app.state.store :as store]
             [notes-app.services.operation :as op]
-            [notes-app.services.operation-apply :as apply]))
+            [notes-app.services.operation-apply :as apply]
+            [notes-app.services.asset-sync :as asset-sync]))
 
 (defonce ^:private !push-timer (atom nil))
 (defonce ^:private !pull-timer (atom nil))
@@ -45,7 +46,8 @@
   (if-let [base (base-url)]
     (do
       (store/set-sync-status! :syncing "Push…")
-      (-> (op/get-unsynced)
+      (-> (asset-sync/upload-pending!)
+          (.then (fn [_] (op/get-unsynced)))
           (.then (fn [ops]
                    (let [ops (or ops [])]
                      (if (empty? ops)
@@ -105,6 +107,7 @@
                                      (async/Future.value nil)
                                      items)
                              (.then (fn [_] (db/refresh-document-titles!)))
+                             (.then (fn [_] (asset-sync/download-missing!)))
                              (.then (fn [_]
                                       (store/set-last-sync-time! (.toIso8601String (db/now)))
                                       (store/set-sync-status! :ok "Pull OK")

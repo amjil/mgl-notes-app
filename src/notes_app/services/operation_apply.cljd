@@ -6,6 +6,7 @@
             [notes-app.db.core :as db]
             [notes-app.services.operation :as op]
             [notes-app.services.link :as link]
+            [notes-app.services.asset :as asset]
             [notes-app.state.store :as store]))
 
 (defn- parse-dt [v]
@@ -221,6 +222,25 @@
                          (.then (fn [_] (link/clear-links-for-block! entity-id)))))))))
     (async/Future.value nil)))
 
+(defn- apply-asset-create! [entity-id p created-at]
+  (asset/insert-remote-metadata!
+   {:id entity-id
+    :filename (:filename p)
+    :mime-type (or (:mime_type p) (:mime-type p))
+    :size-bytes (or (:size_bytes p) (:size-bytes p))
+    :sha256 (:sha256 p)
+    :created-at created-at}))
+
+(defn- apply-asset-delete! [entity-id created-at]
+  (if-let [^drift/AppDatabase database (db/get-database)]
+    (let [now (or (parse-dt created-at) (db/now))
+          q (doto (.update database (.-assets database))
+              (.where (fn [t] (.equals (.-id t) entity-id))))]
+      (.write q (drift/AssetsCompanion.
+                 .deletedAt (d/Value ^dc/DateTime now)
+                 .uploadStatus (d/Value "deleted"))))
+    (async/Future.value nil)))
+
 (defn- apply-document-restore! [entity-id created-at]
   (if-let [^drift/AppDatabase database (db/get-database)]
     (-> (get-doc entity-id)
@@ -255,6 +275,8 @@
     "block_check" (apply-block-check! eid p created-at)
     "block_move" (apply-block-move! eid p created-at)
     "block_delete" (apply-block-delete! eid created-at)
+    "asset_create" (apply-asset-create! eid p created-at)
+    "asset_delete" (apply-asset-delete! eid created-at)
     (do
       (dart:core/print (str "Unknown action: " action))
       (async/Future.value nil))))
