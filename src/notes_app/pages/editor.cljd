@@ -8,6 +8,7 @@
             [clojure.string :as str]
             [cljd.flutter :as f]
             [block-editor.widgets.editor :as editor]
+            [block-editor.commands.navigate :as navigate]
             [notes-app.widgets.editor-toolbar :as tb]
             [notes-app.widgets.rename-dialog :as rename]
             [notes-app.widgets.backlinks :as backlinks]
@@ -52,7 +53,7 @@
      (let [text (or (.-textContent blk-row) "")
            doc-id (.-documentId blk-row)]
        (m/GestureDetector
-        .onTap #(store/open-document! doc-id)
+        .onTap #(store/open-document! doc-id target-id)
         .child
         (m/Container
          .margin (m.EdgeInsets/symmetric .horizontal 8.0 .vertical 4.0)
@@ -299,4 +300,8 @@
    (if-not session
      (m/Center
       .child (m/CircularProgressIndicator. .color (m/Color 0xFFF5F5F5)))
-     (editor-chrome document-id session ctx show-back? on-back embedded?))))
+     (do
+       ;; Search / block-ref / tasks: one-shot scroll + flash via block-editor API.
+       (when-let [block-id (store/take-focus-block-id!)]
+         (navigate/reveal-block! (:!state session) block-id))
+       (editor-chrome document-id session ctx show-back? on-back embedded?)))))

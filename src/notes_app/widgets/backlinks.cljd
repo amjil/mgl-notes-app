@@ -21,7 +21,7 @@
       t)))
 
 (defn- reference-card
-  [{:keys [block-text document-id document-title]} kind on-promote]
+  [{:keys [block-id block-text document-id document-title]} kind on-promote]
   (let [unlinked? (= kind :unlinked)]
     (m/Container
      .margin (m.EdgeInsets/only .right 16.0)
@@ -41,7 +41,8 @@
       (into []
             (remove nil?
                     [(m/GestureDetector
-                      .onTap #(when document-id (store/open-document! document-id))
+                      .onTap #(when document-id
+                                (store/open-document! document-id block-id))
                       .child
                       (mgl/MongolText
                        (display-doc-title document-title)
@@ -51,12 +52,16 @@
                                .fontFamily "OyunQaganTig"
                                .fontSize 14.0)))
                      (m/SizedBox .height 10.0)
-                     (mgl/MongolText
-                      (preview-text block-text)
-                      .style (m/TextStyle
-                              .color (m/Color 0xFFBDBDBD)
-                              .fontFamily "OyunQaganTig"
-                              .fontSize 13.0))
+                     (m/GestureDetector
+                      .onTap #(when document-id
+                                (store/open-document! document-id block-id))
+                      .child
+                      (mgl/MongolText
+                       (preview-text block-text)
+                       .style (m/TextStyle
+                               .color (m/Color 0xFFBDBDBD)
+                               .fontFamily "OyunQaganTig"
+                               .fontSize 13.0)))
                      (when (and unlinked? on-promote)
                        (m/Padding
                         .padding (m.EdgeInsets/only .top 10.0)

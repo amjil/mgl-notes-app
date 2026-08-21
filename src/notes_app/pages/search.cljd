@@ -95,5 +95,7 @@
                                  .style (m/TextStyle .fontFamily "OyunQaganTig"
                                                      .color m.Colors/white54
                                                      .fontSize 13.0)))
-                    .onTap (fn [] (store/open-document! (:document-id r)) nil))))
+                    .onTap (fn []
+                             (store/open-document! (:document-id r) (:block-id r))
+                             nil))))
                 results))))])))))))

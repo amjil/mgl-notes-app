@@ -16,6 +16,8 @@
 (defonce app-ui-state
   (atom {:selected-nav-id "today"
          :open-document-id nil
+         ;; One-shot: editor calls reveal-block! then clears.
+         :focus-block-id nil
          :device-id nil
          :sync-base-url default-sync-base-url
          :last-sync-time nil
@@ -64,20 +66,34 @@
 (defn set-nav! [nav-id]
   (swap! app-ui-state assoc :selected-nav-id nav-id))
 
-(defn open-document! [doc-id]
-  (swap! app-ui-state assoc
-         :open-document-id doc-id
-         :selected-nav-id "editor"))
+(defn open-document!
+  "Open document in the editor. Optional `block-id` → reveal after load."
+  ([doc-id]
+   (open-document! doc-id nil))
+  ([doc-id block-id]
+   (swap! app-ui-state assoc
+          :open-document-id doc-id
+          :focus-block-id block-id
+          :selected-nav-id "editor")))
+
+(defn take-focus-block-id!
+  "Return and clear pending focus-block-id (one-shot for the editor)."
+  []
+  (let [id (:focus-block-id @app-ui-state)]
+    (swap! app-ui-state assoc :focus-block-id nil)
+    id))
 
 (defn close-editor!
   "Return to documents (or today if daily)."
   ([]
    (swap! app-ui-state assoc
           :open-document-id nil
+          :focus-block-id nil
           :selected-nav-id "documents"))
   ([nav-id]
    (swap! app-ui-state assoc
           :open-document-id nil
+          :focus-block-id nil
           :selected-nav-id nav-id)))
 
 (defn update-sync-base-url! [url]

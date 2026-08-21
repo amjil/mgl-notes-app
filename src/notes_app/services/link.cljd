@@ -116,12 +116,12 @@
                                   doc-id))))))))))
 
 (defn open-block-ref!
-  "Navigate to the document that owns block-id."
+  "Navigate to the document that owns block-id and reveal that block."
   [block-id]
   (-> (db/get-block block-id)
       (.then (fn [blk]
                (when (and blk (nil? (.-deletedAt blk)))
-                 (store/open-document! (.-documentId blk)))))))
+                 (store/open-document! (.-documentId blk) block-id))))))
 
 (defn handle-link-tap!
   "Editor `:on-link-tap` handler. Accepts title string or `{:type :block :id uuid}`."

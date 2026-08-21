@@ -36,7 +36,7 @@
                  src (or (.-documentTitle t) "")
                  doc-id (.-documentId t)]
              (m/GestureDetector
-              .onTap #(store/open-document! doc-id)
+              .onTap #(store/open-document! doc-id (.-id blk))
               .child
               (m/Container
                .margin (m.EdgeInsets/only .right 12.0)
