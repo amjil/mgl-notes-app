@@ -7,6 +7,7 @@
             [notes-app.services.document :as doc]
             [notes-app.services.export :as export]
             [notes-app.state.store :as store]
+            [notes-app.widgets.move-dialog :as move]
             [notes-app.widgets.rename-dialog :as rename]))
 
 (defn- doc-tile [ctx row]
@@ -81,6 +82,12 @@
                  :title-style (m/TextStyle .color m.Colors/white)
                  :on-tap #(rename/rename-dialog ctx title
                                                 (fn [t] (doc/rename! id t)))}
+                {:type :item
+                 :title "Move"
+                 :leading m.Icons/drive_file_move_outlined
+                 :leading-color m.Colors/orangeAccent
+                 :title-style (m/TextStyle .color m.Colors/white)
+                 :on-tap #(move/move-dialog ctx id (:parentId d) nil)}
                 {:type :item
                  :title "Export HTML"
                  :leading m.Icons/file_download_outlined

@@ -1,0 +1,185 @@
+(ns notes-app.widgets.move-dialog
+  (:require ["package:flutter/material.dart" :as m]
+            ["package:mongol/mongol.dart" :as mgl]
+            [cljd.flutter :as f]
+            [clojure.string :as str]
+            [components.dialog :as dialog]
+            [notes-app.db.core :as db]
+            [notes-app.services.document :as doc]
+            [notes-app.widgets.keyboard-wrapper :as kw]
+            [rich-editor.components.text-field :as custom-tf]))
+
+(defn- display-title [title]
+  (if (or (nil? title) (str/blank? title)) "Untitled" title))
+
+(defn- under-doc?
+  "True if id is doc-id or a descendant of doc-id."
+  [doc-id id id->parent]
+  (loop [cur id]
+    (cond
+      (nil? cur) false
+      (= cur doc-id) true
+      :else (recur (get id->parent cur)))))
+
+(defn- ancestor-path
+  "Parent chain labels, root-first, excluding the doc itself."
+  [id id->doc]
+  (loop [cur (get-in id->doc [id :parent-id])
+         acc []]
+    (if (nil? cur)
+      (when (seq acc)
+        (str/join " › " (reverse acc)))
+      (recur (get-in id->doc [cur :parent-id])
+             (conj acc (display-title (get-in id->doc [cur :title])))))))
+
+(defn- pick-and-close! [dialog-ctx doc-id parent-id on-done]
+  (-> (doc/move! doc-id parent-id)
+      (.then (fn [ok?]
+               ;; 🌟 Fix: Use m.Navigator/of for static method interop
+               (.pop (m.Navigator/of dialog-ctx))
+               (when on-done (on-done ok?))))
+      (.catchError (fn [_]
+                     ;; 🌟 Fix: Use m.Navigator/of for static method interop
+                     (.pop (m.Navigator/of dialog-ctx))
+                     (when on-done (on-done false))))))
+
+(defn- candidate-tile [label subtitle icon color on-tap]
+  (m/Container
+   .width 100.0
+   .margin (m.EdgeInsets/only .right 12.0)
+   .decoration (m/BoxDecoration
+                .color (m/Color 0xFF1E1E1E)
+                .borderRadius (m.BorderRadius/circular 10.0)
+                .border (m/Border.all .color m.Colors/white12 .width 1.0))
+   .child
+   (mgl/MongolListTile
+    .leading (m/Icon icon .color color)
+    .title (mgl/MongolText label
+                           .style (m/TextStyle .fontFamily "OyunQaganTig"
+                                               .fontSize 16.0
+                                               .color m.Colors/white))
+    .subtitle (when subtitle
+                (mgl/MongolText subtitle
+                                .style (m/TextStyle .fontFamily "OyunQaganTig"
+                                                    .fontSize 12.0
+                                                    .color m.Colors/white54)))
+    .onTap on-tap)))
+
+(defn- filter-candidates [docs forbidden query]
+  (let [q (-> (or query "") str/trim str/lower-case)]
+    (if (str/blank? q)
+      []
+      (->> docs
+           (remove #(contains? forbidden (:id %)))
+           (filter (fn [{:keys [title]}]
+                     (str/includes? (str/lower-case (or title "")) q)))
+           (take 40)
+           vec))))
+
+(defn move-dialog
+  "Search for a new parent. Calls on-done with true/false after move attempt."
+  [ctx doc-id current-parent-id on-done]
+  (let [!docs (atom nil)
+        !query (atom "")
+        !search-state (atom {:external-keyboard-delegate nil})]
+    (-> (db/list-active-documents)
+        (.then (fn [docs] (reset! !docs (or docs []))))
+        (.catchError (fn [_] (reset! !docs []))))
+    (m/showDialog
+     .context ctx
+     .builder
+     (fn [c]
+       (f/widget
+        :managed [search-ctrl (m/TextEditingController.)
+                  search-focus (m/FocusNode)]
+        :bg-watcher ([^m/TextEditingValue {v .-text} search-ctrl]
+                     (reset! !query (or v "")))
+        :watch [docs !docs
+                query !query
+                search-state !search-state]
+        (let [id->doc (into {} (map (juxt :id identity) (or docs [])))
+              id->parent (into {} (map (juxt :id :parent-id) (or docs [])))
+              forbidden (into #{}
+                              (keep (fn [{:keys [id]}]
+                                      (when (under-doc? doc-id id id->parent) id))
+                                    (or docs [])))
+              matches (filter-candidates (or docs []) forbidden query)]
+          (kw/with-virtual-keyboard
+           (dialog/vertical-custom-dialog
+            {:title "Move"
+             :height-factor 0.7
+             :width-factor 0.55
+             :body
+             ;; Row (not Column): MongolTextField needs a finite height;
+             ;; Column gives non-flex children maxHeight=Infinity.
+             (m/Row
+              .crossAxisAlignment m.CrossAxisAlignment/stretch
+              .children
+              [(m/Padding
+                .padding (m.EdgeInsets/only .right 8.0)
+                .child
+                (custom-tf/text-field
+                 !search-state
+                 {:controller search-ctrl
+                  :focus-node search-focus
+                  :hint "Search parent…"
+                  :max-lines 1
+                  :on-changed (fn [v] (reset! !query (or v "")))
+                  :style (m/TextStyle .color m.Colors/white
+                                      .fontFamily "OyunQaganTig"
+                                      .fontSize 16.0)
+                  :decoration (m/InputDecoration
+                               .border m/InputBorder.none
+                               .hintStyle (m/TextStyle .color m.Colors/white38))}))
+               (m/Expanded
+                .child
+                (cond
+                  (nil? docs)
+                  (m/Center .child (m/CircularProgressIndicator.))
+
+                  :else
+                  (m/ListView
+                   .scrollDirection m.Axis/horizontal
+                   .padding (m.EdgeInsets/symmetric .horizontal 4.0 .vertical 8.0)
+                   .children
+                   (into
+                    [(candidate-tile
+                      "Root"
+                      "Top level"
+                      m.Icons/home_outlined
+                      (if (nil? current-parent-id) m.Colors/blueAccent m.Colors/white70)
+                      #(pick-and-close! c doc-id nil on-done))]
+                    (if (str/blank? (str/trim query))
+                      [(m/Container
+                        .width 120.0
+                        .alignment m.Alignment/center
+                        .child
+                        (mgl/MongolText "Type to search"
+                                        .style (m/TextStyle .fontFamily "OyunQaganTig"
+                                                            .color m.Colors/white38
+                                                            .fontSize 14.0)))]
+                      (if (empty? matches)
+                        [(m/Container
+                          .width 100.0
+                          .alignment m.Alignment/center
+                          .child
+                          (mgl/MongolText "No results"
+                                          .style (m/TextStyle .fontFamily "OyunQaganTig"
+                                                              .color m.Colors/white38
+                                                              .fontSize 14.0)))]
+                        (mapv (fn [{:keys [id title]}]
+                                (let [label (display-title title)
+                                      path (ancestor-path id id->doc)
+                                      current? (= id current-parent-id)]
+                                  (candidate-tile
+                                   label
+                                   (or path "Root")
+                                   (if current? m.Icons/folder m.Icons/description_outlined)
+                                   (if current? m.Colors/blueAccent m.Colors/white70)
+                                   #(pick-and-close! c doc-id id on-done))))
+                              matches)))))))])
+             :actions
+             [(mgl/MongolTextButton
+               ;; 🌟 Fix: Use m.Navigator/of for static method interop
+               .onPressed #(.pop (m.Navigator/of c))
+               .child (mgl/MongolText "Cancel"))]}))))))))

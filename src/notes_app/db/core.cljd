@@ -176,6 +176,23 @@
           (.then (fn [rows] (first rows)))))
     (async/Future.value nil)))
 
+(defn list-active-documents
+  "All non-deleted documents as {:id :title :parent-id :type}, title-asc."
+  []
+  (if-let [^drift/AppDatabase database @db]
+    (let [q (doto (.select database (.-documents database))
+              (.where (fn [t] (.isNull (.-deletedAt t))))
+              (.orderBy [(fn [t] (d/OrderingTerm.asc (.-title t)))]))]
+      (-> (.get q)
+          (.then (fn [rows]
+                   (mapv (fn [r]
+                           {:id (.-id r)
+                            :title (or (.-title r) "")
+                            :parent-id (.-parentId r)
+                            :type (.-type r)})
+                         rows)))))
+    (async/Future.value [])))
+
 (defn get-blocks [doc-id]
   (if-let [^drift/AppDatabase database @db]
     (let [q (doto (.select database (.-blocks database))

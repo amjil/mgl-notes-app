@@ -130,21 +130,52 @@
           (.then (fn [_] true))))
     (async/Future.value false)))
 
-(defn move! [doc-id parent-id]
+(defn- would-create-cycle?
+  "True if placing doc-id under parent-id would create a parent cycle."
+  [doc-id parent-id id->parent]
+  (boolean
+   (when parent-id
+     (loop [cur parent-id]
+       (cond
+         (nil? cur) false
+         (= cur doc-id) true
+         :else (recur (get id->parent cur)))))))
+
+(defn move!
+  "Reparent document. parent-id nil = move to root. Rejects cycles."
+  [doc-id parent-id]
   (if-let [^drift/AppDatabase database (db/get-database)]
-    (let [now (db/now)
-          q (doto (.update database (.-documents database))
-              (.where (fn [t] (.equals (.-id t) doc-id))))]
-      (-> (.write q (drift/DocumentsCompanion.
-                     .parentId (d/Value ^String parent-id)
-                     .updatedAt (d/Value ^dc/DateTime now)))
-          (.then (fn [_]
-                   (op/append!
-                    {:entity-type "document"
-                     :entity-id doc-id
-                     :action "document_move"
-                     :payload {:parent_id parent-id}})))
-          (.then (fn [_] true))))
+    (-> (db/list-active-documents)
+        (.then
+         (fn [docs]
+           (let [id->parent (into {} (map (juxt :id :parent-id) docs))
+                 current (get id->parent doc-id ::missing)]
+             (cond
+               (= current ::missing)
+               (async/Future.value false)
+
+               (= current parent-id)
+               (async/Future.value true)
+
+               (would-create-cycle? doc-id parent-id id->parent)
+               (async/Future.value false)
+
+               :else
+               (let [now (db/now)
+                     q (doto (.update database (.-documents database))
+                         (.where (fn [t] (.equals (.-id t) doc-id))))]
+                 (-> (.write q (drift/DocumentsCompanion.
+                                .parentId (if parent-id
+                                            (d/Value ^String parent-id)
+                                            (d/Value nil))
+                                .updatedAt (d/Value ^dc/DateTime now)))
+                     (.then (fn [_]
+                              (op/append!
+                               {:entity-type "document"
+                                :entity-id doc-id
+                                :action "document_move"
+                                :payload {:parent_id parent-id}})))
+                     (.then (fn [_] true)))))))))
     (async/Future.value false)))
 
 (defn touch! [doc-id]

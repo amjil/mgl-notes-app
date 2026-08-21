@@ -122,10 +122,13 @@
         (.then (fn [doc]
                  (when (and doc (lww-ok? (.-updatedAt doc) created-at))
                    (let [now (or (parse-dt created-at) (db/now))
+                         parent-id (:parent_id p)
                          q (doto (.update database (.-documents database))
                              (.where (fn [t] (.equals (.-id t) entity-id))))]
                      (.write q (drift/DocumentsCompanion.
-                                .parentId (d/Value ^String (:parent_id p))
+                                .parentId (if parent-id
+                                            (d/Value ^String parent-id)
+                                            (d/Value nil))
                                 .updatedAt (d/Value ^dc/DateTime now))))))))
     (async/Future.value nil)))
 
