@@ -46,7 +46,7 @@ Edits auto-save after ~2 seconds; a final save runs when leaving the editor.
 
 - Images and files are stored as **assets** (SHA-256, local path, upload/download status) and referenced from blocks.
 - **Export HTML** — standalone vertical-script HTML plus the bundled `OyunQaganTig` font (from Today, the document list, or the editor).
-- **Backup / restore** — export the whole local database (documents, blocks, assets) to JSON; import to restore.
+- **Backup / restore** — export the local database (documents, blocks, assets, **operations**, `last_sync_time`) to JSON; import restores content and the sync log so a logged-in device does not re-push or miss ops. Legacy backups without an op log clear local operations and reset the pull cursor so the next sync reconciles with the cloud.
 
 ### Account & sync (optional)
 

@@ -1,5 +1,7 @@
 (ns notes-app.services.backup
-  "Handles JSON serialization of the entire database for backup and restore."
+  "Handles JSON serialization of the entire database for backup and restore.
+   Includes the local operation log + last_sync_time so restore stays aligned
+   with cloud sync (avoids duplicate push / missed pull)."
   (:require ["dart:core" :as dc]
             ["dart:async" :as async]
             ["dart:io" :as io]
@@ -10,7 +12,9 @@
             ["package:file_picker/file_picker.dart" :as fp]
             ["package:flutter/material.dart" :as m]
             [notes-app.db.core :as db]
-            [notes-app.services.link :as link]))
+            [notes-app.state.store :as store]
+            [notes-app.services.link :as link]
+            [notes-app.services.sync :as sync]))
 
 (defn- show-snack [ctx msg]
   (when ctx
@@ -34,8 +38,9 @@
     (-> (async/Future.wait
          [(.get (.select database (.-documents database)))
           (.get (.select database (.-blocks database)))
-          (.get (.select database (.-assets database)))])
-        (.then (fn [[docs blocks assets]]
+          (.get (.select database (.-assets database)))
+          (.get (.select database (.-operations database)))])
+        (.then (fn [[docs blocks assets operations]]
                  (let [doc-maps
                        (mapv (fn [d]
                                {:id (.-id d)
@@ -73,12 +78,25 @@
                                 :upload-status (.-uploadStatus a)
                                 :created-at (dt->iso (.-createdAt a))
                                 :deleted-at (dt->iso (.-deletedAt a))})
-                             assets)]
-                   (db/encode-json {:version 2
+                             assets)
+                       op-maps
+                       (mapv (fn [o]
+                               {:id (.-id o)
+                                :device-id (.-deviceId o)
+                                :entity-type (.-entityType o)
+                                :entity-id (.-entityId o)
+                                :action (.-action o)
+                                :payload (.-payload o)
+                                :created-at (dt->iso (.-createdAt o))
+                                :synced (boolean (.-synced o))})
+                             operations)]
+                   (db/encode-json {:version 3
                                     :timestamp (dt->iso (db/now))
+                                    :last-sync-time (:last-sync-time @store/app-ui-state)
                                     :documents doc-maps
                                     :blocks block-maps
-                                    :assets asset-maps})))))
+                                    :assets asset-maps
+                                    :operations op-maps})))))
     (async/Future.value nil)))
 
 (defn- copy-asset-files-for-backup! [json-path assets]
@@ -130,13 +148,43 @@
           (when (.existsSync (io/File. src))
             (.copySync (io/File. src) dest)))))))
 
+(defn- clear-operations! [^drift/AppDatabase database]
+  (.go (.delete database (.-operations database))))
+
+(defn- restore-sync-cursor!
+  "Align pull cursor with backup. Legacy backups (no operations) reset to epoch
+   so the next pull reconciles with the cloud instead of skipping history."
+  [data]
+  (let [has-ops? (contains? data :operations)
+        cursor (when has-ops?
+                 (let [v (:last-sync-time data)]
+                   (when (and v (not= v "")) v)))]
+    (store/set-last-sync-time! (or cursor "0"))))
+
+(defn- insert-operations-batch! [^drift/AppDatabase database ^d/Batch b ops]
+  (doseq [o ops]
+    (.insert b (.-operations database)
+             (drift/OperationsCompanion.insert
+              .id (:id o)
+              .deviceId (or (:device-id o) "")
+              .entityType (or (:entity-type o) "")
+              .entityId (or (:entity-id o) "")
+              .action (or (:action o) "")
+              .payload (or (:payload o) "{}")
+              .createdAt (d/Value ^dc/DateTime (or (iso->dt (:created-at o)) (db/now)))
+              .synced (d/Value ^bool (boolean (:synced o))))
+             .mode d/InsertMode.replace)))
+
 (defn restore-backup-data! [json-str & {:keys [json-path]}]
   (if-let [^drift/AppDatabase database (db/get-database)]
     (try
       (let [data (db/decode-json json-str)
             docs (:documents data [])
             blocks (:blocks data [])
-            assets (or (:assets data) [])]
+            assets (or (:assets data) [])
+            ;; nil = legacy backup without op log → wipe local ops
+            ops (when (contains? data :operations)
+                  (or (:operations data) []))]
         (-> (pathp/getApplicationDocumentsDirectory)
             (.then (fn [dir]
                      (let [app-assets (path/join (.-path dir) "assets")
@@ -144,56 +192,62 @@
                        (when-not (.existsSync assets-dir)
                          (.createSync assets-dir .recursive true))
                        (when json-path (restore-asset-files! json-path assets app-assets))
-                       (-> (.batch database
-                                   (fn [^d/Batch b]
-                                     (doseq [d docs]
-                                       (.insert b (.-documents database)
-                                                (drift/DocumentsCompanion.insert
-                                                 .id (:id d)
-                                                 .title (d/Value ^String (or (:title d) ""))
-                                                 .type (d/Value ^String (or (:type d) "normal"))
-                                                 .parentId (if (:parent-id d) (d/Value ^String (:parent-id d)) (d/Value nil))
-                                                 .icon (if (:icon d) (d/Value ^String (:icon d)) (d/Value nil))
-                                                 .cover (if (:cover d) (d/Value ^String (:cover d)) (d/Value nil))
-                                                 .createdAt (d/Value ^dc/DateTime (iso->dt (:created-at d)))
-                                                 .updatedAt (d/Value ^dc/DateTime (iso->dt (:updated-at d)))
-                                                 .deletedAt (if (:deleted-at d) (d/Value ^dc/DateTime (iso->dt (:deleted-at d))) (d/Value nil)))
-                                                .mode d/InsertMode.replace))
-                                     (doseq [blk blocks]
-                                       (.insert b (.-blocks database)
-                                                (drift/BlocksCompanion.insert
-                                                 .id (:id blk)
-                                                 .documentId (:document-id blk)
-                                                 .parentId (if (:parent-id blk) (d/Value ^String (:parent-id blk)) (d/Value nil))
-                                                 .type (or (:type blk) "paragraph")
-                                                 .textContent (d/Value ^String (or (:text-content blk) ""))
-                                                 .checked (d/Value ^bool (boolean (:checked blk)))
-                                                 .dataJson (if (:data-json blk) (d/Value ^String (:data-json blk)) (d/Value nil))
-                                                 .orderIndex (double (or (:order-index blk) 1000.0))
-                                                 .createdAt (d/Value ^dc/DateTime (iso->dt (:created-at blk)))
-                                                 .updatedAt (d/Value ^dc/DateTime (iso->dt (:updated-at blk)))
-                                                 .deletedAt (if (:deleted-at blk) (d/Value ^dc/DateTime (iso->dt (:deleted-at blk))) (d/Value nil)))
-                                                .mode d/InsertMode.replace))
-                                     (doseq [a assets]
-                                       (let [ext (path/extension (:filename a))
-                                             local (path/join app-assets (str (:id a) ext))]
-                                         (.insert b (.-assets database)
-                                                  (drift/AssetsCompanion.insert
-                                                   .id (:id a)
-                                                   .filename (:filename a)
-                                                   .mimeType (or (:mime-type a) "application/octet-stream")
-                                                   .sizeBytes (int (or (:size-bytes a) 0))
-                                                   .sha256 (or (:sha256 a) "")
-                                                   .localPath (d/Value ^String local)
-                                                   .uploadStatus (d/Value (or (:upload-status a) "uploaded"))
-                                                   .createdAt (d/Value ^dc/DateTime (iso->dt (:created-at a)))
-                                                   .deletedAt (if (:deleted-at a)
-                                                                (d/Value ^dc/DateTime (iso->dt (:deleted-at a)))
-                                                                (d/Value nil)))
-                                                  .mode d/InsertMode.replace)))))
+                       (-> (clear-operations! database)
                            (.then (fn [_]
+                                    (.batch database
+                                            (fn [^d/Batch b]
+                                              (doseq [d docs]
+                                                (.insert b (.-documents database)
+                                                         (drift/DocumentsCompanion.insert
+                                                          .id (:id d)
+                                                          .title (d/Value ^String (or (:title d) ""))
+                                                          .type (d/Value ^String (or (:type d) "normal"))
+                                                          .parentId (if (:parent-id d) (d/Value ^String (:parent-id d)) (d/Value nil))
+                                                          .icon (if (:icon d) (d/Value ^String (:icon d)) (d/Value nil))
+                                                          .cover (if (:cover d) (d/Value ^String (:cover d)) (d/Value nil))
+                                                          .createdAt (d/Value ^dc/DateTime (iso->dt (:created-at d)))
+                                                          .updatedAt (d/Value ^dc/DateTime (iso->dt (:updated-at d)))
+                                                          .deletedAt (if (:deleted-at d) (d/Value ^dc/DateTime (iso->dt (:deleted-at d))) (d/Value nil)))
+                                                         .mode d/InsertMode.replace))
+                                              (doseq [blk blocks]
+                                                (.insert b (.-blocks database)
+                                                         (drift/BlocksCompanion.insert
+                                                          .id (:id blk)
+                                                          .documentId (:document-id blk)
+                                                          .parentId (if (:parent-id blk) (d/Value ^String (:parent-id blk)) (d/Value nil))
+                                                          .type (or (:type blk) "paragraph")
+                                                          .textContent (d/Value ^String (or (:text-content blk) ""))
+                                                          .checked (d/Value ^bool (boolean (:checked blk)))
+                                                          .dataJson (if (:data-json blk) (d/Value ^String (:data-json blk)) (d/Value nil))
+                                                          .orderIndex (double (or (:order-index blk) 1000.0))
+                                                          .createdAt (d/Value ^dc/DateTime (iso->dt (:created-at blk)))
+                                                          .updatedAt (d/Value ^dc/DateTime (iso->dt (:updated-at blk)))
+                                                          .deletedAt (if (:deleted-at blk) (d/Value ^dc/DateTime (iso->dt (:deleted-at blk))) (d/Value nil)))
+                                                         .mode d/InsertMode.replace))
+                                              (doseq [a assets]
+                                                (let [ext (path/extension (:filename a))
+                                                      local (path/join app-assets (str (:id a) ext))]
+                                                  (.insert b (.-assets database)
+                                                           (drift/AssetsCompanion.insert
+                                                            .id (:id a)
+                                                            .filename (:filename a)
+                                                            .mimeType (or (:mime-type a) "application/octet-stream")
+                                                            .sizeBytes (int (or (:size-bytes a) 0))
+                                                            .sha256 (or (:sha256 a) "")
+                                                            .localPath (d/Value ^String local)
+                                                            .uploadStatus (d/Value (or (:upload-status a) "uploaded"))
+                                                            .createdAt (d/Value ^dc/DateTime (iso->dt (:created-at a)))
+                                                            .deletedAt (if (:deleted-at a)
+                                                                         (d/Value ^dc/DateTime (iso->dt (:deleted-at a)))
+                                                                         (d/Value nil)))
+                                                           .mode d/InsertMode.replace)))
+                                              (when ops (insert-operations-batch! database b ops))))))
+                           (.then (fn [_]
+                                    (restore-sync-cursor! data)
                                     (db/refresh-document-titles!)
                                     (link/reindex-all-links!)
+                                    (when (store/logged-in?)
+                                      (sync/sync-now!))
                                     true))))))))
       (catch Exception e
         (dart:core/print (str "Restore failed: " e))
@@ -212,7 +266,7 @@
                            (.then (fn [s] (restore-backup-data! s :json-path path)))
                            (.then (fn [success?]
                                     (if success?
-                                      (show-snack ctx "Restore successful! Knowledge graph reindexed.")
+                                      (show-snack ctx "Restore successful! Sync log restored.")
                                       (show-snack ctx "Restore failed. Invalid format."))))))
                      (show-snack ctx "Could not read file path.")))
                  (show-snack ctx "Import cancelled."))))))
