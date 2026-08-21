@@ -171,7 +171,7 @@
                                      (.copyWith c .textContent (d/Value ^String (or (:text p) "")))
                                      c)
                                    (if (contains? p :type)
-                                     (.copyWith c .type (d/Value ^String (:type p)))
+                                     (.copyWith c .type (d/Value ^String (or (:type p) "paragraph")))
                                      c)
                                    (if (contains? p :data_json)
                                      (.copyWith c .dataJson (if-let [v (:data_json p)]
@@ -203,10 +203,13 @@
         (.then (fn [blk]
                  (when (and blk (lww-ok? (.-updatedAt blk) created-at))
                    (let [now (or (parse-dt created-at) (db/now))
+                         parent-id (:parent_id p)
                          q (doto (.update database (.-blocks database))
                              (.where (fn [t] (.equals (.-id t) entity-id))))]
                      (.write q (drift/BlocksCompanion.
-                                .parentId (d/Value ^String (:parent_id p))
+                                .parentId (if parent-id
+                                            (d/Value ^String parent-id)
+                                            (d/Value nil))
                                 .orderIndex (d/Value ^double (double (or (:order_index p) 0.0)))
                                 .updatedAt (d/Value ^dc/DateTime now))))))))
     (async/Future.value nil)))
@@ -298,7 +301,11 @@
                      :already-applied
                      (let [p (payload-map payload)
                            eid (or entity-id (:id p) (:entity_id p))]
-                       (-> (dispatch-apply! action eid p created-at)
-                           (.then (fn [_]
-                                    (op/insert-remote-op! (assoc op-map :entity-id eid))))
-                           (.then (fn [_] :applied)))))))))))
+                       (if-not eid
+                         (do
+                           (dart:core/print (str "Skip op without entity-id: " id " " action))
+                           (op/insert-remote-op! op-map))
+                         (-> (dispatch-apply! action eid p created-at)
+                             (.then (fn [_]
+                                      (op/insert-remote-op! (assoc op-map :entity-id eid))))
+                             (.then (fn [_] :applied))))))))))))

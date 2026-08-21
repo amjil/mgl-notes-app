@@ -3,6 +3,7 @@
   (:require ["package:http/http.dart" :as http]
             ["dart:convert" :as convert]
             ["dart:async" :as async]
+            [notes-app.db.core :as db]
             [notes-app.state.store :as store]))
 
 (defn- base-url []
@@ -40,14 +41,16 @@
   ([path body token]
    (if-let [base (base-url)]
      (let [uri (dart:core/Uri.parse (str base path))
-           encoded (convert/jsonEncode body)]
+           encoded (db/encode-json body)]
+       (dart:core/print (str "[auth] POST " uri))
        (-> (http/post uri :headers (auth-headers token) :body encoded)
            (.then (fn [resp]
                     {:status (.-statusCode resp)
                      :body (mapish (decode-body resp))}))
            (.catchError (fn [e]
+                          (dart:core/print (str "[auth] POST failed: " e))
                           {:status 0
-                           :body {:error "Cannot reach sync server"
+                           :body {:error (str "Cannot reach sync server (" base ")")
                                   :detail (str e)}}))))
      (async/Future.value {:status 0 :body {:error "Sync URL not configured"}}))))
 

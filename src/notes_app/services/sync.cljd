@@ -120,14 +120,15 @@
 
                          (and (>= (.-statusCode resp) 200) (< (.-statusCode resp) 300))
                          (let [decoded (convert/jsonDecode (.-body resp))
-                               items (cond
-                                       (dart/is? decoded dart:core/List) decoded
-                                       (and (dart/is? decoded dart:core/Map)
-                                            (contains? (into {} (map (fn [k] [(keyword k) (get decoded k)])
-                                                                     (.-keys decoded)))
-                                                       :operations))
-                                       (get decoded "operations")
-                                       :else [])]
+                               items (or (cond
+                                           (dart/is? decoded dart:core/List) decoded
+                                           (and (dart/is? decoded dart:core/Map)
+                                                (contains? (into {} (map (fn [k] [(keyword k) (get decoded k)])
+                                                                         (.-keys decoded)))
+                                                            :operations))
+                                           (get decoded "operations")
+                                           :else [])
+                                         [])]
                            (-> (reduce (fn [fut item]
                                          (.then fut
                                                 (fn [_]
