@@ -1,9 +1,7 @@
 (ns notes-app.services.asset-sync
   "Upload / download binary assets to sync server (separate from Operation log)."
-  (:require ["dart:core" :as dc]
-            ["dart:async" :as async]
+  (:require ["dart:async" :as async]
             ["dart:io" :as io]
-            ["dart:convert" :as convert]
             ["package:http/http.dart" :as http]
             ["package:path/path.dart" :as path]
             ["package:path_provider/path_provider.dart" :as pathp]
@@ -28,29 +26,43 @@
 
 (defn- upload-one! [^drift/Asset row]
   (if-let [base (base-url)]
-    (let [local (.-localPath row)]
-      (if (and local (.existsSync (io/File. local)))
-        (let [uri (dart:core/Uri.parse (str base "/api/assets/upload"))
-              req (http/MultipartRequest. "POST" uri)]
-          (.fields.add req (dc/MapEntry. "id" (.-id row)))
-          (.fields.add req (dc/MapEntry. "filename" (.-filename row)))
-          (.fields.add req (dc/MapEntry. "mime_type" (.-mimeType row)))
-          (.fields.add req (dc/MapEntry. "sha256" (.-sha256 row)))
-          (.fields.add req (dc/MapEntry. "size_bytes" (str (.-sizeBytes row))))
-          (-> (http/MultipartFile.fromPath "file" local
-                                           .filename (.-filename row))
-              (.then (fn [mf]
-                       (.files.add req mf)
-                       (-> (.send req)
-                           (.then (fn [resp]
-                                    (if (and (>= (.-statusCode resp) 200)
+    (if-not (store/logged-in?)
+      (async/Future.value nil)
+      (let [local (.-localPath row)]
+        (if (and local (.existsSync (io/File. local)))
+          (let [uri (dart:core/Uri.parse (str base "/api/assets/upload"))
+                req (http/MultipartRequest. "POST" uri)
+                token (:auth-token @store/app-ui-state)]
+            ;; headers / fields are Map — ClojureDart needs string op name "[]="
+            (when token
+              (. (.-headers req) "[]=" "Authorization" (str "Bearer " token)))
+            (. (.-fields req) "[]=" "id" (.-id row))
+            (. (.-fields req) "[]=" "filename" (.-filename row))
+            (. (.-fields req) "[]=" "mime_type" (.-mimeType row))
+            (. (.-fields req) "[]=" "sha256" (.-sha256 row))
+            (. (.-fields req) "[]=" "size_bytes" (str (.-sizeBytes row)))
+            (-> (http/MultipartFile.fromPath "file" local
+                                             .filename (.-filename row))
+                (.then (fn [mf]
+                         (.add (.-files req) mf)
+                         (-> (.send req)
+                             (.then (fn [resp]
+                                      (cond
+                                        (= (.-statusCode resp) 401)
+                                        (do
+                                          (store/clear-auth-session!)
+                                          (dart:core/print "Asset upload unauthorized"))
+
+                                        (and (>= (.-statusCode resp) 200)
                                              (< (.-statusCode resp) 300))
-                                      (asset/mark-uploaded! (.-id row))
-                                      (dart:core/print
-                                       (str "Asset upload failed: " (.-statusCode resp) " " (.-id row))))))
-                           (.catchError (fn [e]
-                                          (dart:core/print (str "Asset upload error: " e)))))))))
-        (async/Future.value nil)))
+                                        (asset/mark-uploaded! (.-id row))
+
+                                        :else
+                                        (dart:core/print
+                                         (str "Asset upload failed: " (.-statusCode resp) " " (.-id row))))))
+                             (.catchError (fn [e]
+                                            (dart:core/print (str "Asset upload error: " e)))))))))
+          (async/Future.value nil))))
     (async/Future.value nil)))
 
 (defn upload-pending!
@@ -67,23 +79,33 @@
 
 (defn- download-one! [^drift/Asset row]
   (if-let [base (base-url)]
-    (let [uri (dart:core/Uri.parse (str base "/api/assets/" (.-id row)))]
-      (-> (http/get uri)
-          (.then (fn [resp]
-                   (if (and (>= (.-statusCode resp) 200)
+    (if-not (store/logged-in?)
+      (async/Future.value nil)
+      (let [uri (dart:core/Uri.parse (str base "/api/assets/" (.-id row)))]
+        (-> (http/get uri :headers (store/auth-headers {}))
+            (.then (fn [resp]
+                     (cond
+                       (= (.-statusCode resp) 401)
+                       (do
+                         (store/clear-auth-session!)
+                         (dart:core/print "Asset download unauthorized"))
+
+                       (and (>= (.-statusCode resp) 200)
                             (< (.-statusCode resp) 300))
-                     (-> (assets-dir!)
-                         (.then (fn [dir]
-                                  (let [ext (path/extension (.-filename row))
-                                        dest-path (path/join dir (str (.-id row) ext))
-                                        file (io/File. dest-path)]
-                                    (-> (.writeAsBytes file (.-bodyBytes resp))
-                                        (.then (fn [_]
-                                                 (asset/mark-downloaded! (.-id row) dest-path))))))))
-                     (dart:core/print
-                      (str "Asset download failed: " (.-statusCode resp) " " (.-id row))))))
-          (.catchError (fn [e]
-                         (dart:core/print (str "Asset download error: " e))))))
+                       (-> (assets-dir!)
+                           (.then (fn [dir]
+                                    (let [ext (path/extension (.-filename row))
+                                          dest-path (path/join dir (str (.-id row) ext))
+                                          file (io/File. dest-path)]
+                                      (-> (.writeAsBytes file (.-bodyBytes resp))
+                                          (.then (fn [_]
+                                                   (asset/mark-downloaded! (.-id row) dest-path))))))))
+
+                       :else
+                       (dart:core/print
+                        (str "Asset download failed: " (.-statusCode resp) " " (.-id row))))))
+            (.catchError (fn [e]
+                           (dart:core/print (str "Asset download error: " e)))))))
     (async/Future.value nil)))
 
 (defn download-missing!

@@ -6,7 +6,10 @@
    :sync-base-url "sync_base_url"
    :last-sync-time "last_sync_time"
    :user-name "user_name"
-   :show-daily-only "show_daily_only"})
+   :show-daily-only "show_daily_only"
+   :auth-token "auth_token"
+   :auth-email "auth_email"
+   :workspace-id "workspace_id"})
 
 (def default-sync-base-url "http://127.0.0.1:4000")
 
@@ -19,13 +22,16 @@
          :user-name ""
          :show-daily-only false
          :sync-status :idle ;; :idle :syncing :ok :error
-         :sync-message nil}))
+         :sync-message nil
+         :auth-token nil
+         :auth-email nil
+         :workspace-id nil}))
 
 (defn- new-uuid []
   (str (random-uuid)))
 
 (defn load-prefs!
-  "Load device_id / sync settings from SharedPreferences. Creates device_id once."
+  "Load device_id / sync / auth settings from SharedPreferences. Creates device_id once."
   []
   (let [prefs (await (.getInstance sp/SharedPreferences))
         device-id (or (.getString prefs (:device-id pref-keys))
@@ -38,7 +44,10 @@
                    saved-url)
         last-sync (.getString prefs (:last-sync-time pref-keys))
         user-name (or (.getString prefs (:user-name pref-keys)) "")
-        show-daily-only? (or (.getBool prefs (:show-daily-only pref-keys)) false)]
+        show-daily-only? (or (.getBool prefs (:show-daily-only pref-keys)) false)
+        auth-token (.getString prefs (:auth-token pref-keys))
+        auth-email (.getString prefs (:auth-email pref-keys))
+        workspace-id (.getString prefs (:workspace-id pref-keys))]
     ;; Persist default URL on first launch so Settings shows it immediately
     (when (or (nil? saved-url) (= saved-url ""))
       (await (.setString prefs (:sync-base-url pref-keys) default-sync-base-url)))
@@ -47,7 +56,10 @@
            :sync-base-url base-url
            :last-sync-time last-sync
            :user-name user-name
-           :show-daily-only show-daily-only?)))
+           :show-daily-only show-daily-only?
+           :auth-token auth-token
+           :auth-email auth-email
+           :workspace-id workspace-id)))
 
 (defn set-nav! [nav-id]
   (swap! app-ui-state assoc :selected-nav-id nav-id))
@@ -78,6 +90,44 @@
   (let [prefs (await (.getInstance sp/SharedPreferences))]
     (await (.setString prefs (:user-name pref-keys) (or name "")))))
 
+(defn set-auth-session! [token email display-name workspace-id]
+  (swap! app-ui-state assoc
+         :auth-token token
+         :auth-email email
+         :workspace-id workspace-id
+         :user-name (or display-name (:user-name @app-ui-state) ""))
+  (let [prefs (await (.getInstance sp/SharedPreferences))]
+    (await (.setString prefs (:auth-token pref-keys) (or token "")))
+    (await (.setString prefs (:auth-email pref-keys) (or email "")))
+    (await (.setString prefs (:workspace-id pref-keys) (or workspace-id "")))
+    (when (and display-name (not= display-name ""))
+      (await (.setString prefs (:user-name pref-keys) display-name)))))
+
+(defn clear-auth-session!
+  []
+  (swap! app-ui-state assoc
+         :auth-token nil
+         :auth-email nil
+         :workspace-id nil)
+  (let [prefs (await (.getInstance sp/SharedPreferences))]
+    (await (.remove prefs (:auth-token pref-keys)))
+    (await (.remove prefs (:auth-email pref-keys)))
+    (await (.remove prefs (:workspace-id pref-keys)))))
+
+(defn logged-in? []
+  (let [t (:auth-token @app-ui-state)]
+    (and t (not= t ""))))
+
+(defn auth-headers
+  "HTTP headers including Authorization when logged in."
+  ([]
+   (auth-headers {"Content-Type" "application/json"}))
+  ([base]
+   (let [token (:auth-token @app-ui-state)]
+     (if (and token (not= token ""))
+       (assoc base "Authorization" (str "Bearer " token))
+       base))))
+
 (defn set-last-sync-time! [iso-or-ms]
   (let [v (str iso-or-ms)]
     (swap! app-ui-state assoc :last-sync-time v)
@@ -85,6 +135,8 @@
       (await (.setString prefs (:last-sync-time pref-keys) v)))))
 
 (defn set-sync-status! [status message]
+  (when (= status :error)
+    (dart:core/print (str "[sync] error: " message)))
   (swap! app-ui-state assoc :sync-status status :sync-message message))
 
 (defn device-id []

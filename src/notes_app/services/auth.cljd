@@ -1,0 +1,159 @@
+(ns notes-app.services.auth
+  "Auth API client: register / login / logout / password reset."
+  (:require ["package:http/http.dart" :as http]
+            ["dart:convert" :as convert]
+            ["dart:async" :as async]
+            [notes-app.state.store :as store]))
+
+(defn- base-url []
+  (let [u (:sync-base-url @store/app-ui-state)]
+    (when (and u (not= u ""))
+      (.replaceFirst u (dart:core/RegExp. "/+$") ""))))
+
+(defn- decode-body [resp]
+  (try
+    (convert/jsonDecode (.-body resp))
+    (catch Error _e
+      nil)))
+
+(defn- mapish [decoded]
+  (cond
+    (map? decoded) decoded
+    (dart/is? decoded dart:core/Map)
+    (reduce (fn [acc ^String k]
+              (assoc acc (keyword k) (get decoded k)))
+            {}
+            (.-keys decoded))
+    :else {}))
+
+(defn- auth-headers
+  ([]
+   {"Content-Type" "application/json"})
+  ([token]
+   (cond-> {"Content-Type" "application/json"}
+     (and token (not= token ""))
+     (assoc "Authorization" (str "Bearer " token)))))
+
+(defn- post-json!
+  ([path body]
+   (post-json! path body nil))
+  ([path body token]
+   (if-let [base (base-url)]
+     (let [uri (dart:core/Uri.parse (str base path))
+           encoded (convert/jsonEncode body)]
+       (-> (http/post uri :headers (auth-headers token) :body encoded)
+           (.then (fn [resp]
+                    {:status (.-statusCode resp)
+                     :body (mapish (decode-body resp))}))
+           (.catchError (fn [e]
+                          {:status 0
+                           :body {:error "Cannot reach sync server"
+                                  :detail (str e)}}))))
+     (async/Future.value {:status 0 :body {:error "Sync URL not configured"}}))))
+
+(defn- apply-session! [body]
+  (let [token (or (:token body) (get body "token"))
+        user (or (:user body) (get body "user") {})
+        user (mapish user)
+        email (or (:email user) (get user "email") "")
+        display (or (:display_name user) (get user "display_name") "")
+        workspace (or (:workspace_id user) (get user "workspace_id"))]
+    (when token
+      (store/set-auth-session! token email display workspace))
+    {:ok true :token token :user user}))
+
+(defn login!
+  [email password]
+  (-> (post-json! "/api/auth/login" {"email" email "password" password})
+      (.then (fn [{:keys [status body]}]
+               (cond
+                 (and (>= status 200) (< status 300) (or (:ok body) (get body "ok")))
+                 (apply-session! body)
+
+                 (or (zero? status) (nil? status))
+                 {:ok false
+                  :error (or (:error body) (get body "error")
+                             "Cannot reach sync server")}
+
+                 :else
+                 {:ok false
+                  :error (or (:error body) (get body "error")
+                             (str "Login failed: " status))})))))
+
+(defn register!
+  "Register with email + password. Returns Future of {:ok true ...} or {:ok false :error ...}."
+  [email password display-name]
+  (-> (post-json! "/api/auth/register"
+                  {"email" email
+                   "password" password
+                   "display_name" (or display-name "")})
+      (.then (fn [{:keys [status body]}]
+               (cond
+                 (and (>= status 200) (< status 300) (or (:ok body) (get body "ok")))
+                 (apply-session! body)
+
+                 (or (zero? status) (nil? status))
+                 {:ok false
+                  :error (or (:error body) (get body "error")
+                             "Cannot reach sync server")
+                  :errors (or (:errors body) (get body "errors"))}
+
+                 :else
+                 {:ok false
+                  :error (or (:error body) (get body "error")
+                             (str "Register failed: " status))
+                  :errors (or (:errors body) (get body "errors"))})))))
+
+(defn logout!
+  []
+  (let [token (:auth-token @store/app-ui-state)]
+    (-> (if token
+          (post-json! "/api/auth/logout" {} token)
+          (async/Future.value {:status 200 :body {:ok true}}))
+        (.then (fn [_]
+                 (store/clear-auth-session!)
+                 {:ok true}))
+        (.catchError (fn [_]
+                       (store/clear-auth-session!)
+                       {:ok true})))))
+
+(defn forgot-password!
+  [email]
+  (-> (post-json! "/api/auth/forgot-password" {"email" email})
+      (.then (fn [{:keys [status body]}]
+               (if (and (>= status 200) (< status 300))
+                 {:ok true
+                  :message (or (:message body) (get body "message"))
+                  :reset-token (or (:reset_token body) (get body "reset_token"))}
+                 {:ok false
+                  :error (or (:error body) (get body "error")
+                             (str "Request failed: " status))})))))
+
+(defn reset-password!
+  [token password]
+  (-> (post-json! "/api/auth/reset-password" {"token" token "password" password})
+      (.then (fn [{:keys [status body]}]
+               (if (and (>= status 200) (< status 300) (or (:ok body) (get body "ok")))
+                 (apply-session! body)
+                 {:ok false
+                  :error (or (:error body) (get body "error")
+                             (str "Reset failed: " status))
+                  :errors (or (:errors body) (get body "errors"))})))))
+
+(defn me!
+  []
+  (let [token (:auth-token @store/app-ui-state)]
+    (if-not token
+      (async/Future.value {:ok false :error "not logged in"})
+      (-> (http/get (dart:core/Uri.parse (str (base-url) "/api/auth/me"))
+                    :headers (auth-headers token))
+          (.then (fn [resp]
+                   (let [body (mapish (decode-body resp))]
+                     (if (and (>= (.-statusCode resp) 200)
+                              (< (.-statusCode resp) 300))
+                       {:ok true :user (mapish (or (:user body) (get body "user")))}
+                       (do
+                         (when (= (.-statusCode resp) 401)
+                           (store/clear-auth-session!))
+                         {:ok false :error "unauthorized"})))))))))
+

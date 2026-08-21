@@ -1,13 +1,35 @@
 (ns notes-app.pages.settings
   (:require ["package:flutter/material.dart" :as m]
+            ["dart:async" :as async]
             ["package:mongol/mongol.dart" :as mgl]
             [cljd.flutter :as f]
             [components.dialog :as dialog]
             [components.setting :as setting]
             [notes-app.state.store :as store]
             [notes-app.services.sync :as sync]
+            [notes-app.services.auth :as auth]
             [notes-app.services.backup :as backup]
             [notes-app.widgets.keyboard-wrapper :as kw]))
+
+(defn- snack! [ctx msg]
+  (let [sm (m/ScaffoldMessenger.of ctx)]
+    (.showSnackBar sm (m/SnackBar .content (m/Text (str msg))))))
+
+(defn- dispose-controllers!
+  "Dispose every TextEditingController in a key->controller map."
+  [m]
+  (doseq [[_ c] (or m {})]
+    (when c (.dispose c))))
+
+(defn- handle-auth-result!
+  "Show snack; return res so the dialog can close only on :ok."
+  [ctx res ok-msg]
+  (if (:ok res)
+    (do (snack! ctx ok-msg)
+        (sync/sync-now!)
+        res)
+    (do (snack! ctx (or (:error res) "Request failed"))
+        res)))
 
 (defn- edit-field-dialog
   "Edit a settings string. Calls `on-ok` with the new value when confirmed."
@@ -39,13 +61,185 @@
              (.pop (m/Navigator.of c)))
            .child (mgl/MongolText "OK"))]}))))))
 
+(defn- auth-form-dialog
+  "Multi-field auth dialog. Label | input side-by-side.
+   on-submit must return a Future of a map; dialog closes only when :ok is truthy."
+  [ctx title fields submit-label on-submit]
+  (m/showDialog
+   .context ctx
+   .builder
+   (fn [c]
+     (f/widget
+      :managed [controllers
+                (into {}
+                      (map (fn [{:keys [key initial]}]
+                             [key (m/TextEditingController. .text (or initial ""))])
+                           fields))
+                :dispose dispose-controllers!]
+      (kw/with-virtual-keyboard
+       (dialog/vertical-custom-dialog
+        {:title title
+         :height-factor 0.75
+         :width-factor 0.55
+         :body
+         (m/Row
+          .crossAxisAlignment m.CrossAxisAlignment/stretch
+          .children
+          (vec
+           (map
+            (fn [{:keys [key label obscure?]}]
+              (m/Expanded
+               .child
+               (m/Padding
+                .padding (m.EdgeInsets/symmetric .horizontal 4.0)
+                .child
+                (m/Row
+                 .crossAxisAlignment m.CrossAxisAlignment/stretch
+                 .children
+                 [(m/Padding
+                   .padding (m.EdgeInsets/only .right 8.0)
+                   .child
+                   (mgl/MongolText
+                    (or label (name key))
+                    .style (m/TextStyle .fontFamily "OyunQaganTig" .fontSize 14.0
+                                        .color (m/Colors.white70))))
+                  (m/Expanded
+                   .child
+                   (mgl/MongolTextField
+                    .controller (get controllers key)
+                    .obscureText (boolean obscure?)
+                    .style (m/TextStyle .fontFamily "OyunQaganTig"
+                                        .fontSize 16.0)))]))))
+            fields)))
+         :actions
+         [(mgl/MongolTextButton
+           .onPressed #(.pop (m/Navigator.of c))
+           .child (mgl/MongolText "Cancel"))
+          (mgl/MongolElevatedButton
+           .onPressed
+           (fn []
+             (let [vals (into {}
+                              (map (fn [{:keys [key]}]
+                                     [key (.-text (get controllers key))])
+                                   fields))]
+               (-> (on-submit vals)
+                   (.then (fn [res]
+                            (when (and (map? res) (:ok res))
+                              (.pop (m/Navigator.of c)))))
+                   (.catchError (fn [e]
+                                  (snack! ctx (str e))
+                                  nil)))))
+           .child (mgl/MongolText (or submit-label "OK")))]}))))))
+
+(defn- open-reset-dialog! [ctx token]
+  (auth-form-dialog
+   ctx "Reset password"
+   [{:key :token :label "Reset token" :initial (or token "")}
+    {:key :password :label "New password" :obscure? true}]
+   "Reset"
+   (fn [{:keys [token password]}]
+     (-> (auth/reset-password! token password)
+         (.then #(handle-auth-result! ctx % "Password updated"))))))
+
+(defn- login-dialog [ctx]
+  (auth-form-dialog
+   ctx "Login"
+   [{:key :email :label "Email"}
+    {:key :password :label "Password" :obscure? true}]
+   "Login"
+   (fn [{:keys [email password]}]
+     (-> (auth/login! email password)
+         (.then #(handle-auth-result! ctx % "Logged in"))))))
+
+(defn- register-dialog [ctx]
+  (auth-form-dialog
+   ctx "Register"
+   [{:key :email :label "Email"}
+    {:key :password :label "Password" :obscure? true}
+    {:key :name :label "Display name"}]
+   "Register"
+   (fn [{:keys [email password name]}]
+     (-> (auth/register! email password name)
+         (.then #(handle-auth-result! ctx % "Registered"))))))
+
+(defn- forgot-password-dialog [ctx]
+  (auth-form-dialog
+   ctx "Forgot password"
+   [{:key :email :label "Email"}]
+   "Send"
+   (fn [{:keys [email]}]
+     (-> (auth/forgot-password! email)
+         (.then (fn [res]
+                  (if (:ok res)
+                    (do
+                      (snack! ctx (or (:message res) "Check your email"))
+                      (async/Timer.
+                       (dart:core/Duration. .milliseconds 50)
+                       #(open-reset-dialog! ctx (or (:reset-token res) "")))
+                      res)
+                    (do (snack! ctx (or (:error res) "Request failed"))
+                        res))))))))
+
+(defn- reset-password-dialog [ctx]
+  (open-reset-dialog! ctx ""))
+
+(defn- logout! [ctx]
+  (-> (auth/logout!)
+      (.then (fn [_]
+               (snack! ctx "Logged out")))))
+
 (defn settings-page []
   (f/widget
    :context ctx
    :watch [{:keys [user-name sync-base-url device-id last-sync-time
-                   sync-status sync-message]} store/app-ui-state]
-   :let [status-text (str (name (or sync-status :idle))
-                          (when sync-message (str " — " sync-message)))]
+                   sync-status sync-message auth-email auth-token]} store/app-ui-state]
+   :let [logged-in? (and auth-token (not= auth-token ""))
+         status-text (str (name (or sync-status :idle))
+                          (when sync-message (str " — " sync-message)))
+         account-items
+         (if logged-in?
+           [{:title "Email"
+             :subtitle (or auth-email "")
+             :leading m.Icons/email_outlined}
+            {:title "Display name"
+             :subtitle (if (empty? user-name) "—" user-name)
+             :leading m.Icons/person_outline
+             :show-arrow? true
+             :on-tap #(edit-field-dialog ctx "User" user-name store/update-user-name!)}
+            {:title "Log out"
+             :leading m.Icons/logout
+             :show-arrow? true
+             :on-tap #(logout! ctx)}
+            {:title "Device ID"
+             :subtitle (or device-id "")
+             :leading m.Icons/devices}]
+           [{:title "Log in"
+             :subtitle "Email + password"
+             :leading m.Icons/login
+             :show-arrow? true
+             :on-tap #(login-dialog ctx)}
+            {:title "Register"
+             :subtitle "Create an account"
+             :leading m.Icons/person_add_alt
+             :show-arrow? true
+             :on-tap #(register-dialog ctx)}
+            {:title "Forgot password"
+             :leading m.Icons/lock_reset
+             :show-arrow? true
+             :on-tap #(forgot-password-dialog ctx)}
+            {:title "Reset with token"
+             :subtitle "Paste token from email"
+             :leading m.Icons/vpn_key_outlined
+             :show-arrow? true
+             :on-tap #(reset-password-dialog ctx)}
+            {:title "Display name"
+             :subtitle (if (empty? user-name) "Local only" user-name)
+             :leading m.Icons/person_outline
+             :show-arrow? true
+             :on-tap #(edit-field-dialog ctx "User" user-name store/update-user-name!)}
+            {:title "Device ID"
+             :subtitle (or device-id "")
+             :leading m.Icons/devices}])]
    (m/Scaffold
     .backgroundColor (m/Color 0xFF121212)
     .appBar
@@ -58,17 +252,8 @@
       .scrollDirection m.Axis/horizontal
       .padding (m.EdgeInsets/all 16.0)
       .children
-      [(setting/settings-section
-        "Account"
-        [{:title "User"
-          :subtitle (if (empty? user-name) "Display name" user-name)
-          :leading m.Icons/person_outline
-          :show-arrow? true
-          :on-tap #(edit-field-dialog ctx "User" user-name store/update-user-name!)}
-         {:title "Device ID"
-          :subtitle (or device-id "")
-          :leading m.Icons/devices}])
-      
+      [(setting/settings-section "Account" account-items)
+
        (setting/settings-section
         "Sync"
         [{:title "Sync URL"
@@ -87,7 +272,7 @@
           :leading m.Icons/cloud_sync
           :show-arrow? true
           :on-tap #(sync/sync-now!)}])
-      
+
        (setting/settings-section
         "Data Management"
         [{:title "Backup Database"
@@ -100,7 +285,7 @@
           :leading m.Icons/settings_backup_restore
           :show-arrow? true
           :on-tap #(backup/import-backup-file! ctx)}])
-      
+
        (setting/settings-section
         "About"
         [{:title "About"
