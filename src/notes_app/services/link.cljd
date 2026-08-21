@@ -28,36 +28,50 @@
       (.go q))
     (async/Future.value nil)))
 
+(defn- wiki-targets-from-text
+  "Titles from `[[Title]]` only (excludes #tags)."
+  [text]
+  (->> (inline/parse-text-spans (or text ""))
+       (filter #(= (:type %) :link))
+       (map (comp str/trim :content))
+       (remove str/blank?)
+       distinct
+       vec))
+
+(defn- tag-targets-from-text
+  "Titles from `#tag` (ignore adjacent punctuation)."
+  [text]
+  (->> (re-seq #"(?:^|\s)#([^\s#,.\?!:;\"\'\]\[]+)" (or text ""))
+       (map (comp str/trim second))
+       (remove str/blank?)
+       distinct
+       vec))
+
 (defn rebuild-links-for-block!
-  "Parse wiki and #tag refs from text and replace block_links for this block."
+  "Parse wiki and #tag refs from text and replace block_links for this block.
+   `link_type` is `wiki` or `tag` (tag wins when both forms name the same title)."
   [block-id text]
   (if-let [^drift/AppDatabase database (db/get-database)]
     (let [text-val (or text "")
-          ;; 1. Existing [[wiki]] links
-          wiki-targets (inline/parse-bidirectional-links text-val)
-          ;; 2. Extract #tag (ignore adjacent punctuation)
-          tag-matches (re-seq #"(?:^|\s)#([^\s#,.\?!:;\"\'\]\[]+)" text-val)
-          tag-targets (map second tag-matches)
-          ;; 3. Merge and dedupe
-          targets (->> (concat wiki-targets tag-targets)
-                       (map str/trim)
-                       (remove str/blank?)
-                       distinct
-                       vec)]
+          wiki-targets (wiki-targets-from-text text-val)
+          tag-targets (tag-targets-from-text text-val)
+          ;; PK is (source_id, target_id) — one row per target; tag preferred.
+          by-target (merge (zipmap wiki-targets (repeat "wiki"))
+                           (zipmap tag-targets (repeat "tag")))]
       (-> (clear-links-for-block! block-id)
           (.then (fn [_]
-                   (if (empty? targets)
+                   (if (empty? by-target)
                      nil
                      ;; InsertStatement has no insertAll — use batch instead.
                      (.batch database
                              (fn [b]
-                               (doseq [target targets]
+                               (doseq [[^String target ^String link-type] by-target]
                                  (.insert b
                                           (.-blockLinks database)
                                           (drift/BlockLinksCompanion.insert
                                            :sourceId block-id
                                            :targetId target
-                                           :linkType (d/Value "ref")))))))))))
+                                           :linkType (d/Value ^String link-type)))))))))))
     (async/Future.value nil)))
 
 (defn sync-links-from-db-block!
@@ -258,3 +272,78 @@
                       (.-documents database)}))
        (fn [rows] (mapv row->backlink rows)))
       (async/Stream.empty))))
+
+(defn- row->tag-summary [row]
+  (let [data (.-data row)]
+    {:tag (get data "tag")
+     :ref-count (or (get data "ref_count") 0)
+     :doc-count (or (get data "doc_count") 0)}))
+
+(defn watch-paged-tags
+  "Paged `#tag` index with optional case-insensitive substring filter.
+   Ordered by ref count desc. Live via Drift watch."
+  [query limit]
+  (if-let [^drift/AppDatabase database (db/get-database)]
+    (let [q (str/trim (or query ""))
+          lim (max 1 (int (or limit 50)))
+          filter? (not (str/blank? q))
+          pattern (when filter? (str "%" q "%"))
+          sql (str "SELECT bl.target_id AS tag, "
+                   "COUNT(*) AS ref_count, "
+                   "COUNT(DISTINCT b.document_id) AS doc_count "
+                   "FROM block_links bl "
+                   "INNER JOIN blocks b ON b.id = bl.source_id "
+                   "INNER JOIN documents d ON d.id = b.document_id "
+                   "WHERE bl.link_type = 'tag' "
+                   "AND b.deleted_at IS NULL AND d.deleted_at IS NULL "
+                   (when filter? "AND bl.target_id LIKE ? COLLATE NOCASE ")
+                   "GROUP BY bl.target_id "
+                   "ORDER BY ref_count DESC, tag COLLATE NOCASE "
+                   "LIMIT ?")
+          vars (cond-> []
+                 filter? (conj (d/Variable. pattern))
+                 :always (conj (d/Variable. lim)))]
+      (.map
+       (.watch
+        (.customSelect
+         database sql
+         .variables vars
+         .readsFrom #{(.-blockLinks database)
+                      (.-blocks database)
+                      (.-documents database)}))
+       (fn [rows] (mapv row->tag-summary rows))))
+    (async/Stream.empty)))
+
+(defn watch-all-tags
+  "All `#tag` targets (unbounded). Prefer `watch-paged-tags` for UI lists."
+  []
+  (watch-paged-tags "" 10000))
+
+(defn watch-tag-references
+  "Blocks that mention `#tag` (link_type=tag). Optional `limit` (default 50)."
+  ([tag]
+   (watch-tag-references tag 50))
+  ([tag limit]
+   (if (or (nil? tag) (= tag ""))
+     (async/Stream.empty)
+     (if-let [^drift/AppDatabase database (db/get-database)]
+       (let [lim (max 1 (int (or limit 50)))]
+         (.map
+          (.watch
+           (.customSelect
+            database
+            (str "SELECT b.id AS block_id, b.text AS block_text, "
+                 "d.id AS document_id, d.title AS document_title "
+                 "FROM block_links bl "
+                 "INNER JOIN blocks b ON b.id = bl.source_id "
+                 "INNER JOIN documents d ON d.id = b.document_id "
+                 "WHERE bl.target_id = ? AND bl.link_type = 'tag' "
+                 "AND b.deleted_at IS NULL AND d.deleted_at IS NULL "
+                 "ORDER BY b.updated_at DESC "
+                 "LIMIT ?")
+            .variables [(d/Variable. tag) (d/Variable. lim)]
+            .readsFrom #{(.-blockLinks database)
+                         (.-blocks database)
+                         (.-documents database)}))
+          (fn [rows] (mapv row->backlink rows))))
+       (async/Stream.empty)))))

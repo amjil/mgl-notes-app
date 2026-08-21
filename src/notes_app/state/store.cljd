@@ -66,15 +66,29 @@
 (defn set-nav! [nav-id]
   (swap! app-ui-state assoc :selected-nav-id nav-id))
 
+(defn set-selected-tag! [tag]
+  (swap! app-ui-state assoc :selected-tag tag))
+
+(defn clear-selected-tag! []
+  (swap! app-ui-state dissoc :selected-tag))
+
 (defn open-document!
-  "Open document in the editor. Optional `block-id` → reveal after load."
+  "Open document in the editor. Optional `block-id` → reveal after load.
+   Remembers the previous nav so close-editor! can return there."
   ([doc-id]
    (open-document! doc-id nil))
   ([doc-id block-id]
-   (swap! app-ui-state assoc
-          :open-document-id doc-id
-          :focus-block-id block-id
-          :selected-nav-id "editor")))
+   (swap! app-ui-state
+          (fn [s]
+            (let [prev (:selected-nav-id s)
+                  return (if (= prev "editor")
+                           (or (:editor-return-nav s) "documents")
+                           prev)]
+              (assoc s
+                     :open-document-id doc-id
+                     :focus-block-id block-id
+                     :editor-return-nav return
+                     :selected-nav-id "editor"))))))
 
 (defn take-focus-block-id!
   "Return and clear pending focus-block-id (one-shot for the editor)."
@@ -84,12 +98,9 @@
     id))
 
 (defn close-editor!
-  "Return to documents (or today if daily)."
+  "Return to previous nav (or documents)."
   ([]
-   (swap! app-ui-state assoc
-          :open-document-id nil
-          :focus-block-id nil
-          :selected-nav-id "documents"))
+   (close-editor! (or (:editor-return-nav @app-ui-state) "documents")))
   ([nav-id]
    (swap! app-ui-state assoc
           :open-document-id nil

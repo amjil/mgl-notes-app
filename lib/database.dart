@@ -80,13 +80,14 @@ class Assets extends Table {
   Set<Column> get primaryKey => {id};
 }
 
-/// Wiki-style outbound links: block → target document title (`[[Title]]`).
+/// Wiki / #tag outbound links: block → target document title.
+/// `link_type` is `wiki` (`[[Title]]`) or `tag` (`#tag`).
 class BlockLinks extends Table {
   TextColumn get sourceId =>
       text().references(Blocks, #id, onDelete: KeyAction.cascade)();
   /// Target is the document title string (matches `[[Title]]` / `#tag`).
   TextColumn get targetId => text()();
-  TextColumn get linkType => text().withDefault(const Constant('ref'))();
+  TextColumn get linkType => text().withDefault(const Constant('wiki'))();
 
   @override
   Set<Column> get primaryKey => {sourceId, targetId};

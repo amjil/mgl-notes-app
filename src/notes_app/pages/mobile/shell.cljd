@@ -9,6 +9,7 @@
             [notes-app.pages.today :as today]
             [notes-app.pages.documents :as documents]
             [notes-app.pages.tasks :as tasks]
+            [notes-app.pages.tags :as tags]
             [notes-app.pages.search :as search]
             [notes-app.pages.settings :as settings]
             [notes-app.pages.editor :as editor]))
@@ -18,12 +19,13 @@
     "today" (today/today-page)
     "documents" (documents/documents-page)
     "tasks" (tasks/tasks-page)
+    "tags" (tags/tags-page)
     "search" (search/search-page)
     "settings" (settings/settings-page)
     "editor" (if open-doc-id
                (editor/document-editor open-doc-id
                                        :show-back? true
-                                       :on-back #(store/close-editor! "documents"))
+                                       :on-back store/close-editor!)
                (documents/documents-page))
     (today/today-page)))
 

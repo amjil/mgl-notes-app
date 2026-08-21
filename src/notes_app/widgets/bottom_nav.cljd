@@ -4,7 +4,7 @@
             ["package:flutter/services.dart" :as s]
             [notes-app.state.store :as store]))
 
-(def ^:private tabs ["today" "documents" "tasks" "search" "settings"])
+(def ^:private tabs ["today" "documents" "tasks" "tags" "search" "settings"])
 
 (defn main-navigation-bar []
   (f/widget
@@ -29,6 +29,10 @@
         .icon (m/Icon m.Icons/check_box_outlined)
         .selectedIcon (m/Icon m.Icons/check_box)
         .label "Tasks")
+       (m/NavigationDestination
+        .icon (m/Icon m.Icons/tag_outlined)
+        .selectedIcon (m/Icon m.Icons/tag)
+        .label "Tags")
        (m/NavigationDestination
         .icon (m/Icon m.Icons/search)
         .selectedIcon (m/Icon m.Icons/search)
