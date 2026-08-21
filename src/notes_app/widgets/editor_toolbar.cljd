@@ -6,6 +6,7 @@
             [clojure.string :as str]
             [rich-editor.commands.transaction :as tx]
             [block-editor.commands.ops :as ops]
+            [block-editor.utils.history :as history]
             [notes-app.services.asset :as asset]
             [notes-app.services.sync :as sync]))
 
@@ -13,7 +14,10 @@
   (m/IconButton
    .icon (m/Icon icon)
    .tooltip tooltip
-   .color (if is-active? m.Colors/blue m.Colors/black54)
+   .color (cond
+            (nil? on-tap) m.Colors/black26
+            is-active? m.Colors/blue
+            :else m.Colors/black54)
    .onPressed on-tap))
 
 (defn- insert-image-from-picker! [!state active-id]
@@ -58,7 +62,9 @@
    :watch [state-val !state]
    (let [active-id (:active-block-id state-val)
          block (get-in state-val [:blocks active-id])
-         block-type (:type block :paragraph)]
+         block-type (:type block :paragraph)
+         can-undo? (boolean (seq (get-in state-val [:history :undo-stack])))
+         can-redo? (boolean (seq (get-in state-val [:history :redo-stack])))]
      (m/Container
       .height 50.0
       .width double/infinity
@@ -78,6 +84,11 @@
          (m/Row
           .children
           [(m/SizedBox .width 8.0)
+           (toolbar-button m.Icons/undo "Undo" false
+                           (when can-undo? #(history/undo! !state)))
+           (toolbar-button m.Icons/redo "Redo" false
+                           (when can-redo? #(history/redo! !state)))
+           (m/VerticalDivider .indent 12.0 .endIndent 12.0 .width 16.0)
            (toolbar-button m.Icons/notes "Text" (= block-type :paragraph)
                            #(ops/convert-block! !state active-id :paragraph))
            (m/VerticalDivider .indent 12.0 .endIndent 12.0 .width 16.0)
@@ -135,7 +146,13 @@
                                                                       .style (m/TextStyle .fontFamily "OyunQaganTig"))
                                                      .duration (dart:core/Duration .seconds 2))))))))
            (m/SizedBox .width 16.0)]))
-        (m/Center
-         .child
-         (m/Text "Select a block"
-                 .style (m/TextStyle .color m.Colors/grey))))))))
+        (m/Row
+         .mainAxisAlignment m.MainAxisAlignment/center
+         .children
+         [(toolbar-button m.Icons/undo "Undo" false
+                          (when can-undo? #(history/undo! !state)))
+          (toolbar-button m.Icons/redo "Redo" false
+                          (when can-redo? #(history/redo! !state)))
+          (m/SizedBox .width 12.0)
+          (m/Text "Select a block"
+                  .style (m/TextStyle .color m.Colors/grey))]))))))

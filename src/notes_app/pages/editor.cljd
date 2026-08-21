@@ -9,6 +9,7 @@
             [cljd.flutter :as f]
             [block-editor.widgets.editor :as editor]
             [block-editor.commands.navigate :as navigate]
+            [block-editor.utils.history :as history]
             [notes-app.widgets.editor-toolbar :as tb]
             [notes-app.widgets.rename-dialog :as rename]
             [notes-app.widgets.backlinks :as backlinks]
@@ -75,6 +76,7 @@
              ;; Revert back to raw text so user can edit/delete it
              (m/GestureDetector
               .onTap (fn []
+                       (history/record-snapshot! !state)
                        (swap! !state update-in [:blocks current-block-id]
                               assoc :type :paragraph :content (str "((" target-id "))")))
               .child
@@ -227,6 +229,7 @@
                (async/Timer.
                 (dart:core/Duration.zero)
                 (fn []
+                  (history/record-snapshot! !state)
                   (swap! !state
                          (fn [s]
                            (reduce (fn [acc [id target-id]]
@@ -271,19 +274,29 @@
                        .onPressed (or on-back #(store/close-editor!)))
                       nil)
            .actions
-           [(m/IconButton
-             .icon (m/Icon (if show-refs?
-                             m.Icons/chevron_right
-                             m.Icons/account_tree_outlined))
-             .tooltip "Backlinks"
-             .onPressed #(swap! !show-backlinks not))
-            (m/IconButton
-             .icon (m/Icon m.Icons/file_download_outlined)
-             .tooltip "Export HTML"
-             .onPressed #(export-html! ctx !state !title))
-            (m/IconButton
-             .icon (m/Icon m.Icons/drive_file_rename_outline)
-             .onPressed #(show-rename! ctx document-id !title))])
+           (let [can-undo? (boolean (seq (get-in current-state [:history :undo-stack])))
+                 can-redo? (boolean (seq (get-in current-state [:history :redo-stack])))]
+             [(m/IconButton
+               .icon (m/Icon m.Icons/undo)
+               .tooltip "Undo"
+               .onPressed (when can-undo? #(history/undo! !state)))
+              (m/IconButton
+               .icon (m/Icon m.Icons/redo)
+               .tooltip "Redo"
+               .onPressed (when can-redo? #(history/redo! !state)))
+              (m/IconButton
+               .icon (m/Icon (if show-refs?
+                               m.Icons/chevron_right
+                               m.Icons/account_tree_outlined))
+               .tooltip "Backlinks"
+               .onPressed #(swap! !show-backlinks not))
+              (m/IconButton
+               .icon (m/Icon m.Icons/file_download_outlined)
+               .tooltip "Export HTML"
+               .onPressed #(export-html! ctx !state !title))
+              (m/IconButton
+               .icon (m/Icon m.Icons/drive_file_rename_outline)
+               .onPressed #(show-rename! ctx document-id !title))]))
           .body (m/SafeArea .child body-row)))))))
 
 ;; =============================================================================
