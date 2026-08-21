@@ -56,6 +56,8 @@
            .icon (m/Icon m.Icons/more_vert .color m.Colors/white54)
            .onPressed show-menu))
         :bg-color (m/Color 0xFF2C2C2C)
+        ;; Horizontal Mongol menu: wide enough that Delete is not off-screen.
+        :menu-width 380.0
         :items [;; Edit this document directly
                 {:type :item
                  :title "Edit"
@@ -63,7 +65,13 @@
                  :leading-color m.Colors/greenAccent
                  :title-style (m/TextStyle .color m.Colors/white)
                  :on-tap #(store/open-document! id)}
-                
+                {:type :item
+                 :title "Delete"
+                 :leading m.Icons/delete
+                 :leading-color m.Colors/red
+                 :title-style (m/TextStyle .color m.Colors/white)
+                 :on-tap #(doc/soft-delete! id)}
+                {:type :divider}
                 {:type :item
                  :title "New Sub-doc"
                  :leading m.Icons/post_add
@@ -98,13 +106,7 @@
                                (.then (fn [path]
                                         (export/show-export-result! ctx path)))
                                (.catchError (fn [_]
-                                              (export/show-export-result! ctx nil)))))}
-                {:type :item
-                 :title "Delete"
-                 :leading m.Icons/delete
-                 :leading-color m.Colors/red
-                 :title-style (m/TextStyle .color m.Colors/white)
-                 :on-tap #(doc/soft-delete! id)}]})))))
+                                              (export/show-export-result! ctx nil)))))}]})))))
 
 (defn documents-page []
   ;; Declare local state in outer let to form a closure for the widget
