@@ -7,6 +7,7 @@
             [notes-app.services.operation :as op]
             [notes-app.services.link :as link]
             [notes-app.services.asset :as asset]
+            [notes-app.services.title-conflict :as title-conflict]
             [notes-app.state.store :as store]))
 
 (defn- parse-dt [v]
@@ -53,24 +54,77 @@
       (nil? remote) true
       :else (not (.isAfter local remote)))))
 
+(defn rename-local-doc-title!
+  "Update a document title locally without emitting a sync operation.
+   Returns a Future of `{:original-title :new-title}` when changed."
+  [doc-id new-title]
+  (if-let [^drift/AppDatabase database (db/get-database)]
+    (-> (get-doc doc-id)
+        (.then
+         (fn [doc]
+           (if-not doc
+             nil
+             (let [original (or (.-title doc) "")]
+               (if (= original new-title)
+                 nil
+                 (let [now (db/now)
+                       q (doto (.update database (.-documents database))
+                           (.where (fn [t] (.equals (.-id t) doc-id))))]
+                   (-> (.write q (drift/DocumentsCompanion.
+                                  .title (d/Value ^String new-title)
+                                  .updatedAt (d/Value ^dc/DateTime now)))
+                       (.then (fn [_]
+                                (db/refresh-document-titles!)
+                                {:original-title original :new-title new-title}))))))))))
+    (async/Future.value nil)))
+
+(defn- rename-local-title-conflict! 
+  "Remote doc wins the canonical title; rename any local duplicate first."
+  [remote-title remote-id]
+  (if (or (nil? remote-title) (= remote-title ""))
+    (async/Future.value nil)
+    (-> (db/find-document-by-title remote-title)
+        (.then
+         (fn [local]
+           (when (and local (not= (.-id local) remote-id))
+             (-> (db/list-active-documents)
+                 (.then
+                  (fn [docs]
+                    (let [titles (mapv :title docs)
+                          new-title (title-conflict/unique-conflict-copy-title
+                                     remote-title
+                                     (store/device-id)
+                                     titles)]
+                      (-> (rename-local-doc-title! (.-id local) new-title)
+                          (.then
+                           (fn [info]
+                             (when info
+                               (store/add-title-conflict-notice!
+                                (:original-title info)
+                                (:new-title info))))))))))))))))
+
 (defn- apply-document-create! [entity-id p created-at]
   (if-let [^drift/AppDatabase database (db/get-database)]
     (-> (get-doc entity-id)
         (.then (fn [existing]
                  (if existing
                    nil
-                   (let [now (or (parse-dt created-at) (db/now))
-                         companion (drift/DocumentsCompanion.insert
-                                    :id entity-id
-                                    :title (d/Value ^String (or (:title p) ""))
-                                    :type (d/Value ^String (or (:type p) "normal"))
-                                    :parentId (if (:parent_id p) (d/Value ^String (:parent_id p)) (d/Value nil))
-                                    :icon (if (:icon p) (d/Value ^String (:icon p)) (d/Value nil))
-                                    :cover (if (:cover p) (d/Value ^String (:cover p)) (d/Value nil))
-                                    :createdAt (d/Value ^dc/DateTime now)
-                                    :updatedAt (d/Value ^dc/DateTime now))]
-                     (-> (.insert (.into database (.-documents database)) companion)
-                         (.then (fn [_] (db/refresh-document-titles!)))))))))
+                   (let [title (or (:title p) "")]
+                     (-> (rename-local-title-conflict! title entity-id)
+                         (.then
+                          (fn [_]
+                            (let [now (or (parse-dt created-at) (db/now))
+                                  companion (drift/DocumentsCompanion.insert
+                                             :id entity-id
+                                             :title (d/Value ^String title)
+                                             :type (d/Value ^String (or (:type p) "normal"))
+                                             :parentId (if (:parent_id p) (d/Value ^String (:parent_id p)) (d/Value nil))
+                                             :icon (if (:icon p) (d/Value ^String (:icon p)) (d/Value nil))
+                                             :cover (if (:cover p) (d/Value ^String (:cover p)) (d/Value nil))
+                                             :createdAt (d/Value ^dc/DateTime now)
+                                             :updatedAt (d/Value ^dc/DateTime now))]
+                              (-> (.insert (.into database (.-documents database)) companion)
+                                  (.then (fn [_] (db/refresh-document-titles!)))))))))))))
     (async/Future.value nil)))
 
 (defn- apply-document-update! [entity-id p created-at]
@@ -286,6 +340,35 @@
     (do
       (dart:core/print (str "Unknown action: " action))
       (async/Future.value nil))))
+
+(defn apply-push-title-renames!
+  "Apply server-side title renames after a successful push."
+  [renames]
+  (let [items (or renames [])]
+    (if (empty? items)
+      (async/Future.value nil)
+      (reduce
+       (fn [fut item]
+         (.then fut
+                (fn [_]
+                  (let [m (if (map? item)
+                            item
+                            (reduce (fn [acc ^String k]
+                                      (assoc acc (keyword k) (get item k)))
+                                    {}
+                                    (.-keys item)))
+                        entity-id (or (:entity_id m) (:entity-id m))
+                        new-title (or (:new_title m) (:new-title m))]
+                    (when (and entity-id new-title)
+                      (-> (rename-local-doc-title! entity-id new-title)
+                          (.then
+                           (fn [info]
+                             (when info
+                               (store/add-title-conflict-notice!
+                                (:original-title info)
+                                (:new-title info)))))))))))
+       (async/Future.value nil)
+       items))))
 
 (defn apply-operation!
   "Idempotently apply one remote Operation. Skips ops from this device and already-seen ids."

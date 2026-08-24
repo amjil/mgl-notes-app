@@ -27,6 +27,7 @@ dependencies:
   html: ^0.15.6
   file_picker: ^12.0.0
   crypto: ^3.0.6
+  flutter_styled_toast: ^2.3.0
 
 dev_dependencies:
   flutter_test:

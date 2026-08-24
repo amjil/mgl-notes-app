@@ -194,9 +194,15 @@
     (snack! ctx "Cloud sync disabled")
     (-> (sync/sync-now!)
         (.then (fn [_]
-                 (let [{:keys [sync-status sync-message]} @store/app-ui-state]
-                   (if (= sync-status :error)
+                 (let [{:keys [sync-status sync-message sync-toast-message]} @store/app-ui-state]
+                   (cond
+                     (= sync-status :error)
                      (snack! ctx (or sync-message "Sync failed"))
+
+                     (and sync-toast-message (not= sync-toast-message ""))
+                     (snack! ctx "Synced")
+
+                     :else
                      (snack! ctx "Synced")))))
         (.catchError (fn [e]
                        (snack! ctx (str "Sync failed: " e)))))))

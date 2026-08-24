@@ -12,7 +12,8 @@
             [notes-app.pages.tags :as tags]
             [notes-app.pages.search :as search]
             [notes-app.pages.settings :as settings]
-            [notes-app.pages.editor :as editor]))
+            [notes-app.pages.editor :as editor]
+            [notes-app.widgets.sync-toast :as sync-toast]))
 
 (defn- body-for [nav-id open-doc-id]
   (case nav-id
@@ -32,17 +33,18 @@
 (defn mobile-shell []
   (f/widget
    :watch [{:keys [selected-nav-id open-document-id]} store/app-ui-state]
-   (m/Scaffold
-    .backgroundColor (m/Color 0xFF121212)
-    .body
-    (m/SafeArea
-     .child
-     (m/AnimatedSwitcher
-      .duration (dc/Duration. .milliseconds 200)
+   (sync-toast/sync-toast-host
+    (m/Scaffold
+     .backgroundColor (m/Color 0xFF121212)
+     .body
+     (m/SafeArea
       .child
-      (m/Container
-       .key (m/ValueKey (str selected-nav-id "-" open-document-id))
-       .child (body-for selected-nav-id open-document-id))))
-    .bottomNavigationBar
-    (when (not= selected-nav-id "editor")
-      (nav/main-navigation-bar)))))
+      (m/AnimatedSwitcher
+       .duration (dc/Duration. .milliseconds 200)
+       .child
+       (m/Container
+        .key (m/ValueKey (str selected-nav-id "-" open-document-id))
+        .child (body-for selected-nav-id open-document-id))))
+     .bottomNavigationBar
+     (when (not= selected-nav-id "editor")
+       (nav/main-navigation-bar))))))

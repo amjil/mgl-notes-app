@@ -1,0 +1,42 @@
+(ns notes-app.services.title-conflict
+  "When two devices create the same title independently, keep the first synced
+   copy and rename the later arrival to a conflict copy.")
+
+(defn- device-label [device-id]
+  (let [s (str (or device-id ""))
+        compact (.replaceAll s "-" "")]
+    (if (> (count compact) 4)
+      (str "设备" (subs compact (- (count compact) 4)))
+      "设备")))
+
+(defn conflict-copy-title
+  "Build `{title} (设备xxxx的冲突副本)` using the given device id for labeling."
+  [title device-id]
+  (let [base (str (or title "") " (" (device-label device-id) "的冲突副本)")]
+    base))
+
+(defn unique-conflict-copy-title
+  "Pick a conflict-copy title not already used in `existing-titles`."
+  [title device-id existing-titles]
+  (let [existing (set (map str (or existing-titles [])))
+        base (conflict-copy-title title device-id)]
+    (loop [candidate base
+           n 2]
+      (if (contains? existing candidate)
+        (recur (str base " (" n ")") (inc n))
+        candidate))))
+
+(defn format-toast
+  "Build a SnackBar message for one or more conflict renames."
+  [notices]
+  (let [items (or notices [])]
+    (cond
+      (empty? items) nil
+      (= 1 (count items))
+      (let [{:keys [original new]} (first items)]
+        (str "Title conflict: \"" original "\" was renamed to \"" new
+             "\". Open both notes to merge."))
+
+      :else
+      (str (count items)
+           " notes renamed due to title conflicts. Check the document list to merge."))))

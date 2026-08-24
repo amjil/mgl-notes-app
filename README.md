@@ -50,20 +50,39 @@ Edits auto-save after ~2 seconds; a final save runs when leaving the editor.
 
 ### Account & sync (optional)
 
-Works fully **offline**. Sync is opt-in via Settings:
+Works fully **offline**. Cloud sync is opt-in via Settings:
 
 1. Turn on **Enable cloud sync**.
-2. Set **Sync URL** (default `http://127.0.0.1:4000`).
+2. Set **Sync URL** (your sync service endpoint).
 3. **Register** or **log in** (email + password; forgot / reset password).
 4. **Sync now**, or let background sync run while the switch stays on.
 
-Sync model (Sync Spec v1.0):
+Sync model (client):
 
-- Local **operation log** is pushed; remote operations are pulled and applied (LWW). No Document/Block REST CRUD.
-- Binary assets upload/download separately from the operation log.
+- Local **operation log** is pushed; remote operations are pulled and applied (last-write-wins).
+- Binary assets upload and download separately from the operation log.
 - After edits: debounced **push** (~2s). **Pull** on launch, on resume, and every 5 minutes while logged in. **Push** on pause / background.
 
-Phoenix backend lives in [`server/`](server/README.md). See [`server/API.md`](server/API.md) for the wire format.
+#### Title conflicts (same note, different devices)
+
+A common case: two devices both have sync **off**, each writes the same daily journal for today, then both turn sync **on**. Each device created its own document with the same title (e.g. `2026-08-24`) but a different internal id — the “same file name, different baseline” problem.
+
+**Rule:** the copy that **syncs first** keeps the original title. The later copy is **auto-renamed**; nothing is deleted.
+
+| Step | What happens |
+| --- | --- |
+| Push (second device) | Cloud sync sees title `2026-08-24` already taken → the incoming document keeps its id but the title becomes `2026-08-24 (device bbbb conflict copy)` (`bbbb` = last 4 characters of that device’s id). The app updates the local title to match. |
+| Pull (local duplicate) | When applying a remote create, if this device already has a different document with the same title → the **local** copy is renamed to the conflict title first, then the remote (winning) copy is inserted with the original title. |
+
+**Example**
+
+- Device A syncs first → `2026-08-24` stays on A and in the cloud.
+- Device B syncs later → B’s note becomes `2026-08-24 (device bbbb conflict copy)` on B and in the cloud.
+- Both notes appear in the document list (or Today, if daily). Open each and merge content manually — e.g. copy blocks from the conflict copy into the canonical note, then delete the copy when done.
+
+**Design trade-off:** logic is simple and **data is never dropped**; you may need to clean up conflict copies yourself after sync. Applies to any document title clash in the workspace, not only daily notes.
+
+After sync, the app shows a **SnackBar** when a rename happened (e.g. `Title conflict: "2026-08-24" was renamed to "…". Open both notes to merge.`).
 
 ### Input & UI
 
@@ -78,7 +97,6 @@ Phoenix backend lives in [`server/`](server/README.md). See [`server/API.md`](se
 - **ClojureDart (cljd)**: `.cljd` sources compiled to Dart
 - **Drift + SQLite**: local persistence
 - **Mongolian**: `mongol`, bundled fonts + FST / IME assets
-- **Sync server**: Phoenix (`server/`)
 
 Local sibling repos (see `deps.edn`): `mgl-components`, `mongol-virtual-keyboard`, `mongol-ime`, `mgl-ime-core`, `mgl-block-editor`, `mgl-richtext-editor`.
 
@@ -162,7 +180,7 @@ dart run build_runner watch --delete-conflicting-outputs
 
 ## Database notes
 
-Tables follow Sync Spec v1.0: `documents`, `blocks`, `operations`, `assets`, `block_links`.
+Tables: `documents`, `blocks`, `operations`, `assets`, `block_links`.
 
 - **Native (Android/iOS/macOS/Windows/Linux)**: SQLite file is created in the app documents directory as `mgl_notes.db` (see `lib/connection/native.dart`).
 - **Web**: uses Drift WASM (`sqlite3.wasm` + `drift_worker.js`, see `lib/connection/web.dart`).

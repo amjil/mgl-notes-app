@@ -27,6 +27,9 @@
          :sync-enabled false
          :sync-status :idle ;; :idle :syncing :ok :error
          :sync-message nil
+         :sync-toast-message nil
+         :sync-toast-token 0
+         :pending-title-conflicts []
          :auth-token nil
          :auth-email nil
          :workspace-id nil}))
@@ -183,6 +186,33 @@
   (when (= status :error)
     (dart:core/print (str "[sync] error: " message)))
   (swap! app-ui-state assoc :sync-status status :sync-message message))
+
+(defn add-title-conflict-notice!
+  "Queue a title-conflict rename for a post-sync toast."
+  [original-title new-title]
+  (when (and original-title new-title (not= original-title new-title))
+    (swap! app-ui-state update :pending-title-conflicts
+           (fn [xs]
+             (conj (or xs [])
+                   {:original (str original-title)
+                    :new (str new-title)})))))
+
+(defn take-pending-title-conflicts!
+  "Return and clear queued title-conflict notices."
+  []
+  (let [xs (:pending-title-conflicts @app-ui-state)]
+    (swap! app-ui-state assoc :pending-title-conflicts [])
+    (or xs [])))
+
+(defn emit-sync-toast!
+  "Bump toast token so UI can show a one-shot SnackBar message."
+  [message]
+  (when (and message (not= message ""))
+    (swap! app-ui-state
+           (fn [s]
+             (assoc s
+                    :sync-toast-message (str message)
+                    :sync-toast-token (inc (or (:sync-toast-token s) 0)))))))
 
 (defn device-id []
   (:device-id @app-ui-state))

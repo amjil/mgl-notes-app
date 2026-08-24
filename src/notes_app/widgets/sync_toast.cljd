@@ -1,0 +1,25 @@
+(ns notes-app.widgets.sync-toast
+  "Shows one-shot toasts for sync events such as title-conflict renames."
+  (:require ["package:flutter/scheduler.dart" :as scheduler]
+            [cljd.flutter :as f]
+            [components.toast :as toast]
+            [notes-app.state.store :as store]))
+
+(defonce ^:private !last-shown-token (atom 0))
+
+(defn- show-toast! [ctx message]
+  (when (and ctx message (not= message ""))
+    (toast/show ctx message :type :warning :anim :scale :dur 6)))
+
+(defn sync-toast-host
+  "Wrap app content; watches `sync-toast-token` and shows pending messages."
+  [child]
+  (f/widget
+   :context ctx
+   :watch [{:keys [sync-toast-token sync-toast-message]} store/app-ui-state]
+   (do
+     (when (and sync-toast-token (> sync-toast-token @!last-shown-token) sync-toast-message)
+       (reset! !last-shown-token sync-toast-token)
+       (.addPostFrameCallback scheduler/SchedulerBinding.instance
+                              (fn [_] (show-toast! ctx sync-toast-message))))
+     child)))

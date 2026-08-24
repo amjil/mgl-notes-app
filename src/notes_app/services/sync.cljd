@@ -6,10 +6,15 @@
             [notes-app.state.store :as store]
             [notes-app.services.operation :as op]
             [notes-app.services.operation-apply :as apply]
-            [notes-app.services.asset-sync :as asset-sync]))
+            [notes-app.services.asset-sync :as asset-sync]
+            [notes-app.services.title-conflict :as title-conflict]))
 
 (defonce ^:private !push-timer (atom nil))
 (defonce ^:private !pull-timer (atom nil))
+
+(defn- flush-conflict-toast! []
+  (when-let [msg (title-conflict/format-toast (store/take-pending-title-conflicts!))]
+    (store/emit-sync-toast! msg)))
 
 (defn- base-url []
   (let [u (:sync-base-url @store/app-ui-state)]
@@ -121,10 +126,15 @@
 
                                           (and (>= (.-statusCode resp) 200)
                                                (< (.-statusCode resp) 300))
-                                          (-> (op/mark-synced! (mapv #(.-id %) ops))
-                                              (.then (fn [_]
-                                                       (store/set-sync-status! :ok "Push OK")
-                                                       :ok)))
+                                          (let [decoded (convert/jsonDecode (.-body resp))
+                                                renames (or (get decoded "title_renames") [])]
+                                            (-> (op/mark-synced! (mapv #(.-id %) ops))
+                                                (.then (fn [_]
+                                                         (apply/apply-push-title-renames! renames)))
+                                                (.then (fn [_]
+                                                         (flush-conflict-toast!)
+                                                         (store/set-sync-status! :ok "Push OK")
+                                                         :ok))))
 
                                           :else
                                           (do
@@ -183,6 +193,7 @@
                                (.then (fn [_] (db/refresh-document-titles!)))
                                (.then (fn [_] (asset-sync/download-missing!)))
                                (.then (fn [_]
+                                        (flush-conflict-toast!)
                                         (store/set-last-sync-time! (.toIso8601String (db/now)))
                                         (store/set-sync-status! :ok "Pull OK")
                                         :ok))))
@@ -220,8 +231,10 @@
                               push-res
 
                               :else
-                              (do (store/set-sync-status! :ok "Sync OK")
-                                  :ok))))))))))
+                              (do
+                                (flush-conflict-toast!)
+                                (store/set-sync-status! :ok "Sync OK")
+                                :ok))))))))))
 
 (defn schedule-push!
   "Debounce push by 2 seconds after edits."
