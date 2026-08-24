@@ -26,7 +26,8 @@
   [ctx res ok-msg]
   (if (:ok res)
     (do (snack! ctx ok-msg)
-        (sync/sync-now!)
+        (when (store/sync-enabled?)
+          (sync/sync-now!))
         res)
     (do (snack! ctx (or (:error res) "Request failed"))
         res)))
@@ -189,19 +190,28 @@
                (snack! ctx "Logged out")))))
 
 (defn- sync-now! [ctx]
-  (-> (sync/sync-now!)
-      (.then (fn [_]
-               (let [{:keys [sync-status sync-message]} @store/app-ui-state]
-                 (if (= sync-status :error)
-                   (snack! ctx (or sync-message "Sync failed"))
-                   (snack! ctx "Synced")))))
-      (.catchError (fn [e]
-                     (snack! ctx (str "Sync failed: " e))))))
+  (if-not (store/sync-enabled?)
+    (snack! ctx "Cloud sync disabled")
+    (-> (sync/sync-now!)
+        (.then (fn [_]
+                 (let [{:keys [sync-status sync-message]} @store/app-ui-state]
+                   (if (= sync-status :error)
+                     (snack! ctx (or sync-message "Sync failed"))
+                     (snack! ctx "Synced")))))
+        (.catchError (fn [e]
+                       (snack! ctx (str "Sync failed: " e)))))))
+
+(defn- toggle-sync-enabled! [enabled? logged-in?]
+  (store/set-sync-enabled! enabled?)
+  (if enabled?
+    (when logged-in?
+      (sync/sync-now!))
+    (sync/on-disabled!)))
 
 (defn settings-page []
   (f/widget
    :context ctx
-   :watch [{:keys [user-name sync-base-url device-id last-sync-time
+   :watch [{:keys [user-name sync-base-url device-id last-sync-time sync-enabled
                    sync-status sync-message auth-email auth-token]} store/app-ui-state]
    :let [logged-in? (and auth-token (not= auth-token ""))
          status-text (str (name (or sync-status :idle))
@@ -266,7 +276,14 @@
 
        (setting/settings-section
         "Sync"
-        [{:title "Sync URL"
+        [{:title "Enable cloud sync"
+          :subtitle (if sync-enabled
+                      "Automatic sync when logged in"
+                      "Offline only — edits stay on this device")
+          :leading m.Icons/cloud_outlined
+          :value (boolean sync-enabled)
+          :on-changed #(toggle-sync-enabled! % logged-in?)}
+         {:title "Sync URL"
           :subtitle (or sync-base-url store/default-sync-base-url)
           :leading m.Icons/link
           :show-arrow? true

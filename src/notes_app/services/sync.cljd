@@ -78,10 +78,23 @@
 (defn- sync-failure? [res]
   (contains? #{:error :unauthorized :no-url} res))
 
+(defn on-disabled!
+  "Cancel pending push and mark sync idle when cloud sync is turned off."
+  []
+  (when-let [t @!push-timer]
+    (.cancel ^async/Timer t))
+  (reset! !push-timer nil)
+  (store/set-sync-status! :idle "Cloud sync disabled"))
+
+(defn- sync-disabled? []
+  (not (store/sync-enabled?)))
+
 (defn push!
   "Push unsynced operations. No-op (returns :no-url) if base URL unset."
   []
-  (if-let [base (base-url)]
+  (if (sync-disabled?)
+    (async/Future.value :disabled)
+    (if-let [base (base-url)]
     (if-not (require-auth!)
       (async/Future.value :unauthorized)
       (do
@@ -125,13 +138,15 @@
                            :error)))))
     (do
       (store/set-sync-status! :error "Sync URL not configured")
-      (async/Future.value :no-url))))
+      (async/Future.value :no-url)))))
 
 (defn pull!
   "Pull operations since last_sync_time.
    After apply, refresh title cache (link autocomplete)."
   []
-  (if-let [base (base-url)]
+  (if (sync-disabled?)
+    (async/Future.value :disabled)
+    (if-let [base (base-url)]
     (if-not (require-auth!)
       (async/Future.value :unauthorized)
       (do
@@ -184,12 +199,16 @@
                              :error))))))
     (do
       (store/set-sync-status! :error "Sync URL not configured")
-      (async/Future.value :no-url))))
+      (async/Future.value :no-url)))))
 
 (defn sync-now!
   "Pull then push. Keeps :error if either step fails."
   []
-  (-> (pull!)
+  (if (sync-disabled?)
+    (do
+      (on-disabled!)
+      (async/Future.value :disabled))
+    (-> (pull!)
       (.then (fn [pull-res]
                (-> (push!)
                    (.then (fn [push-res]
@@ -202,12 +221,12 @@
 
                               :else
                               (do (store/set-sync-status! :ok "Sync OK")
-                                  :ok)))))))))
+                                  :ok))))))))))
 
 (defn schedule-push!
   "Debounce push by 2 seconds after edits."
   []
-  (when (store/logged-in?)
+  (when (and (store/sync-enabled?) (store/logged-in?))
     (when-let [t @!push-timer]
       (.cancel ^async/Timer t))
     (reset! !push-timer
@@ -222,21 +241,21 @@
   (reset! !pull-timer
           (async/Timer.periodic (dart:core/Duration. .minutes 5)
                                 (fn [_]
-                                  (when (store/logged-in?)
+                                  (when (and (store/sync-enabled?) (store/logged-in?))
                                     (pull!))))))
 
 (defn on-app-start!
   []
-  (when (and (base-url) (store/logged-in?))
+  (when (and (base-url) (store/sync-enabled?) (store/logged-in?))
     (pull!))
   (start-periodic-pull!))
 
 (defn on-app-resume!
   []
-  (when (and (base-url) (store/logged-in?))
+  (when (and (base-url) (store/sync-enabled?) (store/logged-in?))
     (pull!)))
 
 (defn on-app-pause!
   []
-  (when (and (base-url) (store/logged-in?))
+  (when (and (base-url) (store/sync-enabled?) (store/logged-in?))
     (push!)))

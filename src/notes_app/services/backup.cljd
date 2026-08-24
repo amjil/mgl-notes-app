@@ -246,7 +246,7 @@
                                     (restore-sync-cursor! data)
                                     (db/refresh-document-titles!)
                                     (link/reindex-all-links!)
-                                    (when (store/logged-in?)
+                                    (when (and (store/logged-in?) (store/sync-enabled?))
                                       (sync/sync-now!))
                                     true))))))))
       (catch Exception e

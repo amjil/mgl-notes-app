@@ -52,9 +52,10 @@ Edits auto-save after ~2 seconds; a final save runs when leaving the editor.
 
 Works fully **offline**. Sync is opt-in via Settings:
 
-1. Set **Sync URL** (default `http://127.0.0.1:4000`).
-2. **Register** or **log in** (email + password; forgot / reset password).
-3. **Sync now**, or let background sync run.
+1. Turn on **Enable cloud sync**.
+2. Set **Sync URL** (default `http://127.0.0.1:4000`).
+3. **Register** or **log in** (email + password; forgot / reset password).
+4. **Sync now**, or let background sync run while the switch stays on.
 
 Sync model (Sync Spec v1.0):
 

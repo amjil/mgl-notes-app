@@ -17,12 +17,12 @@
 
 (defn side-navigation-rail []
   (f/widget
-   :watch [{:keys [selected-nav-id sync-status auth-token]} store/app-ui-state]
+   :watch [{:keys [selected-nav-id sync-status auth-token sync-enabled]} store/app-ui-state]
    (let [idx (or (first (keep-indexed
                          (fn [i t] (when (= (:id t) selected-nav-id) i))
                          tabs))
                  0)
-         sync-error? (and auth-token (not= auth-token "") (= sync-status :error))]
+         sync-error? (and sync-enabled auth-token (not= auth-token "") (= sync-status :error))]
      (m/NavigationRail
       .backgroundColor (m/Color 0xFF1E1E1E)
       .selectedIndex (int idx)

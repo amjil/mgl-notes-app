@@ -7,6 +7,7 @@
    :last-sync-time "last_sync_time"
    :user-name "user_name"
    :show-daily-only "show_daily_only"
+   :sync-enabled "sync_enabled"
    :auth-token "auth_token"
    :auth-email "auth_email"
    :workspace-id "workspace_id"})
@@ -23,6 +24,7 @@
          :last-sync-time nil
          :user-name ""
          :show-daily-only false
+         :sync-enabled false
          :sync-status :idle ;; :idle :syncing :ok :error
          :sync-message nil
          :auth-token nil
@@ -49,7 +51,13 @@
         show-daily-only? (or (.getBool prefs (:show-daily-only pref-keys)) false)
         auth-token (.getString prefs (:auth-token pref-keys))
         auth-email (.getString prefs (:auth-email pref-keys))
-        workspace-id (.getString prefs (:workspace-id pref-keys))]
+        workspace-id (.getString prefs (:workspace-id pref-keys))
+        logged-in? (and auth-token (not= auth-token ""))
+        sync-enabled-pref (.getBool prefs (:sync-enabled pref-keys))
+        ;; Migrate: logged-in users who synced before this pref existed stay enabled.
+        sync-enabled? (if (nil? sync-enabled-pref)
+                        logged-in?
+                        sync-enabled-pref)]
     ;; Persist default URL on first launch so Settings shows it immediately
     (when (or (nil? saved-url) (= saved-url ""))
       (await (.setString prefs (:sync-base-url pref-keys) default-sync-base-url)))
@@ -59,6 +67,7 @@
            :last-sync-time last-sync
            :user-name user-name
            :show-daily-only show-daily-only?
+           :sync-enabled sync-enabled?
            :auth-token auth-token
            :auth-email auth-email
            :workspace-id workspace-id)))
@@ -144,6 +153,15 @@
 (defn logged-in? []
   (let [t (:auth-token @app-ui-state)]
     (and t (not= t ""))))
+
+(defn sync-enabled? []
+  (boolean (:sync-enabled @app-ui-state)))
+
+(defn set-sync-enabled! [enabled?]
+  (let [v (boolean enabled?)]
+    (swap! app-ui-state assoc :sync-enabled v)
+    (let [prefs (await (.getInstance sp/SharedPreferences))]
+      (await (.setBool prefs (:sync-enabled pref-keys) v)))))
 
 (defn auth-headers
   "HTTP headers including Authorization when logged in."
