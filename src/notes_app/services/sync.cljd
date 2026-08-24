@@ -49,6 +49,35 @@
       (store/set-sync-status! :error "Please log in to sync")
       false)))
 
+(defn- truncate-str [s max-len]
+  (let [s (str (or s ""))]
+    (if (> (count s) max-len)
+      (str (subs s 0 max-len) "…")
+      s)))
+
+(defn- network-error? [e]
+  (let [msg (str e)]
+    (or (.contains msg "SocketException")
+        (.contains msg "ClientException")
+        (.contains msg "Connection refused")
+        (.contains msg "Failed host lookup")
+        (.contains msg "Connection timed out")
+        (.contains msg "TimeoutException"))))
+
+(defn- humanize-http-error [prefix status-code body]
+  (let [detail (truncate-str body 120)]
+    (if (empty? detail)
+      (str prefix " failed: HTTP " status-code)
+      (str prefix " failed: HTTP " status-code " — " detail))))
+
+(defn- humanize-exception [prefix e]
+  (if (network-error? e)
+    "Cannot reach sync server"
+    (str prefix " error: " (truncate-str (str e) 120))))
+
+(defn- sync-failure? [res]
+  (contains? #{:error :unauthorized :no-url} res))
+
 (defn push!
   "Push unsynced operations. No-op (returns :no-url) if base URL unset."
   []
@@ -87,11 +116,12 @@
                                           :else
                                           (do
                                             (store/set-sync-status!
-                                             :error (str "Push failed: " (.-statusCode resp)
-                                                         " " (.-body resp)))
+                                             :error (humanize-http-error "Push"
+                                                                         (.-statusCode resp)
+                                                                         (.-body resp)))
                                             :error))))))))))
             (.catchError (fn [e]
-                           (store/set-sync-status! :error (str "Push error: " e))
+                           (store/set-sync-status! :error (humanize-exception "Push" e))
                            :error)))))
     (do
       (store/set-sync-status! :error "Sync URL not configured")
@@ -145,20 +175,34 @@
                          :else
                          (do
                            (store/set-sync-status!
-                            :error (str "Pull failed: " (.-statusCode resp)))
+                            :error (humanize-http-error "Pull"
+                                                        (.-statusCode resp)
+                                                        (.-body resp)))
                            :error))))
               (.catchError (fn [e]
-                             (store/set-sync-status! :error (str "Pull error: " e))
+                             (store/set-sync-status! :error (humanize-exception "Pull" e))
                              :error))))))
     (do
       (store/set-sync-status! :error "Sync URL not configured")
       (async/Future.value :no-url))))
 
 (defn sync-now!
-  "Pull then push."
+  "Pull then push. Keeps :error if either step fails."
   []
   (-> (pull!)
-      (.then (fn [_] (push!)))))
+      (.then (fn [pull-res]
+               (-> (push!)
+                   (.then (fn [push-res]
+                            (cond
+                              (sync-failure? pull-res)
+                              pull-res
+
+                              (sync-failure? push-res)
+                              push-res
+
+                              :else
+                              (do (store/set-sync-status! :ok "Sync OK")
+                                  :ok)))))))))
 
 (defn schedule-push!
   "Debounce push by 2 seconds after edits."

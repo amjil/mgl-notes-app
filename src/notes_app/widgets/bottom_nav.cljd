@@ -8,8 +8,23 @@
 
 (defn main-navigation-bar []
   (f/widget
-   :watch [{:keys [selected-nav-id]} store/app-ui-state]
-   (let [idx (or (first (keep-indexed (fn [i t] (when (= t selected-nav-id) i)) tabs)) 0)]
+   :watch [{:keys [selected-nav-id sync-status auth-token]} store/app-ui-state]
+   (let [idx (or (first (keep-indexed (fn [i t] (when (= t selected-nav-id) i)) tabs)) 0)
+         sync-error? (and auth-token (not= auth-token "") (= sync-status :error))
+         settings-icon
+         (if sync-error?
+           (m/Badge
+            .isLabelVisible false
+            .backgroundColor m.Colors/red
+            .child (m/Icon m.Icons/settings_outlined))
+           (m/Icon m.Icons/settings_outlined))
+         settings-selected-icon
+         (if sync-error?
+           (m/Badge
+            .isLabelVisible false
+            .backgroundColor m.Colors/red
+            .child (m/Icon m.Icons/settings))
+           (m/Icon m.Icons/settings))]
      (m/NavigationBar
       .selectedIndex (int idx)
       .onDestinationSelected
@@ -38,6 +53,6 @@
         .selectedIcon (m/Icon m.Icons/search)
         .label "Search")
        (m/NavigationDestination
-        .icon (m/Icon m.Icons/settings_outlined)
-        .selectedIcon (m/Icon m.Icons/settings)
+        .icon settings-icon
+        .selectedIcon settings-selected-icon
         .label "Settings")]))))

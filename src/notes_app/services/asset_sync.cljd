@@ -24,6 +24,22 @@
                    (.createSync d .recursive true))
                  p)))))
 
+(defn- asset-sync-error! [msg]
+  (store/set-sync-status! :error msg))
+
+(defn- network-error-msg? [msg]
+  (or (.contains msg "SocketException")
+      (.contains msg "ClientException")
+      (.contains msg "Connection refused")
+      (.contains msg "Failed host lookup")
+      (.contains msg "TimeoutException")))
+
+(defn- exception->asset-msg [prefix e]
+  (let [msg (str e)]
+    (if (network-error-msg? msg)
+      "Cannot reach sync server"
+      (str prefix " error: " (subs msg 0 (min (count msg) 120))))))
+
 (defn- upload-one! [^drift/Asset row]
   (if-let [base (base-url)]
     (if-not (store/logged-in?)
@@ -33,7 +49,6 @@
           (let [uri (dart:core/Uri.parse (str base "/api/assets/upload"))
                 req (http/MultipartRequest. "POST" uri)
                 token (:auth-token @store/app-ui-state)]
-            ;; headers / fields are Map — ClojureDart needs string op name "[]="
             (when token
               (. (.-headers req) "[]=" "Authorization" (str "Bearer " token)))
             (. (.-fields req) "[]=" "id" (.-id row))
@@ -51,17 +66,22 @@
                                         (= (.-statusCode resp) 401)
                                         (do
                                           (store/clear-auth-session!)
-                                          (dart:core/print "Asset upload unauthorized"))
+                                          (asset-sync-error! "Session expired — log in again"))
 
                                         (and (>= (.-statusCode resp) 200)
                                              (< (.-statusCode resp) 300))
                                         (asset/mark-uploaded! (.-id row))
 
                                         :else
-                                        (dart:core/print
-                                         (str "Asset upload failed: " (.-statusCode resp) " " (.-id row))))))
+                                        (asset-sync-error!
+                                         (str "Asset upload failed: HTTP "
+                                              (.-statusCode resp)
+                                              " ("
+                                              (.-id row)
+                                              ")")))))
                              (.catchError (fn [e]
-                                            (dart:core/print (str "Asset upload error: " e)))))))))
+                                            (asset-sync-error!
+                                             (exception->asset-msg "Asset upload" e)))))))))
           (async/Future.value nil))))
     (async/Future.value nil)))
 
@@ -88,7 +108,7 @@
                        (= (.-statusCode resp) 401)
                        (do
                          (store/clear-auth-session!)
-                         (dart:core/print "Asset download unauthorized"))
+                         (asset-sync-error! "Session expired — log in again"))
 
                        (and (>= (.-statusCode resp) 200)
                             (< (.-statusCode resp) 300))
@@ -102,10 +122,15 @@
                                                    (asset/mark-downloaded! (.-id row) dest-path))))))))
 
                        :else
-                       (dart:core/print
-                        (str "Asset download failed: " (.-statusCode resp) " " (.-id row))))))
+                       (asset-sync-error!
+                        (str "Asset download failed: HTTP "
+                             (.-statusCode resp)
+                             " ("
+                             (.-id row)
+                             ")")))))
             (.catchError (fn [e]
-                           (dart:core/print (str "Asset download error: " e)))))))
+                           (asset-sync-error!
+                            (exception->asset-msg "Asset download" e)))))))
     (async/Future.value nil)))
 
 (defn download-missing!

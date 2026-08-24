@@ -188,6 +188,16 @@
       (.then (fn [_]
                (snack! ctx "Logged out")))))
 
+(defn- sync-now! [ctx]
+  (-> (sync/sync-now!)
+      (.then (fn [_]
+               (let [{:keys [sync-status sync-message]} @store/app-ui-state]
+                 (if (= sync-status :error)
+                   (snack! ctx (or sync-message "Sync failed"))
+                   (snack! ctx "Synced")))))
+      (.catchError (fn [e]
+                     (snack! ctx (str "Sync failed: " e))))))
+
 (defn settings-page []
   (f/widget
    :context ctx
@@ -264,14 +274,16 @@
                                       store/update-sync-base-url!)}
          {:title "Sync status"
           :subtitle status-text
-          :leading m.Icons/sync}
+          :leading (if (= sync-status :error)
+                      m.Icons/error_outline
+                      m.Icons/sync)}
          {:title "Last sync"
           :subtitle (or last-sync-time "never")
           :leading m.Icons/schedule}
          {:title "Sync now"
           :leading m.Icons/cloud_sync
           :show-arrow? true
-          :on-tap #(sync/sync-now!)}])
+          :on-tap #(sync-now! ctx)}])
 
        (setting/settings-section
         "Data Management"
