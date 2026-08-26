@@ -6,6 +6,7 @@
             [notes-app.state.store :as store]
             [notes-app.services.operation :as op]
             [notes-app.services.operation-apply :as apply]
+            [notes-app.services.asset :as asset]
             [notes-app.services.asset-sync :as asset-sync]
             [notes-app.services.title-conflict :as title-conflict]))
 
@@ -122,6 +123,30 @@
 (defn- sync-failure? [res]
   (contains? #{:error :unauthorized :no-url} res))
 
+(defn- op-pushable?
+  "asset_create is pushable only after binary upload finished."
+  [row]
+  (if (= "asset_create" (.-action row))
+    (-> (asset/get-asset (.-entityId row))
+        (.then (fn [a]
+                 (boolean (and a (= "uploaded" (.-uploadStatus a)))))))
+    (async/Future.value true)))
+
+(defn- filter-pushable-ops!
+  "Keep unsynced ops, but hold asset_create until asset upload completes."
+  [ops]
+  (reduce
+   (fn [fut row]
+     (.then fut
+            (fn [acc]
+              (-> (op-pushable? row)
+                  (.then (fn [ok?]
+                           (if ok?
+                             (conj acc row)
+                             acc)))))))
+   (async/Future.value [])
+   (or ops [])))
+
 (defn on-disabled!
   "Cancel pending push and mark sync idle when cloud sync is turned off."
   []
@@ -136,58 +161,74 @@
 (defn push!
   "Push unsynced operations. No-op (returns :no-url) if base URL unset."
   []
-  (if (sync-disabled?)
+  (cond
+    (sync-disabled?)
     (async/Future.value :disabled)
-    (if-let [base (base-url)]
-    (if-not (require-auth!)
-      (async/Future.value :unauthorized)
-      (do
-        (store/set-sync-status! :syncing "Push…")
-        (-> (asset-sync/upload-pending!)
-            (.then (fn [_] (op/get-unsynced)))
-            (.then (fn [ops]
-                     (let [ops (or ops [])]
-                       (if (empty? ops)
-                         (do (store/set-sync-status! :ok "Nothing to push")
-                             :empty)
-                         (let [body (db/encode-json (mapv operation->wire ops))
-                               uri (dart:core/Uri.parse (str base "/api/sync/push"))]
-                           (-> (http/post uri
-                                          :headers (store/auth-headers)
-                                          :body body)
-                               (.then (fn [resp]
-                                        (cond
-                                          (= (.-statusCode resp) 401)
-                                          (do
-                                            (store/clear-auth-session!)
-                                            (store/set-sync-status! :error "Session expired — log in again")
-                                            :unauthorized)
 
-                                          (and (>= (.-statusCode resp) 200)
-                                               (< (.-statusCode resp) 300))
-                                          (let [decoded (convert/jsonDecode (.-body resp))
-                                                renames (or (get decoded "title_renames") [])]
-                                            (-> (op/mark-synced! (mapv #(.-id %) ops))
-                                                (.then (fn [_]
-                                                         (apply/apply-push-title-renames! renames)))
-                                                (.then (fn [_]
-                                                         (flush-conflict-toast!)
-                                                         (store/set-sync-status! :ok "Push OK")
-                                                         :ok))))
-
-                                          :else
-                                          (do
-                                            (store/set-sync-status!
-                                             :error (humanize-http-error "Push"
-                                                                         (.-statusCode resp)
-                                                                         (.-body resp)))
-                                            :error))))))))))
-            (.catchError (fn [e]
-                           (store/set-sync-status! :error (humanize-exception "Push" e))
-                           :error)))))
+    (not (base-url))
     (do
       (store/set-sync-status! :error "Sync URL not configured")
-      (async/Future.value :no-url)))))
+      (async/Future.value :no-url))
+
+    (not (require-auth!))
+    (async/Future.value :unauthorized)
+
+    :else
+    (let [base (base-url)]
+      (store/set-sync-status! :syncing "Push…")
+      (-> (asset-sync/upload-pending!)
+          (.then (fn [_] (op/get-unsynced)))
+          (.then
+           (fn [ops]
+             (let [ops (or ops [])]
+               (if (empty? ops)
+                 (do
+                   (store/set-sync-status! :ok "Nothing to push")
+                   :empty)
+                 (-> (filter-pushable-ops! ops)
+                     (.then
+                      (fn [pushable]
+                        (let [pushable (or pushable [])]
+                          (if (empty? pushable)
+                            (do
+                              (store/set-sync-status! :ok "Waiting for asset upload")
+                              :waiting-assets)
+                            (let [body (db/encode-json (mapv operation->wire pushable))
+                                  uri (dart:core/Uri.parse (str base "/api/sync/push"))]
+                              (-> (http/post uri
+                                             :headers (store/auth-headers)
+                                             :body body)
+                                  (.then
+                                   (fn [resp]
+                                     (cond
+                                       (= (.-statusCode resp) 401)
+                                       (do
+                                         (store/clear-auth-session!)
+                                         (store/set-sync-status! :error "Session expired — log in again")
+                                         :unauthorized)
+
+                                       (and (>= (.-statusCode resp) 200)
+                                            (< (.-statusCode resp) 300))
+                                       (let [decoded (convert/jsonDecode (.-body resp))
+                                             renames (or (get decoded "title_renames") [])]
+                                         (-> (op/mark-synced! (mapv #(.-id %) pushable))
+                                             (.then (fn [_]
+                                                      (apply/apply-push-title-renames! renames)))
+                                             (.then (fn [_]
+                                                      (flush-conflict-toast!)
+                                                      (store/set-sync-status! :ok "Push OK")
+                                                      :ok))))
+
+                                       :else
+                                       (do
+                                         (store/set-sync-status!
+                                          :error (humanize-http-error "Push"
+                                                                      (.-statusCode resp)
+                                                                      (.-body resp)))
+                                         :error)))))))))))))))
+          (.catchError (fn [e]
+                         (store/set-sync-status! :error (humanize-exception "Push" e))
+                         :error))))))
 
 (defn pull!
   "Pull operations since last_sync_time.
