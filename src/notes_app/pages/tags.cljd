@@ -8,80 +8,63 @@
             [notes-app.services.link :as link]
             [notes-app.state.store :as store]
             [notes-app.widgets.keyboard-wrapper :as kw]
-            [rich-editor.components.text-field :as custom-tf]))
-
-(def ^:private tag-accent (m/Color 0xFFBA68C8))
+            [rich-editor.components.text-field :as custom-tf]
+            [notes-app.theme :as t]
+            [notes-app.ui :as ui]))
 
 (defonce ^:private !filter-state
   (atom {:external-keyboard-delegate nil}))
 
 (defn- preview-text [text]
-  (let [t (or text "")
-        n (min (count t) 80)]
-    (if (<= (count t) 80)
-      t
-      (str (.substring t 0 n) "…"))))
+  (let [s (or text "")
+        n (min (count s) 80)]
+    (if (<= (count s) 80)
+      s
+      (str (.substring s 0 n) "…"))))
 
 (defn- display-doc-title [title]
-  (let [t (or title "")]
-    (if (= (.trim ^String t) "")
+  (let [s (or title "")]
+    (if (= (.trim ^String s) "")
       "Untitled"
-      t)))
+      s)))
 
 (defn- tag-tile [{:keys [tag ref-count doc-count]} on-tap]
-  (m/Container
-   .width 100.0
-   .margin (m.EdgeInsets/only .right 16.0)
-   .decoration (m/BoxDecoration
-                .color (m/Color 0xFF1E1E1E)
-                .borderRadius (m.BorderRadius/circular 12.0)
-                .border (m/Border.all .color (m/Color 0x33BA68C8) .width 1.0))
-   .child
+  (ui/note-card
    (mgl/MongolListTile
-    .leading (m/Icon m.Icons/tag .color tag-accent)
+    .leading (ui/icon-chip m.Icons/tag t/tertiary :bg-color t/tertiary-soft)
     .title (mgl/MongolText (str "#" tag)
-                           .style (m/TextStyle .fontFamily "OyunQaganTig"
-                                               .fontSize 18.0
-                                               .color tag-accent
-                                               .fontStyle m.FontStyle/italic))
+                           .style (t/mongol-style
+                                   :size 18.0
+                                   :color t/tertiary
+                                   :italic? true))
     .subtitle (mgl/MongolText
                (str doc-count " notes · " ref-count " refs")
-               .style (m/TextStyle .fontFamily "OyunQaganTig"
-                                   .color m.Colors/white54
-                                   .fontSize 12.0))
-    .onTap on-tap)))
+               .style (t/mongol-style :size 12.0 :color t/ink-muted))
+    .onTap on-tap)
+   :accent-color t/tertiary))
 
 (defn- ref-card [{:keys [block-id block-text document-id document-title]}]
-  (m/Container
-   .width 120.0
-   .margin (m.EdgeInsets/only .right 16.0)
-   .padding (m.EdgeInsets/all 12.0)
-   .decoration (m/BoxDecoration
-                .color (m/Color 0xFF1E1E1E)
-                .borderRadius (m.BorderRadius/circular 12.0)
-                .border (m/Border.all .color m.Colors/white12 .width 1.0))
+  (m/GestureDetector
+   .onTap #(when document-id
+             (store/open-document! document-id block-id))
    .child
-   (m/GestureDetector
-    .onTap #(when document-id
-              (store/open-document! document-id block-id))
-    .child
-    (m/Column
-     .crossAxisAlignment m.CrossAxisAlignment/start
-     .children
-     [(mgl/MongolText
-       (display-doc-title document-title)
-       .style (m/TextStyle .fontFamily "OyunQaganTig"
-                           .fontSize 14.0
-                           .fontWeight m.FontWeight/bold
-                           .color (m/Color 0xFF64B5F6)))
-      (m/SizedBox .height 10.0)
-      (m/Expanded
-       .child
-       (mgl/MongolText
-        (preview-text block-text)
-        .style (m/TextStyle .fontFamily "OyunQaganTig"
-                            .fontSize 13.0
-                            .color (m/Color 0xFFBDBDBD))))]))))
+   (ui/note-card
+    (m/Padding
+     .padding (m.EdgeInsets/all 12.0)
+     .child
+     (m/Column
+      .crossAxisAlignment m.CrossAxisAlignment/start
+      .children
+      [(mgl/MongolText
+        (display-doc-title document-title)
+        .style (t/mongol-style :size 14.0 :weight m.FontWeight/bold :color t/primary))
+       (m/SizedBox .height 10.0)
+       (m/Expanded
+        .child
+        (mgl/MongolText
+         (preview-text block-text)
+         .style (t/mongol-style :size 13.0 :color t/ink-muted)))]))
+    :width 120.0)))
 
 (defn- make-load-more-scroll [!limit]
   (let [ctrl (m/ScrollController.)]
@@ -127,19 +110,17 @@
      (let [tags-vec (vec (or tags []))
            refs-vec (vec (or refs []))]
        (m/Scaffold
-        .backgroundColor (m/Color 0xFF121212)
+        .backgroundColor t/bg
         .resizeToAvoidBottomInset false
         .appBar
-        (m/AppBar
-         .backgroundColor (m/Color 0xFF1E1E1E)
-         .elevation 0.0
-         .actions
-         (if selected-tag
-           [(m/IconButton
-             .tooltip "Open tag page"
-             .icon (m/Icon m.Icons/open_in_new .color tag-accent)
-             .onPressed #(link/open-or-create-by-title! selected-tag))]
-           []))
+        (when selected-tag
+          (ui/page-app-bar
+           :actions
+           [(ui/action-btn m.Icons/open_in_new "Open tag page"
+                           #(link/open-or-create-by-title! selected-tag)
+                           :color t/tertiary
+                           :filled? true)
+            (m/SizedBox .width 8.0)]))
         .body
         (m/SafeArea
          .child
@@ -147,48 +128,21 @@
            (m/Row
             .crossAxisAlignment m.CrossAxisAlignment/stretch
             .children
-            [(m/Container
-              .width 100.0
-              .decoration (m/BoxDecoration
-                           .color (m/Color 0xFF1A1A1A)
-                           .border (m/Border .right (m/BorderSide .color m.Colors/white12 .width 1.0)))
-              .child
-              (m/Column
-               .children
-               [(m/Padding
-                 .padding (m.EdgeInsets/only .top 16.0 .bottom 16.0)
-                 .child
-                 (m/IconButton
-                  .icon (m/Icon m.Icons/arrow_back .color m.Colors/white54)
-                  .onPressed (fn []
-                               (reset! !limit 50)
-                               (store/clear-selected-tag!))))
-                (m/Expanded
-                 .child
-                 (m/InkWell
-                  .onTap #(link/open-or-create-by-title! selected-tag)
-                  .child
-                  (m/Align
-                   .alignment m.Alignment/topCenter
-                   .child
-                   (mgl/MongolText
-                    (str "#" selected-tag)
-                    .style (m/TextStyle .fontFamily "OyunQaganTig"
-                                        .fontSize 22.0
-                                        .fontWeight m.FontWeight/bold
-                                        .fontStyle m.FontStyle/italic
-                                        .color tag-accent)))))]))
+            [(ui/title-rail (str "#" selected-tag)
+                            :on-back (fn []
+                                       (reset! !limit 50)
+                                       (store/clear-selected-tag!))
+                            :on-title-tap #(link/open-or-create-by-title! selected-tag)
+                            :accent-color t/tertiary)
              (m/Expanded
               .child
               (if (empty? refs-vec)
-                (m/Center
-                 .child (mgl/MongolText "No notes with this tag"
-                                        .style (m/TextStyle .fontFamily "OyunQaganTig"
-                                                            .color m.Colors/white54)))
+                (ui/empty-state m.Icons/tag "No notes with this tag")
                 (m/ListView.builder
                  .controller refs-scroll
                  .scrollDirection m.Axis/horizontal
-                 .padding (m.EdgeInsets/all 16.0)
+                 .physics (m/BouncingScrollPhysics)
+                 .padding (m.EdgeInsets/fromLTRB 20.0 20.0 8.0 20.0)
                  .itemCount (count refs-vec)
                  .itemBuilder
                  (fn [_ idx]
@@ -201,19 +155,8 @@
              (m/Row
               .crossAxisAlignment m.CrossAxisAlignment/stretch
               .children
-              [(m/Container
-                .width 56.0
-                .padding (m.EdgeInsets/symmetric .vertical 16.0)
-                .child
-                (m/Align
-                 .alignment m.Alignment/topCenter
-                 .child (mgl/MongolText "ᠲᠡᠮᠳᠡᠭ"
-                                        .style (m/TextStyle .fontFamily "OyunQaganTig"
-                                                            .color m.Colors/white
-                                                            .fontSize 20.0))))
-               (m/Padding
-                .padding (m.EdgeInsets/symmetric .horizontal 8.0 .vertical 16.0)
-                .child
+              [(ui/title-rail "ᠲᠡᠮᠳᠡᠭ" :accent-color t/tertiary)
+               (ui/field-shell
                 (custom-tf/text-field
                  !filter-state
                  {:controller filter-ctrl
@@ -221,20 +164,20 @@
                   :focus-node filter-focus
                   :hint "Filter…"
                   :max-lines 1
-                  :style (m/TextStyle .color m.Colors/white .fontFamily "OyunQaganTig")
-                  :decoration (m/InputDecoration .border m/InputBorder.none)}))
+                  :style (t/mongol-style)
+                  :decoration (m/InputDecoration .border m/InputBorder.none
+                                                 .hintStyle (t/mongol-style :color t/ink-faint))}))
                (m/Expanded
                 .child
                 (if (empty? tags-vec)
-                  (m/Center
-                   .child (mgl/MongolText
-                           (if (empty? query) "No tags yet" "No matching tags")
-                           .style (m/TextStyle .fontFamily "OyunQaganTig"
-                                               .color m.Colors/white54)))
+                  (ui/empty-state
+                   m.Icons/tag
+                   (if (empty? query) "No tags yet" "No matching tags"))
                   (m/ListView.builder
                    .controller tags-scroll
                    .scrollDirection m.Axis/horizontal
-                   .padding (m.EdgeInsets/all 16.0)
+                   .physics (m/BouncingScrollPhysics)
+                   .padding (m.EdgeInsets/fromLTRB 12.0 20.0 8.0 20.0)
                    .itemCount (count tags-vec)
                    .itemBuilder
                    (fn [_ idx]

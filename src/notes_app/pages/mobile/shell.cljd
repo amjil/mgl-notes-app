@@ -13,7 +13,8 @@
             [notes-app.pages.search :as search]
             [notes-app.pages.settings :as settings]
             [notes-app.pages.editor :as editor]
-            [notes-app.widgets.sync-toast :as sync-toast]))
+            [notes-app.widgets.sync-toast :as sync-toast]
+            [notes-app.theme :as t]))
 
 (defn- body-for [nav-id open-doc-id]
   (case nav-id
@@ -35,7 +36,7 @@
    :watch [{:keys [selected-nav-id open-document-id]} store/app-ui-state]
    (sync-toast/sync-toast-host
     (m/Scaffold
-     .backgroundColor (m/Color 0xFF121212)
+     .backgroundColor t/bg
      .body
      (m/SafeArea
       .child

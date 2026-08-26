@@ -20,7 +20,9 @@
             [notes-app.services.link :as link]
             [notes-app.plugins.image :as img-plugin]
             [notes-app.plugins.attachment :as attach-plugin]
-            [notes-app.state.store :as store]))
+            [notes-app.state.store :as store]
+            [notes-app.theme :as t]
+            [notes-app.ui :as ui]))
 
 ;; =============================================================================
 ;; Block Transclusion (Embed) Widget
@@ -48,9 +50,8 @@
    (if-not blk-row
      (m/Container
       .padding (m.EdgeInsets/all 8.0)
-      .child (mgl/MongolText "(Loading block or not found...)" 
-                             .style (m/TextStyle .color m.Colors/white38 
-                                                 .fontFamily "OyunQaganTig")))
+      .child (mgl/MongolText "(Loading block or not found...)"
+                             .style (t/mongol-style :color t/ink-faint)))
      (let [text (or (.-textContent blk-row) "")
            doc-id (.-documentId blk-row)]
        (m/GestureDetector
@@ -60,9 +61,9 @@
          .margin (m.EdgeInsets/symmetric .horizontal 8.0 .vertical 4.0)
          .padding (m.EdgeInsets/all 12.0)
          .decoration (m/BoxDecoration
-                      .color (m/Color 0x1A64B5F6) ;; Soft blue tint
-                      .borderRadius (m/BorderRadius.circular 8.0)
-                      .border (m/Border .right (m/BorderSide .color (m/Color 0xFF64B5F6) .width 3.0)))
+                      .color t/primary-soft
+                      .borderRadius (m/BorderRadius.circular 10.0)
+                      .border (m/Border .right (m/BorderSide .color t/primary .width 3.0)))
          .child
          (m/Column
           .mainAxisSize m.MainAxisSize/min
@@ -71,7 +72,7 @@
           [(m/Row
             .mainAxisSize m.MainAxisSize/min
             .children
-            [(m/Icon m.Icons/link .size 16.0 .color (m/Color 0xFF64B5F6))
+            [(m/Icon m.Icons/link .size 16.0 .color t/primary)
              (m/SizedBox .width 8.0)
              ;; Revert back to raw text so user can edit/delete it
              (m/GestureDetector
@@ -80,12 +81,10 @@
                        (swap! !state update-in [:blocks current-block-id]
                               assoc :type :paragraph :content (str "((" target-id "))")))
               .child
-              (m/Icon m.Icons/close .size 16.0 .color m.Colors/white38))])
+              (m/Icon m.Icons/close .size 16.0 .color t/ink-faint))])
            (m/SizedBox .height 12.0)
            (mgl/MongolText (if (empty? text) "(Empty block)" text)
-                           .style (m/TextStyle .fontFamily "OyunQaganTig"
-                                               .color m.Colors/white70
-                                               .fontSize 16.0))])))))))
+                           .style (t/mongol-style :size 16.0 :color t/ink-muted))])))))))
 
 ;; =============================================================================
 ;; Editor config
@@ -110,16 +109,11 @@
    :block-style
    (fn [b-type]
      (case b-type
-       :heading-1 (m/TextStyle .fontSize 32.0 .fontWeight m/FontWeight.bold
-                               .color (m/Color 0xFFF5F5F5) .fontFamily "OyunQaganTig")
-       :heading-2 (m/TextStyle .fontSize 24.0 .fontWeight m/FontWeight.bold
-                               .color (m/Color 0xFFF5F5F5) .fontFamily "OyunQaganTig")
-       :heading-3 (m/TextStyle .fontSize 20.0 .fontWeight m/FontWeight.w600
-                               .color (m/Color 0xFFF5F5F5) .fontFamily "OyunQaganTig")
-       :task (m/TextStyle .fontSize 18.0 .color (m/Color 0xFFF5F5F5)
-                          .fontFamily "OyunQaganTig")
-       (m/TextStyle .fontSize 18.0 .color (m/Color 0xFFD0D0D0)
-                    .fontFamily "OyunQaganTig")))})
+       :heading-1 (t/mongol-style :size 32.0 :weight m/FontWeight.bold)
+       :heading-2 (t/mongol-style :size 24.0 :weight m/FontWeight.bold)
+       :heading-3 (t/mongol-style :size 20.0 :weight m/FontWeight.w600)
+       :task (t/mongol-style :size 18.0)
+       (t/mongol-style :size 18.0 :color t/ink-muted)))})
 
 (def notes-editor-config (make-editor-config))
 
@@ -186,7 +180,7 @@
          !state
          :editor-config cfg
          :toolbar (tb/notes-toolbar !state cfg)
-         :background-color (m/Color 0xFF121212)
+         :background-color t/bg
          :show-block-handles? true
          :padding (m.EdgeInsets/all 32.0))
 
@@ -249,8 +243,9 @@
                              (m/Container
                               .width 280.0
                               .decoration (m/BoxDecoration
+                                           .color t/surface
                                            .border (m/Border
-                                                    .left (m/BorderSide .color (m/Color 0x22FFFFFF)
+                                                    .left (m/BorderSide .color t/outline
                                                                         .width 1.0)))
                               .padding (m.EdgeInsets/all 16.0)
                               .child
@@ -262,15 +257,17 @@
        (if embedded?
          (m/SafeArea .child body-row)
          (m/Scaffold
-          .backgroundColor (m/Color 0xFF121212)
+          .backgroundColor t/bg
           .appBar
           (m/AppBar
            .elevation 0.0
-           .backgroundColor (m/Color 0xFF1E1E1E)
-           .foregroundColor (m/Color 0xFFF5F5F5)
+           .scrolledUnderElevation 0.0
+           .backgroundColor t/bg
+           .foregroundColor t/ink
+           .surfaceTintColor m.Colors/transparent
            .leading (if show-back?
                       (m/IconButton
-                       .icon (m/Icon m.Icons/arrow_back)
+                       .icon (m/Icon m.Icons/arrow_back_rounded)
                        .onPressed (or on-back #(store/close-editor!)))
                       nil)
            .actions
@@ -311,8 +308,7 @@
    :context ctx
    :watch [session (ensure-session! document-id)]
    (if-not session
-     (m/Center
-      .child (m/CircularProgressIndicator. .color (m/Color 0xFFF5F5F5)))
+     (ui/loading)
      (do
        ;; Search / block-ref / tasks: one-shot scroll + flash via block-editor API.
        (when-let [block-id (store/take-focus-block-id!)]

@@ -1,0 +1,122 @@
+(ns notes-app.ui
+  "Shared chrome: cards, empty states, title rails, action chips."
+  (:require ["package:flutter/material.dart" :as m]
+            ["package:mongol/mongol.dart" :as mgl]
+            [notes-app.theme :as t]))
+
+(defn page-app-bar
+  [& {:keys [title actions leading]}]
+  (m/AppBar
+   .elevation 0.0
+   .scrolledUnderElevation 0.0
+   .backgroundColor t/bg
+   .foregroundColor t/ink
+   .surfaceTintColor m.Colors/transparent
+   .centerTitle true
+   .leading leading
+   .title (when title
+            (m/Text title
+                    .style (t/mongol-style :size 18.0 :weight m.FontWeight/bold)))
+   .actions (or actions [])))
+
+(defn icon-chip
+  "Tonal circular icon, used as card leading / empty-state mark."
+  [icon color & {:keys [size bg-color] :or {size 22.0}}]
+  (m/Container
+   .width 40.0
+   .height 40.0
+   .decoration (m/BoxDecoration
+                .color (or bg-color (t/fade color 0.12))
+                .borderRadius (m.BorderRadius/circular 12.0))
+   .child
+   (m/Center
+    .child (m/Icon icon .size size .color color))))
+
+(defn action-btn
+  [icon tooltip on-pressed & {:keys [color filled?] :or {color t/ink-muted}}]
+  (m/IconButton
+   .tooltip tooltip
+   .style (when filled?
+            (m/IconButton.styleFrom
+             .backgroundColor t/primary-soft
+             .foregroundColor t/primary))
+   .icon (m/Icon icon .color (if filled? t/primary color))
+   .onPressed on-pressed))
+
+(defn empty-state
+  [icon message]
+  (m/Center
+   .child
+   (m/Column
+    .mainAxisSize m.MainAxisSize/min
+    .children
+    [(icon-chip icon t/primary :size 28.0 :bg-color t/primary-soft)
+     (m/SizedBox .height 16.0)
+     (mgl/MongolText message
+                    .style (t/mongol-style :size 16.0 :color t/ink-muted))])))
+
+(defn title-rail
+  "Left vertical title strip used on list / drill-down pages."
+  [title & {:keys [on-back on-title-tap accent-color width]
+            :or {width 88.0}}]
+  (m/Container
+   .width width
+   .decoration (m/BoxDecoration
+                .color t/surface
+                .border (m/Border .right (m/BorderSide .color t/outline .width 1.0)))
+   .child
+   (m/Column
+    .children
+    (into []
+          (remove nil?
+                  [(when on-back
+                     (m/Padding
+                      .padding (m.EdgeInsets/only .top 12.0)
+                      .child
+                      (m/IconButton
+                       .icon (m/Icon m.Icons/arrow_back_rounded .color t/ink-muted)
+                       .onPressed on-back)))
+                   (m/Expanded
+                    .child
+                    (m/InkWell
+                     .onTap on-title-tap
+                     .child
+                     (m/Align
+                      .alignment m.Alignment/topCenter
+                      .child
+                      (m/Padding
+                       .padding (m.EdgeInsets/fromLTRB 12.0 16.0 12.0 16.0)
+                       .child
+                       (mgl/MongolText
+                        title
+                        .style (t/mongol-style
+                                :size 22.0
+                                :weight m.FontWeight/bold
+                                :color (or accent-color t/ink)))))))])))))
+
+(defn note-card
+  [child & {:keys [width accent-color padding]
+            :or {width 108.0 padding 0.0}}]
+  (m/Container
+   .width width
+   .margin (m.EdgeInsets/only .right 16.0)
+   .padding (m.EdgeInsets/all padding)
+   .decoration (t/card-decoration :accent-color accent-color)
+   .child child))
+
+(defn field-shell
+  "Paper well for vertical search / filter fields."
+  [child]
+  (m/Container
+   .margin (m.EdgeInsets/symmetric .horizontal 8.0 .vertical 16.0)
+   .padding (m.EdgeInsets/symmetric .horizontal 10.0 .vertical 12.0)
+   .decoration (m/BoxDecoration
+                .color t/surface
+                .borderRadius (m.BorderRadius/circular t/radius-m)
+                .border (m/Border.all .color t/outline .width 1.0)
+                .boxShadow (t/card-shadow))
+   .child child))
+
+(defn loading []
+  (m/Center
+   .child (m/CircularProgressIndicator. .color t/primary .strokeWidth 2.4)))

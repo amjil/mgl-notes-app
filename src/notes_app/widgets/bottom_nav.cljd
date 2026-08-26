@@ -2,30 +2,35 @@
   (:require [cljd.flutter :as f]
             ["package:flutter/material.dart" :as m]
             ["package:flutter/services.dart" :as s]
-            [notes-app.state.store :as store]))
+            [notes-app.state.store :as store]
+            [notes-app.theme :as t]))
 
 (def ^:private tabs ["today" "documents" "tasks" "tags" "search" "settings"])
 
 (defn main-navigation-bar []
   (f/widget
    :watch [{:keys [selected-nav-id sync-status auth-token sync-enabled]} store/app-ui-state]
-   (let [idx (or (first (keep-indexed (fn [i t] (when (= t selected-nav-id) i)) tabs)) 0)
+   (let [idx (or (first (keep-indexed (fn [i tab] (when (= tab selected-nav-id) i)) tabs)) 0)
          sync-error? (and sync-enabled auth-token (not= auth-token "") (= sync-status :error))
          settings-icon
          (if sync-error?
            (m/Badge
             .isLabelVisible false
-            .backgroundColor m.Colors/red
+            .backgroundColor t/danger
             .child (m/Icon m.Icons/settings_outlined))
            (m/Icon m.Icons/settings_outlined))
          settings-selected-icon
          (if sync-error?
            (m/Badge
             .isLabelVisible false
-            .backgroundColor m.Colors/red
+            .backgroundColor t/danger
             .child (m/Icon m.Icons/settings))
            (m/Icon m.Icons/settings))]
      (m/NavigationBar
+      .backgroundColor t/surface
+      .indicatorColor t/primary-soft
+      .elevation 0.0
+      .surfaceTintColor m.Colors/transparent
       .selectedIndex (int idx)
       .onDestinationSelected
       (fn [i]
@@ -34,23 +39,23 @@
       .destinations
       [(m/NavigationDestination
         .icon (m/Icon m.Icons/wb_sunny_outlined)
-        .selectedIcon (m/Icon m.Icons/wb_sunny)
+        .selectedIcon (m/Icon m.Icons/wb_sunny .color t/primary)
         .label "Today")
        (m/NavigationDestination
         .icon (m/Icon m.Icons/folder_outlined)
-        .selectedIcon (m/Icon m.Icons/folder)
+        .selectedIcon (m/Icon m.Icons/folder .color t/primary)
         .label "Docs")
        (m/NavigationDestination
         .icon (m/Icon m.Icons/check_box_outlined)
-        .selectedIcon (m/Icon m.Icons/check_box)
+        .selectedIcon (m/Icon m.Icons/check_box .color t/primary)
         .label "Tasks")
        (m/NavigationDestination
         .icon (m/Icon m.Icons/tag_outlined)
-        .selectedIcon (m/Icon m.Icons/tag)
+        .selectedIcon (m/Icon m.Icons/tag .color t/primary)
         .label "Tags")
        (m/NavigationDestination
         .icon (m/Icon m.Icons/search)
-        .selectedIcon (m/Icon m.Icons/search)
+        .selectedIcon (m/Icon m.Icons/search .color t/primary)
         .label "Search")
        (m/NavigationDestination
         .icon settings-icon

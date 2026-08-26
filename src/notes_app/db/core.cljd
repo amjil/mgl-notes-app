@@ -24,7 +24,7 @@
   s)
 
 (defn now ^dc/DateTime []
-  (dc/DateTime.now))
+  (.toUtc (dc/DateTime.now)))
 
 (defn new-id []
   (str (random-uuid)))

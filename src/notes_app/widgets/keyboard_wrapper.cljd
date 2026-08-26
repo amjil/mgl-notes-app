@@ -8,7 +8,8 @@
    [rich-editor.components.editor :as editor]
    [virtual-keyboard.keyboard :as keyboard]
    [virtual-keyboard.options :as options]
-   [shared-ime.overlay-view :as overlay]))
+   [shared-ime.overlay-view :as overlay]
+   [notes-app.theme :as t]))
 
 (defn with-virtual-keyboard 
   "Wraps the main content with the custom Native Mongolian virtual keyboard for mobile, 
@@ -17,7 +18,7 @@
   (if (editor/is-mobile?)
     (f/widget
      :let [info (merge options/keyboard-option {:keyboard/mongol-font-family "OyunQaganTig"
-                                                :keyboard/key-container-color m/Colors.grey.shade500
+                                                :keyboard/key-container-color t/surface-2
                                                 :keyboard/font-size 16})]
      :bind {:info info}
      (m/Column

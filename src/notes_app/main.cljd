@@ -9,7 +9,9 @@
             [notes-app.pages.shell :as shell]
             [notes-app.services.sync :as sync]
             [notes-app.services.link :as link]
-            [notes-app.services.daily :as daily]))
+            [notes-app.services.daily :as daily]
+            [notes-app.theme :as theme]
+            [notes-app.ui :as ui]))
 
 (defn- boot!
   "Init DB, prefs, link index, and today's daily doc. Resolves to true when ready."
@@ -40,19 +42,9 @@
    (m/MaterialApp
     .title "Amjil Notes"
     .debugShowCheckedModeBanner false
-    .theme (m/ThemeData
-            .primarySwatch m.Colors/blue
-            .scaffoldBackgroundColor (m/Color 0xFF121212)
-            .fontFamily "OyunQaganTig"
-            .brightness m.Brightness/dark
-            .textTheme (m/TextTheme
-                        .bodyMedium (m/TextStyle .color m.Colors/white
-                                                 .fontSize 16.0
-                                                 .fontFamily "OyunQaganTig")))
+    .theme theme/app-theme
     .home (if ready?
             (shell/app-shell)
             (m/Scaffold
-             .backgroundColor (m/Color 0xFF121212)
-             .body (m/Center
-                    .child (m/CircularProgressIndicator.
-                            .color (m/Color 0xFFF5F5F5))))))))
+             .backgroundColor theme/bg
+             .body (ui/loading))))))

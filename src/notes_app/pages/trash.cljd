@@ -5,7 +5,9 @@
             [cljd.flutter :as f]
             [notes-app.db.core :as db]
             [notes-app.services.document :as doc]
-            [notes-app.services.sync :as sync]))
+            [notes-app.services.sync :as sync]
+            [notes-app.theme :as t]
+            [notes-app.ui :as ui]))
 
 (defn trash-page []
   (f/widget
@@ -13,76 +15,50 @@
                          (map (fn [rows] (or rows [])))
                          :as-values (db/watch-deleted-documents))]
    (m/Scaffold
-    .backgroundColor (m/Color 0xFF121212)
-    .appBar (m/AppBar
-             .backgroundColor (m/Color 0xFF1E1E1E)
-             .elevation 0.0)
+    .backgroundColor t/bg
     .body
     (m/SafeArea
      .child
      (m/Row
       .crossAxisAlignment m.CrossAxisAlignment/stretch
       .children
-      [;; Left: Mongolian vertical page title
-       (m/Container
-        .width 56.0
-        .padding (m.EdgeInsets/symmetric .vertical 16.0)
-        .child
-        (m/Align
-         .alignment m.Alignment/topCenter
-         .child (mgl/MongolText "ᠬᠣᠭ᠎ᠤᠨ ᠰᠠᠪᠠ" ;; "Trash Bin"
-                                .style (m/TextStyle .fontFamily "OyunQaganTig"
-                                                    .color m.Colors/white
-                                                    .fontSize 20.0))))
-
+      [(ui/title-rail "ᠬᠣᠭ᠎ᠤᠨ ᠰᠠᠪᠠ")
        (m/Expanded
         .child
         (if (empty? deleted-docs)
-          (m/Center
-           .child (mgl/MongolText "Trash is empty"
-                                  .style (m/TextStyle .fontFamily "OyunQaganTig"
-                                                      .color m.Colors/white54)))
+          (ui/empty-state m.Icons/delete_outline "Trash is empty")
           (m/ListView.builder
            .scrollDirection m.Axis/horizontal
-           .padding (m.EdgeInsets/all 16.0)
+           .physics (m/BouncingScrollPhysics)
+           .padding (m.EdgeInsets/fromLTRB 20.0 20.0 8.0 20.0)
            .itemCount (count deleted-docs)
            .itemBuilder
            (fn [_ idx]
              (let [d (nth deleted-docs idx)
                    id (:id d)
                    title (if (empty? (:title d)) "Untitled" (:title d))]
-               (m/Container
-                .width 100.0
-                .margin (m.EdgeInsets/only .right 16.0)
-                .decoration (m/BoxDecoration
-                             .color (m/Color 0xFF1A1A1A)
-                             .borderRadius (m.BorderRadius/circular 12.0)
-                             .border (m/Border.all .color m.Colors/white12 .width 1.0))
-                .child
+               (ui/note-card
                 (mgl/MongolListTile
-                 .leading (m/Icon m.Icons/delete_outline .color m.Colors/white38)
+                 .leading (ui/icon-chip m.Icons/delete_outline t/danger :bg-color t/danger-soft)
                  .title (mgl/MongolText title
-                                        .style (m/TextStyle .fontFamily "OyunQaganTig"
-                                                            .fontSize 18.0
-                                                            .color m.Colors/white70))
+                                        .style (t/mongol-style :size 18.0 :color t/ink-muted))
                  .subtitle (mgl/MongolText "Deleted"
-                                           .style (m/TextStyle .color m.Colors/redAccent .fontSize 12.0))
+                                           .style (t/mongol-style :size 12.0 :color t/danger))
                  .trailing
                  (m/Column
                   .mainAxisSize m.MainAxisSize/min
                   .mainAxisAlignment m.MainAxisAlignment/spaceEvenly
                   .children
-                  [;; Restore Button
-                   (m/IconButton
-                    .icon (m/Icon m.Icons/restore .color m.Colors/greenAccent .size 24.0)
+                  [(m/IconButton
+                    .icon (m/Icon m.Icons/restore .color t/success .size 22.0)
                     .tooltip "Restore"
                     .onPressed (fn []
                                  (-> (doc/restore! id)
                                      (.then (fn [_] (sync/schedule-push!))))))
-                   ;; Delete Forever Button
                    (m/IconButton
-                    .icon (m/Icon m.Icons/delete_forever .color m.Colors/red .size 24.0)
+                    .icon (m/Icon m.Icons/delete_forever .color t/danger .size 22.0)
                     .tooltip "Delete Forever"
                     .onPressed (fn []
                                  (-> (doc/hard-delete! id)
-                                     (.then (fn [_] (sync/schedule-push!))))))]))))))))])))))
+                                     (.then (fn [_] (sync/schedule-push!))))))]))
+                :accent-color t/danger))))))])))))

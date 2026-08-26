@@ -8,7 +8,8 @@
             [block-editor.commands.link :as link]
             [rich-editor.commands.editor-commands :as editor-cmd]
             [rich-editor.commands.transaction :as tx]
-            [notes-app.services.asset :as asset]))
+            [notes-app.services.asset :as asset]
+            [notes-app.theme :as t]))
 
 (def ^:private default-width-ratio (/ 2.0 3.0))
 (def ^:private min-width-ratio 0.15)
@@ -31,14 +32,18 @@
 (defn- placeholder []
   (m/Container
    .width 120.0 .height 100.0
-   .color m.Colors/grey
-   .child (m/Center .child (m/Icon m.Icons/image .color m.Colors/white))))
+   .decoration (m/BoxDecoration
+                .color t/surface-2
+                .borderRadius (m.BorderRadius/circular 10.0))
+   .child (m/Center .child (m/Icon m.Icons/image .color t/ink-faint))))
 
 (defn- broken []
   (m/Container
    .width 120.0 .height 100.0
-   .color m.Colors/grey
-   .child (m/Center .child (m/Icon m.Icons/broken_image .color m.Colors/white))))
+   .decoration (m/BoxDecoration
+                .color t/danger-soft
+                .borderRadius (m.BorderRadius/circular 10.0))
+   .child (m/Center .child (m/Icon m.Icons/broken_image .color t/danger))))
 
 (defn- constrained-image
   "Fit inside max-w × max-h; widget size matches the painted image (no empty sides)."
@@ -95,8 +100,10 @@
       (m/Container
        .width handle-size .height handle-size
        .decoration (m/BoxDecoration
-                    .color m.Colors/white
-                    .border (m/Border.all .color m.Colors/blue .width 1.5))))))))
+                    .color t/surface
+                    .border (m/Border.all .color t/primary .width 1.5)
+                    .borderRadius (m.BorderRadius/circular 4.0)
+                    .boxShadow (t/card-shadow))))))))
 
 (defn- image-frame
   "Chrome around the image; shrink-wraps to child size."
@@ -114,10 +121,10 @@
       .margin (m.EdgeInsets/only .bottom 8.0)
       .padding (m.EdgeInsets/all 8.0)
       .decoration (m/BoxDecoration
-                   .color m.Colors/white
+                   .color t/surface
                    .border (if is-active?
-                             (m/Border.all .color m.Colors/blue .width 1.5)
-                             (m/Border.all .color m.Colors/transparent .width 1.5))
+                             (m/Border.all .color t/primary .width 1.5)
+                             (m/Border.all .color t/outline .width 1.0))
                    .borderRadius (m.BorderRadius/circular 8.0))
       .child
       (m/ClipRRect
@@ -131,14 +138,14 @@
            (m/Positioned.fill
             .child (m/Container
                     .decoration (m/BoxDecoration
-                                 .color (-> m.Colors/blue (.withOpacity 0.3)))))
+                                 .color (t/fade t/primary 0.28))))
            (m/SizedBox.shrink))
          (if cursor-visible?
            (m/Positioned
             .left 0.0 .right 0.0
             .top (if (== offset 0) -2.0 nil)
             .bottom (if (== offset 1) -2.0 nil)
-            .child (m/Container .height 2.0 .color m.Colors/blue))
+            .child (m/Container .height 2.0 .color t/primary))
            (m/SizedBox.shrink))]))))
     (or resize-child (m/SizedBox.shrink))]))
 

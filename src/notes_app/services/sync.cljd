@@ -43,7 +43,22 @@
      :entity-id (or (:entity_id m) (get m "entity_id"))
      :action (or (:action m) (get m "action"))
      :payload (or (:payload m) (get m "payload") {})
-     :created-at (or (:created_at m) (get m "created_at"))}))
+     :created-at (or (:created_at m) (get m "created_at"))
+     :received-at (or (:received_at m) (:received-at m) (get m "received_at"))}))
+
+(defn- op-cursor-time [item]
+  "Pull cursor: server receive time, falling back to created_at."
+  (let [m (wire->op-map item)]
+    (or (:received-at m) (:created-at m))))
+
+(defn- advance-pull-cursor! [items]
+  "Advance last_sync_time to max received_at. Empty pull keeps the old cursor
+   so we do not skip late-arriving ops with an older client created_at."
+  (let [times (->> (or items [])
+                   (map op-cursor-time)
+                   (remove #(or (nil? %) (= % ""))))]
+    (when (seq times)
+      (store/set-last-sync-time! (last (sort times))))))
 
 (defn- require-auth!
   "Return true if logged in; otherwise set sync error and return false."
@@ -194,7 +209,7 @@
                                (.then (fn [_] (asset-sync/download-missing!)))
                                (.then (fn [_]
                                         (flush-conflict-toast!)
-                                        (store/set-last-sync-time! (.toIso8601String (db/now)))
+                                        (advance-pull-cursor! items)
                                         (store/set-sync-status! :ok "Pull OK")
                                         :ok))))
 

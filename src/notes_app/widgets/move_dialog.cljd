@@ -7,7 +7,9 @@
             [notes-app.db.core :as db]
             [notes-app.services.document :as doc]
             [notes-app.widgets.keyboard-wrapper :as kw]
-            [rich-editor.components.text-field :as custom-tf]))
+            [rich-editor.components.text-field :as custom-tf]
+            [notes-app.theme :as t]
+            [notes-app.ui :as ui]))
 
 (defn- display-title [title]
   (if (or (nil? title) (str/blank? title)) "Untitled" title))
@@ -44,26 +46,16 @@
                      (when on-done (on-done false))))))
 
 (defn- candidate-tile [label subtitle icon color on-tap]
-  (m/Container
-   .width 100.0
-   .margin (m.EdgeInsets/only .right 12.0)
-   .decoration (m/BoxDecoration
-                .color (m/Color 0xFF1E1E1E)
-                .borderRadius (m.BorderRadius/circular 10.0)
-                .border (m/Border.all .color m.Colors/white12 .width 1.0))
-   .child
+  (ui/note-card
    (mgl/MongolListTile
-    .leading (m/Icon icon .color color)
+    .leading (ui/icon-chip icon color)
     .title (mgl/MongolText label
-                           .style (m/TextStyle .fontFamily "OyunQaganTig"
-                                               .fontSize 16.0
-                                               .color m.Colors/white))
+                           .style (t/mongol-style :size 16.0))
     .subtitle (when subtitle
                 (mgl/MongolText subtitle
-                                .style (m/TextStyle .fontFamily "OyunQaganTig"
-                                                    .fontSize 12.0
-                                                    .color m.Colors/white54)))
-    .onTap on-tap)))
+                                .style (t/mongol-style :size 12.0 :color t/ink-muted)))
+    .onTap on-tap)
+   :accent-color (when (= color t/primary) t/primary)))
 
 (defn- filter-candidates [docs forbidden query]
   (let [q (-> (or query "") str/trim str/lower-case)]
@@ -115,9 +107,7 @@
              (m/Row
               .crossAxisAlignment m.CrossAxisAlignment/stretch
               .children
-              [(m/Padding
-                .padding (m.EdgeInsets/only .right 8.0)
-                .child
+              [(ui/field-shell
                 (custom-tf/text-field
                  !search-state
                  {:controller search-ctrl
@@ -125,12 +115,10 @@
                   :hint "Search parent…"
                   :max-lines 1
                   :on-changed (fn [v] (reset! !query (or v "")))
-                  :style (m/TextStyle .color m.Colors/white
-                                      .fontFamily "OyunQaganTig"
-                                      .fontSize 16.0)
+                  :style (t/mongol-style :size 16.0)
                   :decoration (m/InputDecoration
                                .border m/InputBorder.none
-                               .hintStyle (m/TextStyle .color m.Colors/white38))}))
+                               .hintStyle (t/mongol-style :color t/ink-faint))}))
                (m/Expanded
                 .child
                 (cond
@@ -147,7 +135,7 @@
                       "Root"
                       "Top level"
                       m.Icons/home_outlined
-                      (if (nil? current-parent-id) m.Colors/blueAccent m.Colors/white70)
+                      (if (nil? current-parent-id) t/primary t/ink-muted)
                       #(pick-and-close! c doc-id nil on-done))]
                     (if (str/blank? (str/trim query))
                       [(m/Container
@@ -155,18 +143,14 @@
                         .alignment m.Alignment/center
                         .child
                         (mgl/MongolText "Type to search"
-                                        .style (m/TextStyle .fontFamily "OyunQaganTig"
-                                                            .color m.Colors/white38
-                                                            .fontSize 14.0)))]
+                                        .style (t/mongol-style :color t/ink-faint :size 14.0)))]
                       (if (empty? matches)
                         [(m/Container
                           .width 100.0
                           .alignment m.Alignment/center
                           .child
                           (mgl/MongolText "No results"
-                                          .style (m/TextStyle .fontFamily "OyunQaganTig"
-                                                              .color m.Colors/white38
-                                                              .fontSize 14.0)))]
+                                          .style (t/mongol-style :color t/ink-faint :size 14.0)))]
                         (mapv (fn [{:keys [id title]}]
                                 (let [label (display-title title)
                                       path (ancestor-path id id->doc)
@@ -175,7 +159,7 @@
                                    label
                                    (or path "Root")
                                    (if current? m.Icons/folder m.Icons/description_outlined)
-                                   (if current? m.Colors/blueAccent m.Colors/white70)
+                                   (if current? t/primary t/ink-muted)
                                    #(pick-and-close! c doc-id id on-done))))
                               matches)))))))])
              :actions

@@ -8,16 +8,17 @@
             [block-editor.commands.ops :as ops]
             [block-editor.utils.history :as history]
             [notes-app.services.asset :as asset]
-            [notes-app.services.sync :as sync]))
+            [notes-app.services.sync :as sync]
+            [notes-app.theme :as t]))
 
 (defn- toolbar-button [icon tooltip is-active? on-tap]
   (m/IconButton
    .icon (m/Icon icon)
    .tooltip tooltip
    .color (cond
-            (nil? on-tap) m.Colors/black26
-            is-active? m.Colors/blue
-            :else m.Colors/black54)
+            (nil? on-tap) t/ink-faint
+            is-active? t/primary
+            :else t/ink-muted)
    .onPressed on-tap))
 
 (defn- insert-image-from-picker! [!state active-id]
@@ -69,13 +70,11 @@
       .height 50.0
       .width double/infinity
       .decoration (m/BoxDecoration
-                   .color (if (= (.-brightness (m/Theme.of ctx)) m/Brightness.dark)
-                            m/Colors.grey.shade900
-                            m/Colors.white)
+                   .color t/surface
                    .boxShadow [(m/BoxShadow
-                                .color (-> m.Colors/black (.withOpacity 0.05))
-                                .blurRadius 4.0
-                                .offset (m/Offset 0.0 -2.0))])
+                                .color (t/fade t/ink 0.06)
+                                .blurRadius 12.0
+                                .offset (m/Offset 0.0 -4.0))])
       .child
       (if active-id
         (m/SingleChildScrollView
@@ -155,4 +154,4 @@
                           (when can-redo? #(history/redo! !state)))
           (m/SizedBox .width 12.0)
           (m/Text "Select a block"
-                  .style (m/TextStyle .color m.Colors/grey))]))))))
+                  .style (t/mongol-style :color t/ink-faint :size 13.0))]))))))

@@ -6,7 +6,9 @@
             [notes-app.db.core :as db]
             [notes-app.widgets.keyboard-wrapper :as kw]
             [notes-app.state.store :as store]
-            [rich-editor.components.text-field :as custom-tf]))
+            [rich-editor.components.text-field :as custom-tf]
+            [notes-app.theme :as t]
+            [notes-app.ui :as ui]))
 
 (defonce !search-state
   (atom {:external-keyboard-delegate nil}))
@@ -36,28 +38,22 @@
     (f/widget
      :managed [search-ctrl (m/TextEditingController.)
                search-focus-node (m/FocusNode)]
-     ;; IME / virtual keyboard writes the controller directly and skips
-     ;; MongolTextField.onChanged — watch the controller instead.
      :bg-watcher ([^m/TextEditingValue {v .-text} search-ctrl]
                   (schedule-search! (or v "")))
      :watch [query !query
              results !results
              search-state !search-state]
      (m/Scaffold
-      .backgroundColor (m/Color 0xFF121212)
+      .backgroundColor t/bg
       .resizeToAvoidBottomInset false
-      .appBar
-      (m/AppBar
-       .backgroundColor (m/Color 0xFF1E1E1E))
       .body
       (m/SafeArea
        .child
        (kw/with-virtual-keyboard
          (m/Row
           .children
-          [(m/Padding
-            .padding (m.EdgeInsets/symmetric .horizontal 8.0 .vertical 16.0)
-            .child
+          [(ui/title-rail "ᠬᠠᠢᠬᠤ")
+           (ui/field-shell
             (custom-tf/text-field
              !search-state
              {:controller search-ctrl
@@ -65,37 +61,37 @@
               :focus-node search-focus-node
               :hint "Search…"
               :max-lines 1
-              :style (m/TextStyle .color m.Colors/white .fontFamily "OyunQaganTig")
-              :decoration (m/InputDecoration .border m/InputBorder.none)}))
+              :style (t/mongol-style)
+              :decoration (m/InputDecoration .border m/InputBorder.none
+                                             .hintStyle (t/mongol-style :color t/ink-faint))}))
            (m/Expanded
             .child
             (if (empty? results)
-              (m/Center
-               .child (mgl/MongolText
-                       (if (empty? query) "Type to search" "No results")
-                       .style (m/TextStyle .fontFamily "OyunQaganTig"
-                                           .color m.Colors/white54)))
+              (ui/empty-state
+               m.Icons/search
+               (if (empty? query) "Type to search" "No results"))
               (m/ListView
                .scrollDirection m.Axis/horizontal
+               .physics (m/BouncingScrollPhysics)
+               .padding (m.EdgeInsets/fromLTRB 12.0 20.0 8.0 20.0)
                .children
                (mapv
                 (fn [r]
                   (m/Container
                    .key (m/ValueKey (str (:document-id r) "-" (:block-id r) "-" (:hit r)))
                    .child
-                   (mgl/MongolListTile
-                    .title (mgl/MongolText
-                            (or (:document-title r) "")
-                            .style (m/TextStyle .fontFamily "OyunQaganTig"
-                                                .color m.Colors/white
-                                                .fontSize 16.0))
-                    .subtitle (when (:block-text r)
-                                (mgl/MongolText
-                                 (or (:block-text r) "")
-                                 .style (m/TextStyle .fontFamily "OyunQaganTig"
-                                                     .color m.Colors/white54
-                                                     .fontSize 13.0)))
-                    .onTap (fn []
-                             (store/open-document! (:document-id r) (:block-id r))
-                             nil))))
+                   (ui/note-card
+                    (mgl/MongolListTile
+                     .leading (ui/icon-chip m.Icons/description_outlined t/primary)
+                     .title (mgl/MongolText
+                             (or (:document-title r) "")
+                             .style (t/mongol-style :size 16.0 :weight m.FontWeight/w600))
+                     .subtitle (when (:block-text r)
+                                 (mgl/MongolText
+                                  (or (:block-text r) "")
+                                  .style (t/mongol-style :size 13.0 :color t/ink-muted)))
+                     .onTap (fn []
+                              (store/open-document! (:document-id r) (:block-id r))
+                              nil))
+                    :width 120.0)))
                 results))))])))))))

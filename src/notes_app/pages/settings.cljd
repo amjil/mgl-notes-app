@@ -9,7 +9,9 @@
             [notes-app.services.sync :as sync]
             [notes-app.services.auth :as auth]
             [notes-app.services.backup :as backup]
-            [notes-app.widgets.keyboard-wrapper :as kw]))
+            [notes-app.widgets.keyboard-wrapper :as kw]
+            [notes-app.theme :as t]
+            [notes-app.ui :as ui]))
 
 (defn- snack! [ctx msg]
   (let [sm (m/ScaffoldMessenger.of ctx)]
@@ -50,7 +52,7 @@
          (mgl/MongolTextField
           .controller controller
           .autofocus true
-          .style (m/TextStyle .fontFamily "OyunQaganTig" .fontSize 18.0))
+          .style (t/mongol-style :size 18.0))
          :actions
          [(mgl/MongolTextButton
            .onPressed #(.pop (m/Navigator.of c))
@@ -102,15 +104,13 @@
                    .child
                    (mgl/MongolText
                     (or label (name key))
-                    .style (m/TextStyle .fontFamily "OyunQaganTig" .fontSize 14.0
-                                        .color (m/Colors.white70))))
+                    .style (t/mongol-style :size 14.0 :color t/ink-muted)))
                   (m/Expanded
                    .child
                    (mgl/MongolTextField
                     .controller (get controllers key)
                     .obscureText (boolean obscure?)
-                    .style (m/TextStyle .fontFamily "OyunQaganTig"
-                                        .fontSize 16.0)))]))))
+                    .style (t/mongol-style :size 16.0)))]))))
             fields)))
          :actions
          [(mgl/MongolTextButton
@@ -267,63 +267,66 @@
              :subtitle (or device-id "")
              :leading m.Icons/devices}])]
    (m/Scaffold
-    .backgroundColor (m/Color 0xFF121212)
-    .appBar
-    (m/AppBar
-     .backgroundColor (m/Color 0xFF1E1E1E))
+    .backgroundColor t/bg
     .body
     (m/SafeArea
      .child
-     (m/ListView
-      .scrollDirection m.Axis/horizontal
-      .padding (m.EdgeInsets/all 16.0)
+     (m/Row
+      .crossAxisAlignment m.CrossAxisAlignment/stretch
       .children
-      [(setting/settings-section "Account" account-items)
+      [(ui/title-rail "ᠲᠣᠬᠢᠷᠠᠭᠤᠯᠭ᠎ᠠ")
+       (m/Expanded
+        .child
+        (m/ListView
+         .scrollDirection m.Axis/horizontal
+         .physics (m/BouncingScrollPhysics)
+         .padding (m.EdgeInsets/all 16.0)
+         .children
+         [(setting/settings-section "Account" account-items)
 
-       (setting/settings-section
-        "Sync"
-        [{:title "Enable cloud sync"
-          :subtitle (if sync-enabled
-                      "Automatic sync when logged in"
-                      "Offline only — edits stay on this device")
-          :leading m.Icons/cloud_outlined
-          :value (boolean sync-enabled)
-          :on-changed #(toggle-sync-enabled! % logged-in?)}
-         {:title "Sync URL"
-          :subtitle (or sync-base-url store/default-sync-base-url)
-          :leading m.Icons/link
-          :show-arrow? true
-          :on-tap #(edit-field-dialog ctx "Sync URL" sync-base-url
-                                      store/update-sync-base-url!)}
-         {:title "Sync status"
-          :subtitle status-text
-          :leading (if (= sync-status :error)
-                      m.Icons/error_outline
-                      m.Icons/sync)}
-         {:title "Last sync"
-          :subtitle (or last-sync-time "never")
-          :leading m.Icons/schedule}
-         {:title "Sync now"
-          :leading m.Icons/cloud_sync
-          :show-arrow? true
-          :on-tap #(sync-now! ctx)}])
+          (setting/settings-section
+           "Sync"
+           [{:title "Enable cloud sync"
+             :subtitle (if sync-enabled
+                         "Automatic sync when logged in"
+                         "Offline only — edits stay on this device")
+             :leading m.Icons/cloud_outlined
+             :value (boolean sync-enabled)
+             :on-changed #(toggle-sync-enabled! % logged-in?)}
+            {:title "Sync URL"
+             :subtitle (or sync-base-url store/default-sync-base-url)
+             :leading m.Icons/link
+             :show-arrow? true
+             :on-tap #(edit-field-dialog ctx "Sync URL" sync-base-url
+                                         store/update-sync-base-url!)}
+            {:title "Sync status"
+             :subtitle status-text
+             :leading (if (= sync-status :error)
+                        m.Icons/error_outline
+                        m.Icons/sync)}
+            {:title "Last sync"
+             :subtitle (or last-sync-time "never")
+             :leading m.Icons/schedule}
+            {:title "Sync now"
+             :leading m.Icons/cloud_sync
+             :show-arrow? true
+             :on-tap #(sync-now! ctx)}])
 
-       (setting/settings-section
-        "Data Management"
-        [{:title "Backup Database"
-          :subtitle "Export all documents and blocks to a JSON file"
-          :leading m.Icons/save_alt
-          :show-arrow? true
-          :on-tap #(backup/export-backup-file! ctx)}
-         {:title "Import / Restore"
-          :subtitle "Restore notes from a JSON backup file"
-          :leading m.Icons/settings_backup_restore
-          :show-arrow? true
-          :on-tap #(backup/import-backup-file! ctx)}])
+          (setting/settings-section
+           "Data Management"
+           [{:title "Backup Database"
+             :subtitle "Export all documents and blocks to a JSON file"
+             :leading m.Icons/save_alt
+             :show-arrow? true
+             :on-tap #(backup/export-backup-file! ctx)}
+            {:title "Import / Restore"
+             :subtitle "Restore notes from a JSON backup file"
+             :leading m.Icons/settings_backup_restore
+             :show-arrow? true
+             :on-tap #(backup/import-backup-file! ctx)}])
 
-       (setting/settings-section
-        "About"
-        [{:title "About"
-          :subtitle "Amjil Notes V1 — Offline First"
-          :leading m.Icons/info_outline}])]))))
-)
+          (setting/settings-section
+           "About"
+           [{:title "About"
+             :subtitle "Amjil Notes V1 — Offline First"
+             :leading m.Icons/info_outline}])]))])))))

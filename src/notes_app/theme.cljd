@@ -1,0 +1,256 @@
+(ns notes-app.theme
+  "Tenger design system — warm parchment + eternal-blue-sky accent.
+   Built for vertical Mongolian UI and a clean, youthful look."
+  (:require ["package:flutter/material.dart" :as m]))
+
+;; =============================================================================
+;; Palette
+;; =============================================================================
+
+(def primary
+  "Sky blue — ᠮᠥᠩᠬᠡ ᠬᠥᠬᠡ ᠲᠩᠷᠢ"
+  (m/Color 0xFF1A7AB3))
+
+(def primary-soft (m/Color 0xFFE3F1F8))
+(def primary-deep (m/Color 0xFF145E8A))
+
+(def secondary
+  "Terracotta warmth for daily notes / highlights."
+  (m/Color 0xFFE07A4A))
+
+(def secondary-soft (m/Color 0xFFFBE8DE))
+
+(def tertiary
+  "Violet for tags."
+  (m/Color 0xFF6B5B95))
+
+(def tertiary-soft (m/Color 0xFFEFEAF6))
+
+(def bg
+  "Warm parchment scaffold."
+  (m/Color 0xFFF3EFE8))
+
+(def surface
+  "Paper cards and chrome."
+  (m/Color 0xFFFFFCF7))
+
+(def surface-2
+  "Inset panels, navigation rail."
+  (m/Color 0xFFEBE6DD))
+
+(def ink (m/Color 0xFF1A1714))
+(def ink-muted (m/Color 0xFF6F6962))
+(def ink-faint (m/Color 0xFFA39C94))
+
+(def outline (m/Color 0xFFE4DDD3))
+(def outline-strong (m/Color 0xFFD4CCC0))
+
+(def danger (m/Color 0xFFC94B3C))
+(def danger-soft (m/Color 0xFFF8E4E1))
+(def success (m/Color 0xFF2F9B72))
+(def success-soft (m/Color 0xFFDDF3EA))
+(def warning (m/Color 0xFFE0A23A))
+(def warning-soft (m/Color 0xFFFBF0D8))
+
+(def font "OyunQaganTig")
+(def radius-s 10.0)
+(def radius-m 16.0)
+(def radius-l 22.0)
+
+;; =============================================================================
+;; Helpers
+;; =============================================================================
+
+(defn fade [color opacity]
+  (.withOpacity ^m/Color color opacity))
+
+(defn mongol-style
+  [& {:keys [size weight color italic?]
+      :or {size 16.0 weight m.FontWeight/normal color ink}}]
+  (m/TextStyle
+   .fontFamily font
+   .fontSize size
+   .fontWeight weight
+   .color color
+   .fontStyle (if italic? m.FontStyle/italic m.FontStyle/normal)
+   .height 1.35))
+
+(defn card-shadow []
+  [(m/BoxShadow
+    .color (fade ink 0.06)
+    .blurRadius 18.0
+    .offset (m/Offset 0.0 6.0))
+   (m/BoxShadow
+    .color (fade ink 0.03)
+    .blurRadius 4.0
+    .offset (m/Offset 0.0 1.0))])
+
+(defn card-decoration
+  [& {:keys [accent-color fill radius]
+      :or {fill surface radius radius-m}}]
+  (m/BoxDecoration
+   .color fill
+   .borderRadius (m.BorderRadius/circular radius)
+   .border (m/Border.all
+            .color (if accent-color (fade accent-color 0.35) outline)
+            .width (if accent-color 1.5 1.0))
+   .boxShadow (card-shadow)))
+
+;; =============================================================================
+;; ThemeData
+;; =============================================================================
+
+(def app-theme
+  (m/ThemeData
+   .useMaterial3 true
+   .brightness m.Brightness/light
+   .fontFamily font
+   .primaryColor primary
+   .scaffoldBackgroundColor bg
+   .canvasColor bg
+   .cardColor surface
+   .dividerColor outline
+   .splashColor (fade primary 0.08)
+   .highlightColor (fade primary 0.06)
+
+   .colorScheme
+   (m/ColorScheme.light
+    .primary primary
+    .onPrimary m.Colors/white
+    .primaryContainer primary-soft
+    .onPrimaryContainer primary-deep
+    .secondary secondary
+    .onSecondary m.Colors/white
+    .secondaryContainer secondary-soft
+    .onSecondaryContainer (m/Color 0xFF7A3A1C)
+    .tertiary tertiary
+    .onTertiary m.Colors/white
+    .tertiaryContainer tertiary-soft
+    .onTertiaryContainer (m/Color 0xFF3D3358)
+    .error danger
+    .onError m.Colors/white
+    .errorContainer danger-soft
+    .surface surface
+    .onSurface ink
+    .surfaceVariant surface-2
+    .onSurfaceVariant ink-muted
+    .outline outline-strong
+    .outlineVariant outline
+    .shadow ink
+    .inverseSurface ink
+    .onInverseSurface bg
+    .inversePrimary (m/Color 0xFF8FCBE8))
+
+   .appBarTheme
+   (m/AppBarTheme
+    .elevation 0.0
+    .scrolledUnderElevation 0.0
+    .backgroundColor bg
+    .foregroundColor ink
+    .surfaceTintColor m.Colors/transparent
+    .centerTitle true
+    .iconTheme (m/IconThemeData .color ink-muted .size 22.0)
+    .titleTextStyle (mongol-style :size 18.0 :weight m.FontWeight/bold))
+
+   .iconTheme (m/IconThemeData .color ink-muted .size 22.0)
+
+   .navigationRailTheme
+   (m/NavigationRailThemeData
+    .backgroundColor surface-2
+    .elevation 0.0
+    .indicatorColor primary-soft
+    .selectedIconTheme (m/IconThemeData .color primary)
+    .unselectedIconTheme (m/IconThemeData .color ink-muted)
+    .selectedLabelTextStyle (mongol-style :size 13.0 :color primary :weight m.FontWeight/w600)
+    .unselectedLabelTextStyle (mongol-style :size 13.0 :color ink-muted))
+
+   .navigationBarTheme
+   (m/NavigationBarThemeData
+    .backgroundColor surface
+    .elevation 0.0
+    .shadowColor m.Colors/transparent
+    .surfaceTintColor m.Colors/transparent
+    .indicatorColor primary-soft)
+
+   .elevatedButtonTheme
+   (m/ElevatedButtonThemeData
+    .style (m/ElevatedButton.styleFrom
+            .backgroundColor primary
+            .foregroundColor m.Colors/white
+            .elevation 0.0
+            .padding (m.EdgeInsets/symmetric .vertical 16.0 .horizontal 14.0)
+            .shape (m/RoundedRectangleBorder
+                    .borderRadius (m.BorderRadius/circular 14.0))))
+
+   .textButtonTheme
+   (m/TextButtonThemeData
+    .style (m/TextButton.styleFrom
+            .foregroundColor primary
+            .textStyle (m/TextStyle .fontFamily font .fontWeight m.FontWeight/w600)))
+
+   .outlinedButtonTheme
+   (m/OutlinedButtonThemeData
+    .style (m/OutlinedButton.styleFrom
+            .foregroundColor primary
+            .side (m/BorderSide .color primary .width 1.25)
+            .shape (m/RoundedRectangleBorder
+                    .borderRadius (m.BorderRadius/circular 14.0))))
+
+   .floatingActionButtonTheme
+   (m/FloatingActionButtonThemeData
+    .backgroundColor primary
+    .foregroundColor m.Colors/white
+    .elevation 2.0
+    .shape (m/RoundedRectangleBorder
+            .borderRadius (m.BorderRadius/circular 16.0)))
+
+   .snackBarTheme
+   (m/SnackBarThemeData
+    .behavior m.SnackBarBehavior/floating
+    .backgroundColor ink
+    .contentTextStyle (m/TextStyle .color m.Colors/white .fontFamily font .fontSize 14.0)
+    .shape (m/RoundedRectangleBorder
+            .borderRadius (m.BorderRadius/circular 12.0)))
+
+   .dividerTheme
+   (m/DividerThemeData .color outline .space 1.0 .thickness 1.0)
+
+   .inputDecorationTheme
+   (m/InputDecorationTheme
+    .filled true
+    .fillColor surface
+    .hintStyle (mongol-style :color ink-faint :size 16.0)
+    .border m/InputBorder.none
+    .enabledBorder m/InputBorder.none
+    .focusedBorder m/InputBorder.none)
+
+   .dialogTheme
+   (m/DialogThemeData
+    .backgroundColor surface
+    .surfaceTintColor m.Colors/transparent
+    .shape (m/RoundedRectangleBorder
+            .borderRadius (m.BorderRadius/circular radius-l)))
+
+   .popupMenuTheme
+   (m/PopupMenuThemeData
+    .color surface
+    .elevation 8.0
+    .shape (m/RoundedRectangleBorder
+            .borderRadius (m.BorderRadius/circular 14.0)))
+
+   .progressIndicatorTheme
+   (m/ProgressIndicatorThemeData .color primary)
+
+   .textSelectionTheme
+   (m/TextSelectionThemeData
+    .cursorColor primary
+    .selectionColor (fade primary 0.22)
+    .selectionHandleColor primary)
+
+   .textTheme
+   (m/TextTheme
+    .bodyMedium (mongol-style :size 16.0)
+    .bodyLarge (mongol-style :size 18.0)
+    .titleMedium (mongol-style :size 16.0 :weight m.FontWeight/w600)
+    .titleLarge (mongol-style :size 20.0 :weight m.FontWeight/bold)
+    .labelLarge (mongol-style :size 14.0 :color ink-muted))))

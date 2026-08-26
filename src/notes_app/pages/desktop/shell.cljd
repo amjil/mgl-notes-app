@@ -13,7 +13,8 @@
             [notes-app.pages.settings :as settings]
             [notes-app.pages.editor :as editor]
             [notes-app.pages.trash :as trash]
-            [notes-app.widgets.sync-toast :as sync-toast]))
+            [notes-app.widgets.sync-toast :as sync-toast]
+            [notes-app.theme :as t]))
 
 (defn- body-for [nav-id open-doc-id]
   (case nav-id
@@ -44,12 +45,12 @@
            .child (body-for selected-nav-id open-document-id)))]
      (sync-toast/sync-toast-host
       (m/Scaffold
-       .backgroundColor (m/Color 0xFF121212)
+       .backgroundColor t/bg
        .body
        (if show-rail?
          (m/Row
           .children
           [(side-nav/side-navigation-rail)
-           (m/VerticalDivider .width 1.0 .thickness 1.0 .color m.Colors/white12)
+           (m/VerticalDivider .width 1.0 .thickness 1.0 .color t/outline)
            (m/Expanded .child content)])
          content))))))

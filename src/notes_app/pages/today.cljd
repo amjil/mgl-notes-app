@@ -1,11 +1,12 @@
 (ns notes-app.pages.today
   (:require ["package:flutter/material.dart" :as m]
-            ["package:mongol/mongol.dart" :as mgl]
             ["dart:core" :as dc]
             [cljd.flutter :as f]
             [notes-app.services.daily :as daily]
             [notes-app.services.export :as export]
-            [notes-app.pages.editor :as editor]))
+            [notes-app.pages.editor :as editor]
+            [notes-app.theme :as t]
+            [notes-app.ui :as ui]))
 
 (defn today-page []
   (let [;; Currently viewed date
@@ -27,56 +28,34 @@
              doc-id !doc-id]
 
      (m/Scaffold
-      .backgroundColor (m/Color 0xFF121212)
+      .backgroundColor t/bg
       .appBar
-      (m/AppBar
-       .elevation 0.0
-       .backgroundColor (m/Color 0xFF1E1E1E)
-       .foregroundColor (m/Color 0xFFF5F5F5)
-
-       .title (m/Text (daily/date->title current-date)
-                      .style (m/TextStyle .fontFamily "OyunQaganTig"
-                                          .fontSize 20.0
-                                          .fontWeight m.FontWeight/bold
-                                          .color m.Colors/white))
-       .centerTitle true
-
-       .actions
-       [(m/IconButton
-         .icon (m/Icon m.Icons/chevron_left)
-         .tooltip "Previous day"
-         .onPressed (fn []
-                      (let [prev-day (.subtract current-date (dc/Duration. .days 1))]
-                        (reset! !current-date prev-day)
-                        (load-date! prev-day))))
-
-        (m/IconButton
-         .icon (m/Icon m.Icons/today .size 20.0)
-         .tooltip "Go to today"
-         .onPressed (fn []
-                      (let [today (dc/DateTime.now)]
-                        (reset! !current-date today)
-                        (load-date! today))))
-
-        (m/IconButton
-         .icon (m/Icon m.Icons/chevron_right)
-         .tooltip "Next day"
-         .onPressed (fn []
-                      (let [next-day (.add current-date (dc/Duration. .days 1))]
-                        (reset! !current-date next-day)
-                        (load-date! next-day))))
-
+      (ui/page-app-bar
+       :title (daily/date->title current-date)
+       :actions
+       [(ui/action-btn m.Icons/chevron_left "Previous day"
+                       (fn []
+                         (let [prev-day (.subtract current-date (dc/Duration. .days 1))]
+                           (reset! !current-date prev-day)
+                           (load-date! prev-day))))
+        (ui/action-btn m.Icons/today "Go to today"
+                       (fn []
+                         (let [today (dc/DateTime.now)]
+                           (reset! !current-date today)
+                           (load-date! today)))
+                       :filled? true)
+        (ui/action-btn m.Icons/chevron_right "Next day"
+                       (fn []
+                         (let [next-day (.add current-date (dc/Duration. .days 1))]
+                           (reset! !current-date next-day)
+                           (load-date! next-day))))
         (if doc-id
-          (m/IconButton
-           .icon (m/Icon m.Icons/file_download_outlined)
-           .tooltip "Export HTML"
-           .onPressed
-           (fn []
-             (-> (export/export-document-to-file! doc-id)
-                 (.then (fn [path] (export/show-export-result! ctx path)))
-                 (.catchError (fn [_] (export/show-export-result! ctx nil))))))
+          (ui/action-btn m.Icons/file_download_outlined "Export HTML"
+                         (fn []
+                           (-> (export/export-document-to-file! doc-id)
+                               (.then (fn [path] (export/show-export-result! ctx path)))
+                               (.catchError (fn [_] (export/show-export-result! ctx nil))))))
           (m/SizedBox.shrink))
-
         (m/SizedBox .width 8.0)])
 
       .body
@@ -85,7 +64,4 @@
          .key (m/ValueKey doc-id)
          .child (editor/document-editor doc-id :show-back? false :embedded? true))
 
-        (m/Center
-         .child (mgl/MongolText "Loading…"
-                                .style (m/TextStyle .fontFamily "OyunQaganTig"
-                                                    .color m.Colors/white54))))))))
+        (ui/empty-state m.Icons/wb_sunny_outlined "Loading…"))))))

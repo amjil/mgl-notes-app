@@ -5,7 +5,8 @@
             [cljd.flutter :as f]
             [notes-app.services.link :as link]
             [notes-app.services.sync :as sync]
-            [notes-app.state.store :as store]))
+            [notes-app.state.store :as store]
+            [notes-app.theme :as t]))
 
 (defn- preview-text [text]
   (let [t (or text "")
@@ -27,12 +28,12 @@
      .margin (m.EdgeInsets/only .right 16.0)
      .padding (m.EdgeInsets/all 12.0)
      .decoration (m/BoxDecoration
-                  .color (if unlinked?
-                           (m/Color 0x14FF9800)
-                           (m/Color 0x14FFFFFF))
-                  .borderRadius (m.BorderRadius/circular 8.0)
-                  .border (when unlinked?
-                            (m/Border.all .color (m/Color 0x33FF9800) .width 1.0)))
+                  .color (if unlinked? t/warning-soft t/surface)
+                  .borderRadius (m.BorderRadius/circular 12.0)
+                  .border (m/Border.all
+                           .color (if unlinked? (t/fade t/warning 0.35) t/outline)
+                           .width 1.0)
+                  .boxShadow (t/card-shadow))
      .child
      (m/Column
       .crossAxisAlignment m.CrossAxisAlignment/start
@@ -46,11 +47,10 @@
                       .child
                       (mgl/MongolText
                        (display-doc-title document-title)
-                       .style (m/TextStyle
-                               .color (if unlinked? (m/Color 0xFFFFB74D) (m/Color 0xFF64B5F6))
-                               .fontWeight m.FontWeight/bold
-                               .fontFamily "OyunQaganTig"
-                               .fontSize 14.0)))
+                       .style (t/mongol-style
+                               :color (if unlinked? t/warning t/primary)
+                               :weight m.FontWeight/bold
+                               :size 14.0)))
                      (m/SizedBox .height 10.0)
                      (m/GestureDetector
                       .onTap #(when document-id
@@ -58,25 +58,20 @@
                       .child
                       (mgl/MongolText
                        (preview-text block-text)
-                       .style (m/TextStyle
-                               .color (m/Color 0xFFBDBDBD)
-                               .fontFamily "OyunQaganTig"
-                               .fontSize 13.0)))
+                       .style (t/mongol-style :color t/ink-muted :size 13.0)))
                      (when (and unlinked? on-promote)
                        (m/Padding
                         .padding (m.EdgeInsets/only .top 10.0)
                         .child
                         (mgl/MongolTextButton
                          .style (m/TextButton.styleFrom
-                                 .foregroundColor (m/Color 0xFFFFB74D)
+                                 .foregroundColor t/warning
                                  .padding (m.EdgeInsets/zero))
                          .onPressed on-promote
                          .child
                          (mgl/MongolText
                           "Link"
-                          .style (m/TextStyle .fontFamily "OyunQaganTig"
-                                              .fontSize 12.0
-                                              .color (m/Color 0xFFFFB74D))))))]))))))
+                          .style (t/mongol-style :size 12.0 :color t/warning)))))]))))))
 
 (defn- section-header [label color]
   (m/Padding
@@ -84,9 +79,7 @@
    .child
    (mgl/MongolText
     label
-    .style (m/TextStyle .fontSize 15.0
-                        .color color
-                        .fontFamily "OyunQaganTig"))))
+    .style (t/mongol-style :size 15.0 :color color :weight m.FontWeight/w600))))
 
 (defn- cards-row [cards]
   (m/SingleChildScrollView
@@ -138,7 +131,7 @@
                     (if (empty? backlinks)
                       "No linked references"
                       (str "Linked (" (count backlinks) ")"))
-                    (m/Color 0xB3FFFFFF))
+                    t/ink-muted)
                    (m/Expanded .child (cards-row linked-cards))
                    (when (seq unlinked)
                      (m/Padding
@@ -146,6 +139,6 @@
                       .child
                       (section-header
                        (str "Unlinked (" (count unlinked) ")")
-                       (m/Color 0xFFFFB74D))))
+                       t/warning)))
                    (when (seq unlinked)
                      (m/Expanded .child (cards-row unlinked-cards)))])))))
