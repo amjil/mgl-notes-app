@@ -11,6 +11,7 @@
 
 (defonce ^:private !push-timer (atom nil))
 (defonce ^:private !pull-timer (atom nil))
+(def ^:private pull-page-size 200)
 
 (defn- flush-conflict-toast! []
   (when-let [msg (title-conflict/format-toast (store/take-pending-title-conflicts!))]
@@ -46,19 +47,42 @@
      :created-at (or (:created_at m) (get m "created_at"))
      :received-at (or (:received_at m) (:received-at m) (get m "received_at"))}))
 
-(defn- op-cursor-time [item]
+(defn- op-cursor-time
   "Pull cursor: server receive time, falling back to created_at."
+  [item]
   (let [m (wire->op-map item)]
     (or (:received-at m) (:created-at m))))
 
-(defn- advance-pull-cursor! [items]
-  "Advance last_sync_time to max received_at. Empty pull keeps the old cursor
-   so we do not skip late-arriving ops with an older client created_at."
-  (let [times (->> (or items [])
-                   (map op-cursor-time)
-                   (remove #(or (nil? %) (= % ""))))]
-    (when (seq times)
-      (store/set-last-sync-time! (last (sort times))))))
+(defn- op-cursor-id [item]
+  (let [m (wire->op-map item)]
+    (or (:id m) "")))
+
+(defn- last-item-cursor [items]
+  (let [xs (vec (or items []))]
+    (when (seq xs)
+      (let [it (peek xs)]
+        {:since (op-cursor-time it)
+         :since-id (op-cursor-id it)}))))
+
+(defn- apply-remote-ops! [items]
+  (reduce (fn [fut item]
+            (.then fut
+                   (fn [_]
+                     (apply/apply-operation! (wire->op-map item)))))
+          (async/Future.value nil)
+          (or items [])))
+
+(defn- parse-pull-items [body]
+  (let [decoded (convert/jsonDecode body)]
+    (or (cond
+          (dart/is? decoded dart:core/List) decoded
+          (and (dart/is? decoded dart:core/Map)
+               (contains? (into {} (map (fn [k] [(keyword k) (get decoded k)])
+                                        (.-keys decoded)))
+                           :operations))
+          (get decoded "operations")
+          :else [])
+        [])))
 
 (defn- require-auth!
   "Return true if logged in; otherwise set sync error and return false."
@@ -176,53 +200,57 @@
       (async/Future.value :unauthorized)
       (do
         (store/set-sync-status! :syncing "Pull…")
-        (let [since (or (:last-sync-time @store/app-ui-state) "0")
-              uri (dart:core/Uri.parse (str base "/api/sync/pull?since="
-                                            (dart:core/Uri.encodeComponent since)))]
-          (-> (http/get uri :headers (store/auth-headers {}))
-              (.then (fn [resp]
-                       (cond
-                         (= (.-statusCode resp) 401)
-                         (do
-                           (store/clear-auth-session!)
-                           (store/set-sync-status! :error "Session expired — log in again")
-                           :unauthorized)
+        (let [start-since (or (:last-sync-time @store/app-ui-state) "0")
+              start-since-id (or (:last-sync-op-id @store/app-ui-state) "")]
+          (letfn [(pull-page! [since since-id]
+                    (let [qs (str "?since=" (dart:core/Uri.encodeComponent since)
+                                  "&since_id=" (dart:core/Uri.encodeComponent (or since-id ""))
+                                  "&limit=" pull-page-size)
+                          uri (dart:core/Uri.parse (str base "/api/sync/pull" qs))]
+                      (-> (http/get uri :headers (store/auth-headers {}))
+                          (.then (fn [resp]
+                                   (cond
+                                     (= (.-statusCode resp) 401)
+                                     (do
+                                       (store/clear-auth-session!)
+                                       (store/set-sync-status! :error "Session expired — log in again")
+                                       :unauthorized)
 
-                         (and (>= (.-statusCode resp) 200) (< (.-statusCode resp) 300))
-                         (let [decoded (convert/jsonDecode (.-body resp))
-                               items (or (cond
-                                           (dart/is? decoded dart:core/List) decoded
-                                           (and (dart/is? decoded dart:core/Map)
-                                                (contains? (into {} (map (fn [k] [(keyword k) (get decoded k)])
-                                                                         (.-keys decoded)))
-                                                            :operations))
-                                           (get decoded "operations")
-                                           :else [])
-                                         [])]
-                           (-> (reduce (fn [fut item]
-                                         (.then fut
-                                                (fn [_]
-                                                  (apply/apply-operation! (wire->op-map item)))))
-                                       (async/Future.value nil)
-                                       items)
-                               (.then (fn [_] (db/refresh-document-titles!)))
+                                     (and (>= (.-statusCode resp) 200) (< (.-statusCode resp) 300))
+                                     (let [items (parse-pull-items (.-body resp))
+                                           n (count items)
+                                           cursor (last-item-cursor items)]
+                                       (-> (apply-remote-ops! items)
+                                           (.then
+                                            (fn [_]
+                                              (when cursor
+                                                (store/set-last-sync-cursor!
+                                                 (:since cursor)
+                                                 (:since-id cursor)))
+                                              (if (< n pull-page-size)
+                                                :ok
+                                                (pull-page! (:since cursor) (:since-id cursor)))))))
+
+                                     :else
+                                     (do
+                                       (store/set-sync-status!
+                                        :error (humanize-http-error "Pull"
+                                                                    (.-statusCode resp)
+                                                                    (.-body resp)))
+                                       :error))))
+                          (.catchError (fn [e]
+                                         (store/set-sync-status! :error (humanize-exception "Pull" e))
+                                         :error)))))]
+            (-> (pull-page! start-since start-since-id)
+                (.then (fn [res]
+                         (if (= res :ok)
+                           (-> (db/refresh-document-titles!)
                                (.then (fn [_] (asset-sync/download-missing!)))
                                (.then (fn [_]
                                         (flush-conflict-toast!)
-                                        (advance-pull-cursor! items)
                                         (store/set-sync-status! :ok "Pull OK")
-                                        :ok))))
-
-                         :else
-                         (do
-                           (store/set-sync-status!
-                            :error (humanize-http-error "Pull"
-                                                        (.-statusCode resp)
-                                                        (.-body resp)))
-                           :error))))
-              (.catchError (fn [e]
-                             (store/set-sync-status! :error (humanize-exception "Pull" e))
-                             :error))))))
+                                        :ok)))
+                           res))))))))
     (do
       (store/set-sync-status! :error "Sync URL not configured")
       (async/Future.value :no-url)))))

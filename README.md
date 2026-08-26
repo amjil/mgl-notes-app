@@ -61,7 +61,7 @@ Sync model (client):
 
 - Local **operation log** is pushed; remote operations are pulled and applied (last-write-wins).
 - Binary assets upload and download separately from the operation log.
-- After edits: debounced **push** (~2s). **Pull** on launch, on resume, and every 5 minutes while logged in. **Push** on pause / background.
+- After edits: debounced **push** (~2s). **Pull** on launch, on resume, and every 5 minutes while logged in. **Push** on pause / background. Pull cursor is server ingest time (`received_at`), not the original edit time.
 
 #### Title conflicts (same note, different devices)
 
@@ -89,7 +89,7 @@ After sync, the app shows a **SnackBar** when a rename happened (e.g. `Title con
 - Traditional Mongolian **vertical layout** (`mongol`) and **OyunQaganTig** font.
 - **Mobile**: in-app Mongolian virtual keyboard.
 - **Desktop**: global Mongolian IME overlay.
-- Dark theme. Desktop uses a left rail; mobile uses a bottom bar (Today / Docs / Tasks / Search / Settings).
+- Light parchment theme with sky-blue accents. Desktop uses a left rail; mobile uses a bottom bar (Today / Docs / Tasks / Search / Settings).
 
 ## Tech stack
 

@@ -5,6 +5,7 @@
   {:device-id "device_id"
    :sync-base-url "sync_base_url"
    :last-sync-time "last_sync_time"
+   :last-sync-op-id "last_sync_op_id"
    :user-name "user_name"
    :show-daily-only "show_daily_only"
    :sync-enabled "sync_enabled"
@@ -22,6 +23,7 @@
          :device-id nil
          :sync-base-url default-sync-base-url
          :last-sync-time nil
+         :last-sync-op-id ""
          :user-name ""
          :show-daily-only false
          :sync-enabled false
@@ -50,6 +52,7 @@
                    default-sync-base-url
                    saved-url)
         last-sync (.getString prefs (:last-sync-time pref-keys))
+        last-sync-op-id (or (.getString prefs (:last-sync-op-id pref-keys)) "")
         user-name (or (.getString prefs (:user-name pref-keys)) "")
         show-daily-only? (or (.getBool prefs (:show-daily-only pref-keys)) false)
         auth-token (.getString prefs (:auth-token pref-keys))
@@ -68,6 +71,7 @@
            :device-id device-id
            :sync-base-url base-url
            :last-sync-time last-sync
+           :last-sync-op-id last-sync-op-id
            :user-name user-name
            :show-daily-only show-daily-only?
            :sync-enabled sync-enabled?
@@ -181,6 +185,18 @@
     (swap! app-ui-state assoc :last-sync-time v)
     (let [prefs (await (.getInstance sp/SharedPreferences))]
       (await (.setString prefs (:last-sync-time pref-keys) v)))))
+
+(defn set-last-sync-cursor!
+  "Persist pull cursor tuple `(received_at, op_id)`."
+  [since since-id]
+  (let [t (str (or since "0"))
+        oid (str (or since-id ""))]
+    (swap! app-ui-state assoc
+           :last-sync-time t
+           :last-sync-op-id oid)
+    (let [prefs (await (.getInstance sp/SharedPreferences))]
+      (await (.setString prefs (:last-sync-time pref-keys) t))
+      (await (.setString prefs (:last-sync-op-id pref-keys) oid)))))
 
 (defn set-sync-status! [status message]
   (when (= status :error)
