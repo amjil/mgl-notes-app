@@ -241,7 +241,7 @@
                           [(m/Expanded .child editor-body)
                            (when show-panel?
                              (m/Container
-                              .width 280.0
+                              .width 360.0
                               .decoration (m/BoxDecoration
                                            .color t/surface
                                            .border (m/Border

@@ -25,7 +25,7 @@
   [{:keys [block-id block-text document-id document-title]} kind on-promote]
   (let [unlinked? (= kind :unlinked)]
     (m/Container
-     .margin (m.EdgeInsets/only .right 16.0)
+     .margin (m.EdgeInsets/only .right 12.0)
      .padding (m.EdgeInsets/all 12.0)
      .decoration (m/BoxDecoration
                   .color (if unlinked? t/warning-soft t/surface)
@@ -37,7 +37,6 @@
      .child
      (m/Column
       .crossAxisAlignment m.CrossAxisAlignment/start
-      .mainAxisSize m.MainAxisSize/min
       .children
       (into []
             (remove nil?
@@ -52,13 +51,15 @@
                                :weight m.FontWeight/bold
                                :size 14.0)))
                      (m/SizedBox .height 10.0)
-                     (m/GestureDetector
-                      .onTap #(when document-id
-                                (store/open-document! document-id block-id))
+                     (m/Expanded
                       .child
-                      (mgl/MongolText
-                       (preview-text block-text)
-                       .style (t/mongol-style :color t/ink-muted :size 13.0)))
+                      (m/GestureDetector
+                       .onTap #(when document-id
+                                 (store/open-document! document-id block-id))
+                       .child
+                       (mgl/MongolText
+                        (preview-text block-text)
+                        .style (t/mongol-style :color t/ink-muted :size 13.0))))
                      (when (and unlinked? on-promote)
                        (m/Padding
                         .padding (m.EdgeInsets/only .top 10.0)
@@ -73,21 +74,62 @@
                           "Link"
                           .style (t/mongol-style :size 12.0 :color t/warning)))))]))))))
 
-(defn- section-header [label color]
-  (m/Padding
-   .padding (m.EdgeInsets/only .bottom 12.0)
+(defonce ^:private !sections-open
+  (atom {:linked true :unlinked true}))
+
+(defn- toggle-section! [k]
+  (swap! !sections-open update k not))
+
+(defn- section-header [label color open? on-toggle]
+  (m/Material
+   .color m.Colors/transparent
    .child
-   (mgl/MongolText
-    label
-    .style (t/mongol-style :size 15.0 :color color :weight m.FontWeight/w600))))
+   (m/InkWell
+    .onTap on-toggle
+    .borderRadius (m.BorderRadius/circular 8.0)
+    .child
+    (m/Container
+     .padding (m.EdgeInsets/fromLTRB 4.0 8.0 8.0 8.0)
+     .decoration (m/BoxDecoration
+                  .color (if open? m.Colors/transparent (t/fade color 0.10))
+                  .borderRadius (m.BorderRadius/circular 8.0))
+     .child
+     (m/Column
+      .children
+      [(m/Expanded
+        .child
+        (mgl/MongolText
+         label
+         .style (t/mongol-style :size 15.0 :color color :weight m.FontWeight/w600)))
+       (m/Icon
+        (if open? m.Icons/chevron_left m.Icons/chevron_right)
+        .size 18.0
+        .color color)])))))
 
 (defn- cards-row [cards]
   (m/SingleChildScrollView
    .scrollDirection m.Axis/horizontal
+   .physics (m/BouncingScrollPhysics)
    .child
    (m/Row
-    .crossAxisAlignment m.CrossAxisAlignment/start
+    .crossAxisAlignment m.CrossAxisAlignment/stretch
     .children (vec cards))))
+
+(defn- section-pane
+  "Vertical title rail + cards. Collapsed shows only the tappable rail."
+  [{:keys [open? on-toggle label color cards]}]
+  (let [header (section-header label color open? on-toggle)
+        body (m/Row
+              .crossAxisAlignment m.CrossAxisAlignment/stretch
+              .children
+              (into []
+                    (remove nil?
+                            [header
+                             (when open?
+                               (m/Expanded .child (cards-row cards)))])))]
+    (if open?
+      (m/Expanded .child body)
+      body)))
 
 (defn references-sidebar
   "Watch linked + unlinked refs for `page-title`.
@@ -102,13 +144,16 @@
            unlinked (stream
                      (map (fn [rows] (or rows [])))
                      ;; Query via the link namespace
-                     :as-values (link/watch-unlinked-references page-title document-id))]
+                     :as-values (link/watch-unlinked-references page-title document-id))
+           open-sections !sections-open]
    :let [backlinks (or backlinks [])
          unlinked (->> (or unlinked [])
                        (remove (fn [item]
                                  (or (= (:document-id item) document-id)
                                      (= (:document-title item) page-title))))
                        vec)
+         linked-open? (get open-sections :linked true)
+         unlinked-open? (get open-sections :unlinked true)
          linked-cards (mapv (fn [item] (reference-card item :linked nil)) backlinks)
          unlinked-cards
          (mapv (fn [item]
@@ -122,23 +167,28 @@
                                    (on-promoted doc-id))
                                  (sync/schedule-push!)))))))
                unlinked)]
-   (m/Column
-    .crossAxisAlignment m.CrossAxisAlignment/start
+   (m/Row
+    .crossAxisAlignment m.CrossAxisAlignment/stretch
     .children
     (into []
           (remove nil?
-                  [(section-header
-                    (if (empty? backlinks)
-                      "No linked references"
-                      (str "Linked (" (count backlinks) ")"))
-                    t/ink-muted)
-                   (m/Expanded .child (cards-row linked-cards))
+                  [(section-pane
+                    {:open? linked-open?
+                     :on-toggle #(toggle-section! :linked)
+                     :label (if (empty? backlinks)
+                              "No linked references"
+                              (str "Linked (" (count backlinks) ")"))
+                     :color t/ink-muted
+                     :cards linked-cards})
                    (when (seq unlinked)
-                     (m/Padding
-                      .padding (m.EdgeInsets/only .top 16.0)
-                      .child
-                      (section-header
-                       (str "Unlinked (" (count unlinked) ")")
-                       t/warning)))
+                     (m/VerticalDivider
+                      .width 12.0
+                      .thickness 1.0
+                      .color t/outline))
                    (when (seq unlinked)
-                     (m/Expanded .child (cards-row unlinked-cards)))])))))
+                     (section-pane
+                      {:open? unlinked-open?
+                       :on-toggle #(toggle-section! :unlinked)
+                       :label (str "Unlinked (" (count unlinked) ")")
+                       :color t/warning
+                       :cards unlinked-cards}))])))))
