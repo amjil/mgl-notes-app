@@ -168,11 +168,12 @@
 
 (defn promote-unlinked-to-link!
   "Wrap bare title mention with `[[title]]`, emit block_update for sync, rebuild index.
-   Returns Future of affected document-id (or nil)."
-  [{:keys [block-id text document-id]} title]
+   Returns Future of affected document-id (or nil).
+   Accepts either `:block-text` (backlinks row) or `:text`."
+  [{:keys [block-id block-text text document-id]} title]
   (if-not (and block-id title (not (str/blank? title)))
     (async/Future.value nil)
-    (let [^String old (or text "")
+    (let [^String old (or block-text text "")
           ^String new-text (.replaceFirst old title (str "[[" title "]]"))]
       (if (= old new-text)
         (async/Future.value nil)

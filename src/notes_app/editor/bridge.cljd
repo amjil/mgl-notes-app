@@ -120,7 +120,7 @@
                      (dart:core/print (str "load-into! failed: " e))
                      !state))))
 
-(defn persist-diff!
+(defn- persist-diff-now!
   "Diff editor state vs previous flat snapshot; write BlockService ops.
    Also rebuilds local block_links index from text (not synced — derived).
    `!snapshot` holds last persisted flat map id→row."
@@ -159,6 +159,42 @@
                  (sync/schedule-push!)
                  true))
         (.catchError (fn [e]
+                       (dart:core/print (str "persist-diff! failed: " e))
+                       false)))))
+
+(defonce ^:private !persist-chain (atom {}))
+
+(defn await-persist
+  "Future that completes when in-flight persists for this document finish."
+  [document-id]
+  (or (get @!persist-chain document-id)
+      (async/Future.value true)))
+
+(defn persist-diff!
+  "Serialize persists per document so debounce + dispose cannot overlap."
+  [document-id state !snapshot]
+  (let [run (fn [_] (persist-diff-now! document-id state !snapshot))
+        prev (get @!persist-chain document-id)
+        chained (if prev
+                  (-> prev
+                      (.catchError (fn [_] nil))
+                      (.then run))
+                  (run nil))]
+    (swap! !persist-chain assoc document-id chained)
+    (-> chained
+        (.then (fn [ok?]
+                 (swap! !persist-chain
+                        (fn [m]
+                          (if (identical? (get m document-id) chained)
+                            (dissoc m document-id)
+                            m)))
+                 ok?))
+        (.catchError (fn [e]
+                       (swap! !persist-chain
+                              (fn [m]
+                                (if (identical? (get m document-id) chained)
+                                  (dissoc m document-id)
+                                  m)))
                        (dart:core/print (str "persist-diff! failed: " e))
                        false)))))
 

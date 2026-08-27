@@ -21,7 +21,8 @@
   @db)
 
 (defn- stream-handle-error [s]
-  s)
+  (.handleError s (fn [e]
+                    (dart:core/print (str "db watch error: " e)))))
 
 (defn now ^dc/DateTime []
   (.toUtc (dc/DateTime.now)))

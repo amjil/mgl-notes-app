@@ -1,5 +1,6 @@
 (ns notes-app.main
   (:require ["package:flutter/material.dart" :as m]
+            ["package:mongol/mongol.dart" :as mgl]
             [cljd.flutter :as f]
             [notes-app.platform :as platform]
             [notes-app.bootstrap.desktop :as desktop-boot]
@@ -7,15 +8,19 @@
             [notes-app.db.core :as db]
             [notes-app.state.store :as store]
             [notes-app.pages.shell :as shell]
+            [notes-app.pages.editor :as editor]
             [notes-app.services.sync :as sync]
             [notes-app.services.link :as link]
             [notes-app.services.daily :as daily]
             [notes-app.theme :as theme]
             [notes-app.ui :as ui]))
 
+(defonce ^:private !boot (atom {:status :loading}))
+
 (defn- boot!
-  "Init DB, prefs, link index, and today's daily doc. Resolves to true when ready."
+  "Init DB, prefs, link index, and today's daily doc."
   []
+  (reset! !boot {:status :loading})
   (-> (db/initialize-database!)
       (.then (fn [_] (store/load-prefs!)))
       (.then (fn [_] (db/refresh-document-titles!)))
@@ -24,11 +29,37 @@
       (.then (fn [_] (daily/ensure-today!)))
       (.then (fn [_]
                (shell/register-lifecycle!)
+               (sync/set-editor-hooks!
+                editor/flush-open-sessions!
+                editor/reload-open-sessions!)
                (sync/on-app-start!)
-               true))
+               (reset! !boot {:status :ready})))
       (.catchError (fn [e]
                      (dart:core/print (str "Startup failed: " e))
-                     false))))
+                     (reset! !boot {:status :error :message (str e)})))))
+
+(defn- boot-error-screen [message]
+  (m/Scaffold
+   .backgroundColor theme/bg
+   .body
+   (m/Center
+    .child
+    (m/Column
+     .mainAxisSize m.MainAxisSize/min
+     .children
+     [(ui/empty-state m.Icons/error_outline "Startup failed")
+      (m/SizedBox .height 16.0)
+      (m/TextButton
+       .onPressed boot!
+       .child (mgl/MongolText "Retry"
+                              .style (theme/mongol-style :color theme/primary)))
+      (when (and message (not= message ""))
+        (m/Padding
+         .padding (m.EdgeInsets/only .top 12.0)
+         .child
+         (m/Text message
+                 .textAlign m.TextAlign/center
+                 .style (m/TextStyle .color theme/ink-muted .fontSize 12.0))))]))))
 
 (defn main []
   (m/WidgetsFlutterBinding.ensureInitialized)
@@ -37,14 +68,17 @@
     (desktop-boot/init!)
     (mobile-boot/init!))
 
+  (boot!)
+
   (f/run
-   :watch [ready? (boot!)]
+   :watch [{:keys [status message]} !boot]
    (m/MaterialApp
     .title "Amjil Notes"
     .debugShowCheckedModeBanner false
     .theme theme/app-theme
-    .home (if ready?
-            (shell/app-shell)
+    .home (case status
+            :ready (shell/app-shell)
+            :error (boot-error-screen message)
             (m/Scaffold
              .backgroundColor theme/bg
              .body (ui/loading))))))

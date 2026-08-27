@@ -34,16 +34,20 @@
       (recur (get-in id->doc [cur :parent-id])
              (conj acc (display-title (get-in id->doc [cur :title])))))))
 
-(defn- pick-and-close! [dialog-ctx doc-id parent-id on-done]
-  (-> (doc/move! doc-id parent-id)
-      (.then (fn [ok?]
-               ;; 🌟 Fix: Use m.Navigator/of for static method interop
-               (.pop (m.Navigator/of dialog-ctx))
-               (when on-done (on-done ok?))))
-      (.catchError (fn [_]
-                     ;; 🌟 Fix: Use m.Navigator/of for static method interop
+(defn- pick-and-close! [host-ctx dialog-ctx doc-id parent-id on-done]
+  (let [snack! (fn [msg]
+                 (when host-ctx
+                   (-> (m/ScaffoldMessenger.of host-ctx)
+                       (.showSnackBar (m/SnackBar .content (m/Text msg))))))]
+    (-> (doc/move! doc-id parent-id)
+        (.then (fn [ok?]
+                 (if ok?
+                   (do
                      (.pop (m.Navigator/of dialog-ctx))
-                     (when on-done (on-done false))))))
+                     (when on-done (on-done true)))
+                   (snack! "Cannot move there — it would create a cycle."))))
+        (.catchError (fn [_]
+                       (snack! "Move failed."))))))
 
 (defn- candidate-tile [label subtitle icon color on-tap]
   (ui/note-card
@@ -136,7 +140,7 @@
                       "Top level"
                       m.Icons/home_outlined
                       (if (nil? current-parent-id) t/primary t/ink-muted)
-                      #(pick-and-close! c doc-id nil on-done))]
+                      #(pick-and-close! ctx c doc-id nil on-done))]
                     (if (str/blank? (str/trim query))
                       [(m/Container
                         .width 120.0
@@ -160,7 +164,7 @@
                                    (or path "Root")
                                    (if current? m.Icons/folder m.Icons/description_outlined)
                                    (if current? t/primary t/ink-muted)
-                                   #(pick-and-close! c doc-id id on-done))))
+                                   #(pick-and-close! ctx c doc-id id on-done))))
                               matches)))))))])
              :actions
              [(mgl/MongolTextButton

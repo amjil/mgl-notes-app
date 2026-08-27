@@ -12,7 +12,27 @@
 
 (defonce ^:private !push-timer (atom nil))
 (defonce ^:private !pull-timer (atom nil))
+(defonce ^:private !sync-busy (atom false))
+(defonce ^:private !sync-pending (atom nil))
+(defonce ^:private !before-pull (atom nil))
+(defonce ^:private !after-remote-apply (atom nil))
 (def ^:private pull-page-size 200)
+
+(defn set-editor-hooks!
+  "Optional fns that return a Future.
+   `before` — persist open editors so pull LWW does not get overwritten.
+   `after` — reload open editors after remote ops were applied."
+  [before after]
+  (reset! !before-pull before)
+  (reset! !after-remote-apply after))
+
+(defn- call-hook [hook]
+  (-> (if-let [f @hook]
+        (f)
+        (async/Future.value nil))
+      (.catchError (fn [e]
+                     (dart:core/print (str "editor sync hook failed: " e))
+                     nil))))
 
 (defn- flush-conflict-toast! []
   (when-let [msg (title-conflict/format-toast (store/take-pending-title-conflicts!))]
@@ -158,7 +178,44 @@
 (defn- sync-disabled? []
   (not (store/sync-enabled?)))
 
-(defn push!
+(defn- merge-sync-kind [prev kind]
+  (cond
+    (nil? prev) kind
+    (or (= prev :sync) (= kind :sync)) :sync
+    (not= prev kind) :sync
+    :else prev))
+
+(declare push! pull! sync-now!)
+
+(defn- run-pending-sync! []
+  (when-let [kind (let [k @!sync-pending]
+                    (reset! !sync-pending nil)
+                    k)]
+    (case kind
+      :push (push!)
+      :pull (pull!)
+      :sync (sync-now!)
+      nil)))
+
+(defn- with-sync-lock!
+  "Run `f` exclusively. Overlapping calls queue one follow-up (:pull/:push/:sync)."
+  [kind f]
+  (if @!sync-busy
+    (do
+      (swap! !sync-pending merge-sync-kind kind)
+      (async/Future.value :queued))
+    (do
+      (reset! !sync-busy true)
+      (-> (f)
+          (.catchError (fn [e]
+                         (store/set-sync-status! :error (humanize-exception "Sync" e))
+                         :error))
+          (.then (fn [res]
+                   (reset! !sync-busy false)
+                   (run-pending-sync!)
+                   res))))))
+
+(defn- push-now!
   "Push unsynced operations. No-op (returns :no-url) if base URL unset."
   []
   (cond
@@ -216,6 +273,10 @@
                                                       (apply/apply-push-title-renames! renames)))
                                              (.then (fn [_]
                                                       (flush-conflict-toast!)
+                                                      (if (seq (or renames []))
+                                                        (call-hook !after-remote-apply)
+                                                        (async/Future.value nil))))
+                                             (.then (fn [_]
                                                       (store/set-sync-status! :ok "Push OK")
                                                       :ok))))
 
@@ -230,7 +291,7 @@
                          (store/set-sync-status! :error (humanize-exception "Push" e))
                          :error))))))
 
-(defn pull!
+(defn- pull-now!
   "Pull operations since last_sync_time.
    After apply, refresh title cache (link autocomplete)."
   []
@@ -239,73 +300,81 @@
     (if-let [base (base-url)]
     (if-not (require-auth!)
       (async/Future.value :unauthorized)
-      (do
-        (store/set-sync-status! :syncing "Pull…")
-        (let [start-since (or (:last-sync-time @store/app-ui-state) "0")
-              start-since-id (or (:last-sync-op-id @store/app-ui-state) "")]
-          (letfn [(pull-page! [since since-id]
-                    (let [qs (str "?since=" (dart:core/Uri.encodeComponent since)
-                                  "&since_id=" (dart:core/Uri.encodeComponent (or since-id ""))
-                                  "&limit=" pull-page-size)
-                          uri (dart:core/Uri.parse (str base "/api/sync/pull" qs))]
-                      (-> (http/get uri :headers (store/auth-headers {}))
-                          (.then (fn [resp]
-                                   (cond
-                                     (= (.-statusCode resp) 401)
-                                     (do
-                                       (store/clear-auth-session!)
-                                       (store/set-sync-status! :error "Session expired — log in again")
-                                       :unauthorized)
+      (let [applied? (atom false)
+            start-since (or (:last-sync-time @store/app-ui-state) "0")
+            start-since-id (or (:last-sync-op-id @store/app-ui-state) "")]
+        (letfn [(pull-page! [since since-id]
+                  (let [qs (str "?since=" (dart:core/Uri.encodeComponent since)
+                                "&since_id=" (dart:core/Uri.encodeComponent (or since-id ""))
+                                "&limit=" pull-page-size)
+                        uri (dart:core/Uri.parse (str base "/api/sync/pull" qs))]
+                    (-> (http/get uri :headers (store/auth-headers {}))
+                        (.then (fn [resp]
+                                 (cond
+                                   (= (.-statusCode resp) 401)
+                                   (do
+                                     (store/clear-auth-session!)
+                                     (store/set-sync-status! :error "Session expired — log in again")
+                                     :unauthorized)
 
-                                     (and (>= (.-statusCode resp) 200) (< (.-statusCode resp) 300))
-                                     (let [items (parse-pull-items (.-body resp))
-                                           n (count items)
-                                           cursor (last-item-cursor items)]
-                                       (-> (apply-remote-ops! items)
-                                           (.then
-                                            (fn [_]
-                                              (when cursor
-                                                (store/set-last-sync-cursor!
-                                                 (:since cursor)
-                                                 (:since-id cursor)))
-                                              (if (< n pull-page-size)
-                                                :ok
-                                                (pull-page! (:since cursor) (:since-id cursor)))))))
+                                   (and (>= (.-statusCode resp) 200) (< (.-statusCode resp) 300))
+                                   (let [items (parse-pull-items (.-body resp))
+                                         n (count items)
+                                         cursor (last-item-cursor items)]
+                                     (when (pos? n)
+                                       (reset! applied? true))
+                                     (-> (apply-remote-ops! items)
+                                         (.then
+                                          (fn [_]
+                                            (when cursor
+                                              (store/set-last-sync-cursor!
+                                               (:since cursor)
+                                               (:since-id cursor)))
+                                            (if (< n pull-page-size)
+                                              :ok
+                                              (pull-page! (:since cursor) (:since-id cursor)))))))
 
-                                     :else
-                                     (do
-                                       (store/set-sync-status!
-                                        :error (humanize-http-error "Pull"
-                                                                    (.-statusCode resp)
-                                                                    (.-body resp)))
-                                       :error))))
-                          (.catchError (fn [e]
-                                         (store/set-sync-status! :error (humanize-exception "Pull" e))
-                                         :error)))))]
-            (-> (pull-page! start-since start-since-id)
-                (.then (fn [res]
-                         (if (= res :ok)
-                           (-> (db/refresh-document-titles!)
-                               (.then (fn [_] (asset-sync/download-missing!)))
-                               (.then (fn [_]
-                                        (flush-conflict-toast!)
-                                        (store/set-sync-status! :ok "Pull OK")
-                                        :ok)))
-                           res))))))))
+                                   :else
+                                   (do
+                                     (store/set-sync-status!
+                                      :error (humanize-http-error "Pull"
+                                                                  (.-statusCode resp)
+                                                                  (.-body resp)))
+                                     :error))))
+                        (.catchError (fn [e]
+                                       (store/set-sync-status! :error (humanize-exception "Pull" e))
+                                       :error)))))]
+          (-> (call-hook !before-pull)
+              (.then (fn [_]
+                       (store/set-sync-status! :syncing "Pull…")
+                       (pull-page! start-since start-since-id)))
+              (.then (fn [res]
+                       (if (= res :ok)
+                         (-> (db/refresh-document-titles!)
+                             (.then (fn [_] (asset-sync/download-missing!)))
+                             (.then (fn [_]
+                                      (flush-conflict-toast!)
+                                      (if @applied?
+                                        (call-hook !after-remote-apply)
+                                        (async/Future.value nil))))
+                             (.then (fn [_]
+                                      (store/set-sync-status! :ok "Pull OK")
+                                      :ok)))
+                         res)))))))
     (do
       (store/set-sync-status! :error "Sync URL not configured")
       (async/Future.value :no-url)))))
 
-(defn sync-now!
+(defn- sync-now-run!
   "Pull then push. Keeps :error if either step fails."
   []
   (if (sync-disabled?)
     (do
       (on-disabled!)
       (async/Future.value :disabled))
-    (-> (pull!)
+    (-> (pull-now!)
       (.then (fn [pull-res]
-               (-> (push!)
+               (-> (push-now!)
                    (.then (fn [push-res]
                             (cond
                               (sync-failure? pull-res)
@@ -319,6 +388,21 @@
                                 (flush-conflict-toast!)
                                 (store/set-sync-status! :ok "Sync OK")
                                 :ok))))))))))
+
+(defn push!
+  "Push unsynced operations. Serialized with pull/sync-now."
+  []
+  (with-sync-lock! :push push-now!))
+
+(defn pull!
+  "Pull operations since last_sync_time. Serialized with push/sync-now."
+  []
+  (with-sync-lock! :pull pull-now!))
+
+(defn sync-now!
+  "Pull then push. Serialized so overlapping triggers queue one follow-up."
+  []
+  (with-sync-lock! :sync sync-now-run!))
 
 (defn schedule-push!
   "Debounce push by 2 seconds after edits."

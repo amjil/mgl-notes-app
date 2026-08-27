@@ -1,7 +1,7 @@
 (ns notes-app.services.backup
   "Handles JSON serialization of the entire database for backup and restore.
-   Includes the local operation log + last_sync_time so restore stays aligned
-   with cloud sync (avoids duplicate push / missed pull)."
+   Includes the local operation log + last_sync_time / last_sync_op_id so restore
+   stays aligned with cloud sync (avoids duplicate push / missed pull)."
   (:require ["dart:core" :as dc]
             ["dart:async" :as async]
             ["dart:io" :as io]
@@ -93,6 +93,7 @@
                    (db/encode-json {:version 3
                                     :timestamp (dt->iso (db/now))
                                     :last-sync-time (:last-sync-time @store/app-ui-state)
+                                    :last-sync-op-id (:last-sync-op-id @store/app-ui-state)
                                     :documents doc-maps
                                     :blocks block-maps
                                     :assets asset-maps
@@ -148,8 +149,14 @@
           (when (.existsSync (io/File. src))
             (.copySync (io/File. src) dest)))))))
 
-(defn- clear-operations! [^drift/AppDatabase database]
-  (.go (.delete database (.-operations database))))
+(defn- clear-all-content!
+  "Wipe local rows so restore matches the backup (no leftover documents/blocks)."
+  [^drift/AppDatabase database]
+  (-> (.go (.delete database (.-blockLinks database)))
+      (.then (fn [_] (.go (.delete database (.-operations database)))))
+      (.then (fn [_] (.go (.delete database (.-blocks database)))))
+      (.then (fn [_] (.go (.delete database (.-assets database)))))
+      (.then (fn [_] (.go (.delete database (.-documents database)))))))
 
 (defn- restore-sync-cursor!
   "Align pull cursor with backup. Legacy backups (no operations) reset to epoch
@@ -158,8 +165,10 @@
   (let [has-ops? (contains? data :operations)
         cursor (when has-ops?
                  (let [v (:last-sync-time data)]
-                   (when (and v (not= v "")) v)))]
-    (store/set-last-sync-time! (or cursor "0"))))
+                   (when (and v (not= v "")) v)))
+        op-id (when has-ops?
+                (str (or (:last-sync-op-id data) "")))]
+    (store/set-last-sync-cursor! (or cursor "0") (or op-id ""))))
 
 (defn- insert-operations-batch! [^drift/AppDatabase database ^d/Batch b ops]
   (doseq [o ops]
@@ -192,7 +201,7 @@
                        (when-not (.existsSync assets-dir)
                          (.createSync assets-dir .recursive true))
                        (when json-path (restore-asset-files! json-path assets app-assets))
-                       (-> (clear-operations! database)
+                       (-> (clear-all-content! database)
                            (.then (fn [_]
                                     (.batch database
                                             (fn [^d/Batch b]

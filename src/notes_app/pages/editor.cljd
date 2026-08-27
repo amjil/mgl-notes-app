@@ -28,26 +28,19 @@
 ;; Block Transclusion (Embed) Widget
 ;; =============================================================================
 
-;; A simple local cache to prevent infinite SQLite queries during Flutter rebuilds
-(defonce ^:private !embed-cache (atom {}))
-
-(defn- get-cached-block! [target-id]
-  (if (contains? @!embed-cache target-id)
-    (async/Future.value (get @!embed-cache target-id))
-    (-> (db/get-block target-id)
-        (.then (fn [blk]
-                 (swap! !embed-cache assoc target-id blk)
-                 blk))
-        (.catchError (fn [_] nil)))))
-
 (defn- embed-widget
   "Renders a read-only mirrored view of another block."
   [target-id current-block-id !state]
-  (f/widget
-   ;; :watch natively supports unwrapping Futures. It will trigger a rebuild when resolved.
-   :watch [blk-row (get-cached-block! target-id)]
-   
-   (if-not blk-row
+  (if (or (nil? target-id) (= target-id ""))
+    (m/Container
+     .padding (m.EdgeInsets/all 8.0)
+     .child (mgl/MongolText "(Loading block or not found...)"
+                            .style (t/mongol-style :color t/ink-faint)))
+    (f/widget
+     :watch [blk-row (stream
+                      (map (fn [row] row))
+                      :as-values (db/watch-block target-id))]
+     (if-not blk-row
      (m/Container
       .padding (m.EdgeInsets/all 8.0)
       .child (mgl/MongolText "(Loading block or not found...)"
@@ -84,7 +77,7 @@
               (m/Icon m.Icons/close .size 16.0 .color t/ink-faint))])
            (m/SizedBox .height 12.0)
            (mgl/MongolText (if (empty? text) "(Empty block)" text)
-                           .style (t/mongol-style :size 16.0 :color t/ink-muted))])))))))
+                           .style (t/mongol-style :size 16.0 :color t/ink-muted))]))))))))
 
 ;; =============================================================================
 ;; Editor config
@@ -137,21 +130,76 @@
                                :!show-backlinks (atom true)}))))))
       (.catchError (fn [e]
                      (dart:core/print (str "load-session! failed: " e))
-                     nil))))
+                     :failed))))
+
+(defn- reveal-pending-focus! [session]
+  (when-let [block-id (store/take-focus-block-id!)]
+    (navigate/reveal-block! (:!state session) block-id))
+  session)
 
 (defn- ensure-session! [document-id]
   (if-let [s (get @!sessions document-id)]
-    (async/Future.value s)
-    (-> (load-session! document-id)
+    (do
+      (reveal-pending-focus! s)
+      (async/Future.value s))
+    (-> (bridge/await-persist document-id)
+        (.then (fn [_] (load-session! document-id)))
         (.then (fn [s]
-                 (when s
-                   (swap! !sessions assoc document-id s))
-                 s)))))
+                 (if (or (nil? s) (= s :failed))
+                   :failed
+                   (do
+                     (swap! !sessions assoc document-id s)
+                     (reveal-pending-focus! s)
+                     s))))))
 
 (defn invalidate-session!
   "Drop cached editor state."
   [document-id]
   (swap! !sessions dissoc document-id))
+
+(defn- cancel-save-timer! [session]
+  (when-let [t @(:!save-timer session)]
+    (.cancel ^async/Timer t)
+    (reset! (:!save-timer session) nil)))
+
+(defn flush-open-sessions!
+  "Persist every cached editor so a following pull sees local edits."
+  []
+  (reduce (fn [fut [doc-id session]]
+            (.then fut
+                   (fn [_]
+                     (cancel-save-timer! session)
+                     (bridge/persist-diff! doc-id @(:!state session) (:!snapshot session)))))
+          (async/Future.value true)
+          (vec @!sessions)))
+
+(defn- reload-session! [document-id session]
+  (cancel-save-timer! session)
+  (-> (db/get-document document-id)
+      (.then (fn [doc]
+               (-> (db/get-blocks document-id)
+                   (.then (fn [block-rows]
+                            (let [rows (or block-rows [])
+                                  initial (bridge/rows->editor-state rows)]
+                              (reset! (:!state session) initial)
+                              (reset! (:!snapshot session)
+                                      (bridge/snapshot-from-state initial))
+                              (reset! (:!title session)
+                                      (if doc (or (.-title doc) "") ""))
+                              true))))))
+      (.catchError (fn [e]
+                     (dart:core/print (str "reload-session! failed: " e))
+                     false))))
+
+(defn reload-open-sessions!
+  "Re-read cached editors from DB after remote apply (in-place, same atoms)."
+  []
+  (-> (flush-open-sessions!)
+      (.then (fn [_]
+               (reduce (fn [fut [doc-id session]]
+                         (.then fut (fn [_] (reload-session! doc-id session))))
+                       (async/Future.value true)
+                       (vec @!sessions))))))
 
 (defn- show-rename! [ctx document-id !title]
   (rename/rename-dialog ctx @!title
@@ -307,10 +355,9 @@
   (f/widget
    :context ctx
    :watch [session (ensure-session! document-id)]
-   (if-not session
-     (ui/loading)
-     (do
-       ;; Search / block-ref / tasks: one-shot scroll + flash via block-editor API.
-       (when-let [block-id (store/take-focus-block-id!)]
-         (navigate/reveal-block! (:!state session) block-id))
-       (editor-chrome document-id session ctx show-back? on-back embedded?)))))
+   (cond
+     (nil? session) (ui/loading)
+     (= session :failed)
+     (ui/empty-state m.Icons/error_outline "Could not load document")
+     :else
+     (editor-chrome document-id session ctx show-back? on-back embedded?)))))

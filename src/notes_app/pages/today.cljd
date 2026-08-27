@@ -9,18 +9,18 @@
             [notes-app.ui :as ui]))
 
 (defn today-page []
-  (let [;; Currently viewed date
-        !current-date (atom (dc/DateTime.now))
-        ;; Document ID for the current date
+  (let [today (dc/DateTime.now)
+        !current-date (atom today)
         !doc-id (atom nil)
-
-        ;; Async date loader
-        load-date! (fn [^dc/DateTime dt]
-                     (reset! !doc-id nil) ;; clear to show Loading UI
-                     (-> (daily/ensure-daily! dt)
-                         (.then #(reset! !doc-id %))))]
-
-    (load-date! (dc/DateTime.now))
+        load-date!
+        (fn [^dc/DateTime dt]
+          (let [want (daily/date->title dt)]
+            (reset! !doc-id nil)
+            (-> (daily/ensure-daily! dt)
+                (.then (fn [id]
+                         (when (= want (daily/date->title @!current-date))
+                           (reset! !doc-id id)))))))]
+    (load-date! today)
     (f/widget
      :context ctx
 
