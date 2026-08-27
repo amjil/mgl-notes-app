@@ -1,0 +1,11 @@
+(ns notes-app.mobile.pages.trash
+  (:require ["package:flutter/material.dart" :as m]
+            [notes-app.shared.trash :as trash]
+            [notes-app.theme :as t]
+            [notes-app.ui :as ui]))
+
+(defn trash-page []
+  (m/Scaffold
+   .backgroundColor t/bg
+   .appBar (ui/page-app-bar)
+   .body (trash/trash-body)))

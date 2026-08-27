@@ -1,0 +1,17 @@
+(ns notes-app.desktop.pages.search
+  (:require ["package:flutter/material.dart" :as m]
+            [notes-app.shared.search :as search]
+            [notes-app.theme :as t]
+            [notes-app.ui :as ui]))
+
+(defn search-page []
+  (m/Scaffold
+   .backgroundColor t/bg
+   .resizeToAvoidBottomInset false
+   .body
+   (m/SafeArea
+    .child
+    (m/Row
+     .children
+     [(ui/title-rail "ᠬᠠᠢᠬᠤ")
+      (m/Expanded .child (search/search-body))]))))

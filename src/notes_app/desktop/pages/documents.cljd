@@ -1,0 +1,35 @@
+(ns notes-app.desktop.pages.documents
+  (:require ["package:flutter/material.dart" :as m]
+            [cljd.flutter :as f]
+            [notes-app.shared.documents :as documents]
+            [notes-app.services.document :as doc]
+            [notes-app.state.store :as store]
+            [notes-app.theme :as t]
+            [notes-app.ui :as ui]))
+
+(defn documents-page []
+  (f/widget
+   :watch [{:keys [parent-doc-id show-daily-only]} store/app-ui-state]
+   (let [show-daily-only? (boolean show-daily-only)]
+     (m/Scaffold
+      .backgroundColor t/bg
+      .appBar
+      (ui/page-app-bar
+       :actions
+       [(ui/action-btn
+         (if show-daily-only? m.Icons/calendar_month m.Icons/calendar_today_outlined)
+         (if show-daily-only? "Show documents" "Show calendar notes")
+         store/toggle-show-daily-only!
+         :color (if show-daily-only? t/secondary t/ink-muted)
+         :filled? show-daily-only?)
+        (ui/action-btn
+         m.Icons/add "New document"
+         (fn []
+           (-> (doc/create! {:title "" :type "normal" :parent-id parent-doc-id})
+               (.then (fn [id] (when id (store/open-document! id))))
+               (.catchError (fn [_] nil)))
+           nil)
+         :filled? true)
+        (m/SizedBox .width 8.0)])
+      .body
+      (m/SafeArea .child (documents/documents-body))))))

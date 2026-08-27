@@ -1,4 +1,4 @@
-(ns notes-app.widgets.side-nav
+(ns notes-app.desktop.widgets.side-nav
   "Desktop navigation rail — branded, compact, vertical Mongolian labels."
   (:require [cljd.flutter :as f]
             ["package:flutter/material.dart" :as m]

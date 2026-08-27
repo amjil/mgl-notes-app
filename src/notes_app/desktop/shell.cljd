@@ -1,19 +1,19 @@
-(ns notes-app.pages.desktop.shell
+(ns notes-app.desktop.shell
   "Desktop app chrome: left NavigationRail + content pane."
   (:require ["package:flutter/material.dart" :as m]
             ["dart:core" :as dc]
             [cljd.flutter :as f]
             [notes-app.state.store :as store]
-            [notes-app.widgets.side-nav :as side-nav]
-            [notes-app.pages.today :as today]
-            [notes-app.pages.documents :as documents]
-            [notes-app.pages.tasks :as tasks]
-            [notes-app.pages.tags :as tags]
-            [notes-app.pages.search :as search]
-            [notes-app.pages.settings :as settings]
-            [notes-app.pages.editor :as editor]
-            [notes-app.pages.trash :as trash]
-            [notes-app.widgets.sync-toast :as sync-toast]
+            [notes-app.desktop.widgets.side-nav :as side-nav]
+            [notes-app.desktop.pages.today :as today]
+            [notes-app.desktop.pages.documents :as documents]
+            [notes-app.desktop.pages.tasks :as tasks]
+            [notes-app.desktop.pages.tags :as tags]
+            [notes-app.desktop.pages.search :as search]
+            [notes-app.desktop.pages.settings :as settings]
+            [notes-app.editor.view :as editor]
+            [notes-app.desktop.pages.trash :as trash]
+            [notes-app.shared.sync-toast :as sync-toast]
             [notes-app.theme :as t]))
 
 (defn- body-for [nav-id open-doc-id]

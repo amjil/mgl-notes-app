@@ -1,0 +1,115 @@
+(ns notes-app.mobile.pages.editor
+  (:require ["package:flutter/material.dart" :as m]
+            [cljd.flutter :as f]
+            [notes-app.editor.view :as editor]
+            [notes-app.shared.backlinks :as backlinks]
+            [notes-app.shared.rename-dialog :as rename]
+            [notes-app.db.core :as db]
+            [notes-app.keyboard :as kw]
+            [notes-app.mobile.nav :as nav]
+            [notes-app.services.document :as doc]
+            [notes-app.services.export :as export]
+            [notes-app.state.store :as store]
+            [notes-app.theme :as t]
+            [notes-app.ui :as ui]))
+
+(defn- show-backlinks-modal! [ctx title document-id]
+  (m/showDialog
+   .context ctx
+   .builder
+   (fn [c]
+     (m/Dialog
+      .insetPadding (m.EdgeInsets/zero)
+      .child
+      (m/Container
+       .width double/infinity
+       .height double/infinity
+       .color t/surface
+       .child
+       (m/Column
+        .children
+        [(m/AppBar
+          .elevation 0.0
+          .backgroundColor t/bg
+          .leading (m/IconButton
+                    .icon (m/Icon m.Icons/close)
+                    .onPressed #(.pop (m/Navigator.of c)))
+          .title (m/Text "Backlinks"
+                         .style (t/mongol-style :size 16.0 :weight m.FontWeight/w600)))
+         (m/Expanded
+          .child
+          (m/Padding
+           .padding (m.EdgeInsets/all 12.0)
+           .child
+           (backlinks/references-sidebar
+            (or title "")
+            document-id
+            :on-promoted editor/invalidate-session!)))]))))))
+
+(defn editor-page []
+  (let [!title (atom "")]
+    (f/widget
+     :context ctx
+     :get [m/Navigator]
+     :watch [{:keys [open-document-id]} store/app-ui-state
+             title !title]
+     :managed [route-token (nav/editor-route-opened!)
+               :dispose nav/editor-route-closed!]
+     (do
+       (when open-document-id
+         (-> (db/get-document open-document-id)
+             (.then (fn [d]
+                      (when d
+                        (let [t (or (.-title d) "")]
+                          (when (not= t @!title)
+                            (reset! !title t))))))))
+       (m/Scaffold
+        .backgroundColor t/bg
+        .resizeToAvoidBottomInset false
+        .appBar
+        (m/AppBar
+         .elevation 0.0
+         .scrolledUnderElevation 0.0
+         .backgroundColor t/bg
+         .foregroundColor t/ink
+         .leading (m/IconButton
+                   .icon (m/Icon m.Icons/arrow_back_rounded)
+                   .onPressed (fn []
+                                (.pop navigator)
+                                nil))
+         .title (m/Text (if (or (nil? title) (= title "")) "Untitled" title)
+                        .style (t/mongol-style :size 16.0 :weight m.FontWeight/w600))
+         .actions
+         (if-not open-document-id
+           []
+           [(m/IconButton
+             .icon (m/Icon m.Icons/account_tree_outlined)
+             .tooltip "Backlinks"
+             .onPressed #(show-backlinks-modal! ctx title open-document-id))
+            (m/IconButton
+             .icon (m/Icon m.Icons/file_download_outlined)
+             .tooltip "Export HTML"
+             .onPressed (fn []
+                          (-> (export/export-document-to-file! open-document-id)
+                              (.then (fn [path] (export/show-export-result! ctx path)))
+                              (.catchError (fn [_] (export/show-export-result! ctx nil))))))
+            (m/IconButton
+             .icon (m/Icon m.Icons/drive_file_rename_outline)
+             .onPressed (fn []
+                          (rename/rename-dialog
+                           ctx title
+                           (fn [tit]
+                             (doc/rename! open-document-id tit)
+                             (reset! !title tit)
+                             (db/refresh-document-titles!)))))]))
+        .body
+        (if-not open-document-id
+          (ui/empty-state m.Icons/edit_note "No document")
+          (m/KeyedSubtree
+           .key (m/ValueKey open-document-id)
+           .child
+           (kw/wrap
+            (editor/document-editor open-document-id
+                                         :show-back? false
+                                         :embedded? true
+                                         :show-backlinks? false)))))))))

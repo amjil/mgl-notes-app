@@ -1,0 +1,96 @@
+(ns notes-app.mobile.widgets.drawer
+  "Home drawer: primary destinations + trash / settings."
+  (:require ["package:flutter/material.dart" :as m]
+            ["package:mongol/mongol.dart" :as mgl]
+            [cljd.flutter :as f]
+            [notes-app.state.store :as store]
+            [notes-app.theme :as t]))
+
+(def ^:private home-tabs
+  [{:id "today" :icon m.Icons/wb_sunny_outlined :label "ᠥᠨᠦᠳᠦᠷ"}
+   {:id "documents" :icon m.Icons/folder_outlined :label "ᠪᠠᠷᠢᠮᠲᠠ"}
+   {:id "tasks" :icon m.Icons/check_box_outlined :label "ᠠᠵᠢᠯ"}
+   {:id "tags" :icon m.Icons/tag_outlined :label "ᠲᠡᠮᠳᠡᠭ"}])
+
+(defn- nav-tile [ctx {:keys [icon label]} selected? on-tap]
+  (mgl/MongolListTile
+   .leading (m/Icon icon .color (if selected? t/primary t/ink-muted))
+   .title (mgl/MongolText
+           label
+           .style (t/mongol-style
+                   :size 16.0
+                   :color (if selected? t/primary t/ink)
+                   :weight (if selected? m.FontWeight/w600 m.FontWeight/normal)))
+   .selected selected?
+   .selectedTileColor (t/fade t/primary 0.12)
+   .onTap (fn []
+            (on-tap)
+            (.pop (m/Navigator.of ctx))
+            nil)))
+
+(defn- route-tile [ctx icon label route]
+  (mgl/MongolListTile
+   .leading (m/Icon icon .color t/ink-muted)
+   .title (mgl/MongolText label .style (t/mongol-style :size 16.0))
+   .onTap (fn []
+            (.pop (m/Navigator.of ctx))
+            (.pushNamed (m/Navigator.of ctx) route)
+            nil)))
+
+(defn drawer [ctx]
+  (f/widget
+   :watch [{:keys [selected-nav-id user-name auth-email auth-token
+                   sync-status sync-enabled]} store/app-ui-state]
+   (let [logged-in? (and auth-token (not= auth-token ""))
+         sync-error? (and sync-enabled logged-in? (= sync-status :error))
+         display (if (and user-name (not= user-name ""))
+                   user-name
+                   "Amjil Notes")
+         subtitle (or (when logged-in? auth-email) "Offline first")
+         settings-icon
+         (if sync-error?
+           (m/Badge
+            .isLabelVisible false
+            .backgroundColor t/danger
+            .child (m/Icon m.Icons/settings_outlined .color t/ink-muted))
+           (m/Icon m.Icons/settings_outlined .color t/ink-muted))
+         tiles
+         (into
+          (mapv (fn [tab]
+                  (nav-tile ctx tab
+                            (= (:id tab) selected-nav-id)
+                            #(store/set-nav! (:id tab))))
+                home-tabs)
+          [(m/VerticalDivider .width 1.0 .thickness 1.0 .color t/outline)
+           (route-tile ctx m.Icons/delete_outline "ᠬᠣᠭ᠎ᠤᠨ ᠰᠠᠪᠠ" "/trash")
+           (mgl/MongolListTile
+            .leading settings-icon
+            .title (mgl/MongolText "ᠲᠣᠬᠢᠷᠠᠭᠤᠯᠭ᠎ᠠ"
+                                   .style (t/mongol-style :size 16.0))
+            .onTap (fn []
+                     (.pop (m/Navigator.of ctx))
+                     (.pushNamed (m/Navigator.of ctx) "/settings")
+                     nil))])]
+     (m/Drawer
+      .backgroundColor t/surface
+      .child
+      (m/Column
+       .crossAxisAlignment m.CrossAxisAlignment/stretch
+       .children
+       [(m/UserAccountsDrawerHeader
+         .decoration (m/BoxDecoration .color t/primary)
+         .accountName (m/Text display
+                              .style (t/mongol-style :size 16.0 :color m.Colors/white
+                                                     :weight m.FontWeight/w600))
+         .accountEmail (m/Text subtitle
+                               .style (t/mongol-style :size 13.0 :color m.Colors/white))
+         .currentAccountPicture
+         (m/CircleAvatar
+          .backgroundColor t/primary-soft
+          .child (m/Icon m.Icons/edit_note_rounded .color t/primary)))
+        (m/Expanded
+         .child
+         (m/ListView
+          .scrollDirection m.Axis/horizontal
+          .padding m.EdgeInsets/zero
+          .children tiles))])))))

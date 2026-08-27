@@ -56,43 +56,40 @@
                     .style (t/mongol-style :size 16.0 :color t/ink-muted))])))
 
 (defn title-rail
-  "Left vertical title strip used on list / drill-down pages."
+  "Compact left vertical Mongolian title strip."
   [title & {:keys [on-back on-title-tap accent-color width]
-            :or {width 88.0}}]
-  (m/Container
+            :or {width 36.0}}]
+  (m/SizedBox
    .width width
-   .decoration (m/BoxDecoration
-                .color t/surface
-                .border (m/Border .right (m/BorderSide .color t/outline .width 1.0)))
    .child
    (m/Column
     .children
-    (into []
-          (remove nil?
-                  [(when on-back
-                     (m/Padding
-                      .padding (m.EdgeInsets/only .top 12.0)
-                      .child
-                      (m/IconButton
-                       .icon (m/Icon m.Icons/arrow_back_rounded .color t/ink-muted)
-                       .onPressed on-back)))
-                   (m/Expanded
-                    .child
-                    (m/InkWell
-                     .onTap on-title-tap
-                     .child
-                     (m/Align
-                      .alignment m.Alignment/topCenter
-                      .child
-                      (m/Padding
-                       .padding (m.EdgeInsets/fromLTRB 12.0 16.0 12.0 16.0)
-                       .child
-                       (mgl/MongolText
-                        title
-                        .style (t/mongol-style
-                                :size 22.0
-                                :weight m.FontWeight/bold
-                                :color (or accent-color t/ink)))))))])))))
+    (cond-> []
+      on-back
+      (conj (m/IconButton
+             .iconSize 18.0
+             .padding (m.EdgeInsets/all 6.0)
+             .constraints (m/BoxConstraints .minWidth 32.0 .minHeight 32.0)
+             .icon (m/Icon m.Icons/arrow_back_rounded .color t/ink-muted)
+             .onPressed on-back))
+      :always
+      (conj (m/Expanded
+             .child
+             (m/InkWell
+              .onTap on-title-tap
+              .child
+              (m/Align
+               .alignment m.Alignment/topCenter
+               .child
+               (m/Padding
+                .padding (m.EdgeInsets/fromLTRB 4.0 8.0 4.0 12.0)
+                .child
+                (mgl/MongolText
+                 title
+                 .style (t/mongol-style
+                         :size 16.0
+                         :weight m.FontWeight/w600
+                         :color (or accent-color t/ink))))))))))))
 
 (defn note-card
   [child & {:keys [width accent-color padding]
@@ -120,3 +117,31 @@
 (defn loading []
   (m/Center
    .child (m/CircularProgressIndicator. .color t/primary .strokeWidth 2.4)))
+
+(defn boot-loading-screen []
+  (m/Scaffold
+   .backgroundColor t/bg
+   .body (loading)))
+
+(defn boot-error-screen [message on-retry]
+  (m/Scaffold
+   .backgroundColor t/bg
+   .body
+   (m/Center
+    .child
+    (m/Column
+     .mainAxisSize m.MainAxisSize/min
+     .children
+     [(empty-state m.Icons/error_outline "Startup failed")
+      (m/SizedBox .height 16.0)
+      (m/TextButton
+       .onPressed on-retry
+       .child (mgl/MongolText "Retry"
+                              .style (t/mongol-style :color t/primary)))
+      (when (and message (not= message ""))
+        (m/Padding
+         .padding (m.EdgeInsets/only .top 12.0)
+         .child
+         (m/Text message
+                 .textAlign m.TextAlign/center
+                 .style (m/TextStyle .color t/ink-muted .fontSize 12.0))))]))))

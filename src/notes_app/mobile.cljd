@@ -1,0 +1,56 @@
+(ns notes-app.mobile
+  (:require ["package:flutter/material.dart" :as m]
+            [cljd.flutter :as f]
+            [notes-app.shared.sync-toast :as sync-toast]
+            [notes-app.mobile.nav :as nav]
+            [notes-app.mobile.pages.home :as home]
+            [notes-app.mobile.pages.editor :as editor]
+            [notes-app.mobile.pages.search :as search]
+            [notes-app.mobile.pages.settings :as settings]
+            [notes-app.mobile.pages.trash :as trash]
+            [notes-app.state.store :as store]
+            [notes-app.theme :as theme]
+            [notes-app.ui :as ui]))
+
+(defn- ready-app []
+  (f/widget
+   :managed [nav-key (#/(m/GlobalKey m/NavigatorState))]
+   (do
+     (nav/set-nav-key! nav-key)
+     (m/MaterialApp
+      .navigatorKey nav-key
+      .title "Amjil Notes"
+      .debugShowCheckedModeBanner false
+      .theme theme/app-theme
+      .builder
+      (fn [_ctx child]
+        (sync-toast/sync-toast-host
+         (f/widget
+          :watch [{:keys [selected-nav-id]} store/app-ui-state]
+          (do
+            (when (= selected-nav-id "editor")
+              (nav/sync-editor-route!))
+            (or child (m/SizedBox.shrink))))))
+      .initialRoute "/"
+      .routes {"/" (fn ^m/Widget [_] (home/home-page))
+               "/editor" (fn ^m/Widget [_] (editor/editor-page))
+               "/search" (fn ^m/Widget [_] (search/search-page))
+               "/settings" (fn ^m/Widget [_] (settings/settings-page))
+               "/trash" (fn ^m/Widget [_] (trash/trash-page))}))))
+
+(defn app
+  "Mobile MaterialApp with named routes. `boot-state` is {:status ... :message ?}."
+  [boot-state retry!]
+  (let [{:keys [status message]} boot-state]
+    (case status
+      :ready (ready-app)
+      :error (m/MaterialApp
+              .title "Amjil Notes"
+              .debugShowCheckedModeBanner false
+              .theme theme/app-theme
+              .home (ui/boot-error-screen message retry!))
+      (m/MaterialApp
+       .title "Amjil Notes"
+       .debugShowCheckedModeBanner false
+       .theme theme/app-theme
+       .home (ui/boot-loading-screen)))))

@@ -1,0 +1,10 @@
+(ns notes-app.desktop.pages.settings
+  (:require ["package:flutter/material.dart" :as m]
+            [notes-app.shared.settings-form :as form]
+            [notes-app.theme :as t]))
+
+(defn settings-page []
+  (m/Scaffold
+   .backgroundColor t/bg
+   .body
+   (m/SafeArea .child (form/settings-body))))

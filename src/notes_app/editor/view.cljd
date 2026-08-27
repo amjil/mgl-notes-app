@@ -1,4 +1,4 @@
-(ns notes-app.pages.editor
+(ns notes-app.editor.view
   "Document editor — elegantly managed state, persistence, and performance.
    Uses f/widget's :managed [:dispose] hook for safe teardown and final save.
    Caches the editor-body outside f/widget to prevent unnecessary subtree rebuilds."
@@ -10,9 +10,9 @@
             [block-editor.widgets.editor :as editor]
             [block-editor.commands.navigate :as navigate]
             [block-editor.utils.history :as history]
-            [notes-app.widgets.editor-toolbar :as tb]
-            [notes-app.widgets.rename-dialog :as rename]
-            [notes-app.widgets.backlinks :as backlinks]
+            [notes-app.shared.editor-toolbar :as tb]
+            [notes-app.shared.rename-dialog :as rename]
+            [notes-app.shared.backlinks :as backlinks]
             [notes-app.editor.bridge :as bridge]
             [notes-app.db.core :as db]
             [notes-app.services.document :as doc]
@@ -20,6 +20,7 @@
             [notes-app.services.link :as link]
             [notes-app.plugins.image :as img-plugin]
             [notes-app.plugins.attachment :as attach-plugin]
+            [notes-app.platform :as platform]
             [notes-app.state.store :as store]
             [notes-app.theme :as t]
             [notes-app.ui :as ui]))
@@ -150,7 +151,7 @@
                    (do
                      (swap! !sessions assoc document-id s)
                      (reveal-pending-focus! s)
-                     s))))))
+                     s)))))))
 
 (defn invalidate-session!
   "Drop cached editor state."
@@ -218,9 +219,9 @@
 ;; =============================================================================
 
 (defn- editor-chrome
-  [document-id session ctx show-back? on-back embedded?]
+  [document-id session ctx show-back? on-back embedded? show-backlinks?]
   (let [{:keys [!state !snapshot !title !save-timer !show-backlinks]} session
-        !show-backlinks (or !show-backlinks (atom (not embedded?)))
+        !show-backlinks (or !show-backlinks (atom (boolean show-backlinks?)))
         cfg notes-editor-config
 
         editor-body
@@ -230,7 +231,10 @@
          :toolbar (tb/notes-toolbar !state cfg)
          :background-color t/bg
          :show-block-handles? true
-         :padding (m.EdgeInsets/all 32.0))
+         :padding (m.EdgeInsets/all 32.0)
+         ;; Mobile pages already mount a full-width keyboard via `kw/wrap`.
+         ;; Leaving wrap-ime? true stacks a second virtual keyboard.
+         :wrap-ime? (not (platform/mobile?)))
 
         cleanup!
         (fn [_]
@@ -280,7 +284,7 @@
                                    s
                                    embeds-to-convert))))))
 
-           show-panel? (and show-refs? (not= (or title "") ""))
+           show-panel? (and show-backlinks? show-refs? (not= (or title "") ""))
            body-row
            (m/Row
             .children
@@ -350,8 +354,8 @@
 
 (defn document-editor
   "Mount mongol-block-editor for a document."
-  [document-id & {:keys [show-back? on-back embedded?]
-                  :or {show-back? true embedded? false}}]
+  [document-id & {:keys [show-back? on-back embedded? show-backlinks?]
+                  :or {show-back? true embedded? false show-backlinks? true}}]
   (f/widget
    :context ctx
    :watch [session (ensure-session! document-id)]
@@ -360,4 +364,4 @@
      (= session :failed)
      (ui/empty-state m.Icons/error_outline "Could not load document")
      :else
-     (editor-chrome document-id session ctx show-back? on-back embedded?)))))
+     (editor-chrome document-id session ctx show-back? on-back embedded? show-backlinks?))))

@@ -1,0 +1,61 @@
+(ns notes-app.mobile.pages.today
+  (:require ["package:flutter/material.dart" :as m]
+            ["dart:core" :as dc]
+            [cljd.flutter :as f]
+            [notes-app.shared.today :as today]
+            [notes-app.services.daily :as daily]
+            [notes-app.services.export :as export]
+            [notes-app.keyboard :as kw]
+            [notes-app.theme :as t]
+            [notes-app.ui :as ui]))
+
+(defn- date-toolbar [ctx current-date !current-date load-date! doc-id]
+  (m/Material
+   .color t/surface
+   .child
+   (m/Row
+    .children
+    [(ui/action-btn m.Icons/chevron_left "Previous day"
+                    (fn []
+                      (let [prev-day (.subtract current-date (dc/Duration. .days 1))]
+                        (reset! !current-date prev-day)
+                        (load-date! prev-day))))
+     (m/Expanded
+      .child
+      (m/Center
+       .child
+       (m/Text (daily/date->title current-date)
+               .style (t/mongol-style :size 16.0 :weight m.FontWeight/w600))))
+     (ui/action-btn m.Icons/today "Go to today"
+                    (fn []
+                      (let [now (dc/DateTime.now)]
+                        (reset! !current-date now)
+                        (load-date! now)))
+                    :filled? true)
+     (ui/action-btn m.Icons/chevron_right "Next day"
+                    (fn []
+                      (let [next-day (.add current-date (dc/Duration. .days 1))]
+                        (reset! !current-date next-day)
+                        (load-date! next-day))))
+     (if doc-id
+       (ui/action-btn m.Icons/file_download_outlined "Export HTML"
+                      (fn []
+                        (-> (export/export-document-to-file! doc-id)
+                            (.then (fn [path] (export/show-export-result! ctx path)))
+                            (.catchError (fn [_] (export/show-export-result! ctx nil))))))
+       (m/SizedBox.shrink))])))
+
+(defn today-page []
+  (f/widget
+   :context ctx
+   :managed [{:keys [!current-date !doc-id load-date!]} (today/make-session)
+             :refresh-on :never
+             :dispose nil]
+   :watch [current-date !current-date
+           doc-id !doc-id]
+   (kw/wrap
+    (m/Column
+     .children
+     [(date-toolbar ctx current-date !current-date load-date! doc-id)
+      (m/Expanded
+       .child (today/editor-pane doc-id :show-backlinks? false))]))))

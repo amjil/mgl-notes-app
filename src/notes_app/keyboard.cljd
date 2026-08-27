@@ -1,0 +1,12 @@
+(ns notes-app.keyboard
+  "Platform dispatcher: mobile virtual keyboard vs desktop IME overlay."
+  (:require [notes-app.platform :as platform]
+            [notes-app.desktop.widgets.keyboard :as desk]
+            [notes-app.mobile.widgets.keyboard :as mob]))
+
+(defn wrap
+  "Wrap content with the platform-appropriate input chrome."
+  [main-content]
+  (if (platform/mobile?)
+    (mob/wrap main-content)
+    (desk/wrap main-content)))

@@ -1,0 +1,10 @@
+(ns notes-app.desktop.pages.tasks
+  (:require ["package:flutter/material.dart" :as m]
+            [notes-app.shared.tasks :as tasks]
+            [notes-app.theme :as t]))
+
+(defn tasks-page []
+  (m/Scaffold
+   .backgroundColor t/bg
+   .body
+   (m/SafeArea .child (tasks/tasks-body))))

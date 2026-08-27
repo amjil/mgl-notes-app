@@ -1,9 +1,6 @@
-(ns notes-app.pages.shell
-  "Picks desktop or mobile chrome."
+(ns notes-app.lifecycle
+  "Shared app lifecycle: resume Pull / pause Push for both platforms."
   (:require ["package:flutter/material.dart" :as m]
-            [notes-app.platform :as platform]
-            [notes-app.pages.desktop.shell :as desktop]
-            [notes-app.pages.mobile.shell :as mobile]
             [notes-app.services.sync :as sync]))
 
 (defonce ^:private !lifecycle-observer (atom nil))
@@ -21,7 +18,7 @@
 
     :else nil))
 
-(defn register-lifecycle!
+(defn register!
   "Register a global WidgetsBindingObserver for resume Pull / pause Push."
   []
   (when-not @!lifecycle-observer
@@ -30,8 +27,3 @@
                        (on-lifecycle-state! state)))]
       (.addObserver (m/WidgetsBinding.instance) observer)
       (reset! !lifecycle-observer observer))))
-
-(defn app-shell []
-  (if (platform/desktop?)
-    (desktop/desktop-shell)
-    (mobile/mobile-shell)))

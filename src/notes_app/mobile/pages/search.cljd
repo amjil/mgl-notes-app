@@ -1,0 +1,12 @@
+(ns notes-app.mobile.pages.search
+  (:require ["package:flutter/material.dart" :as m]
+            [notes-app.shared.search :as search]
+            [notes-app.theme :as t]
+            [notes-app.ui :as ui]))
+
+(defn search-page []
+  (m/Scaffold
+   .backgroundColor t/bg
+   .resizeToAvoidBottomInset false
+   .appBar (ui/page-app-bar :title "ᠬᠠᠢᠬᠤ")
+   .body (search/search-body)))

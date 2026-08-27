@@ -1,0 +1,102 @@
+(ns notes-app.mobile.pages.home
+  "Mobile home: Drawer + AppBar + tab body + FAB."
+  (:require ["package:flutter/material.dart" :as m]
+            [cljd.flutter :as f]
+            [notes-app.mobile.widgets.drawer :as drawer]
+            [notes-app.mobile.pages.today :as today]
+            [notes-app.shared.documents :as documents]
+            [notes-app.shared.tasks :as tasks]
+            [notes-app.shared.tags :as tags]
+            [notes-app.services.document :as doc]
+            [notes-app.services.link :as link]
+            [notes-app.state.store :as store]
+            [notes-app.theme :as t]
+            [notes-app.ui :as ui]))
+
+(def ^:private home-tabs #{"today" "documents" "tasks" "tags"})
+
+(defn- tab-id [selected-nav-id editor-return-nav]
+  (cond
+    (contains? home-tabs selected-nav-id) selected-nav-id
+    (contains? home-tabs editor-return-nav) editor-return-nav
+    :else "today"))
+
+(defn- body-for [nav-id]
+  (case nav-id
+    "today" (today/today-page)
+    "documents" (documents/documents-body)
+    "tasks" (tasks/tasks-body)
+    "tags" (tags/tags-body)
+    (today/today-page)))
+
+(defn- nested-drill? [nav-id parent-doc-id selected-tag]
+  (or (and (= nav-id "documents") parent-doc-id)
+      (and (= nav-id "tags") selected-tag)))
+
+(defn- pop-nested! [nav-id parent-doc-id selected-tag]
+  (cond
+    (and (= nav-id "tags") selected-tag)
+    (store/clear-selected-tag!)
+    (and (= nav-id "documents") parent-doc-id)
+    (store/clear-parent-doc!)))
+
+(defn home-page []
+  (f/widget
+   :context ctx
+   :watch [{:keys [selected-nav-id editor-return-nav parent-doc-id
+                   show-daily-only selected-tag]} store/app-ui-state]
+   (let [nav-id (tab-id selected-nav-id editor-return-nav)
+         show-daily-only? (boolean show-daily-only)
+         nested? (nested-drill? nav-id parent-doc-id selected-tag)]
+     (m/PopScope
+      .canPop (not nested?)
+      .onPopInvokedWithResult
+      (fn [did-pop _]
+        (when-not did-pop
+          (pop-nested! nav-id parent-doc-id selected-tag)))
+      .child
+      (m/Scaffold
+       .backgroundColor t/bg
+       .resizeToAvoidBottomInset false
+       .drawer (drawer/drawer ctx)
+       .appBar
+       (ui/page-app-bar
+        :actions
+        (into []
+              (remove nil?
+                      [(when (= nav-id "documents")
+                         (ui/action-btn
+                          (if show-daily-only? m.Icons/calendar_month m.Icons/calendar_today_outlined)
+                          (if show-daily-only? "Show documents" "Show calendar notes")
+                          store/toggle-show-daily-only!
+                          :color (if show-daily-only? t/secondary t/ink-muted)
+                          :filled? show-daily-only?))
+                       (when (and (= nav-id "tags") selected-tag)
+                         (ui/action-btn
+                          m.Icons/open_in_new "Open tag page"
+                          #(link/open-or-create-by-title! selected-tag)
+                          :color t/tertiary
+                          :filled? true))
+                       (m/IconButton
+                        .icon (m/Icon m.Icons/search)
+                        .tooltip "Search"
+                        .onPressed (fn []
+                                     (.pushNamed (m/Navigator.of ctx) "/search")
+                                     nil))])))
+       .body
+       (m/SafeArea
+        .child
+        (m/KeyedSubtree
+         .key (m/ValueKey nav-id)
+         .child (body-for nav-id)))
+       .floatingActionButton
+       (when (= nav-id "documents")
+         (m/FloatingActionButton
+          .backgroundColor t/primary
+          .child (m/Icon m.Icons/add .color m.Colors/white)
+          .onPressed
+          (fn []
+            (-> (doc/create! {:title "" :type "normal" :parent-id parent-doc-id})
+                (.then (fn [id] (when id (store/open-document! id))))
+                (.catchError (fn [_] nil)))
+            nil))))))))

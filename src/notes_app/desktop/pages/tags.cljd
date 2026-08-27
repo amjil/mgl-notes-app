@@ -1,0 +1,26 @@
+(ns notes-app.desktop.pages.tags
+  (:require ["package:flutter/material.dart" :as m]
+            [cljd.flutter :as f]
+            [notes-app.services.link :as link]
+            [notes-app.shared.tags :as tags]
+            [notes-app.state.store :as store]
+            [notes-app.theme :as t]
+            [notes-app.ui :as ui]))
+
+(defn tags-page []
+  (f/widget
+   :watch [{:keys [selected-tag]} store/app-ui-state]
+   (m/Scaffold
+    .backgroundColor t/bg
+    .resizeToAvoidBottomInset false
+    .appBar
+    (when selected-tag
+      (ui/page-app-bar
+       :actions
+       [(ui/action-btn m.Icons/open_in_new "Open tag page"
+                       #(link/open-or-create-by-title! selected-tag)
+                       :color t/tertiary
+                       :filled? true)
+        (m/SizedBox .width 8.0)]))
+    .body
+    (m/SafeArea .child (tags/tags-body)))))

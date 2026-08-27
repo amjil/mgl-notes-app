@@ -1,0 +1,49 @@
+(ns notes-app.mobile.widgets.keyboard
+  "Mobile Mongolian virtual keyboard: IME install, candidates, bottom bar."
+  (:require ["package:flutter/material.dart" :as m]
+            [cljd.flutter :as f]
+            [virtual-keyboard.input-control :as input-control]
+            [virtual-keyboard.keyboard :as vk]
+            [virtual-keyboard.options :as vk-options]
+            [notes-app.theme :as t]))
+
+(def info
+  (merge vk-options/keyboard-option
+         {:keyboard/mongol-font-family "OyunQaganTig"
+          :keyboard/key-container-color t/surface-2
+          :keyboard/font-size 16}))
+
+(defn install []
+  (input-control/set-control)
+  true)
+
+(defn restore-ime! [_]
+  (input-control/restore-control)
+  nil)
+
+(defn candidates []
+  (vk/candidates nil))
+
+(defn bar []
+  (vk/keyboard {:custom-fns {}}))
+
+(defn wrap
+  "Wrap main content with the native Mongolian virtual keyboard."
+  [main-content]
+  (f/widget
+   :let [kb-info info]
+   :bind {:info kb-info}
+   ;; Keep the keyboard (and editor) above the home indicator. `.top false`
+   ;; because host pages already consume the status-bar inset via AppBar.
+   (m/SafeArea
+    .top false
+    .child
+    (m/Column
+     .children
+     [(m/Expanded
+       .child
+       (m/Stack
+        .children
+        [main-content
+         (candidates)]))
+      (bar)]))))

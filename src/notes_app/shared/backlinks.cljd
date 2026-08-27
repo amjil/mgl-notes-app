@@ -1,4 +1,4 @@
-(ns notes-app.widgets.backlinks
+(ns notes-app.shared.backlinks
   "Linked + unlinked references sidebar for the current document title."
   (:require ["package:flutter/material.dart" :as m]
             ["package:mongol/mongol.dart" :as mgl]

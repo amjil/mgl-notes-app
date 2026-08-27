@@ -1,0 +1,8 @@
+(ns notes-app.desktop.widgets.keyboard
+  "Desktop global IME overlay wrapper."
+  (:require [shared-ime.overlay-view :as overlay]))
+
+(defn wrap
+  "Wrap content with the shared desktop IME overlay."
+  [main-content]
+  (overlay/ime-global-wrapper main-content))

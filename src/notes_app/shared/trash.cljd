@@ -1,0 +1,84 @@
+(ns notes-app.shared.trash
+  "Shared trash list + left title rail."
+  (:require ["package:flutter/material.dart" :as m]
+            ["package:mongol/mongol.dart" :as mgl]
+            [cljd.flutter :as f]
+            [components.dialog :as dialog]
+            [notes-app.db.core :as db]
+            [notes-app.platform :as platform]
+            [notes-app.services.document :as doc]
+            [notes-app.services.sync :as sync]
+            [notes-app.theme :as t]
+            [notes-app.ui :as ui]))
+
+(defn- confirm-hard-delete! [ctx id]
+  (-> (m/showDialog
+       .context ctx
+       .builder
+       (fn [c]
+         (dialog/vertical-custom-dialog
+          {:title "Delete forever?"
+           :height-factor 0.45
+           :width-factor (if (platform/mobile?) 0.85 0.4)
+           :body
+           (mgl/MongolText "This cannot be undone."
+                           .style (t/mongol-style :size 16.0 :color t/ink-muted))
+           :actions
+           [(mgl/MongolTextButton
+             .onPressed #(.pop (m.Navigator/of c) false)
+             .child (mgl/MongolText "Cancel"))
+            (mgl/MongolElevatedButton
+             .onPressed #(.pop (m.Navigator/of c) true)
+             .child (mgl/MongolText "Delete"))]})))
+      (.then (fn [ok?]
+               (when ok?
+                 (-> (doc/hard-delete! id)
+                     (.then (fn [_] (sync/schedule-push!)))))))))
+
+(defn trash-body []
+  (f/widget
+   :context ctx
+   :watch [deleted-docs (stream
+                         (map (fn [rows] (or rows [])))
+                         :as-values (db/watch-deleted-documents))]
+   (m/Row
+    .crossAxisAlignment m.CrossAxisAlignment/stretch
+    .children
+    [(ui/title-rail "ᠬᠣᠭ᠎ᠤᠨ ᠰᠠᠪᠠ")
+     (m/Expanded
+      .child
+      (if (empty? deleted-docs)
+        (ui/empty-state m.Icons/delete_outline "Trash is empty")
+        (m/ListView.builder
+         .scrollDirection m.Axis/horizontal
+         .physics (m/BouncingScrollPhysics)
+         .padding (m.EdgeInsets/fromLTRB 20.0 20.0 8.0 20.0)
+         .itemCount (count deleted-docs)
+         .itemBuilder
+         (fn [_ idx]
+           (let [d (nth deleted-docs idx)
+                 id (:id d)
+                 title (if (empty? (:title d)) "Untitled" (:title d))]
+             (ui/note-card
+              (mgl/MongolListTile
+               .leading (ui/icon-chip m.Icons/delete_outline t/danger :bg-color t/danger-soft)
+               .title (mgl/MongolText title
+                                      .style (t/mongol-style :size 18.0 :color t/ink-muted))
+               .subtitle (mgl/MongolText "Deleted"
+                                         .style (t/mongol-style :size 12.0 :color t/danger))
+               .trailing
+               (m/Column
+                .mainAxisSize m.MainAxisSize/min
+                .mainAxisAlignment m.MainAxisAlignment/spaceEvenly
+                .children
+                [(m/IconButton
+                  .icon (m/Icon m.Icons/restore .color t/success .size 22.0)
+                  .tooltip "Restore"
+                  .onPressed (fn []
+                               (-> (doc/restore! id)
+                                   (.then (fn [_] (sync/schedule-push!))))))
+                 (m/IconButton
+                  .icon (m/Icon m.Icons/delete_forever .color t/danger .size 22.0)
+                  .tooltip "Delete Forever"
+                  .onPressed #(confirm-hard-delete! ctx id))]))
+              :accent-color t/danger))))))])))

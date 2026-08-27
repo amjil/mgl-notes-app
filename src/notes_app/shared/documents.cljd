@@ -1,4 +1,5 @@
-(ns notes-app.pages.documents
+(ns notes-app.shared.documents
+  "Shared documents list + nested-folder drill-down. Chrome (AppBar / FAB) stays on each platform."
   (:require ["package:flutter/material.dart" :as m]
             ["package:mongol/mongol.dart" :as mgl]
             [cljd.flutter :as f]
@@ -7,8 +8,8 @@
             [notes-app.services.document :as doc]
             [notes-app.services.export :as export]
             [notes-app.state.store :as store]
-            [notes-app.widgets.move-dialog :as move]
-            [notes-app.widgets.rename-dialog :as rename]
+            [notes-app.shared.move-dialog :as move]
+            [notes-app.shared.rename-dialog :as rename]
             [notes-app.theme :as t]
             [notes-app.ui :as ui]))
 
@@ -94,28 +95,35 @@
                                               (export/show-export-result! ctx nil)))))}]}))
      :accent-color (when is-daily? t/secondary))))
 
-(defn documents-page []
-  (let [!limit (atom 50)]
-    (f/widget
-     :context ctx
+(defn- make-load-more-scroll [!limit !docs]
+  (let [ctrl (m/ScrollController.)]
+    (.addListener ctrl
+                  (fn []
+                    (when (.-hasClients ctrl)
+                      (let [pos (.-position ctrl)
+                            lim @!limit]
+                        (when (and (>= (count @!docs) lim)
+                                   (pos? (.-maxScrollExtent pos))
+                                   (>= (.-pixels pos) (- (.-maxScrollExtent pos) 200)))
+                          (swap! !limit + 50))))))
+    ctrl))
 
-     :managed [scroll-ctrl (let [ctrl (m/ScrollController.)]
-                             (.addListener ctrl
-                              (fn []
-                                (let [pos (.-position ctrl)]
-                                  (when (>= (.-pixels pos) (- (.-maxScrollExtent pos) 200))
-                                    (swap! !limit + 50)))))
-                             ctrl)]
-
-     :watch [{:keys [parent-doc-id parent-doc-title show-daily-only]} store/app-ui-state
-             limit-val !limit
-             docs (stream
-                   (map (fn [rows] (or rows [])))
-                   :as-values (db/watch-paged-documents parent-doc-id (boolean show-daily-only) limit-val))]
-
+(defn documents-body []
+  (f/widget
+   :context ctx
+   :watch [{:keys [parent-doc-id parent-doc-title show-daily-only]} store/app-ui-state]
+   :managed [!limit (atom 50) :refresh-on [parent-doc-id show-daily-only] :dispose nil
+             !docs (atom []) :refresh-on [parent-doc-id show-daily-only] :dispose nil
+             scroll-ctrl (make-load-more-scroll !limit !docs)
+             :refresh-on [parent-doc-id show-daily-only]]
+   :watch [limit-val !limit]
+   :bg-watcher ([rows (stream
+                       (map (fn [r] (or r [])))
+                       :as-values (db/watch-paged-documents parent-doc-id (boolean show-daily-only) limit-val))]
+                (reset! !docs (or rows [])))
+   :watch [docs !docs]
      (let [show-daily-only? (boolean show-daily-only)
-           display-docs-vec (vec docs)
-
+           display-docs-vec (vec (or docs []))
            list-view
            (if (empty? display-docs-vec)
              (ui/empty-state
@@ -133,40 +141,12 @@
                   (m/KeyedSubtree
                    .key (m/ValueKey (:id (:document row)))
                    .child (doc-tile ctx row))))))]
-
-       (m/Scaffold
-        .backgroundColor t/bg
-        .appBar
-        (ui/page-app-bar
-         :actions
-         [(ui/action-btn
-           (if show-daily-only? m.Icons/calendar_month m.Icons/calendar_today_outlined)
-           (if show-daily-only? "Show documents" "Show calendar notes")
-           store/toggle-show-daily-only!
-           :color (if show-daily-only? t/secondary t/ink-muted)
-           :filled? show-daily-only?)
-          (ui/action-btn
-           m.Icons/add "New document"
-           (fn []
-             (-> (doc/create! {:title "" :type "normal" :parent-id parent-doc-id})
-                 (.then (fn [id] (when id (store/open-document! id))))
-                 (.catchError (fn [_] nil)))
-             nil)
-           :filled? true)
-          (m/SizedBox .width 8.0)])
-        .body
-        (m/SafeArea
-         .child
-         (if parent-doc-id
-           (m/Row
-            .crossAxisAlignment m.CrossAxisAlignment/stretch
-            .children
-            [(ui/title-rail parent-doc-title
-                            :on-back #(store/clear-parent-doc!)
-                            :on-title-tap #(store/open-document! parent-doc-id))
-             (m/Expanded .child list-view)])
-           (m/Row
-            .crossAxisAlignment m.CrossAxisAlignment/stretch
-            .children
-            [(ui/title-rail "ᠪᠠᠷᠢᠮᠲᠠ")
-             (m/Expanded .child list-view)]))))))))
+       (m/Row
+        .crossAxisAlignment m.CrossAxisAlignment/stretch
+        .children
+        [(if parent-doc-id
+           (ui/title-rail parent-doc-title
+                          :on-back #(store/clear-parent-doc!)
+                          :on-title-tap #(store/open-document! parent-doc-id))
+           (ui/title-rail "ᠪᠠᠷᠢᠮᠲᠠ"))
+         (m/Expanded .child list-view)]))))

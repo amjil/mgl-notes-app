@@ -1,4 +1,4 @@
-(ns notes-app.widgets.sync-toast
+(ns notes-app.shared.sync-toast
   "Shows one-shot toasts for sync events such as title-conflict renames."
   (:require ["package:flutter/scheduler.dart" :as scheduler]
             [cljd.flutter :as f]

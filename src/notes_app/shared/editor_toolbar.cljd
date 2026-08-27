@@ -1,4 +1,4 @@
-(ns notes-app.widgets.editor-toolbar
+(ns notes-app.shared.editor-toolbar
   "In-app toolbar with image/attachment pickers."
   (:require ["package:flutter/material.dart" :as m]
             ["package:flutter/services.dart" :as s]

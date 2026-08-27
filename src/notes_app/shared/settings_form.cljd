@@ -1,4 +1,4 @@
-(ns notes-app.pages.settings
+(ns notes-app.shared.settings-form
   (:require ["package:flutter/material.dart" :as m]
             ["dart:async" :as async]
             ["package:mongol/mongol.dart" :as mgl]
@@ -9,7 +9,8 @@
             [notes-app.services.sync :as sync]
             [notes-app.services.auth :as auth]
             [notes-app.services.backup :as backup]
-            [notes-app.widgets.keyboard-wrapper :as kw]
+            [notes-app.keyboard :as kw]
+            [notes-app.platform :as platform]
             [notes-app.theme :as t]
             [notes-app.ui :as ui]))
 
@@ -43,11 +44,13 @@
    (fn [c]
      (f/widget
       :managed [controller (m/TextEditingController .text (or current-value ""))]
-      (kw/with-virtual-keyboard
+      (kw/wrap
        (dialog/vertical-custom-dialog
         {:title title
          :height-factor 0.55
-         :width-factor 0.45
+         :width-factor (if (platform/mobile?) 1.0 0.45)
+         :inset-padding (if (platform/mobile?) (m.EdgeInsets/zero)
+                            (m.EdgeInsets/symmetric .horizontal 16.0))
          :body
          (mgl/MongolTextField
           .controller controller
@@ -79,11 +82,13 @@
                              [key (m/TextEditingController. .text (or initial ""))])
                            fields))
                 :dispose dispose-controllers!]
-      (kw/with-virtual-keyboard
+      (kw/wrap
        (dialog/vertical-custom-dialog
         {:title title
          :height-factor 0.75
-         :width-factor 0.55
+         :width-factor (if (platform/mobile?) 1.0 0.55)
+         :inset-padding (if (platform/mobile?) (m.EdgeInsets/zero)
+                            (m.EdgeInsets/symmetric .horizontal 16.0))
          :body
          (m/Row
           .crossAxisAlignment m.CrossAxisAlignment/stretch
@@ -214,7 +219,9 @@
       (sync/sync-now!))
     (sync/on-disabled!)))
 
-(defn settings-page []
+(defn settings-body
+  "Settings sections list — shared by desktop chrome and mobile page."
+  []
   (f/widget
    :context ctx
    :watch [{:keys [user-name sync-base-url device-id last-sync-time sync-enabled
@@ -266,67 +273,62 @@
             {:title "Device ID"
              :subtitle (or device-id "")
              :leading m.Icons/devices}])]
-   (m/Scaffold
-    .backgroundColor t/bg
-    .body
-    (m/SafeArea
-     .child
-     (m/Row
-      .crossAxisAlignment m.CrossAxisAlignment/stretch
-      .children
-      [(ui/title-rail "ᠲᠣᠬᠢᠷᠠᠭᠤᠯᠭ᠎ᠠ")
-       (m/Expanded
-        .child
-        (m/ListView
-         .scrollDirection m.Axis/horizontal
-         .physics (m/BouncingScrollPhysics)
-         .padding (m.EdgeInsets/all 16.0)
-         .children
-         [(setting/settings-section "Account" account-items)
+   (m/Row
+    .crossAxisAlignment m.CrossAxisAlignment/stretch
+    .children
+    [(ui/title-rail "ᠲᠣᠬᠢᠷᠠᠭᠤᠯᠭ᠎ᠠ")
+     (m/Expanded
+      .child
+      (m/ListView
+       .scrollDirection m.Axis/horizontal
+       .physics (m/BouncingScrollPhysics)
+       .padding (m.EdgeInsets/all 16.0)
+       .children
+       [(setting/settings-section "Account" account-items)
 
-          (setting/settings-section
-           "Sync"
-           [{:title "Enable cloud sync"
-             :subtitle (if sync-enabled
-                         "Automatic sync when logged in"
-                         "Offline only — edits stay on this device")
-             :leading m.Icons/cloud_outlined
-             :value (boolean sync-enabled)
-             :on-changed #(toggle-sync-enabled! % logged-in?)}
-            {:title "Sync URL"
-             :subtitle (or sync-base-url store/default-sync-base-url)
-             :leading m.Icons/link
-             :show-arrow? true
-             :on-tap #(edit-field-dialog ctx "Sync URL" sync-base-url
-                                         store/update-sync-base-url!)}
-            {:title "Sync status"
-             :subtitle status-text
-             :leading (if (= sync-status :error)
-                        m.Icons/error_outline
-                        m.Icons/sync)}
-            {:title "Last sync"
-             :subtitle (or last-sync-time "never")
-             :leading m.Icons/schedule}
-            {:title "Sync now"
-             :leading m.Icons/cloud_sync
-             :show-arrow? true
-             :on-tap #(sync-now! ctx)}])
+     (setting/settings-section
+      "Sync"
+      [{:title "Enable cloud sync"
+        :subtitle (if sync-enabled
+                    "Automatic sync when logged in"
+                    "Offline only — edits stay on this device")
+        :leading m.Icons/cloud_outlined
+        :value (boolean sync-enabled)
+        :on-changed #(toggle-sync-enabled! % logged-in?)}
+       {:title "Sync URL"
+        :subtitle (or sync-base-url store/default-sync-base-url)
+        :leading m.Icons/link
+        :show-arrow? true
+        :on-tap #(edit-field-dialog ctx "Sync URL" sync-base-url
+                                    store/update-sync-base-url!)}
+       {:title "Sync status"
+        :subtitle status-text
+        :leading (if (= sync-status :error)
+                   m.Icons/error_outline
+                   m.Icons/sync)}
+       {:title "Last sync"
+        :subtitle (or last-sync-time "never")
+        :leading m.Icons/schedule}
+       {:title "Sync now"
+        :leading m.Icons/cloud_sync
+        :show-arrow? true
+        :on-tap #(sync-now! ctx)}])
 
-          (setting/settings-section
-           "Data Management"
-           [{:title "Backup Database"
-             :subtitle "Export all documents and blocks to a JSON file"
-             :leading m.Icons/save_alt
-             :show-arrow? true
-             :on-tap #(backup/export-backup-file! ctx)}
-            {:title "Import / Restore"
-             :subtitle "Restore notes from a JSON backup file"
-             :leading m.Icons/settings_backup_restore
-             :show-arrow? true
-             :on-tap #(backup/import-backup-file! ctx)}])
+     (setting/settings-section
+      "Data Management"
+      [{:title "Backup Database"
+        :subtitle "Export all documents and blocks to a JSON file"
+        :leading m.Icons/save_alt
+        :show-arrow? true
+        :on-tap #(backup/export-backup-file! ctx)}
+       {:title "Import / Restore"
+        :subtitle "Restore notes from a JSON backup file"
+        :leading m.Icons/settings_backup_restore
+        :show-arrow? true
+        :on-tap #(backup/import-backup-file! ctx)}])
 
-          (setting/settings-section
-           "About"
-           [{:title "About"
-             :subtitle "Amjil Notes V1 — Offline First"
-             :leading m.Icons/info_outline}])]))])))))
+     (setting/settings-section
+      "About"
+      [{:title "About"
+        :subtitle "Amjil Notes V1 — Offline First"
+        :leading m.Icons/info_outline}])]))])))

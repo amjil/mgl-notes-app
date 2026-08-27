@@ -1,4 +1,4 @@
-(ns notes-app.widgets.move-dialog
+(ns notes-app.shared.move-dialog
   (:require ["package:flutter/material.dart" :as m]
             ["package:mongol/mongol.dart" :as mgl]
             [cljd.flutter :as f]
@@ -6,7 +6,8 @@
             [components.dialog :as dialog]
             [notes-app.db.core :as db]
             [notes-app.services.document :as doc]
-            [notes-app.widgets.keyboard-wrapper :as kw]
+            [notes-app.keyboard :as kw]
+            [notes-app.platform :as platform]
             [rich-editor.components.text-field :as custom-tf]
             [notes-app.theme :as t]
             [notes-app.ui :as ui]))
@@ -100,11 +101,13 @@
                                       (when (under-doc? doc-id id id->parent) id))
                                     (or docs [])))
               matches (filter-candidates (or docs []) forbidden query)]
-          (kw/with-virtual-keyboard
+          (kw/wrap
            (dialog/vertical-custom-dialog
             {:title "Move"
              :height-factor 0.7
-             :width-factor 0.55
+             :width-factor (if (platform/mobile?) 1.0 0.55)
+             :inset-padding (if (platform/mobile?) (m.EdgeInsets/zero)
+                                (m.EdgeInsets/symmetric .horizontal 16.0))
              :body
              ;; Row (not Column): MongolTextField needs a finite height;
              ;; Column gives non-flex children maxHeight=Infinity.

@@ -1,0 +1,18 @@
+(ns notes-app.desktop
+  (:require ["package:flutter/material.dart" :as m]
+            [notes-app.desktop.shell :as shell]
+            [notes-app.theme :as theme]
+            [notes-app.ui :as ui]))
+
+(defn app
+  "Desktop MaterialApp. `boot-state` is {:status :ready|:error|:loading :message ?}."
+  [boot-state retry!]
+  (let [{:keys [status message]} boot-state]
+    (m/MaterialApp
+     .title "Amjil Notes"
+     .debugShowCheckedModeBanner false
+     .theme theme/app-theme
+     .home (case status
+             :ready (shell/desktop-shell)
+             :error (ui/boot-error-screen message retry!)
+             (ui/boot-loading-screen)))))

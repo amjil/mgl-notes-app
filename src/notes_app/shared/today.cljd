@@ -1,0 +1,37 @@
+(ns notes-app.shared.today
+  "Shared daily-note session + editor pane. Date chrome stays on each platform."
+  (:require ["package:flutter/material.dart" :as m]
+            ["dart:core" :as dc]
+            [notes-app.services.daily :as daily]
+            [notes-app.editor.view :as editor]
+            [notes-app.ui :as ui]))
+
+(defn make-session
+  "Atoms + loader for the current daily note. Starts loading today."
+  []
+  (let [today (dc/DateTime.now)
+        !current-date (atom today)
+        !doc-id (atom nil)
+        load-date!
+        (fn [^dc/DateTime dt]
+          (let [want (daily/date->title dt)]
+            (reset! !doc-id nil)
+            (-> (daily/ensure-daily! dt)
+                (.then (fn [id]
+                         (when (= want (daily/date->title @!current-date))
+                           (reset! !doc-id id)))))))]
+    (load-date! today)
+    {:!current-date !current-date
+     :!doc-id !doc-id
+     :load-date! load-date!}))
+
+(defn editor-pane
+  [doc-id & {:keys [show-backlinks?] :or {show-backlinks? true}}]
+  (if doc-id
+    (m/KeyedSubtree
+     .key (m/ValueKey doc-id)
+     .child (editor/document-editor doc-id
+                                    :show-back? false
+                                    :embedded? true
+                                    :show-backlinks? show-backlinks?))
+    (ui/empty-state m.Icons/wb_sunny_outlined "Loading…")))

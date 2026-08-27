@@ -1,0 +1,46 @@
+(ns notes-app.mobile.nav
+  "Navigator helpers for the mobile named-route stack."
+  (:require ["dart:async" :as async]
+            [notes-app.state.store :as store]))
+
+(defonce !nav-key (atom nil))
+(defonce !editor-route? (atom false))
+
+(defn set-nav-key! [k]
+  (reset! !nav-key k))
+
+(defn editor-route-opened! []
+  (reset! !editor-route? true))
+
+(defn editor-route-closed!
+  "Called when the /editor route is disposed.
+
+   Must not swap `app-ui-state` synchronously: dispose runs inside
+   `finalizeTree` while the widget tree is locked, and watchers would
+   `setState` and assert."
+  [_]
+  (reset! !editor-route? false)
+  (when (= "editor" (:selected-nav-id @store/app-ui-state))
+    (async/Future.microtask
+     (fn []
+       (when (and (not @!editor-route?)
+                  (= "editor" (:selected-nav-id @store/app-ui-state)))
+         (store/close-editor!))
+       nil))))
+
+(defn sync-editor-route!
+  "If store opened a document and /editor is not showing, push it."
+  []
+  (when (and (= "editor" (:selected-nav-id @store/app-ui-state))
+             (not @!editor-route?))
+    (when-let [nav (some-> @!nav-key .-currentState)]
+      (reset! !editor-route? true)
+      (async/Future.microtask
+       (fn []
+         (if-let [nav (some-> @!nav-key .-currentState)]
+           (-> (.pushNamed nav "/editor")
+               (.catchError (fn [_]
+                              (reset! !editor-route? false)
+                              nil)))
+           (reset! !editor-route? false))
+         nil)))))
