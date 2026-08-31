@@ -14,13 +14,14 @@
     .backgroundColor t/bg
     .resizeToAvoidBottomInset false
     .appBar
-    (when selected-tag
+    (if selected-tag
       (ui/page-app-bar
        :actions
        [(ui/action-btn m.Icons/open_in_new "Open tag page"
                        #(link/open-or-create-by-title! selected-tag)
                        :color t/tertiary
                        :filled? true)
-        (m/SizedBox .width 8.0)]))
+        (m/SizedBox .width 8.0)])
+      (ui/page-app-bar))
     .body
     (m/SafeArea .child (tags/tags-body)))))

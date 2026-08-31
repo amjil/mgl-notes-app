@@ -6,6 +6,8 @@
             [notes-app.state.store :as store]
             [notes-app.theme :as t]))
 
+(def ^:private rail-width 56.0)
+
 (def ^:private tabs
   [{:id "today" :icon m.Icons/wb_sunny_outlined :selected-icon m.Icons/wb_sunny :label "ᠥᠨᠦᠳᠦᠷ"}
    {:id "documents" :icon m.Icons/folder_outlined :selected-icon m.Icons/folder :label "ᠪᠠᠷᠢᠮᠲᠠ"}
@@ -17,23 +19,23 @@
 
 (defn- brand-mark []
   (m/Padding
-   .padding (m.EdgeInsets/only .top 20.0 .bottom 8.0)
+   .padding (m.EdgeInsets/only .top 16.0 .bottom 8.0)
    .child
    (m/Container
-    .width 42.0
-    .height 42.0
+    .width 36.0
+    .height 36.0
     .decoration (m/BoxDecoration
                  .color t/primary
-                 .borderRadius (m.BorderRadius/circular 14.0)
+                 .borderRadius (m.BorderRadius/circular 12.0)
                  .boxShadow [(m/BoxShadow
                               .color (t/fade t/primary 0.35)
-                              .blurRadius 14.0
-                              .offset (m/Offset 0.0 5.0))])
+                              .blurRadius 12.0
+                              .offset (m/Offset 0.0 4.0))])
     .child
     (m/Center
      .child (m/Icon m.Icons/edit_note_rounded
                     .color m.Colors/white
-                    .size 22.0)))))
+                    .size 20.0)))))
 
 (defn- nav-item [{:keys [icon selected-icon label id]} selected? sync-error? on-tap]
   (let [active? selected?
@@ -47,27 +49,30 @@
                   .child icon-w)
                  icon-w)]
     (m/Padding
-     .padding (m.EdgeInsets/symmetric .horizontal 8.0 .vertical 4.0)
+     .padding (m.EdgeInsets/symmetric .horizontal 4.0 .vertical 3.0)
      .child
      (m/InkWell
       .onTap on-tap
-      .borderRadius (m.BorderRadius/circular 16.0)
+      .borderRadius (m.BorderRadius/circular 12.0)
       .child
       (m/AnimatedContainer
        .duration (dart:core/Duration. .milliseconds 180)
-       .width 72.0
-       .padding (m.EdgeInsets/symmetric .vertical 10.0 .horizontal 6.0)
+       .padding (m.EdgeInsets/symmetric .vertical 8.0 .horizontal 2.0)
        .decoration (m/BoxDecoration
                     .color (if active? t/primary-soft m.Colors/transparent)
-                    .borderRadius (m.BorderRadius/circular 16.0))
+                    .borderRadius (m.BorderRadius/circular 12.0))
        .child
        (m/Column
         .mainAxisSize m.MainAxisSize/min
+        .crossAxisAlignment m.CrossAxisAlignment/center
         .children
         [marked
-         (m/SizedBox .height 8.0)
+         (m/SizedBox .height 6.0)
          (mgl/MongolText
           label
+          .maxLines (int 1)
+          .softWrap false
+          .textAlign mgl.MongolTextAlign/center
           .style (t/mongol-style
                   :size 13.0
                   :weight (if active? m.FontWeight/w600 m.FontWeight/normal)
@@ -78,10 +83,11 @@
    :watch [{:keys [selected-nav-id sync-status auth-token sync-enabled]} store/app-ui-state]
    (let [sync-error? (and sync-enabled auth-token (not= auth-token "") (= sync-status :error))]
      (m/Container
-      .width 88.0
+      .width rail-width
       .color t/surface-2
       .child
       (m/Column
+       .crossAxisAlignment m.CrossAxisAlignment/center
        .children
        [(brand-mark)
         (m/Expanded
@@ -90,6 +96,7 @@
           .padding (m.EdgeInsets/only .top 4.0 .bottom 16.0)
           .child
           (m/Column
+           .crossAxisAlignment m.CrossAxisAlignment/stretch
            .children
            (mapv (fn [tab]
                    (nav-item tab

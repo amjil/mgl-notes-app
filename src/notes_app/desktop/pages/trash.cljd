@@ -1,10 +1,12 @@
 (ns notes-app.desktop.pages.trash
   (:require ["package:flutter/material.dart" :as m]
             [notes-app.shared.trash :as trash]
-            [notes-app.theme :as t]))
+            [notes-app.theme :as t]
+            [notes-app.ui :as ui]))
 
 (defn trash-page []
   (m/Scaffold
+   .appBar (ui/page-app-bar)
    .backgroundColor t/bg
    .body
    (m/SafeArea .child (trash/trash-body))))

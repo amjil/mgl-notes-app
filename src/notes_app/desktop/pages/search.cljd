@@ -6,6 +6,7 @@
 
 (defn search-page []
   (m/Scaffold
+   .appBar (ui/page-app-bar)
    .backgroundColor t/bg
    .resizeToAvoidBottomInset false
    .body
