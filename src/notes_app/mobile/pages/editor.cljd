@@ -46,79 +46,77 @@
             document-id
             :on-promoted editor/invalidate-session!)))]))))))
 
+(defn- with-doc-title! [document-id f]
+  (-> (db/get-document document-id)
+      (.then (fn [d]
+               (f (if d (or (.-title d) "") ""))))))
+
 (defn editor-page []
-  (let [!title (atom "")
-        !preview? (atom true)]
+  (let [!preview? (atom true)]
     (f/widget
      :context ctx
      :get [m/Navigator]
      :watch [{:keys [open-document-id]} store/app-ui-state
-             title !title
              preview? !preview?]
      :managed [route-token (nav/editor-route-opened!)
                :dispose nav/editor-route-closed!]
-     (do
-       (when open-document-id
-         (-> (db/get-document open-document-id)
-             (.then (fn [d]
-                      (when d
-                        (let [t (or (.-title d) "")]
-                          (when (not= t @!title)
-                            (reset! !title t))))))))
-       (m/Scaffold
-        .backgroundColor t/bg
-        .resizeToAvoidBottomInset false
-        .appBar
-        (m/AppBar
-         .elevation 0.0
-         .scrolledUnderElevation 0.0
-         .backgroundColor t/bg
-         .foregroundColor t/ink
-         .leading (m/IconButton
-                   .icon (m/Icon m.Icons/arrow_back_rounded)
-                   .onPressed (fn []
-                                (.pop navigator)
-                                nil))
-         .title (m/Text (if (or (nil? title) (= title "")) "Untitled" title)
-                        .style (t/mongol-style :size 16.0 :weight m.FontWeight/w600))
-         .actions
-         (if-not open-document-id
-           []
-           [(m/IconButton
-             .icon (m/Icon (if preview?
-                             m.Icons/edit_outlined
-                             m.Icons/visibility_outlined))
-             .tooltip (if preview? "Edit" "Preview")
-             .onPressed #(swap! !preview? not))
-            (m/IconButton
-             .icon (m/Icon m.Icons/account_tree_outlined)
-             .tooltip "Backlinks"
-             .onPressed #(show-backlinks-modal! ctx title open-document-id))
-            (m/IconButton
-             .icon (m/Icon m.Icons/file_download_outlined)
-             .tooltip "Export HTML"
-             .onPressed (fn []
-                          (-> (export/export-document-to-file! open-document-id)
-                              (.then (fn [path] (export/show-export-result! ctx path)))
-                              (.catchError (fn [_] (export/show-export-result! ctx nil))))))
-            (m/IconButton
-             .icon (m/Icon m.Icons/drive_file_rename_outline)
-             .onPressed (fn []
-                          (rename/rename-dialog
-                           ctx title
-                           (fn [tit]
-                             (doc/rename! open-document-id tit)
-                             (reset! !title tit)
-                             (db/refresh-document-titles!)))))]))
-        .body
-        (if-not open-document-id
-          (ui/empty-state m.Icons/edit_note "No document")
-          (m/KeyedSubtree
-           .key (m/ValueKey open-document-id)
-           .child
-           (kw/wrap
-            (editor/document-editor open-document-id
-                                    :show-back? false
-                                    :embedded? true
-                                    :show-backlinks? false
-                                    :!read-only? !preview?)))))))))
+     (m/Scaffold
+      .backgroundColor t/bg
+      .resizeToAvoidBottomInset false
+      .appBar
+      (m/AppBar
+       .elevation 0.0
+       .scrolledUnderElevation 0.0
+       .backgroundColor t/bg
+       .foregroundColor t/ink
+       .leading (m/IconButton
+                 .icon (m/Icon m.Icons/arrow_back_rounded)
+                 .onPressed (fn []
+                              (.pop navigator)
+                              nil))
+       .actions
+       (if-not open-document-id
+         []
+         [(m/IconButton
+           .icon (m/Icon (if preview?
+                           m.Icons/edit_outlined
+                           m.Icons/visibility_outlined))
+           .tooltip (if preview? "Edit" "Preview")
+           .onPressed #(swap! !preview? not))
+          (m/IconButton
+           .icon (m/Icon m.Icons/account_tree_outlined)
+           .tooltip "Backlinks"
+           .onPressed #(with-doc-title!
+                         open-document-id
+                         (fn [title]
+                           (show-backlinks-modal! ctx title open-document-id))))
+          (m/IconButton
+           .icon (m/Icon m.Icons/file_download_outlined)
+           .tooltip "Export HTML"
+           .onPressed (fn []
+                        (-> (export/export-document-to-file! open-document-id)
+                            (.then (fn [path] (export/show-export-result! ctx path)))
+                            (.catchError (fn [_] (export/show-export-result! ctx nil))))))
+          (m/IconButton
+           .icon (m/Icon m.Icons/drive_file_rename_outline)
+           .onPressed #(with-doc-title!
+                         open-document-id
+                         (fn [title]
+                           (rename/rename-dialog
+                            ctx title
+                            (fn [tit]
+                              (doc/rename! open-document-id tit)
+                              (editor/sync-session-title! open-document-id tit)
+                              (db/refresh-document-titles!))))))]))
+      .body
+      (if-not open-document-id
+        (ui/empty-state m.Icons/edit_note "No document")
+        (m/KeyedSubtree
+         .key (m/ValueKey open-document-id)
+         .child
+         (kw/wrap
+          (editor/document-editor open-document-id
+                                  :show-back? false
+                                  :embedded? true
+                                  :show-backlinks? false
+                                  :!read-only? !preview?))))))))

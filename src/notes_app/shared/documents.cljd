@@ -127,31 +127,31 @@
                        :as-values (db/watch-paged-documents parent-doc-id (boolean show-daily-only) limit-val))]
                 (reset! !docs (or rows [])))
    :watch [docs !docs]
-     (let [show-daily-only? (boolean show-daily-only)
-           display-docs-vec (vec (or docs []))
-           list-view
-           (if (empty? display-docs-vec)
-             (ui/empty-state
-              (if show-daily-only? m.Icons/calendar_today_outlined m.Icons/folder_open)
-              (if show-daily-only? "No calendar notes" "Empty"))
-             (m/ListView.builder
-              .controller scroll-ctrl
-              .scrollDirection m.Axis/horizontal
-              .physics (m/BouncingScrollPhysics)
-              .padding (m.EdgeInsets/fromLTRB 20.0 20.0 8.0 20.0)
-              .itemCount (count display-docs-vec)
-              .itemBuilder
-              (fn [_ idx]
-                (let [row (nth display-docs-vec idx)]
-                  (m/KeyedSubtree
-                   .key (m/ValueKey (:id (:document row)))
-                   .child (doc-tile ctx row))))))]
-       (m/Row
-        .crossAxisAlignment m.CrossAxisAlignment/stretch
-        .children
-        [(if parent-doc-id
-           (ui/title-rail parent-doc-title
-                          :on-back #(store/clear-parent-doc!)
-                          :on-title-tap #(store/open-document! parent-doc-id))
-           (ui/title-rail "ᠪᠠᠷᠢᠮᠲᠠ"))
-         (m/Expanded .child list-view)]))))
+   (let [show-daily-only? (boolean show-daily-only)
+         display-docs-vec (vec (or docs []))
+         list-view
+         (if (empty? display-docs-vec)
+           (ui/empty-state
+            (if show-daily-only? m.Icons/calendar_today_outlined m.Icons/folder_open)
+            (if show-daily-only? "No calendar notes" "Empty"))
+           (m/ListView.builder
+            .controller scroll-ctrl
+            .scrollDirection m.Axis/horizontal
+            .physics (m/BouncingScrollPhysics)
+            .padding (m.EdgeInsets/fromLTRB 20.0 20.0 8.0 20.0)
+            .itemCount (count display-docs-vec)
+            .itemBuilder
+            (fn [_ idx]
+              (let [row (nth display-docs-vec idx)]
+                (m/KeyedSubtree
+                 .key (m/ValueKey (:id (:document row)))
+                 .child (doc-tile ctx row))))))]
+     (m/Row
+      .crossAxisAlignment m.CrossAxisAlignment/stretch
+      .children
+      [(if parent-doc-id
+         (ui/title-rail parent-doc-title
+                        :on-back #(store/clear-parent-doc!)
+                        :on-title-tap #(store/open-document! parent-doc-id))
+         (ui/title-rail "ᠪᠠᠷᠢᠮᠲᠠ"))
+       (m/Expanded .child list-view)]))))

@@ -158,6 +158,12 @@
   [document-id]
   (swap! !sessions dissoc document-id))
 
+(defn sync-session-title!
+  "Keep an open editor's title atom in sync after an external rename."
+  [document-id title]
+  (when-let [s (get @!sessions document-id)]
+    (reset! (:!title s) (or title ""))))
+
 (defn- cancel-save-timer! [session]
   (when-let [t @(:!save-timer session)]
     (.cancel ^async/Timer t)
@@ -209,6 +215,25 @@
                           (reset! !title t)
                           (db/refresh-document-titles!))))
 
+(defn- doc-title-leading
+  "Vertical document title that scrolls with the block list."
+  [!title on-tap]
+  (f/widget
+   :watch [title !title]
+   (m/Align
+    .alignment m.Alignment/topCenter
+    .child
+    (m/InkWell
+     .onTap on-tap
+     .child
+     (m/Padding
+      .padding (m.EdgeInsets/only .right 20.0)
+      .child
+      (mgl/MongolText
+       (let [t (or title "")]
+         (if (empty? t) "Untitled" t))
+       .style (t/mongol-style :size 28.0 :weight m.FontWeight/bold)))))))
+
 (defn- export-html! [ctx !state !title]
   (-> (export/export-state-to-file! @!state @!title)
       (.then (fn [path] (export/show-export-result! ctx path)))
@@ -252,6 +277,9 @@
             :show-block-handles? (not read-only?)
             :padding (m.EdgeInsets/all 32.0)
             :read-only? read-only?
+            :leading-widget (doc-title-leading
+                             !title
+                             #(show-rename! ctx document-id !title))
             ;; Mobile pages already mount a full-width keyboard via `kw/wrap`.
             ;; Leaving wrap-ime? true stacks a second virtual keyboard.
             :wrap-ime? (not (platform/mobile?)))]
