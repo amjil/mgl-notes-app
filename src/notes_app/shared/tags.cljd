@@ -7,12 +7,12 @@
             [cljd.flutter :as f]
             [notes-app.services.link :as link]
             [notes-app.state.store :as store]
-            [notes-app.keyboard :as kw]
+            [notes-app.keyboard :as kw] 
             [rich-editor.components.text-field :as custom-tf]
             [notes-app.theme :as t]
             [notes-app.ui :as ui]))
 
-(defonce ^:private !filter-state
+(defonce !filter-state
   (atom {:external-keyboard-delegate nil}))
 
 (defn- preview-text [text]
@@ -28,25 +28,26 @@
       "Untitled"
       s)))
 
-(defn- tag-tile [{:keys [tag ref-count doc-count]} on-tap]
+(defn- tag-tile [row on-tap]
   (ui/note-card
    (mgl/MongolListTile
     .leading (ui/icon-chip m.Icons/tag t/tertiary :bg-color t/tertiary-soft)
-    .title (mgl/MongolText (str "#" tag)
+    .title (mgl/MongolText (str "#" (:tag row))
                            .style (t/mongol-style
                                    :size 18.0
                                    :color t/tertiary
                                    :italic? true))
     .subtitle (mgl/MongolText
-               (str doc-count " notes · " ref-count " refs")
+               (str (:doc-count row) " notes · " (:ref-count row) " refs")
                .style (t/mongol-style :size 12.0 :color t/ink-muted))
     .onTap on-tap)
-   :accent-color t/tertiary))
+   :accent-color t/tertiary
+   :width 120.0))
 
-(defn- ref-card [{:keys [block-id block-text document-id document-title]}]
+(defn- ref-card [row]
   (m/GestureDetector
-   .onTap #(when document-id
-             (store/open-document! document-id block-id))
+   .onTap #(when (:document-id row)
+             (store/open-document! (:document-id row) (:block-id row)))
    .child
    (ui/note-card
     (m/Padding
@@ -56,23 +57,27 @@
       .crossAxisAlignment m.CrossAxisAlignment/start
       .children
       [(mgl/MongolText
-        (display-doc-title document-title)
+        (display-doc-title (:document-title row))
         .style (t/mongol-style :size 14.0 :weight m.FontWeight/bold :color t/primary))
        (m/SizedBox .height 10.0)
        (m/Expanded
         .child
         (mgl/MongolText
-         (preview-text block-text)
+         (preview-text (:block-text row))
          .style (t/mongol-style :size 13.0 :color t/ink-muted)))]))
     :width 120.0)))
 
-(defn- make-load-more-scroll [!limit]
+(defn- make-load-more-scroll [!limit !data-list]
   (let [ctrl (m/ScrollController.)]
     (.addListener ctrl
                   (fn []
-                    (let [pos (.-position ctrl)]
-                      (when (>= (.-pixels pos) (- (.-maxScrollExtent pos) 200))
-                        (swap! !limit + 50)))))
+                    (when (.-hasClients ctrl)
+                      (let [pos (.-position ctrl)
+                            lim @!limit]
+                        (when (and (>= (count @!data-list) lim)
+                                   (pos? (.-maxScrollExtent pos))
+                                   (>= (.-pixels pos) (- (.-maxScrollExtent pos) 200)))
+                          (swap! !limit + 50))))))
     ctrl))
 
 (defn- cancel-timer! [!timer]
@@ -81,9 +86,33 @@
 
 (defn tags-body []
   (f/widget
-   :managed [!limit (atom 50) :refresh-on :never :dispose nil
-             !query (atom "") :refresh-on :never :dispose nil
-             !timer (atom nil) :refresh-on :never :dispose cancel-timer!]
+   :context ctx
+   :watch [{:keys [selected-tag]} store/app-ui-state]
+   
+   :managed [!tags-limit (atom 50)
+             !refs-limit (atom 50)
+             !tags (atom [])
+             !refs (atom [])
+             !query (atom "")
+             !timer (atom nil) :dispose cancel-timer!
+             filter-ctrl (m/TextEditingController.) :dispose .dispose
+             filter-focus (m/FocusNode.) :dispose .dispose
+             tags-scroll (make-load-more-scroll !tags-limit !tags) :dispose .dispose
+             refs-scroll (make-load-more-scroll !refs-limit !refs) :dispose .dispose]
+             
+   :watch [tags-limit-val !tags-limit
+           refs-limit-val !refs-limit
+           query !query
+           filter-state !filter-state]
+           
+   :bg-watcher ([tags-rows (link/watch-paged-tags query tags-limit-val)]
+                (reset! !tags (or tags-rows [])))
+                
+   :bg-watcher ([refs-rows (if selected-tag
+                             (link/watch-tag-references selected-tag refs-limit-val)
+                             (async/Stream.value []))]
+                (reset! !refs (or refs-rows [])))
+                
    :let [schedule-filter!
          (fn [v]
            (cancel-timer! !timer)
@@ -91,89 +120,75 @@
                    (async/Timer. (dart:core/Duration. .milliseconds 200)
                                  (fn []
                                    (reset! !query (or v ""))
-                                   (reset! !limit 50)))))]
-   :managed [filter-ctrl (m/TextEditingController.)
-             filter-focus (m/FocusNode)
-             tags-scroll (make-load-more-scroll !limit)
-             refs-scroll (make-load-more-scroll !limit)]
-     :bg-watcher ([^m/TextEditingValue {v .-text} filter-ctrl]
-                  (schedule-filter! (or v "")))
-     :watch [{:keys [selected-tag]} store/app-ui-state
-             limit-val !limit
-             query !query
-             filter-state !filter-state
-             tags (stream
-                   (map (fn [rows] (or rows [])))
-                   (map (fn [[_ _]] []))
-                   :as-values (link/watch-paged-tags query limit-val))
-             refs (stream
-                   (map (fn [rows] (or rows [])))
-                   (map (fn [[_ _]] []))
-                   :as-values (link/watch-tag-references
-                               (or selected-tag "") limit-val))]
-     (let [tags-vec (vec (or tags []))
-           refs-vec (vec (or refs []))]
-       (if selected-tag
-           (m/Row
-            .crossAxisAlignment m.CrossAxisAlignment/stretch
-            .children
-            [(ui/title-rail (str "#" selected-tag)
-                            :on-back (fn []
-                                       (reset! !limit 50)
-                                       (store/clear-selected-tag!))
-                            :on-title-tap #(link/open-or-create-by-title! selected-tag))
-             (m/Expanded
-              .child
-              (if (empty? refs-vec)
-                (ui/empty-state m.Icons/tag "No notes with this tag")
-                (m/ListView.builder
-                 .controller refs-scroll
-                 .scrollDirection m.Axis/horizontal
-                 .physics (m/BouncingScrollPhysics)
-                 .padding (m.EdgeInsets/fromLTRB 20.0 20.0 8.0 20.0)
-                 .itemCount (count refs-vec)
-                 .itemBuilder
-                 (fn [_ idx]
-                   (let [row (nth refs-vec idx)]
-                     (m/KeyedSubtree
-                      .key (m/ValueKey (:block-id row))
-                      .child (ref-card row)))))))])
+                                   (reset! !tags-limit 50)))))]
+                                   
+   :bg-watcher ([^m/TextEditingValue {v .-text} filter-ctrl]
+                (schedule-filter! (or v "")))
+                
+   :watch [tags-vec !tags
+           refs-vec !refs]
 
-           (kw/wrap
-            (m/Row
-             .crossAxisAlignment m.CrossAxisAlignment/stretch
-             .children
-             [(ui/title-rail "ᠲᠡᠮᠳᠡᠭ")
-              (ui/field-shell
-               (custom-tf/text-field
-                !filter-state
-                {:controller filter-ctrl
-                 :on-changed (fn [v] (schedule-filter! (or v "")))
-                 :focus-node filter-focus
-                 :hint "Filter…"
-                 :max-lines 1
-                 :style (t/mongol-style)
-                 :decoration (m/InputDecoration .border m/InputBorder.none
-                                                .hintStyle (t/mongol-style :color t/ink-faint))}))
-              (m/Expanded
-               .child
-               (if (empty? tags-vec)
-                 (ui/empty-state
-                  m.Icons/tag
-                  (if (empty? query) "No tags yet" "No matching tags"))
-                 (m/ListView.builder
-                  .controller tags-scroll
-                  .scrollDirection m.Axis/horizontal
-                  .physics (m/BouncingScrollPhysics)
-                  .padding (m.EdgeInsets/fromLTRB 12.0 20.0 8.0 20.0)
-                  .itemCount (count tags-vec)
-                  .itemBuilder
-                  (fn [_ idx]
-                    (let [row (nth tags-vec idx)]
-                      (m/KeyedSubtree
-                       .key (m/ValueKey (:tag row))
-                       .child
-                       (tag-tile row
-                                 (fn []
-                                   (reset! !limit 50)
-                                   (store/set-selected-tag! (:tag row))))))))))]))))))
+   (if selected-tag
+     (m/Row
+      .crossAxisAlignment m.CrossAxisAlignment/stretch
+      .children
+      [(ui/title-rail (str "#" selected-tag)
+                      :on-back (fn []
+                                 (reset! !refs-limit 50)
+                                 (store/clear-selected-tag!))
+                      :on-title-tap #(link/open-or-create-by-title! selected-tag))
+       (m/Expanded
+        .child
+        (if (empty? refs-vec)
+          (ui/empty-state m.Icons/tag "No notes with this tag")
+          (m/ListView.builder
+           .controller refs-scroll
+           .scrollDirection m.Axis/horizontal
+           .physics (m/BouncingScrollPhysics)
+           .padding (m.EdgeInsets/fromLTRB 20.0 20.0 8.0 20.0)
+           .itemCount (count refs-vec)
+           .itemBuilder
+           (fn [_ idx]
+             (let [row (nth refs-vec idx)]
+               (m/KeyedSubtree
+                .key (m/ValueKey (:block-id row))
+                .child (ref-card row)))))))])
+
+     (kw/wrap
+      (m/Row
+       .crossAxisAlignment m.CrossAxisAlignment/stretch
+       .children
+       [(ui/title-rail "ᠲᠡᠮᠳᠡᠭ")
+        (ui/field-shell
+         (custom-tf/text-field
+          !filter-state
+          {:controller filter-ctrl
+           :on-changed (fn [v] (schedule-filter! (or v "")))
+           :focus-node filter-focus
+           :hint "Filter…"
+           :max-lines 1
+           :style (t/mongol-style)
+           :decoration (m/InputDecoration .border m/InputBorder.none
+                                          .hintStyle (t/mongol-style :color t/ink-faint))}))
+        (m/Expanded
+         .child
+         (if (empty? tags-vec)
+           (ui/empty-state
+            m.Icons/tag
+            (if (empty? query) "No tags yet" "No matching tags"))
+           (m/ListView.builder
+            .controller tags-scroll
+            .scrollDirection m.Axis/horizontal
+            .physics (m/BouncingScrollPhysics)
+            .padding (m.EdgeInsets/fromLTRB 12.0 20.0 8.0 20.0)
+            .itemCount (count tags-vec)
+            .itemBuilder
+            (fn [_ idx]
+              (let [row (nth tags-vec idx)]
+                (m/KeyedSubtree
+                 .key (m/ValueKey (:tag row))
+                 .child (tag-tile row
+                                  (fn []
+                                    (reset! !tags-limit 50)
+                                    (reset! !refs-limit 50)
+                                    (store/set-selected-tag! (:tag row))))))))))])))))

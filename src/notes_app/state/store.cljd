@@ -13,7 +13,7 @@
    :auth-email "auth_email"
    :workspace-id "workspace_id"})
 
-(def default-sync-base-url "http://127.0.0.1:4000")
+(def default-sync-base-url "http://127.0.0.1:4001")
 
 (defonce app-ui-state
   (atom {:selected-nav-id "today"

@@ -1,6 +1,8 @@
 (ns notes-app.main
   (:require ["package:flutter/material.dart" :as m]
+            ["package:flutter/foundation.dart" :as foundation :refer [kIsWeb]]
             [cljd.flutter :as f]
+            [ime-core.remote-api :as remote]
             [notes-app.platform :as platform]
             [notes-app.bootstrap.desktop :as desktop-boot]
             [notes-app.bootstrap.mobile :as mobile-boot]
@@ -39,6 +41,11 @@
 
 (defn main []
   (m/WidgetsFlutterBinding.ensureInitialized)
+
+  (when kIsWeb
+    (remote/set-config! {:base-url "100.64.0.6:3003"
+                         :candidate-api-path "/api/next_word/candidates"
+                         :next-word-api-path "/api/next_word/list"}))
 
   (if (platform/desktop?)
     (desktop-boot/init!)

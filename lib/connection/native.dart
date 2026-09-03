@@ -4,15 +4,22 @@ import 'package:drift/drift.dart';
 import 'package:drift/native.dart';
 import 'package:path/path.dart' as p;
 import 'package:path_provider/path_provider.dart';
+import 'package:sqlite3_flutter_libs/sqlite3_flutter_libs.dart';
 
-/// `sqlite3` 3.x with `hooks.user_defines.sqlite3.source: process` looks up
-/// symbols in already-loaded modules. `sqlite3_flutter_libs` ships
-/// `sqlite3.dll` next to the Windows exe, but does not LoadLibrary it — unlike
-/// macOS/iOS/Linux, where SQLite is linked into the plugin. Load it here, in
-/// the Drift isolate, before native-asset process lookup runs.
-void _preloadSqlite3() {
+/// Ensure the sqlite3 from `sqlite3_flutter_libs` is loadable before Drift
+/// opens the DB (esp. Android 6 `dlopen` quirks, and Windows where the DLL
+/// sits next to the exe but is not linked into the process).
+Future<void> _ensureSqlite3Loaded() async {
+  if (Platform.isAndroid) {
+    await applyWorkaroundToOpenSqlite3OnOldAndroidVersions();
+  }
+}
+
+void _preloadSqlite3InIsolate() {
   if (Platform.isWindows) {
     DynamicLibrary.open('sqlite3.dll');
+  } else if (Platform.isAndroid) {
+    DynamicLibrary.open('libsqlite3.so');
   }
 }
 
@@ -27,11 +34,12 @@ Future<String> getDatabasePath() async {
 
 DatabaseConnection connect() {
   return DatabaseConnection.delayed(Future(() async {
+    await _ensureSqlite3Loaded();
     final dbPath = await getDatabasePath();
     print('SQLite database: $dbPath');
     return NativeDatabase.createBackgroundConnection(
       File(dbPath),
-      isolateSetup: _preloadSqlite3,
+      isolateSetup: _preloadSqlite3InIsolate,
     );
   }));
 }
