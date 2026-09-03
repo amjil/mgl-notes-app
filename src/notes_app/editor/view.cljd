@@ -219,22 +219,11 @@
 ;; =============================================================================
 
 (defn- editor-chrome
-  [document-id session ctx show-back? on-back embedded? show-backlinks?]
+  [document-id session ctx show-back? on-back embedded? show-backlinks? !read-only?]
   (let [{:keys [!state !snapshot !title !save-timer !show-backlinks]} session
         !show-backlinks (or !show-backlinks (atom (boolean show-backlinks?)))
+        !read-only? (or !read-only? (atom false))
         cfg notes-editor-config
-
-        editor-body
-        (editor/mongol-block-editor
-         !state
-         :editor-config cfg
-         :toolbar (tb/notes-toolbar !state cfg)
-         :background-color t/bg
-         :show-block-handles? true
-         :padding (m.EdgeInsets/all 32.0)
-         ;; Mobile pages already mount a full-width keyboard via `kw/wrap`.
-         ;; Leaving wrap-ime? true stacks a second virtual keyboard.
-         :wrap-ime? (not (platform/mobile?)))
 
         cleanup!
         (fn [_]
@@ -250,111 +239,130 @@
 
      :managed [_ !save-timer :dispose cleanup!]
 
-     :watch [current-state !state
-             title !title
-             show-refs? !show-backlinks]
+     ;; Build the editor/reader only when preview mode changes — not inside the
+     ;; !state watch — so resolved-config / blur cannot mark sibling watches dirty.
+     :watch [read-only? !read-only?]
 
-     (let [_ (when-let [t @!save-timer] (.cancel ^async/Timer t) nil)
-           _ (reset! !save-timer
-                     (async/Timer.
-                      (dart:core/Duration. .seconds 2)
-                      #(bridge/persist-diff! document-id current-state !snapshot)))
-           
-           ;; Auto Embed Converter logic: find paragraphs that exactly match ((uuid))
-           blocks (:blocks current-state)
-           embeds-to-convert
-           (keep (fn [[id b]]
-                   (when (= (:type b) :paragraph)
-                     (let [content (str/trim (or (:content b) ""))]
-                       (when-let [match (re-matches #"^\(\((.+)\)\)$" content)]
-                         [id (second match)]))))
-                 blocks)
-           
-           ;; Apply conversions asynchronously to avoid mutating state during render
-           _ (when (seq embeds-to-convert)
-               (async/Timer.
-                (dart:core/Duration.zero)
-                (fn []
-                  (history/record-snapshot! !state)
-                  (swap! !state
-                         (fn [s]
-                           (reduce (fn [acc [id target-id]]
-                                     (update-in acc [:blocks id]
-                                                assoc :type :embed :data {:target-id target-id} :content ""))
-                                   s
-                                   embeds-to-convert))))))
+     (let [editor-body
+           (editor/mongol-block-editor
+            !state
+            :editor-config cfg
+            :toolbar (when-not read-only? (tb/notes-toolbar !state cfg))
+            :background-color t/bg
+            :show-block-handles? (not read-only?)
+            :padding (m.EdgeInsets/all 32.0)
+            :read-only? read-only?
+            ;; Mobile pages already mount a full-width keyboard via `kw/wrap`.
+            ;; Leaving wrap-ime? true stacks a second virtual keyboard.
+            :wrap-ime? (not (platform/mobile?)))]
 
-           show-panel? (and show-backlinks? show-refs? (not= (or title "") ""))
-           body-row
-           (m/Row
-            .children
-            (into []
-                  (remove nil?
-                          [(m/Expanded .child editor-body)
-                           (when show-panel?
-                             (m/Container
-                              .width 360.0
-                              .decoration (m/BoxDecoration
-                                           .color t/surface
-                                           .border (m/Border
-                                                    .left (m/BorderSide .color t/outline
-                                                                        .width 1.0)))
-                              .padding (m.EdgeInsets/all 16.0)
-                              .child
-                              (backlinks/references-sidebar
-                               title
-                               document-id
-                               :on-promoted invalidate-session!)))])))]
+       (f/widget
+        :watch [current-state !state
+                title !title
+                show-refs? !show-backlinks]
 
-       (if embedded?
-         (m/SafeArea .child body-row)
-         (m/Scaffold
-          .backgroundColor t/bg
-          .appBar
-          (m/AppBar
-           .elevation 0.0
-           .scrolledUnderElevation 0.0
-           .backgroundColor t/bg
-           .foregroundColor t/ink
-           .surfaceTintColor m.Colors/transparent
-           .leading (if show-back?
-                      (m/IconButton
-                       .icon (m/Icon m.Icons/arrow_back_rounded)
-                       .onPressed (or on-back #(store/close-editor!)))
-                      nil)
-           .actions
-           (let [can-undo? (boolean (seq (get-in current-state [:history :undo-stack])))
-                 can-redo? (boolean (seq (get-in current-state [:history :redo-stack])))]
-             [(m/IconButton
-               .icon (m/Icon m.Icons/undo)
-               .tooltip "Undo"
-               .onPressed (when can-undo? #(history/undo! !state)))
-              (m/IconButton
-               .icon (m/Icon m.Icons/redo)
-               .tooltip "Redo"
-               .onPressed (when can-redo? #(history/redo! !state)))
-              (m/IconButton
-               .icon (m/Icon (if show-refs?
-                               m.Icons/chevron_right
-                               m.Icons/account_tree_outlined))
-               .tooltip "Backlinks"
-               .onPressed #(swap! !show-backlinks not))
-              (m/IconButton
-               .icon (m/Icon m.Icons/file_download_outlined)
-               .tooltip "Export HTML"
-               .onPressed #(export-html! ctx !state !title))
-              (m/IconButton
-               .icon (m/Icon m.Icons/drive_file_rename_outline)
-               .onPressed #(show-rename! ctx document-id !title))]))
-          .body (m/SafeArea .child body-row)))))))
+        (let [_ (when-let [t @!save-timer] (.cancel ^async/Timer t) nil)
+              _ (reset! !save-timer
+                        (async/Timer.
+                         (dart:core/Duration. .seconds 2)
+                         #(bridge/persist-diff! document-id current-state !snapshot)))
+
+              ;; Auto Embed Converter logic: find paragraphs that exactly match ((uuid))
+              blocks (:blocks current-state)
+              embeds-to-convert
+              (keep (fn [[id b]]
+                      (when (= (:type b) :paragraph)
+                        (let [content (str/trim (or (:content b) ""))]
+                          (when-let [match (re-matches #"^\(\((.+)\)\)$" content)]
+                            [id (second match)]))))
+                    blocks)
+
+              ;; Apply conversions asynchronously to avoid mutating state during render
+              _ (when (and (not read-only?) (seq embeds-to-convert))
+                  (async/Timer.
+                   (dart:core/Duration.zero)
+                   (fn []
+                     (history/record-snapshot! !state)
+                     (swap! !state
+                            (fn [s]
+                              (reduce (fn [acc [id target-id]]
+                                        (update-in acc [:blocks id]
+                                                   assoc :type :embed :data {:target-id target-id} :content ""))
+                                      s
+                                      embeds-to-convert))))))
+
+              show-panel? (and show-backlinks? show-refs? (not= (or title "") ""))
+              body-row
+              (m/Row
+               .children
+               (into []
+                     (remove nil?
+                             [(m/Expanded .child editor-body)
+                              (when show-panel?
+                                (m/Container
+                                 .width 360.0
+                                 .decoration (m/BoxDecoration
+                                              .color t/surface
+                                              .border (m/Border
+                                                       .left (m/BorderSide .color t/outline
+                                                                           .width 1.0)))
+                                 .padding (m.EdgeInsets/all 16.0)
+                                 .child
+                                 (backlinks/references-sidebar
+                                  title
+                                  document-id
+                                  :on-promoted invalidate-session!)))])))]
+
+          (if embedded?
+            (m/SafeArea .child body-row)
+            (m/Scaffold
+             .backgroundColor t/bg
+             .appBar
+             (m/AppBar
+              .elevation 0.0
+              .scrolledUnderElevation 0.0
+              .backgroundColor t/bg
+              .foregroundColor t/ink
+              .surfaceTintColor m.Colors/transparent
+              .leading (if show-back?
+                         (m/IconButton
+                          .icon (m/Icon m.Icons/arrow_back_rounded)
+                          .onPressed (or on-back #(store/close-editor!)))
+                         nil)
+              .actions
+              (let [can-undo? (boolean (seq (get-in current-state [:history :undo-stack])))
+                    can-redo? (boolean (seq (get-in current-state [:history :redo-stack])))]
+                [(m/IconButton
+                  .icon (m/Icon m.Icons/undo)
+                  .tooltip "Undo"
+                  .onPressed (when can-undo? #(history/undo! !state)))
+                 (m/IconButton
+                  .icon (m/Icon m.Icons/redo)
+                  .tooltip "Redo"
+                  .onPressed (when can-redo? #(history/redo! !state)))
+                 (m/IconButton
+                  .icon (m/Icon (if show-refs?
+                                  m.Icons/chevron_right
+                                  m.Icons/account_tree_outlined))
+                  .tooltip "Backlinks"
+                  .onPressed #(swap! !show-backlinks not))
+                 (m/IconButton
+                  .icon (m/Icon m.Icons/file_download_outlined)
+                  .tooltip "Export HTML"
+                  .onPressed #(export-html! ctx !state !title))
+                 (m/IconButton
+                  .icon (m/Icon m.Icons/drive_file_rename_outline)
+                  .onPressed #(show-rename! ctx document-id !title))]))
+             .body (m/SafeArea .child body-row)))))))))
 
 ;; =============================================================================
 ;; Public widget
 ;; =============================================================================
 
 (defn document-editor
-  "Mount mongol-block-editor for a document."
-  [document-id & {:keys [show-back? on-back embedded? show-backlinks?]
+  "Mount mongol-block-editor for a document.
+   Optional `!read-only?` atom: true → `document-reader` preview (no IME)."
+  [document-id & {:keys [show-back? on-back embedded? show-backlinks? !read-only?]
                   :or {show-back? true embedded? false show-backlinks? true}}]
   (f/widget
    :context ctx
@@ -364,4 +372,4 @@
      (= session :failed)
      (ui/empty-state m.Icons/error_outline "Could not load document")
      :else
-     (editor-chrome document-id session ctx show-back? on-back embedded? show-backlinks?))))
+     (editor-chrome document-id session ctx show-back? on-back embedded? show-backlinks? !read-only?))))

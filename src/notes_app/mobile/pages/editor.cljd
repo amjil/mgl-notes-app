@@ -47,12 +47,14 @@
             :on-promoted editor/invalidate-session!)))]))))))
 
 (defn editor-page []
-  (let [!title (atom "")]
+  (let [!title (atom "")
+        !preview? (atom true)]
     (f/widget
      :context ctx
      :get [m/Navigator]
      :watch [{:keys [open-document-id]} store/app-ui-state
-             title !title]
+             title !title
+             preview? !preview?]
      :managed [route-token (nav/editor-route-opened!)
                :dispose nav/editor-route-closed!]
      (do
@@ -83,6 +85,12 @@
          (if-not open-document-id
            []
            [(m/IconButton
+             .icon (m/Icon (if preview?
+                             m.Icons/edit_outlined
+                             m.Icons/visibility_outlined))
+             .tooltip (if preview? "Edit" "Preview")
+             .onPressed #(swap! !preview? not))
+            (m/IconButton
              .icon (m/Icon m.Icons/account_tree_outlined)
              .tooltip "Backlinks"
              .onPressed #(show-backlinks-modal! ctx title open-document-id))
@@ -110,6 +118,7 @@
            .child
            (kw/wrap
             (editor/document-editor open-document-id
-                                         :show-back? false
-                                         :embedded? true
-                                         :show-backlinks? false)))))))))
+                                    :show-back? false
+                                    :embedded? true
+                                    :show-backlinks? false
+                                    :!read-only? !preview?)))))))))
