@@ -27,73 +27,78 @@
                has-children? m.Icons/folder_outlined
                :else m.Icons/description_outlined)]
 
-    (ui/note-card
-     (mgl/MongolListTile
-      .leading (ui/icon-chip icon accent)
-      .title (mgl/MongolText display
-                             .style (t/mongol-style
-                                     :size 18.0
-                                     :weight (if is-daily? m.FontWeight/bold m.FontWeight/normal)))
-      .subtitle (when has-parent?
-                  (mgl/MongolText "nested"
-                                  .style (t/mongol-style :size 12.0 :color t/ink-faint)))
-      .onTap (fn []
-               (if has-children?
-                 (store/set-parent-doc! id display)
-                 (store/open-document! id)))
-      .trailing
-      (menu/custom-popup-menu
-       {:trigger-builder
-        (fn [show-menu]
-          (m/IconButton
-           .icon (m/Icon m.Icons/more_horiz .color t/ink-faint)
-           .onPressed show-menu))
-        :bg-color t/surface
-        :border-radius 16.0
-        :menu-width 380.0
-        :items [{:type :item
-                 :title "Edit"
-                 :leading m.Icons/edit_note
-                 :leading-color t/success
-                 :on-tap #(store/open-document! id)}
-                {:type :item
-                 :title "Delete"
-                 :leading m.Icons/delete
-                 :leading-color t/danger
-                 :on-tap #(doc/soft-delete! id)}
-                {:type :divider}
-                {:type :item
-                 :title "New Sub-doc"
-                 :leading m.Icons/post_add
-                 :leading-color t/primary
-                 :on-tap (fn []
-                           (store/set-parent-doc! id display)
-                           (-> (doc/create! {:title "" :type "normal" :parent-id id})
-                               (.then (fn [new-id]
-                                        (when new-id (store/open-document! new-id))))
-                               (.catchError (fn [_] nil))))}
-                {:type :item
-                 :title "Rename"
-                 :leading m.Icons/edit
-                 :leading-color t/ink-muted
-                 :on-tap #(rename/rename-dialog ctx title
-                                                (fn [tit] (doc/rename! id tit)))}
-                {:type :item
-                 :title "Move"
-                 :leading m.Icons/drive_file_move_outlined
-                 :leading-color t/secondary
-                 :on-tap #(move/move-dialog ctx id (:parentId d) nil)}
-                {:type :item
-                 :title "Export HTML"
-                 :leading m.Icons/file_download_outlined
-                 :leading-color t/primary
-                 :on-tap (fn []
-                           (-> (export/export-document-to-file! id)
-                               (.then (fn [path]
-                                        (export/show-export-result! ctx path)))
-                               (.catchError (fn [_]
-                                              (export/show-export-result! ctx nil)))))}]}))
-     :accent-color (when is-daily? t/secondary))))
+    (m/Center
+     .child
+     (ui/note-card
+      (m/Center
+       .child
+       (mgl/MongolListTile
+        .leading (ui/icon-chip icon accent)
+        .title (mgl/MongolText display
+                               .style (t/mongol-style
+                                       :size 18.0
+                                       :weight (if is-daily? m.FontWeight/bold m.FontWeight/normal)))
+        .subtitle (when has-parent?
+                    (mgl/MongolText "nested"
+                                    .style (t/mongol-style :size 12.0 :color t/ink-faint)))
+        .onTap (fn []
+                 (if has-children?
+                   (store/set-parent-doc! id display)
+                   (store/open-document! id)))
+        .trailing
+        (menu/custom-popup-menu
+         {:trigger-builder
+          (fn [show-menu]
+            (m/IconButton
+             .icon (m/Icon m.Icons/more_horiz .color t/ink-faint)
+             .onPressed show-menu))
+          :bg-color t/surface
+          :border-radius 16.0
+          :menu-width 380.0
+          :items [{:type :item
+                   :title "Edit"
+                   :leading m.Icons/edit_note
+                   :leading-color t/success
+                   :on-tap #(store/open-document! id)}
+                  {:type :item
+                   :title "Delete"
+                   :leading m.Icons/delete
+                   :leading-color t/danger
+                   :on-tap #(doc/soft-delete! id)}
+                  {:type :divider}
+                  {:type :item
+                   :title "New Sub-doc"
+                   :leading m.Icons/post_add
+                   :leading-color t/primary
+                   :on-tap (fn []
+                             (store/set-parent-doc! id display)
+                             (-> (doc/create! {:title "" :type "normal" :parent-id id})
+                                 (.then (fn [new-id]
+                                          (when new-id (store/open-document! new-id))))
+                                 (.catchError (fn [_] nil))))}
+                  {:type :item
+                   :title "Rename"
+                   :leading m.Icons/edit
+                   :leading-color t/ink-muted
+                   :on-tap #(rename/rename-dialog ctx title
+                                                  (fn [tit] (doc/rename! id tit)))}
+                  {:type :item
+                   :title "Move"
+                   :leading m.Icons/drive_file_move_outlined
+                   :leading-color t/secondary
+                   :on-tap #(move/move-dialog ctx id (:parentId d) nil)}
+                  {:type :item
+                   :title "Export HTML"
+                   :leading m.Icons/file_download_outlined
+                   :leading-color t/primary
+                   :on-tap (fn []
+                             (-> (export/export-document-to-file! id)
+                                 (.then (fn [path]
+                                          (export/show-export-result! ctx path)))
+                                 (.catchError (fn [_]
+                                                (export/show-export-result! ctx nil)))))}]})))
+      :accent-color (when is-daily? t/secondary)
+      :width 120.0))))
 
 (defn- make-load-more-scroll [!limit !docs]
   (let [ctrl (m/ScrollController.)]

@@ -71,21 +71,25 @@
             .children
             (mapv
              (fn [r]
-               (m/Container
+               (m/KeyedSubtree
                 .key (m/ValueKey (str (:document-id r) "-" (:block-id r) "-" (:hit r)))
                 .child
-                (ui/note-card
-                 (mgl/MongolListTile
-                  .leading (ui/icon-chip m.Icons/description_outlined t/primary)
-                  .title (mgl/MongolText
-                          (or (:document-title r) "")
-                          .style (t/mongol-style :size 16.0 :weight m.FontWeight/w600))
-                  .subtitle (when (:block-text r)
-                              (mgl/MongolText
-                               (or (:block-text r) "")
-                               .style (t/mongol-style :size 13.0 :color t/ink-muted)))
-                  .onTap (fn []
-                           (store/open-document! (:document-id r) (:block-id r))
-                           nil))
-                 :width 120.0)))
+                (m/Center
+                 .child
+                 (ui/note-card
+                  (m/Center
+                   .child
+                   (mgl/MongolListTile
+                    .leading (ui/icon-chip m.Icons/description_outlined t/primary)
+                    .title (mgl/MongolText
+                            (or (:document-title r) "")
+                            .style (t/mongol-style :size 16.0 :weight m.FontWeight/w600))
+                    .subtitle (when (:block-text r)
+                                (mgl/MongolText
+                                 (or (:block-text r) "")
+                                 .style (t/mongol-style :size 13.0 :color t/ink-muted)))
+                    .onTap (fn []
+                             (store/open-document! (:document-id r) (:block-id r))
+                             nil)))
+                  :width 120.0))))
              results))))])))))

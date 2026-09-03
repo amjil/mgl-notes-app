@@ -8,5 +8,5 @@
   (m/Scaffold
    .backgroundColor t/bg
    .resizeToAvoidBottomInset false
-   .appBar (ui/page-app-bar :title "ᠬᠠᠢᠬᠤ")
+   .appBar (ui/page-app-bar)
    .body (search/search-body)))
