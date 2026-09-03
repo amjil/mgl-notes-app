@@ -26,12 +26,13 @@
      :load-date! load-date!}))
 
 (defn editor-pane
-  [doc-id & {:keys [show-backlinks?] :or {show-backlinks? true}}]
+  [doc-id & {:keys [show-backlinks? !read-only?] :or {show-backlinks? true}}]
   (if doc-id
     (m/KeyedSubtree
      .key (m/ValueKey doc-id)
      .child (editor/document-editor doc-id
                                     :show-back? false
                                     :embedded? true
-                                    :show-backlinks? show-backlinks?))
+                                    :show-backlinks? show-backlinks?
+                                    :!read-only? !read-only?))
     (ui/empty-state m.Icons/wb_sunny_outlined "Loading…")))

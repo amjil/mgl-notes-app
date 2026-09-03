@@ -9,7 +9,7 @@
             [notes-app.theme :as t]
             [notes-app.ui :as ui]))
 
-(defn- date-toolbar [ctx current-date !current-date load-date! doc-id]
+(defn- date-toolbar [ctx current-date !current-date load-date! doc-id preview? !preview?]
   (m/Material
    .color t/surface
    .child
@@ -38,6 +38,13 @@
                         (reset! !current-date next-day)
                         (load-date! next-day))))
      (if doc-id
+       (ui/action-btn (if preview?
+                        m.Icons/edit_outlined
+                        m.Icons/visibility_outlined)
+                      (if preview? "Edit" "Preview")
+                      #(swap! !preview? not))
+       (m/SizedBox.shrink))
+     (if doc-id
        (ui/action-btn m.Icons/file_download_outlined "Export HTML"
                       (fn []
                         (-> (export/export-document-to-file! doc-id)
@@ -46,16 +53,23 @@
        (m/SizedBox.shrink))])))
 
 (defn today-page []
-  (f/widget
-   :context ctx
-   :managed [{:keys [!current-date !doc-id load-date!]} (today/make-session)
-             :refresh-on :never
-             :dispose nil]
-   :watch [current-date !current-date
-           doc-id !doc-id]
-   (kw/wrap
-    (m/Column
-     .children
-     [(date-toolbar ctx current-date !current-date load-date! doc-id)
-      (m/Expanded
-       .child (today/editor-pane doc-id :show-backlinks? false))]))))
+  (let [!preview? (atom true)]
+    (f/widget
+     :context ctx
+     :managed [{:keys [!current-date !doc-id load-date!]} (today/make-session)
+               :refresh-on :never
+               :dispose nil]
+     :watch [current-date !current-date
+             doc-id !doc-id
+             preview? !preview?]
+     ;; Match document editor: chrome outside `kw/wrap` so Preview taps unfocus
+     ;; the editor first and the virtual keyboard collapses before read-only mounts.
+     (m/Column
+      .children
+      [(date-toolbar ctx current-date !current-date load-date! doc-id preview? !preview?)
+       (m/Expanded
+        .child
+        (kw/wrap
+         (today/editor-pane doc-id
+                            :show-backlinks? false
+                            :!read-only? !preview?)))]))))
