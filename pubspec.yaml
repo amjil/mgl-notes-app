@@ -35,6 +35,41 @@ dev_dependencies:
   flutter_lints: ^6.0.0
   drift_dev: ^2.30.1
   build_runner: ^2.10.5
+  flutter_launcher_icons: ^0.14.4
+
+flutter_launcher_icons:
+  image_path: assets/icon/app_icon.png
+  android: true
+  ios: true
+  remove_alpha_ios: true
+  web:
+    generate: true
+    image_path: assets/icon/app_icon.png
+    background_color: "#1A7AB3"
+    theme_color: "#1A7AB3"
+  windows:
+    generate: true
+    image_path: assets/icon/app_icon.png
+    icon_size: 256
+  macos:
+    generate: true
+    image_path: assets/icon/app_icon.png
+
+dependency_overrides:
+  # 13.x uses isiOSAppOnVision, which Xcode 14 / iOS 16 SDK does not have.
+  device_info_plus: 12.2.0
+
+# Use sqlite3_flutter_libs' bundled lib instead of downloading GitHub
+# native assets (that download fails on this machine).
+# `system` → dlopen libsqlite3.so / sqlite3.dll / libsqlite3.dylib.
+# Do NOT use `process` on Android: libsqlite3.so is in the APK but not
+# auto-loaded, so @Native fails with "No asset with id" / missing
+# sqlite3_initialize.
+hooks:
+  user_defines:
+    sqlite3:
+      source: system
+      name: sqlite3
 
 flutter:
   uses-material-design: true
