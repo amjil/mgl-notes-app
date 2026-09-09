@@ -180,9 +180,12 @@ dart run build_runner watch --delete-conflicting-outputs
 
 ## App icon
 
-Source image: `assets/icon/app_icon.png` (vector: `assets/icon/app_icon.svg`). After changing the source, regenerate launcher icons for Android, iOS, macOS, Windows, and Web:
+Master artwork is the square `assets/icon/app_icon.png` (vector: `assets/icon/app_icon.svg`). iOS, Android, and Web keep that square so the OS can apply its own mask. macOS, Windows, and Linux need the shape baked into the PNG.
+
+After changing the master, regenerate platform-shaped variants, then launcher icons:
 
 ```bash
+python3 tool/render_platform_icons.py
 dart run flutter_launcher_icons
 ```
 
