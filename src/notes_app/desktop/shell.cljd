@@ -8,6 +8,7 @@
             [notes-app.desktop.pages.today :as today]
             [notes-app.desktop.pages.documents :as documents]
             [notes-app.desktop.pages.tasks :as tasks]
+            [notes-app.shared.graph :as graph]
             [notes-app.desktop.pages.tags :as tags]
             [notes-app.desktop.pages.search :as search]
             [notes-app.desktop.pages.settings :as settings]
@@ -21,6 +22,7 @@
     "today" (today/today-page)
     "documents" (documents/documents-page)
     "tasks" (tasks/tasks-page)
+    "graph" (graph/graph-body)
     "tags" (tags/tags-page)
     "search" (search/search-page)
     "settings" (settings/settings-page)

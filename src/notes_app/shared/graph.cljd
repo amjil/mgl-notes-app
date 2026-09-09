@@ -1,0 +1,369 @@
+(ns notes-app.shared.graph
+  "Force-directed knowledge graph — CustomPaint + MongolTextPainter."
+  (:require ["package:flutter/material.dart" :as m]
+            ["package:mongol/mongol.dart" :as mgl]
+            ["dart:async" :as async]
+            ["dart:math" :as math]
+            [cljd.flutter :as f]
+            [notes-app.services.link :as link]
+            [notes-app.theme :as t]
+            [notes-app.ui :as ui]))
+
+(def ^:private canvas-size 4000.0)
+(def ^:private center (/ canvas-size 2.0))
+(def ^:private physics-ticks 300)
+(def ^:private hit-radius 36.0)
+(def ^:private label-hit-w 22.0)
+(def ^:private label-hit-h 140.0)
+
+;; -----------------------------------------------------------------------------
+;; Physics
+;; -----------------------------------------------------------------------------
+
+(defn- init-nodes [raw-nodes]
+  (let [n (count raw-nodes)]
+    (if (zero? n)
+      {}
+      (let [radius (* (math/sqrt n) 35.0)
+            step (/ (* 2.0 math/pi) n)]
+        (into {}
+              (map-indexed
+               (fn [idx [id data]]
+                 (let [angle (* idx step)
+                       x (+ center (* radius (math/cos angle)))
+                       y (+ center (* radius (math/sin angle)))]
+                   [id (assoc data :x x :y y :vx 0.0 :vy 0.0)])))
+              raw-nodes)))))
+
+(defn- add-force [disp id fx fy]
+  (let [cur (get disp id)]
+    (assoc! disp id {:dx (+ (:dx cur) fx)
+                     :dy (+ (:dy cur) fy)})))
+
+(defn- tick-physics! [!nodes edges]
+  (let [k 200.0
+        k2 (* k k)
+        max-disp 20.0
+        cutoff2 (* 600.0 600.0)
+        nodes @!nodes
+        ids (vec (keys nodes))
+        n (count ids)]
+    (when (pos? n)
+      (let [disp (transient (zipmap ids (repeat {:dx 0.0 :dy 0.0})))
+            disp
+            (loop [i 0 d disp]
+              (if (>= i n)
+                d
+                (let [v (nth ids i)
+                      nv (get nodes v)
+                      d (loop [j 0 d d]
+                          (if (>= j n)
+                            d
+                            (if (= i j)
+                              (recur (inc j) d)
+                              (let [u (nth ids j)
+                                    nu (get nodes u)
+                                    px (- (:x nv) (:x nu))
+                                    py (- (:y nv) (:y nu))
+                                    dist2 (+ (* px px) (* py py))]
+                                (if (>= dist2 cutoff2)
+                                  (recur (inc j) d)
+                                  (let [dist (max 1.0 (math/sqrt dist2))
+                                        force (/ k2 dist)]
+                                    (recur (inc j)
+                                           (add-force d v
+                                                      (* force (/ px dist))
+                                                      (* force (/ py dist))))))))))]
+                  (recur (inc i) d))))
+            disp
+            (reduce
+             (fn [d {:keys [source target]}]
+               (if (and (contains? nodes source) (contains? nodes target))
+                 (let [nv (get nodes source)
+                       nu (get nodes target)
+                       px (- (:x nv) (:x nu))
+                       py (- (:y nv) (:y nu))
+                       dist (max 1.0 (math/sqrt (+ (* px px) (* py py))))
+                       force (/ (* dist dist) k)
+                       fx (* force (/ px dist))
+                       fy (* force (/ py dist))]
+                   (-> d
+                       (add-force source (- fx) (- fy))
+                       (add-force target fx fy)))
+                 d))
+             disp
+             edges)
+            disp (persistent! disp)]
+        (swap! !nodes
+               (fn [ns]
+                 (reduce-kv
+                  (fn [acc id n]
+                    (if (:fixed? n)
+                      acc
+                      (let [d (get disp id)
+                            ddx (:dx d)
+                            ddy (:dy d)
+                            dl (max 1.0 (math/sqrt (+ (* ddx ddx) (* ddy ddy))))
+                            md (min dl max-disp)
+                            nx (max 100.0
+                                    (min (+ (:x n) (* md (/ ddx dl)))
+                                         (- canvas-size 100.0)))
+                            ny (max 100.0
+                                    (min (+ (:y n) (* md (/ ddy dl)))
+                                         (- canvas-size 100.0)))]
+                        (assoc acc id (assoc n :x nx :y ny)))))
+                  ns ns)))))))
+
+(defn- view-scale [^m/TransformationController ctrl]
+  (try
+    (.getMaxScaleOnAxis ^m/Matrix4 (.-value ctrl))
+    (catch Exception _ 1.0)))
+
+(defn- hit-node? [x y n r]
+  (let [dx (- x (:x n))
+        dy (- y (:y n))
+        dist (math/sqrt (+ (* dx dx) (* dy dy)))]
+    (or (< dist r)
+        (and (< (if (neg? dx) (- dx) dx) label-hit-w)
+             (< 8.0 dy (+ 16.0 label-hit-h))))))
+
+(defn- find-node [x y nodes r]
+  (let [hits (reduce-kv
+              (fn [acc id n]
+                (if (hit-node? x y n r)
+                  (let [dx (- x (:x n))
+                        dy (- y (:y n))
+                        dist (math/sqrt (+ (* dx dx) (* dy dy)))]
+                    (conj acc [id dist]))
+                  acc))
+              []
+              nodes)]
+    (when (seq hits)
+      (first (first (sort-by second hits))))))
+
+;; -----------------------------------------------------------------------------
+;; Canvas painter
+;; -----------------------------------------------------------------------------
+
+(defn- paint-label [^m/Canvas canvas cx cy label color]
+  (let [text-span (m/TextSpan
+                   .text label
+                   .style (t/mongol-style :size 13.0
+                                          :weight m.FontWeight/w600
+                                          :color color))
+        painter (mgl/MongolTextPainter
+                 .text text-span
+                 .ellipsis "…"
+                 .maxLines (int 1))]
+    (try
+      (.layout painter .maxHeight 140.0)
+      (let [tw (.-width painter)
+            th (.-height painter)
+            tx (- cx (/ tw 2.0))
+            ty (+ cy 16.0)
+            bg-rect (m.RRect/fromRectAndRadius
+                     (m.Rect/fromLTWH (- tx 6.0) (- ty 4.0) (+ tw 12.0) (+ th 8.0))
+                     (m.Radius/circular 6.0))
+            bg-paint (doto (m/Paint.)
+                       (-> .-color (set! t/surface))
+                       (-> .-style (set! m.PaintingStyle/fill)))
+            border-paint (doto (m/Paint.)
+                           (-> .-color (set! (t/fade color 0.3)))
+                           (-> .-style (set! m.PaintingStyle/stroke))
+                           (-> .-strokeWidth (set! 1.0)))]
+        (.drawRRect canvas bg-rect bg-paint)
+        (.drawRRect canvas bg-rect border-paint)
+        (.paint painter canvas (m/Offset. tx ty)))
+      (finally
+        (.dispose painter)))))
+
+(defn- graph-painter [nodes edges]
+  (reify :extends m/CustomPainter
+    (paint [_ canvas ^m/Size _size]
+      (let [edge-paint (doto (m/Paint.)
+                         (-> .-color (set! (t/fade t/outline-strong 0.8)))
+                         (-> .-strokeWidth (set! 1.5))
+                         (-> .-isAntiAlias (set! true)))
+            fill (doto (m/Paint.)
+                   (-> .-style (set! m.PaintingStyle/fill))
+                   (-> .-isAntiAlias (set! true)))
+            halo (doto (m/Paint.)
+                   (-> .-style (set! m.PaintingStyle/fill))
+                   (-> .-isAntiAlias (set! true)))]
+        (doseq [{:keys [source target]} edges]
+          (when (and (contains? nodes source) (contains? nodes target))
+            (let [ns (get nodes source)
+                  nt (get nodes target)]
+              (.drawLine canvas
+                         (m/Offset. (:x ns) (:y ns))
+                         (m/Offset. (:x nt) (:y nt))
+                         edge-paint))))
+        (doseq [[id n] nodes]
+          (let [tag? (= (:type n) "tag")
+                color (if tag? t/tertiary t/primary)
+                cx (:x n)
+                cy (:y n)
+                label (if tag? (str "#" id) (str id))]
+            (set! (.-color halo) (t/fade color 0.15))
+            (set! (.-color fill) color)
+            (.drawCircle canvas (m/Offset. cx cy) 18.0 halo)
+            (.drawCircle canvas (m/Offset. cx cy) 7.0 fill)
+            (paint-label canvas cx cy label color))))
+      nil)
+    (shouldRepaint [_ _] true)))
+
+;; -----------------------------------------------------------------------------
+;; Session
+;; -----------------------------------------------------------------------------
+
+(defn- cancel-timer! [!timer]
+  (when-let [t @!timer]
+    (.cancel ^async/Timer t)
+    (reset! !timer nil)))
+
+(defn- start-graph! [!nodes !edges !ticks !timer !alive? !loaded?]
+  (reset! !alive? true)
+  (-> (link/get-graph-data)
+      (.then (fn [{:keys [nodes edges]}]
+               (when @!alive?
+                 (reset! !edges (or edges []))
+                 (reset! !nodes (init-nodes (or nodes {})))
+                 (reset! !loaded? true)
+                 (when (seq nodes)
+                   (reset! !ticks 0)
+                   (reset! !timer
+                           (async/Timer.periodic
+                            (dart:core/Duration. .milliseconds 16)
+                            (fn [t]
+                              (if (and @!alive? (< @!ticks physics-ticks))
+                                (do (swap! !ticks inc)
+                                    (tick-physics! !nodes edges))
+                                (do (.cancel t)
+                                    (when (identical? t @!timer)
+                                      (reset! !timer nil)))))))))))
+      (.catchError (fn [_]
+                     (when @!alive?
+                       (reset! !loaded? true))
+                     nil)))
+  :started)
+
+(defn- make-session []
+  (let [!nodes (atom {})
+        !edges (atom [])
+        !ticks (atom 0)
+        !dragged-node (atom nil)
+        !drag-moved? (atom false)
+        !pan-enabled? (atom true)
+        !alive? (atom true)
+        !loaded? (atom false)
+        !timer (atom nil)
+        viewer-ctrl (let [mx (m/Matrix4.identity)]
+                      (.translate mx -1600.0 -1600.0)
+                      (m/TransformationController. mx))]
+    (start-graph! !nodes !edges !ticks !timer !alive? !loaded?)
+    {:!nodes !nodes
+     :!edges !edges
+     :!ticks !ticks
+     :!dragged-node !dragged-node
+     :!drag-moved? !drag-moved?
+     :!pan-enabled? !pan-enabled?
+     :!alive? !alive?
+     :!loaded? !loaded?
+     :!timer !timer
+     :viewer-ctrl viewer-ctrl}))
+
+(defn- dispose-session! [{:keys [!alive? !timer viewer-ctrl]}]
+  (reset! !alive? false)
+  (cancel-timer! !timer)
+  (.dispose ^m/TransformationController viewer-ctrl))
+
+;; -----------------------------------------------------------------------------
+;; Body
+;; -----------------------------------------------------------------------------
+
+(defn graph-body []
+  (f/widget
+   :managed [{:keys [!nodes !edges !dragged-node !drag-moved? !pan-enabled?
+                     !loaded? viewer-ctrl]} (make-session)
+             :dispose dispose-session!]
+   :watch [nodes !nodes
+           edges !edges
+           pan-enabled? !pan-enabled?
+           loaded? !loaded?]
+   (m/SafeArea
+    .child
+    (cond
+      (not loaded?)
+      (ui/loading)
+
+      (empty? nodes)
+      (ui/empty-state m.Icons/hub_outlined "No graph connections yet")
+
+      :else
+      (m/InteractiveViewer
+      .transformationController viewer-ctrl
+      .panEnabled pan-enabled?
+      .scaleEnabled pan-enabled?
+      .constrained false
+      .minScale 0.1
+      .maxScale 3.0
+      .boundaryMargin (m.EdgeInsets/all 4000.0)
+      .child
+      (m/Listener
+       .behavior m.HitTestBehavior/translucent
+       .onPointerDown
+       (fn [^m/PointerDownEvent e]
+         (let [pos (.-localPosition e)
+               scale (max 0.1 (view-scale viewer-ctrl))
+               id (find-node (.-dx pos) (.-dy pos) @!nodes (/ hit-radius scale))]
+           (reset! !drag-moved? false)
+           (if id
+             (do (reset! !pan-enabled? false)
+                 (reset! !dragged-node id)
+                 (swap! !nodes assoc-in [id :fixed?] true))
+             (reset! !pan-enabled? true)))
+         nil)
+       .onPointerMove
+       (fn [^m/PointerMoveEvent e]
+         (when-let [id @!dragged-node]
+           (let [delta (.-localDelta e)
+                 dx (.-dx delta)
+                 dy (.-dy delta)]
+             (when (or (> (if (neg? dx) (- dx) dx) 1.5)
+                       (> (if (neg? dy) (- dy) dy) 1.5))
+               (reset! !drag-moved? true))
+             (swap! !nodes update id
+                    (fn [n]
+                      (assoc n
+                             :x (+ (:x n) dx)
+                             :y (+ (:y n) dy))))))
+         nil)
+       .onPointerUp
+       (fn [^m/PointerUpEvent e]
+         (let [id @!dragged-node
+               moved? @!drag-moved?]
+           (when id
+             (swap! !nodes assoc-in [id :fixed?] false)
+             (reset! !dragged-node nil)
+             (when-not moved?
+               (link/open-or-create-by-title! id)))
+           (reset! !pan-enabled? true)
+           (reset! !drag-moved? false))
+         nil)
+       .onPointerCancel
+       (fn [^m/PointerCancelEvent _]
+         (when-let [id @!dragged-node]
+           (swap! !nodes assoc-in [id :fixed?] false)
+           (reset! !dragged-node nil))
+         (reset! !pan-enabled? true)
+         (reset! !drag-moved? false)
+         nil)
+       .child
+       (m/Container
+        .width canvas-size
+        .height canvas-size
+        .color t/bg
+        .child
+        (m/CustomPaint
+         .size (m/Size. canvas-size canvas-size)
+         .painter (graph-painter nodes edges)))))))))

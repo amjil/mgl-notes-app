@@ -10,6 +10,7 @@
   [{:id "today" :icon m.Icons/wb_sunny_outlined :label "ᠥᠨᠦᠳᠦᠷ"}
    {:id "documents" :icon m.Icons/folder_outlined :label "ᠪᠠᠷᠢᠮᠲᠠ"}
    {:id "tasks" :icon m.Icons/check_box_outlined :label "ᠠᠵᠢᠯ"}
+   {:id "graph" :icon m.Icons/hub_outlined :label "ᠰᠦᠯᠵᠢᠶ᠎ᠡ"}
    {:id "tags" :icon m.Icons/tag_outlined :label "ᠲᠡᠮᠳᠡᠭ"}])
 
 (defn- nav-tile [ctx {:keys [icon label]} selected? on-tap]

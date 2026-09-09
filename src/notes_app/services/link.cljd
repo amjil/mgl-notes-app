@@ -348,3 +348,52 @@
                          (.-documents database)}))
           (fn [rows] (mapv row->backlink rows))))
        (async/Stream.empty)))))
+
+(defn get-graph-data
+  "Returns {:nodes {title {:type \"document\"|\"tag\" :id title}}
+            :edges [{:source title :target title :type wiki|tag}]}."
+  []
+  (if-let [^drift/AppDatabase database (db/get-database)]
+    (-> (.get
+         (.customSelect
+          database
+          (str "SELECT d.title AS source_title, bl.target_id AS target_title, bl.link_type AS link_type "
+               "FROM block_links bl "
+               "INNER JOIN blocks b ON b.id = bl.source_id "
+               "INNER JOIN documents d ON d.id = b.document_id "
+               "WHERE b.deleted_at IS NULL AND d.deleted_at IS NULL "
+               "AND d.title IS NOT NULL AND d.title != ''")
+          .variables []
+          .readsFrom #{(.-blockLinks database)
+                       (.-blocks database)
+                       (.-documents database)}))
+        (.then (fn [rows]
+                 (let [edges (->> rows
+                                  (keep (fn [row]
+                                          (let [data (.-data row)
+                                                source (get data "source_title")
+                                                target (get data "target_title")]
+                                            (when (and (not (str/blank? source))
+                                                       (not (str/blank? target))
+                                                       (not= source target))
+                                              {:source source
+                                               :target target
+                                               :type (get data "link_type")}))))
+                                  distinct
+                                  vec)
+                       nodes (reduce
+                              (fn [acc {:keys [source target type]}]
+                                (let [prev-target (get acc target)
+                                      target-type (if (or (= type "tag")
+                                                          (= (:type prev-target) "tag"))
+                                                    "tag"
+                                                    "document")]
+                                  (-> acc
+                                      (assoc source {:type (or (:type (get acc source)) "document")
+                                                     :id source})
+                                      (assoc target {:type target-type
+                                                     :id target}))))
+                              {}
+                              edges)]
+                   {:nodes nodes :edges edges}))))
+    (async/Future.value {:nodes {} :edges []})))

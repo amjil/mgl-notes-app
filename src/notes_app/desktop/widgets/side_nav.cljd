@@ -12,6 +12,7 @@
   [{:id "today" :icon m.Icons/wb_sunny_outlined :selected-icon m.Icons/wb_sunny :label "ᠥᠨᠦᠳᠦᠷ"}
    {:id "documents" :icon m.Icons/folder_outlined :selected-icon m.Icons/folder :label "ᠪᠠᠷᠢᠮᠲᠠ"}
    {:id "tasks" :icon m.Icons/check_box_outlined :selected-icon m.Icons/check_box :label "ᠠᠵᠢᠯ"}
+   {:id "graph" :icon m.Icons/hub_outlined :selected-icon m.Icons/hub :label "ᠰᠦᠯᠵᠢᠶ᠎ᠡ"}
    {:id "tags" :icon m.Icons/tag_outlined :selected-icon m.Icons/tag :label "ᠲᠡᠮᠳᠡᠭ"}
    {:id "search" :icon m.Icons/search :selected-icon m.Icons/search :label "ᠬᠠᠢᠬᠤ"}
    {:id "trash" :icon m.Icons/delete_outline :selected-icon m.Icons/delete :label "ᠬᠣᠭ᠎ᠤᠨ ᠰᠠᠪᠠ"}

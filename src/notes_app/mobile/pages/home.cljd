@@ -6,6 +6,7 @@
             [notes-app.mobile.pages.today :as today]
             [notes-app.shared.documents :as documents]
             [notes-app.shared.tasks :as tasks]
+            [notes-app.shared.graph :as graph]
             [notes-app.shared.tags :as tags]
             [notes-app.services.document :as doc]
             [notes-app.services.link :as link]
@@ -13,7 +14,7 @@
             [notes-app.theme :as t]
             [notes-app.ui :as ui]))
 
-(def ^:private home-tabs #{"today" "documents" "tasks" "tags"})
+(def ^:private home-tabs #{"today" "documents" "tasks" "tags" "graph"})
 
 (defn- tab-id [selected-nav-id editor-return-nav]
   (cond
@@ -26,6 +27,7 @@
     "today" (today/today-page)
     "documents" (documents/documents-body)
     "tasks" (tasks/tasks-body)
+    "graph" (graph/graph-body)
     "tags" (tags/tags-body)
     (today/today-page)))
 
