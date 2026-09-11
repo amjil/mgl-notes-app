@@ -43,9 +43,12 @@
   (m/WidgetsFlutterBinding.ensureInitialized)
 
   (when kIsWeb
-    (remote/set-config! {:base-url "100.64.0.6:3003"
-                         :candidate-api-path "/api/next_word/candidates"
-                         :next-word-api-path "/api/next_word/list"}))
+    ;; 动态获取环境变量，编译时可通过 --dart-define=API_BASE_URL="https://..." 传入
+    (let [env-url (dart:core/String.fromEnvironment "API_BASE_URL")
+          base-url (if (or (nil? env-url) (= env-url "")) "100.64.0.6:3003" env-url)]
+      (remote/set-config! {:base-url base-url
+                           :candidate-api-path "/api/next_word/candidates"
+                           :next-word-api-path "/api/next_word/list"})))
 
   (if (platform/desktop?)
     (desktop-boot/init!)

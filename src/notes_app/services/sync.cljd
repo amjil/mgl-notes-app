@@ -11,6 +11,7 @@
             [notes-app.services.title-conflict :as title-conflict]))
 
 (defonce ^:private !push-timer (atom nil))
+(defonce ^:private !force-push-timer (atom nil)) ;; 🌟 新增：强制推送计时器
 (defonce ^:private !pull-timer (atom nil))
 (defonce ^:private !sync-busy (atom false))
 (defonce ^:private !sync-pending (atom nil))
@@ -405,14 +406,29 @@
   (with-sync-lock! :sync sync-now-run!))
 
 (defn schedule-push!
-  "Debounce push by 2 seconds after edits."
+  "Debounce push by 2 seconds after edits, with a 30-second max-wait throttle."
   []
   (when (and (store/sync-enabled?) (store/logged-in?))
     (when-let [t @!push-timer]
       (.cancel ^async/Timer t))
+    
+    ;; 如果强制计时器还没启动，则启动它（无论用户怎么敲键盘，30秒后强制推一次）
+    (when-not @!force-push-timer
+      (reset! !force-push-timer
+              (async/Timer. (dart:core/Duration. .seconds 30)
+                            (fn []
+                              (when-let [t @!push-timer] (.cancel ^async/Timer t))
+                              (reset! !force-push-timer nil)
+                              (push!)))))
+
+    ;; 常规的 2 秒防抖（用户停下打字 2 秒就会触发）
     (reset! !push-timer
             (async/Timer. (dart:core/Duration. .seconds 2)
-                          #(push!)))))
+                          (fn []
+                            ;; 常规推送触发时，顺手关掉底部的兜底计时器
+                            (when-let [ft @!force-push-timer] (.cancel ^async/Timer ft))
+                            (reset! !force-push-timer nil)
+                            (push!))))))
 
 (defn start-periodic-pull!
   "Pull every 5 minutes when logged in."

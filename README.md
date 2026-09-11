@@ -148,6 +148,21 @@ You can pass any `flutter run` flags after it, for example:
 clj -M:cljd flutter -d macos
 ```
 
+### Web: inject IME / next-word API base URL
+
+On Web, the Mongolian IME remote API base URL is read at **compile time** via `--dart-define`. If omitted, it falls back to the LAN default (`100.64.0.6:3003`).
+
+```bash
+clj -M:cljd flutter -d chrome \
+  --dart-define=API_BASE_URL="https://your-api.example.com"
+```
+
+Same flag works with a plain Flutter build, e.g.:
+
+```bash
+flutter build web --dart-define=API_BASE_URL="https://your-api.example.com"
+```
+
 ### Compile / watch (without launching Flutter)
 
 ```bash
