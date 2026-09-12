@@ -25,7 +25,7 @@
   (let [n (count raw-nodes)]
     (if (zero? n)
       {}
-      (let [radius (* (math/sqrt n) 35.0)
+      (let [radius (* (math/sqrt n) 60.0)
             step (/ (* 2.0 math/pi) n)]
         (into {}
               (map-indexed
@@ -42,19 +42,22 @@
                      :dy (+ (:dy cur) fy)})))
 
 (defn- step-physics
-  "Pure function to compute the next physics frame. Used by the Isolate."
-  [nodes edges]
-  (let [k 200.0
+  "Velocity-based physics frame. Smooth, organic, zero jitter."
+  [nodes edges current-tick]
+  (let [k 150.0
         k2 (* k k)
-        max-disp 20.0
-        cutoff2 (* 600.0 600.0)
+        cutoff2 (* 800.0 800.0)
+        progress (/ (double current-tick) (double physics-ticks))
+        alpha (* 0.1 (- 1.0 progress))
+        friction 0.7
+
         ids (vec (keys nodes))
         n (count ids)]
-    (if (zero? n)
+    (if (or (zero? n) (< alpha 0.001))
       nodes
-      (let [disp (transient (zipmap ids (repeat {:dx 0.0 :dy 0.0})))
-            disp
-            (loop [i 0 d disp]
+      (let [forces (transient (zipmap ids (repeat {:dx 0.0 :dy 0.0})))
+            forces
+            (loop [i 0 d forces]
               (if (>= i n)
                 d
                 (let [v (nth ids i)
@@ -68,17 +71,19 @@
                                     nu (get nodes u)
                                     px (- (:x nv) (:x nu))
                                     py (- (:y nv) (:y nu))
+                                    px (if (and (zero? px) (zero? py)) 0.1 px)
                                     dist2 (+ (* px px) (* py py))]
                                 (if (>= dist2 cutoff2)
                                   (recur (inc j) d)
-                                  (let [dist (max 1.0 (math/sqrt dist2))
-                                        force (/ k2 dist)]
+                                  (let [dist (math/sqrt dist2)
+                                        safe-dist (max 10.0 dist)
+                                        force (/ k2 safe-dist)]
                                     (recur (inc j)
                                            (add-force d v
                                                       (* force (/ px dist))
                                                       (* force (/ py dist))))))))))]
                   (recur (inc i) d))))
-            disp
+            forces
             (reduce
              (fn [d {:keys [source target]}]
                (if (and (contains? nodes source) (contains? nodes target))
@@ -86,7 +91,8 @@
                        nu (get nodes target)
                        px (- (:x nv) (:x nu))
                        py (- (:y nv) (:y nu))
-                       dist (max 1.0 (math/sqrt (+ (* px px) (* py py))))
+                       px (if (and (zero? px) (zero? py)) 0.1 px)
+                       dist (max 10.0 (math/sqrt (+ (* px px) (* py py))))
                        force (/ (* dist dist) k)
                        fx (* force (/ px dist))
                        fy (* force (/ py dist))]
@@ -94,25 +100,20 @@
                        (add-force source (- fx) (- fy))
                        (add-force target fx fy)))
                  d))
-             disp
+             forces
              edges)
-            disp (persistent! disp)]
+            forces (persistent! forces)]
+
         (reduce-kv
          (fn [acc id n]
            (if (:fixed? n)
-             acc
-             (let [d (get disp id)
-                   ddx (:dx d)
-                   ddy (:dy d)
-                   dl (max 1.0 (math/sqrt (+ (* ddx ddx) (* ddy ddy))))
-                   md (min dl max-disp)
-                   nx (max 100.0
-                           (min (+ (:x n) (* md (/ ddx dl)))
-                                (- canvas-size 100.0)))
-                   ny (max 100.0
-                           (min (+ (:y n) (* md (/ ddy dl)))
-                                (- canvas-size 100.0)))]
-               (assoc acc id (assoc n :x nx :y ny)))))
+             (assoc acc id (assoc n :vx 0.0 :vy 0.0))
+             (let [f (get forces id)
+                   vx (* (+ (:vx n) (* (:dx f) alpha)) friction)
+                   vy (* (+ (:vy n) (* (:dy f) alpha)) friction)
+                   nx (max 100.0 (min (+ (:x n) vx) (- canvas-size 100.0)))
+                   ny (max 100.0 (min (+ (:y n) vy) (- canvas-size 100.0)))]
+               (assoc acc id (assoc n :x nx :y ny :vx vx :vy vy)))))
          nodes nodes)))))
 
 ;; -----------------------------------------------------------------------------
@@ -145,7 +146,7 @@
                              (fn [t]
                                (let [{:keys [running? nodes edges ticks]} @!state]
                                  (if (and running? (< ticks physics-ticks))
-                                   (let [next-nodes (step-physics nodes edges)]
+                                   (let [next-nodes (step-physics nodes edges ticks)]
                                      (swap! !state assoc :nodes next-nodes :ticks (inc ticks))
                                      (.send main-port {:type :update :nodes next-nodes})
                                      nil)

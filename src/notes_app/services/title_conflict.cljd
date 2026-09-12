@@ -6,13 +6,13 @@
   (let [s (str (or device-id ""))
         compact (.replaceAll s "-" "")]
     (if (> (count compact) 4)
-      (str "设备" (subs compact (- (count compact) 4)))
-      "设备")))
+      (str "Device " (subs compact (- (count compact) 4)))
+      "Device")))
 
 (defn conflict-copy-title
-  "Build `{title} (设备xxxx的冲突副本)` using the given device id for labeling."
+  "Build `{title} (Conflicted copy - Device xxxx)` using the given device id for labeling."
   [title device-id]
-  (let [base (str (or title "") " (" (device-label device-id) "的冲突副本)")]
+  (let [base (str (or title "") " (Conflicted copy - " (device-label device-id) ")")]
     base))
 
 (defn unique-conflict-copy-title
@@ -36,7 +36,6 @@
       (let [{:keys [original new]} (first items)]
         (str "Title conflict: \"" original "\" was renamed to \"" new
              "\". Open both notes to merge."))
-
       :else
       (str (count items)
            " notes renamed due to title conflicts. Check the document list to merge."))))

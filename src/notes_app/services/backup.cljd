@@ -263,14 +263,20 @@
         (async/Future.value false)))
     (async/Future.value false)))
 
+(defn- first-picked-file [result]
+  (when result
+    (if (dart/is? result dart:core/List)
+      (first result)
+      (first (.-files result)))))
+
 (defn import-backup-file! [ctx]
-  (-> (fp/FilePicker.pickFile .type fp/FileType.custom
-                             .allowedExtensions ["json"])
-      (.then (fn [file]
-               (if file
+  (-> (fp/FilePicker.pickFiles .type fp/FileType.custom
+                               .allowedExtensions ["json"])
+      (.then (fn [result]
+               (if-let [^fp/PlatformFile file (first-picked-file result)]
                  (let [path (.-path file)]
                    (if path
-                     (let [f (io/File path)]
+                     (let [f (io/File. path)]
                        (-> (.readAsString f)
                            (.then (fn [s] (restore-backup-data! s :json-path path)))
                            (.then (fn [success?]
