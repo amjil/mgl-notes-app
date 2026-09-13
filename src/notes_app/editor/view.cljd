@@ -319,27 +319,32 @@
                                       s
                                       embeds-to-convert))))))
 
-              show-panel? (and show-backlinks? show-refs? (not= (or title "") ""))
+              show-strip? (and show-backlinks? (not= (or title "") ""))
+              toggle-refs! #(swap! !show-backlinks not)
               body-row
               (m/Row
                .children
                (into []
                      (remove nil?
                              [(m/Expanded .child editor-body)
-                              (when show-panel?
-                                (m/Container
-                                 .width 360.0
+                              (when show-strip?
+                                (m/AnimatedContainer
+                                 .duration (dart:core/Duration. .milliseconds 200)
+                                 .curve m.Curves/easeInOut
+                                 .width (if show-refs? 360.0 52.0)
                                  .decoration (m/BoxDecoration
                                               .color t/surface
                                               .border (m/Border
                                                        .left (m/BorderSide .color t/outline
                                                                            .width 1.0)))
-                                 .padding (m.EdgeInsets/all 16.0)
+                                 .padding (m.EdgeInsets/all (if show-refs? 16.0 8.0))
                                  .child
                                  (backlinks/references-sidebar
                                   title
                                   document-id
-                                  :on-promoted invalidate-session!)))])))]
+                                  :on-promoted invalidate-session!
+                                  :open? show-refs?
+                                  :on-toggle toggle-refs!)))])))]
 
           (if embedded?
             (m/SafeArea .child body-row)
@@ -373,7 +378,7 @@
                                   m.Icons/chevron_right
                                   m.Icons/account_tree_outlined))
                   .tooltip "Backlinks"
-                  .onPressed #(swap! !show-backlinks not))
+                  .onPressed toggle-refs!)
                  (m/IconButton
                   .icon (m/Icon m.Icons/file_download_outlined)
                   .tooltip "Export HTML"

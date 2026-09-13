@@ -131,11 +131,44 @@
       (m/Expanded .child body)
       body)))
 
+(defn- board-toggle-rail
+  "Outer rail that collapses / expands the whole references board."
+  [label open? on-toggle]
+  (m/Material
+   .color m.Colors/transparent
+   .child
+   (m/InkWell
+    .onTap on-toggle
+    .borderRadius (m.BorderRadius/circular 8.0)
+    .child
+    (m/Container
+     .padding (m.EdgeInsets/fromLTRB 4.0 8.0 4.0 8.0)
+     .decoration (m/BoxDecoration
+                  .color (if open? m.Colors/transparent (t/fade t/ink-muted 0.10))
+                  .borderRadius (m.BorderRadius/circular 8.0))
+     .child
+     (m/Column
+      .children
+      [(m/Expanded
+        .child
+        (mgl/MongolText
+         label
+         .style (t/mongol-style
+                 :size 15.0
+                 :color t/ink-muted
+                 :weight m.FontWeight/w600)))
+       (m/Icon
+        (if open? m.Icons/chevron_right m.Icons/chevron_left)
+        .size 18.0
+        .color t/ink-muted)])))))
+
 (defn references-sidebar
   "Watch linked + unlinked refs for `page-title`.
    `document-id` excludes the current page from unlinked results.
-   Optional `on-promoted` receives affected document-id after promote."
-  [page-title document-id & {:keys [on-promoted]}]
+   Optional `on-promoted` receives affected document-id after promote.
+   Optional `open?` / `on-toggle` enable collapsing the whole board to a rail."
+  [page-title document-id & {:keys [on-promoted open? on-toggle]
+                             :or {open? true}}]
   (f/widget
    :watch [backlinks (stream
                       (map (fn [rows] (or rows [])))
@@ -154,6 +187,10 @@
                        vec)
          linked-open? (get open-sections :linked true)
          unlinked-open? (get open-sections :unlinked true)
+         total-count (+ (count backlinks) (count unlinked))
+         rail-label (if (zero? total-count)
+                      "References"
+                      (str "References (" total-count ")"))
          linked-cards (mapv (fn [item] (reference-card item :linked nil)) backlinks)
          unlinked-cards
          (mapv (fn [item]
@@ -166,29 +203,44 @@
                                  (when (and doc-id on-promoted)
                                    (on-promoted doc-id))
                                  (sync/schedule-push!)))))))
-               unlinked)]
-   (m/Row
-    .crossAxisAlignment m.CrossAxisAlignment/stretch
-    .children
-    (into []
-          (remove nil?
-                  [(section-pane
-                    {:open? linked-open?
-                     :on-toggle #(toggle-section! :linked)
-                     :label (if (empty? backlinks)
-                              "No linked references"
-                              (str "Linked (" (count backlinks) ")"))
-                     :color t/ink-muted
-                     :cards linked-cards})
-                   (when (seq unlinked)
-                     (m/VerticalDivider
-                      .width 12.0
-                      .thickness 1.0
-                      .color t/outline))
-                   (when (seq unlinked)
-                     (section-pane
-                      {:open? unlinked-open?
-                       :on-toggle #(toggle-section! :unlinked)
-                       :label (str "Unlinked (" (count unlinked) ")")
-                       :color t/warning
-                       :cards unlinked-cards}))])))))
+               unlinked)
+         sections
+         (m/Row
+          .crossAxisAlignment m.CrossAxisAlignment/stretch
+          .children
+          (into []
+                (remove nil?
+                        [(section-pane
+                          {:open? linked-open?
+                           :on-toggle #(toggle-section! :linked)
+                           :label (if (empty? backlinks)
+                                    "No linked references"
+                                    (str "Linked (" (count backlinks) ")"))
+                           :color t/ink-muted
+                           :cards linked-cards})
+                         (when (seq unlinked)
+                           (m/VerticalDivider
+                            .width 12.0
+                            .thickness 1.0
+                            .color t/outline))
+                         (when (seq unlinked)
+                           (section-pane
+                            {:open? unlinked-open?
+                             :on-toggle #(toggle-section! :unlinked)
+                             :label (str "Unlinked (" (count unlinked) ")")
+                             :color t/warning
+                             :cards unlinked-cards}))])))]
+   (if on-toggle
+     (m/Row
+      .crossAxisAlignment m.CrossAxisAlignment/stretch
+      .children
+      (into []
+            (remove nil?
+                    [(if open?
+                       (board-toggle-rail rail-label open? on-toggle)
+                       (m/Expanded
+                        .child
+                        (board-toggle-rail rail-label open? on-toggle)))
+                     (when open?
+                       (m/Expanded .child sections))])))
+     sections)))
