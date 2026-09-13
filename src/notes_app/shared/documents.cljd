@@ -98,7 +98,7 @@
                                  (.catchError (fn [_]
                                                 (export/show-export-result! ctx nil)))))}]})))
       :accent-color (when is-daily? t/secondary)
-      :width 120.0))))
+      :width 88.0))))
 
 (defn- make-load-more-scroll [!limit !docs]
   (let [ctrl (m/ScrollController.)]

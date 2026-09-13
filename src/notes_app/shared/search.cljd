@@ -91,5 +91,5 @@
                     .onTap (fn []
                              (store/open-document! (:document-id r) (:block-id r))
                              nil)))
-                  :width 120.0))))
+                  :width 88.0))))
              results))))])))))

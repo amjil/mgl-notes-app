@@ -86,4 +86,4 @@
                     .tooltip "Delete Forever"
                     .onPressed #(confirm-hard-delete! ctx id))])))
                :accent-color t/danger
-               :width 120.0)))))))])))
+               :width 88.0)))))))])))

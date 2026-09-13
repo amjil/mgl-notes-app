@@ -45,8 +45,8 @@
                  (str (:doc-count row) " notes · " (:ref-count row) " refs")
                  .style (t/mongol-style :size 12.0 :color t/ink-muted))
       .onTap on-tap))
-    :accent-color t/tertiary
-    :width 120.0)))
+   :accent-color t/tertiary
+   :width 88.0)))
 
 (defn- ref-card [row]
   (m/Center
@@ -75,7 +75,7 @@
            (preview-text (:block-text row))
            .textAlign mgl.MongolTextAlign/top
            .style (t/mongol-style :size 13.0 :color t/ink-muted))))]))
-     :width 120.0))))
+     :width 88.0))))
 
 (defn- make-load-more-scroll [!limit !data-list]
   (let [ctrl (m/ScrollController.)]
@@ -99,11 +99,11 @@
    :context ctx
    :watch [{:keys [selected-tag]} store/app-ui-state]
    
-   :managed [!tags-limit (atom 50)
-             !refs-limit (atom 50)
-             !tags (atom [])
-             !refs (atom [])
-             !query (atom "")
+   :managed [!tags-limit (atom 50) :dispose nil
+             !refs-limit (atom 50) :dispose nil
+             !tags (atom []) :dispose nil
+             !refs (atom []) :dispose nil
+             !query (atom "") :dispose nil
              !timer (atom nil) :dispose cancel-timer!
              filter-ctrl (m/TextEditingController.) :dispose .dispose
              filter-focus (m/FocusNode.) :dispose .dispose
