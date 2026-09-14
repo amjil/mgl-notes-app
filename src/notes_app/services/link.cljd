@@ -154,17 +154,28 @@
     :else nil))
 
 (defn link-suggestions
-  "Filter document titles for `[[` autocomplete (sync; uses title cache)."
+  "Filter and rank document titles for `[[` autocomplete (sync; uses title cache).
+   Limits to 20 results to avoid UI rendering lag."
   [query]
-  (let [q (str/lower-case (or query ""))
+  (let [q (str/lower-case (str/trim (or query "")))
         titles (or (db/cached-document-titles) [])]
-    (->> titles
-         (filter (fn [t]
-                   (and (not (str/blank? t))
-                        (or (str/blank? q)
-                            (str/includes? (str/lower-case t) q)))))
-         (take 20)
-         vec)))
+    (if (str/blank? q)
+      ;; Empty query: return first 20 titles
+      (vec (take 20 titles))
+      ;; Ranked match: exact > prefix > includes
+      (let [scored (keep (fn [t]
+                           (let [low-t (str/lower-case t)]
+                             (cond
+                               (= low-t q) {:title t :score 1}
+                               (str/starts-with? low-t q) {:title t :score 2}
+                               (str/includes? low-t q) {:title t :score 3}
+                               :else nil)))
+                         titles)]
+        (->> scored
+             (sort-by :score)
+             (map :title)
+             (take 20)
+             vec)))))
 
 (defn promote-unlinked-to-link!
   "Wrap bare title mention with `[[title]]`, emit block_update for sync, rebuild index.

@@ -100,6 +100,20 @@
                        :blockquote :list-item :ordered-list-item :task :callout :toggle}
    :on-link-tap link/handle-link-tap!
    :link-suggestions link/link-suggestions
+   :link-autocomplete-style
+   {:background t/surface
+    :border-color t/outline
+    :divider-color (t/fade t/outline-strong 0.85)
+    :splash-color (t/fade t/primary 0.10)
+    :highlight-color (t/fade t/primary 0.06)
+    :text-style (t/mongol-style :size 15.0 :color t/ink :weight m.FontWeight/w500)
+    :empty-style (t/mongol-style :size 14.0 :color t/ink-faint)
+    :max-width 240.0
+    :max-height 220.0
+    :item-height 188.0
+    :item-min-width 44.0
+    :elevation 6.0
+    :border-radius t/radius-s}
    :block-style
    (fn [b-type]
      (case b-type
