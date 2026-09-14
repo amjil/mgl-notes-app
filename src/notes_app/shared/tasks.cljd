@@ -4,6 +4,7 @@
             ["package:mongol/mongol.dart" :as mgl]
             [cljd.flutter :as f]
             [notes-app.db.core :as db]
+            [notes-app.platform :as platform]
             [notes-app.state.store :as store]
             [notes-app.services.block :as block]
             [notes-app.theme :as t]
@@ -18,56 +19,114 @@
    (m/Row
     .crossAxisAlignment m.CrossAxisAlignment/stretch
     .children
-    [(ui/title-rail "ᠠᠵᠢᠯ")
+    [(ui/title-rail "")
      (m/Expanded
       .child
       (if (empty? tasks)
         (ui/empty-state m.Icons/check_circle_outline "No open tasks")
-        (m/ListView
-         .scrollDirection m.Axis/horizontal
-         .physics (m/BouncingScrollPhysics)
-         .padding (m.EdgeInsets/fromLTRB 20.0 20.0 8.0 20.0)
-         .children
-         (mapv
-          (fn [task-row]
-            (let [blk (.-block task-row)
-                  text (or (.-textContent blk) "")
-                  src (or (.-documentTitle task-row) "")
-                  doc-id (.-documentId task-row)]
-              (m/GestureDetector
-               .onTap #(store/open-document! doc-id (.-id blk))
-               .child
-               (ui/note-card
-                (m/Padding
-                 .padding (m.EdgeInsets/symmetric .vertical 16.0 .horizontal 10.0)
+        (if (platform/desktop?)
+          (m/GridView.builder
+           .scrollDirection m.Axis/horizontal
+           .physics (m/BouncingScrollPhysics.)
+           .padding (m.EdgeInsets/all 24.0)
+           .gridDelegate (m/SliverGridDelegateWithMaxCrossAxisExtent
+                          .maxCrossAxisExtent 340.0
+                          .mainAxisExtent 160.0
+                          .mainAxisSpacing 24.0
+                          .crossAxisSpacing 24.0)
+           .itemCount (count tasks)
+           .itemBuilder
+           (fn [_ idx]
+             (let [task-row (nth tasks idx)
+                   blk (.-block task-row)
+                   text (or (.-textContent blk) "")
+                   src (or (.-documentTitle task-row) "")
+                   doc-id (.-documentId task-row)]
+               (m/KeyedSubtree
+                .key (m/ValueKey (.-id blk))
+                .child
+                (m/GestureDetector
+                 .onTap #(store/open-document! doc-id (.-id blk))
                  .child
-                 (m/Row
-                  .crossAxisAlignment m.CrossAxisAlignment/start
-                  .mainAxisSize m.MainAxisSize/min
-                  .children
-                  [(m/Column
-                    .mainAxisSize m.MainAxisSize/max
-                    .crossAxisAlignment m.CrossAxisAlignment/center
+                 (ui/note-card
+                  (m/Padding
+                   .padding (m.EdgeInsets/symmetric .vertical 16.0 .horizontal 10.0)
+                   .child
+                   (m/Row
+                    .crossAxisAlignment m.CrossAxisAlignment/start
+                    .mainAxisSize m.MainAxisSize/min
                     .children
-                    [(m/Checkbox
-                      .value false
-                      .activeColor t/primary
-                      .side (m/BorderSide .color t/ink-faint .width 1.5)
-                      .onChanged
-                      (fn [_] (block/check! (.-id blk) true)))
-                     (m/SizedBox .height 16.0)
-                     (m/Expanded
+                    [(m/Column
+                      .mainAxisSize m.MainAxisSize/max
+                      .crossAxisAlignment m.CrossAxisAlignment/center
+                      .children
+                      [(m/Checkbox
+                        .value false
+                        .activeColor t/primary
+                        .side (m/BorderSide .color t/ink-faint .width 1.5)
+                        .onChanged
+                        (fn [_] (block/check! (.-id blk) true)))
+                       (m/SizedBox .height 16.0)
+                       (m/Expanded
+                        .child
+                        (mgl/MongolText
+                         (if (empty? text) "(empty)" text)
+                         .style (t/mongol-style :size 16.0)))
+                       (m/SizedBox .height 16.0)])
+                     (m/VerticalDivider .color t/outline .width 16.0)
+                     (m/Padding
+                      .padding (m.EdgeInsets/only .top 48.0)
                       .child
                       (mgl/MongolText
-                       (if (empty? text) "(empty)" text)
-                       .style (t/mongol-style :size 16.0)))
-                     (m/SizedBox .height 16.0)])
-                   (m/VerticalDivider .color t/outline .width 16.0)
-                   (m/Padding
-                    .padding (m.EdgeInsets/only .top 48.0)
-                    .child
-                    (mgl/MongolText
-                     src
-                     .style (t/mongol-style :size 12.0 :color t/ink-muted)))]))
-                :width 140.0))))
-          tasks))))])))
+                       src
+                       .style (t/mongol-style :size 12.0 :color t/ink-muted)))]))
+                  :width :auto
+                  :margin (m.EdgeInsets/zero)))))))
+          (m/ListView
+           .scrollDirection m.Axis/horizontal
+           .physics (m/BouncingScrollPhysics.)
+           .padding (m.EdgeInsets/fromLTRB 20.0 20.0 8.0 20.0)
+           .children
+           (mapv
+            (fn [task-row]
+              (let [blk (.-block task-row)
+                    text (or (.-textContent blk) "")
+                    src (or (.-documentTitle task-row) "")
+                    doc-id (.-documentId task-row)]
+                (m/GestureDetector
+                 .onTap #(store/open-document! doc-id (.-id blk))
+                 .child
+                 (ui/note-card
+                  (m/Padding
+                   .padding (m.EdgeInsets/symmetric .vertical 16.0 .horizontal 10.0)
+                   .child
+                   (m/Row
+                    .crossAxisAlignment m.CrossAxisAlignment/start
+                    .mainAxisSize m.MainAxisSize/min
+                    .children
+                    [(m/Column
+                      .mainAxisSize m.MainAxisSize/max
+                      .crossAxisAlignment m.CrossAxisAlignment/center
+                      .children
+                      [(m/Checkbox
+                        .value false
+                        .activeColor t/primary
+                        .side (m/BorderSide .color t/ink-faint .width 1.5)
+                        .onChanged
+                        (fn [_] (block/check! (.-id blk) true)))
+                       (m/SizedBox .height 16.0)
+                       (m/Expanded
+                        .child
+                        (mgl/MongolText
+                         (if (empty? text) "(empty)" text)
+                         .style (t/mongol-style :size 16.0)))
+                       (m/SizedBox .height 16.0)])
+                     (m/VerticalDivider .color t/outline .width 16.0)
+                     (m/Padding
+                      .padding (m.EdgeInsets/only .top 48.0)
+                      .child
+                      (mgl/MongolText
+                       src
+                       .style (t/mongol-style :size 12.0 :color t/ink-muted)))]))
+                  :width 140.0))))
+            tasks)))))])))

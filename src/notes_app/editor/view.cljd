@@ -271,7 +271,7 @@
             !state
             :editor-config cfg
             :toolbar (when-not read-only? (tb/notes-toolbar !state cfg))
-            :background-color t/bg
+            :background-color m.Colors/transparent
             :show-block-handles? (not read-only?)
             :padding (m.EdgeInsets/all 32.0)
             :read-only? read-only?
@@ -331,7 +331,7 @@
                                  .curve m.Curves/easeInOut
                                  .width (if show-refs? 360.0 52.0)
                                  .decoration (m/BoxDecoration
-                                              .color t/surface
+                                              .color m.Colors/transparent
                                               .border (m/Border
                                                        .left (m/BorderSide .color t/outline
                                                                            .width 1.0)))
@@ -347,12 +347,12 @@
           (if embedded?
             (m/SafeArea .child body-row)
             (m/Scaffold
-             .backgroundColor t/bg
+             .backgroundColor m.Colors/transparent
              .appBar
              (m/AppBar
               .elevation 0.0
               .scrolledUnderElevation 0.0
-              .backgroundColor t/bg
+              .backgroundColor m.Colors/transparent
               .foregroundColor t/ink
               .surfaceTintColor m.Colors/transparent
               .leading (if show-back?

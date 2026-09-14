@@ -5,6 +5,7 @@
             [cljd.flutter :as f]
             [components.menu :as menu]
             [notes-app.db.core :as db]
+            [notes-app.platform :as platform]
             [notes-app.services.document :as doc]
             [notes-app.services.export :as export]
             [notes-app.state.store :as store]
@@ -26,7 +27,6 @@
                is-daily? m.Icons/calendar_today
                has-children? m.Icons/folder_outlined
                :else m.Icons/description_outlined)]
-
     (m/Center
      .child
      (ui/note-card
@@ -98,7 +98,8 @@
                                  (.catchError (fn [_]
                                                 (export/show-export-result! ctx nil)))))}]})))
       :accent-color (when is-daily? t/secondary)
-      :width 88.0))))
+      :width (if (platform/desktop?) :auto 120.0)
+      :margin (if (platform/desktop?) (m.EdgeInsets/zero) (m.EdgeInsets/only .right 16.0))))))
 
 (defn- make-load-more-scroll [!limit !docs]
   (let [ctrl (m/ScrollController.)]
@@ -134,18 +135,36 @@
            (ui/empty-state
             (if show-daily-only? m.Icons/calendar_today_outlined m.Icons/folder_open)
             (if show-daily-only? "No calendar notes" "Empty"))
-           (m/ListView.builder
-            .controller scroll-ctrl
-            .scrollDirection m.Axis/horizontal
-            .physics (m/BouncingScrollPhysics)
-            .padding (m.EdgeInsets/fromLTRB 20.0 20.0 8.0 20.0)
-            .itemCount (count display-docs-vec)
-            .itemBuilder
-            (fn [_ idx]
-              (let [row (nth display-docs-vec idx)]
-                (m/KeyedSubtree
-                 .key (m/ValueKey (:id (:document row)))
-                 .child (doc-tile ctx row))))))]
+           (if (platform/desktop?)
+             (m/GridView.builder
+              .scrollDirection m.Axis/horizontal
+              .controller scroll-ctrl
+              .physics (m/BouncingScrollPhysics.)
+              .padding (m.EdgeInsets/all 24.0)
+              .gridDelegate (m/SliverGridDelegateWithMaxCrossAxisExtent
+                             .maxCrossAxisExtent 220.0
+                             .mainAxisExtent 280.0
+                             .mainAxisSpacing 24.0
+                             .crossAxisSpacing 24.0)
+              .itemCount (count display-docs-vec)
+              .itemBuilder
+              (fn [_ idx]
+                (let [row (nth display-docs-vec idx)]
+                  (m/KeyedSubtree
+                   .key (m/ValueKey (:id (:document row)))
+                   .child (doc-tile ctx row)))))
+             (m/ListView.builder
+              .controller scroll-ctrl
+              .scrollDirection m.Axis/horizontal
+              .physics (m/BouncingScrollPhysics.)
+              .padding (m.EdgeInsets/fromLTRB 20.0 20.0 8.0 20.0)
+              .itemCount (count display-docs-vec)
+              .itemBuilder
+              (fn [_ idx]
+                (let [row (nth display-docs-vec idx)]
+                  (m/KeyedSubtree
+                   .key (m/ValueKey (:id (:document row)))
+                   .child (doc-tile ctx row)))))))]
      (m/Row
       .crossAxisAlignment m.CrossAxisAlignment/stretch
       .children

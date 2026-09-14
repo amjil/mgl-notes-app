@@ -67,14 +67,18 @@
          can-undo? (boolean (seq (get-in state-val [:history :undo-stack])))
          can-redo? (boolean (seq (get-in state-val [:history :redo-stack])))]
      (m/Container
-      .height 50.0
+      .height 52.0
       .width double/infinity
       .decoration (m/BoxDecoration
                    .color t/surface
                    .boxShadow [(m/BoxShadow
                                 .color (t/fade t/ink 0.06)
-                                .blurRadius 12.0
-                                .offset (m/Offset 0.0 -4.0))])
+                                .blurRadius 16.0
+                                .offset (m/Offset 0.0 -4.0))
+                               (m/BoxShadow
+                                .color (t/fade t/ink 0.02)
+                                .blurRadius 4.0
+                                .offset (m/Offset 0.0 -1.0))])
       .child
       (if active-id
         (m/SingleChildScrollView

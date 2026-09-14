@@ -36,6 +36,7 @@
 
 (defn desktop-shell []
   (f/widget
+   :context ctx
    :watch [{:keys [selected-nav-id open-document-id]} store/app-ui-state]
    (let [show-rail? (not= selected-nav-id "editor")
          content
@@ -51,28 +52,31 @@
            .child (body-for selected-nav-id open-document-id)))]
      (sync-toast/sync-toast-host
       (m/Scaffold
-       ;; 🌟 优化 3：将 Scaffold 底色设为侧边栏的底色
        .backgroundColor t/surface-2
        .body
-       (if show-rail?
-         (m/Row
-          .children
-          [(side-nav/side-navigation-rail)
+       (m/Row
+        .children
+        (cond-> []
+          show-rail?
+          (conj (side-nav/side-navigation-rail))
+
+          :always
+          (conj
            (m/Expanded
             .child
-            ;; 🌟 优化 4：主内容区悬浮卡片效果
             (m/Container
-             .margin (m.EdgeInsets/only .top 8.0 .bottom 8.0 .right 8.0)
+             .margin (m.EdgeInsets/only
+                      .top 8.0
+                      .bottom 8.0
+                      .right 8.0
+                      .left (if show-rail? 0.0 8.0))
              .decoration (m/BoxDecoration
-                          .color t/bg
+                          .color t/surface
                           .borderRadius (m.BorderRadius/circular 24.0)
-                          .boxShadow [(m/BoxShadow
-                                       .color (t/fade t/ink 0.04)
-                                       .blurRadius 16.0
-                                       .offset (m/Offset -2.0 4.0))])
+                          .boxShadow (t/card-shadow))
              .child (m/ClipRRect
                      .borderRadius (m.BorderRadius/circular 24.0)
-                     .child content)))])
-         
-         ;; 如果全屏显示编辑器（隐藏导航栏），则不留边距
-         (m/Container .color t/bg .child content)))))))
+                     .child (m/Theme
+                             .data (.copyWith (m.Theme/of ctx)
+                                              .scaffoldBackgroundColor m.Colors/transparent)
+                             .child content))))))))))))

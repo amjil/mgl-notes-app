@@ -44,46 +44,95 @@
    (m/Row
     .crossAxisAlignment m.CrossAxisAlignment/stretch
     .children
-    [(ui/title-rail "ᠬᠣᠭ᠎ᠤᠨ ᠰᠠᠪᠠ")
+    [(ui/title-rail "Хогийн сав")
      (m/Expanded
       .child
       (if (empty? deleted-docs)
         (ui/empty-state m.Icons/delete_outline "Trash is empty")
-        (m/ListView.builder
-         .scrollDirection m.Axis/horizontal
-         .physics (m/BouncingScrollPhysics)
-         .padding (m.EdgeInsets/fromLTRB 20.0 20.0 8.0 20.0)
-         .itemCount (count deleted-docs)
-         .itemBuilder
-         (fn [_ idx]
-           (let [d (nth deleted-docs idx)
-                 id (:id d)
-                 title (if (empty? (:title d)) "Untitled" (:title d))]
-             (m/Center
-              .child
-              (ui/note-card
+        (if (platform/desktop?)
+          (m/GridView.builder
+           .scrollDirection m.Axis/horizontal
+           .physics (m/BouncingScrollPhysics.)
+           .padding (m.EdgeInsets/all 24.0)
+           .gridDelegate (m/SliverGridDelegateWithMaxCrossAxisExtent
+                          .maxCrossAxisExtent 220.0
+                          .mainAxisExtent 280.0
+                          .mainAxisSpacing 24.0
+                          .crossAxisSpacing 24.0)
+           .itemCount (count deleted-docs)
+           .itemBuilder
+           (fn [_ idx]
+             (let [d (nth deleted-docs idx)
+                   id (:id d)
+                   title (if (empty? (:title d)) "Untitled" (:title d))]
+               (m/KeyedSubtree
+                .key (m/ValueKey id)
+                .child
+                (m/Center
+                 .child
+                 (ui/note-card
+                  (m/Center
+                   .child
+                   (mgl/MongolListTile
+                    .leading (ui/icon-chip m.Icons/delete_outline t/danger :bg-color t/danger-soft)
+                    .title (mgl/MongolText title
+                                           .style (t/mongol-style :size 18.0 :color t/ink-muted))
+                    .subtitle (mgl/MongolText "Deleted"
+                                              .style (t/mongol-style :size 12.0 :color t/danger))
+                    .trailing
+                    (m/Column
+                     .mainAxisSize m.MainAxisSize/min
+                     .mainAxisAlignment m.MainAxisAlignment/spaceEvenly
+                     .children
+                     [(m/IconButton
+                       .icon (m/Icon m.Icons/restore .color t/success .size 22.0)
+                       .tooltip "Restore"
+                       .onPressed (fn []
+                                    (-> (doc/restore! id)
+                                        (.then (fn [_] (sync/schedule-push!))))))
+                      (m/IconButton
+                       .icon (m/Icon m.Icons/delete_forever .color t/danger .size 22.0)
+                       .tooltip "Delete Forever"
+                       .onPressed #(confirm-hard-delete! ctx id))])))
+                  :accent-color t/danger
+                  :width :auto
+                  :margin (m.EdgeInsets/zero)))))))
+          (m/ListView.builder
+           .scrollDirection m.Axis/horizontal
+           .physics (m/BouncingScrollPhysics.)
+           .padding (m.EdgeInsets/fromLTRB 20.0 20.0 8.0 20.0)
+           .itemCount (count deleted-docs)
+           .itemBuilder
+           (fn [_ idx]
+             (let [d (nth deleted-docs idx)
+                   id (:id d)
+                   title (if (empty? (:title d)) "Untitled" (:title d))]
                (m/Center
                 .child
-                (mgl/MongolListTile
-                 .leading (ui/icon-chip m.Icons/delete_outline t/danger :bg-color t/danger-soft)
-                 .title (mgl/MongolText title
-                                        .style (t/mongol-style :size 18.0 :color t/ink-muted))
-                 .subtitle (mgl/MongolText "Deleted"
-                                           .style (t/mongol-style :size 12.0 :color t/danger))
-                 .trailing
-                 (m/Column
-                  .mainAxisSize m.MainAxisSize/min
-                  .mainAxisAlignment m.MainAxisAlignment/spaceEvenly
-                  .children
-                  [(m/IconButton
-                    .icon (m/Icon m.Icons/restore .color t/success .size 22.0)
-                    .tooltip "Restore"
-                    .onPressed (fn []
-                                 (-> (doc/restore! id)
-                                     (.then (fn [_] (sync/schedule-push!))))))
-                   (m/IconButton
-                    .icon (m/Icon m.Icons/delete_forever .color t/danger .size 22.0)
-                    .tooltip "Delete Forever"
-                    .onPressed #(confirm-hard-delete! ctx id))])))
-               :accent-color t/danger
-               :width 88.0)))))))])))
+                (ui/note-card
+                 (m/Center
+                  .child
+                  (mgl/MongolListTile
+                   .leading (ui/icon-chip m.Icons/delete_outline t/danger :bg-color t/danger-soft)
+                   .title (mgl/MongolText title
+                                          .style (t/mongol-style :size 18.0 :color t/ink-muted))
+                   .subtitle (mgl/MongolText "Deleted"
+                                             .style (t/mongol-style :size 12.0 :color t/danger))
+                   .trailing
+                   (m/Column
+                    .mainAxisSize m.MainAxisSize/min
+                    .mainAxisAlignment m.MainAxisAlignment/spaceEvenly
+                    .children
+                    [(m/IconButton
+                      .icon (m/Icon m.Icons/restore .color t/success .size 22.0)
+                      .tooltip "Restore"
+                      .onPressed (fn []
+                                   (-> (doc/restore! id)
+                                       (.then (fn [_] (sync/schedule-push!))))))
+                     (m/IconButton
+                      .icon (m/Icon m.Icons/delete_forever .color t/danger .size 22.0)
+                      .tooltip "Delete Forever"
+                      .onPressed #(confirm-hard-delete! ctx id))])))
+                 :accent-color t/danger
+                 :width 120.0
+                 :margin (m.EdgeInsets/only .right 16.0)))))))))])))

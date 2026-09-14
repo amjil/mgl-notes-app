@@ -27,7 +27,7 @@
 (def tertiary-soft (m/Color 0xFFEFEAF6))
 
 (def bg
-  "Warm parchment scaffold."
+  "Warm parchment scaffold. (Main content background)"
   (m/Color 0xFFF3EFE8))
 
 (def surface
@@ -35,12 +35,12 @@
   (m/Color 0xFFFFFCF7))
 
 (def surface-2
-  "Inset panels, navigation rail."
-  (m/Color 0xFFEBE6DD))
+  "Inset panels, navigation rail, and desktop deep background."
+  (m/Color 0xFFE4DED3))
 
-(def ink (m/Color 0xFF1A1714))
-(def ink-muted (m/Color 0xFF6F6962))
-(def ink-faint (m/Color 0xFFA39C94))
+(def ink (m/Color 0xFF1C242B))
+(def ink-muted (m/Color 0xFF606D7A))
+(def ink-faint (m/Color 0xFF909CA8))
 
 (def outline (m/Color 0xFFE4DDD3))
 (def outline-strong (m/Color 0xFFD4CCC0))
@@ -77,13 +77,13 @@
 
 (defn card-shadow []
   [(m/BoxShadow
-    .color (fade ink 0.06)
-    .blurRadius 18.0
-    .offset (m/Offset 0.0 6.0))
+    .color (fade ink 0.08)
+    .blurRadius 20.0
+    .offset (m/Offset 0.0 8.0))
    (m/BoxShadow
-    .color (fade ink 0.03)
+    .color (fade ink 0.04)
     .blurRadius 4.0
-    .offset (m/Offset 0.0 1.0))])
+    .offset (m/Offset 0.0 2.0))])
 
 (defn card-decoration
   [& {:keys [accent-color fill radius]
