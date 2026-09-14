@@ -20,8 +20,8 @@
 ;; -----------------------------------------------------------------------------
 ;; Physics Engine (Pure functional design for Isolate)
 ;; -----------------------------------------------------------------------------
-(defn- init-nodes 
-  "初始化节点坐标。保留已有节点的 x/y/vx/vy 以防止过滤时发生剧烈闪烁。"
+(defn- init-nodes
+  "Seed node positions. Keep existing x/y/vx/vy so filters do not flash the layout."
   [raw-nodes current-nodes]
   (let [n (count raw-nodes)]
     (if (zero? n)
@@ -35,9 +35,9 @@
                  (let [data (get raw-nodes id)
                        cur (get current-nodes id)]
                    (if cur
-                     ;; 保留已有位置和动能
+                     ;; Keep current position and momentum.
                      [id (assoc data :x (:x cur) :y (:y cur) :vx (:vx cur) :vy (:vy cur))]
-                     ;; 新节点环形初始化
+                     ;; Place new nodes on a ring.
                      (let [angle (* idx step)
                            x (+ center (* radius (math/cos angle)))
                            y (+ center (* radius (math/sin angle)))]
@@ -132,7 +132,7 @@
                  (case m-type
                    :start
                    (do
-                     ;; 🌟 收到 start 指令时，将 ticks 重置为 0，图谱会重新受力舒展
+                     ;; On :start, reset ticks so the graph can re-layout under forces.
                      (swap! !state assoc
                             :nodes (:nodes msg)
                             :edges (:edges msg)
@@ -196,39 +196,39 @@
               nodes)]    (when (seq hits)
       (first (first (sort-by second hits))))))
 
-(defn- apply-filters-and-restart! 
-  "根据开关过滤数据，标出孤岛，并让后台引擎重新开始受力计算"
+(defn- apply-filters-and-restart!
+  "Apply toggle filters, mark orphans, and restart the isolate physics engine."
   [!nodes !edges !raw-data !show-tags? !highlight-orphans? !iso-send]
   (let [raw @!raw-data
         show-tags? @!show-tags?
         highlight? @!highlight-orphans?
         all-nodes (:nodes raw {})
         all-edges (:edges raw [])
-        
-        ;; 1. 过滤标签相关的边
+
+        ;; 1. Filter tag edges.
         active-edges (if show-tags?
                        all-edges
                        (filterv #(not= (:type %) "tag") all-edges))
-        
-        ;; 2. 过滤标签节点
+
+        ;; 2. Filter tag nodes.
         active-nodes (if show-tags?
                        all-nodes
                        (reduce-kv (fn [acc k v]
                                     (if (= (:type v) "tag") acc (assoc acc k v)))
                                   {} all-nodes))
-        
-        ;; 3. 获取所有有关联的节点 ID，剩下的自然就是“孤岛”
+
+        ;; 3. Connected node ids; the rest are orphans.
         connected (into #{} (mapcat (juxt :source :target) active-edges))
-        
-        ;; 4. 标记孤岛节点
+
+        ;; 4. Mark orphan nodes.
         active-nodes (reduce-kv (fn [acc id n]
                                   (let [orphan? (not (contains? connected id))]
-                                    (assoc acc id (assoc n 
+                                    (assoc acc id (assoc n
                                                          :orphan? orphan?
                                                          :highlight-orphan? (and highlight? orphan?)))))
                                 {} active-nodes)
-        
-        ;; 5. 继承当前正在运动的坐标，防止画布剧烈重置
+
+        ;; 5. Inherit live coordinates to avoid a hard canvas reset.
         next-nodes (init-nodes active-nodes @!nodes)]
     
     (reset! !nodes next-nodes)
@@ -294,7 +294,7 @@
                          edge-paint))))
         (doseq [[id n] nodes]
           (let [tag? (= (:type n) "tag")
-                highlight? (:highlight-orphan? n) ;; 🌟 判断是否需要高亮孤岛
+                highlight? (:highlight-orphan? n) ;; Whether this orphan should be highlighted.
                 color (cond
                         highlight? t/warning
                         tag? t/tertiary
@@ -302,7 +302,7 @@
                 cx (:x n)
                 cy (:y n)
                 label (if tag? (str "#" id) (str id))]
-            ;; 🌟 孤岛高亮时，光晕和核心圆点都会变大
+            ;; Highlighted orphans use a larger halo and core.
             (set! (.-color halo) (t/fade color (if highlight? 0.3 0.15)))
             (set! (.-color fill) color)
             (.drawCircle canvas (m/Offset. cx cy) (if highlight? 24.0 18.0) halo)
@@ -426,10 +426,10 @@
       (not loaded?)
       (ui/loading)
       
-      ;; 区分：数据库里本来就没连线，还是被过滤面板全隐藏了
+      ;; Empty raw graph vs. everything hidden by the filter panel.
       (and (empty? nodes) (empty? (:nodes @!raw-data)))
       (ui/empty-state m.Icons/hub_outlined "No graph connections yet")
-      
+
       :else
       (m/Stack
        .children
@@ -512,7 +512,7 @@
             .size (m/Size. canvas-size canvas-size)
             .painter (graph-painter nodes edges)))))
         
-        ;; 🌟 悬浮过滤控制台 (右上角)
+        ;; Floating filter controls (top-right).
         (m/Positioned
          .top 24.0
          .right 24.0

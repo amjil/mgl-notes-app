@@ -41,6 +41,12 @@
 ;; Desktop references panel open/collapsed — global across documents.
 (defonce !show-backlinks (atom true))
 
+;; Global document outline (TOC) open/collapsed.
+(defonce !show-toc (atom false))
+
+(defn toggle-show-toc! []
+  (swap! !show-toc not))
+
 (defn- new-uuid []
   (str (random-uuid)))
 

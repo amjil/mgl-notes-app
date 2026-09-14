@@ -144,6 +144,86 @@
 (def notes-editor-config (make-editor-config))
 
 ;; =============================================================================
+;; Document Outline (TOC)
+;; =============================================================================
+
+(defn- extract-headings [state]
+  (let [blocks (:blocks state {})
+        root (:root state [])
+        res (atom [])]
+    (letfn [(walk [ids]
+              (doseq [id ids]
+                (when-let [b (get blocks id)]
+                  (let [t (:type b)]
+                    (when (contains? #{:heading-1 :heading-2 :heading-3} t)
+                      (swap! res conj {:id id :type t :text (:content b)})))
+                  ;; Recurse so outline order matches document tree order.
+                  (when (seq (:children b))
+                    (walk (:children b))))))]
+      (walk root)
+      @res)))
+
+(defn- toc-panel [!state !show?]
+  (f/widget
+   :watch [state-val !state
+           open? !show?]
+   (let [headings (extract-headings state-val)]
+     (m/AnimatedContainer
+      .duration (dart:core/Duration. .milliseconds 250)
+      .curve m.Curves/easeOutCubic
+      .width (if open? 220.0 0.0)
+      .decoration (m/BoxDecoration
+                   .color m.Colors/transparent
+                   .border (m/Border .right (m/BorderSide .color t/outline .width 1.0)))
+      .child
+      (if (not open?)
+        (m/SizedBox.shrink)
+        (m/Column
+         .crossAxisAlignment m.CrossAxisAlignment/stretch
+         .children
+         [(m/Padding
+           .padding (m.EdgeInsets/fromLTRB 12.0 16.0 12.0 8.0)
+           .child
+           (m/Row
+            .mainAxisAlignment m.MainAxisAlignment/spaceBetween
+            .children
+            [(mgl/MongolText "Гарчиг"
+                             .style (t/mongol-style :size 14.0 :weight m.FontWeight/w600 :color t/ink-muted))
+             (m/IconButton
+              .icon (m/Icon m.Icons/close .size 18.0 .color t/ink-muted)
+              .padding m.EdgeInsets/zero
+              .constraints (m/BoxConstraints)
+              .onPressed #(reset! !show? false))]))
+          (m/Expanded
+           .child
+           (if (empty? headings)
+             (ui/empty-state m.Icons/format_list_bulleted "No headings")
+             (m/ListView.builder
+              .scrollDirection m.Axis/horizontal
+              .physics (m/BouncingScrollPhysics.)
+              .padding (m.EdgeInsets/symmetric .vertical 8.0 .horizontal 12.0)
+              .itemCount (count headings)
+              .itemBuilder
+              (fn [_ idx]
+                (let [{:keys [id type text]} (nth headings idx)
+                      level (case type :heading-1 0 :heading-2 1 :heading-3 2 0)
+                      indent (* level 20.0)
+                      display-text (if (str/blank? text) "Untitled" text)]
+                  (m/InkWell
+                   .onTap #(navigate/reveal-block! !state id)
+                   .borderRadius (m.BorderRadius/circular 8.0)
+                   .child
+                   (m/Container
+                    ;; Vertical Mongolian: hierarchy via top padding, not left margin.
+                    .padding (m.EdgeInsets/only .top (+ 8.0 indent) .bottom 8.0 .left 8.0 .right 8.0)
+                    .child
+                    (mgl/MongolText display-text
+                                    .style (t/mongol-style
+                                            :size (case type :heading-1 16.0 :heading-2 14.0 13.0)
+                                            :weight (if (zero? level) m.FontWeight/w600 m.FontWeight/normal)
+                                            :color (if (zero? level) t/ink t/ink-muted))))))))))]))))))
+
+;; =============================================================================
 ;; Per-document session cache
 ;; =============================================================================
 
@@ -356,7 +436,8 @@
                .children
                (into []
                      (remove nil?
-                             [(m/Expanded .child editor-body)
+                             [(toc-panel !state store/!show-toc)
+                              (m/Expanded .child editor-body)
                               (when show-strip?
                                 (m/AnimatedContainer
                                  .duration (dart:core/Duration. .milliseconds 200)
@@ -396,6 +477,10 @@
               (let [can-undo? (boolean (seq (get-in current-state [:history :undo-stack])))
                     can-redo? (boolean (seq (get-in current-state [:history :redo-stack])))]
                 [(m/IconButton
+                  .icon (m/Icon m.Icons/format_list_bulleted)
+                  .tooltip "Document Outline"
+                  .onPressed #(store/toggle-show-toc!))
+                 (m/IconButton
                   .icon (m/Icon m.Icons/undo)
                   .tooltip "Undo"
                   .onPressed (when can-undo? #(history/undo! !state)))

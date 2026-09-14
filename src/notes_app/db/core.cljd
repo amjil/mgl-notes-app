@@ -223,7 +223,7 @@
 
 (defn search-documents-and-blocks [query]
   (if-let [^drift/AppDatabase database @db]
-    (let [;; 过滤掉引号以防 FTS 语法报错，并在末尾追加通配符 * 支持前缀与模糊分词
+    (let [;; Strip quotes (FTS syntax) and append * for prefix matching.
           safe-q (str/trim (str/replace query #"\"" ""))
           match-query (str "\"" safe-q "\"*")]
       (if (= safe-q "")
@@ -231,10 +231,10 @@
         (-> (.get
              (.customSelect
               database
-              ;; 核心查询重构：
-              ;; 1. 直接查询虚拟倒排表 search_index
-              ;; 2. 用 MATCH 替代 LIKE，支持精准断词
-              ;; 3. 用内置算法 bm25 算分，将匹配度最高的笔记排在最上面
+              ;; FTS query:
+              ;; 1. Query the virtual search_index table directly
+              ;; 2. MATCH instead of LIKE for tokenization
+              ;; 3. Order by bm25 so best matches rank first
               (str "SELECT s.document_id as document_id, d.title as document_title, "
                    "CASE WHEN s.block_id = 'title' THEN NULL ELSE s.block_id END as block_id, "
                    "s.text as block_text, "

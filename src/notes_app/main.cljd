@@ -44,7 +44,7 @@
   (m/WidgetsFlutterBinding.ensureInitialized)
 
   (when kIsWeb
-    ;; 动态获取环境变量，编译时可通过 --dart-define=API_BASE_URL="https://..." 传入
+    ;; Read compile-time --dart-define=API_BASE_URL="https://..." when present.
     (let [env-url (dart:core/String.fromEnvironment "API_BASE_URL")
           base-url (if (or (nil? env-url) (= env-url "")) "100.64.0.6:3003" env-url)]
       (remote/set-config! {:base-url base-url
