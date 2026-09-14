@@ -1,7 +1,8 @@
 (ns notes-app.desktop.shell
-  "Desktop app chrome: Modern floating content pane with NavigationRail."
+  "Desktop app chrome: Modern floating content pane with NavigationRail and Split-Screen."
   (:require ["package:flutter/material.dart" :as m]
             ["dart:core" :as dc]
+            ["dart:async" :as async]
             [cljd.flutter :as f]
             [notes-app.state.store :as store]
             [notes-app.desktop.widgets.side-nav :as side-nav]
@@ -26,19 +27,53 @@
     "tags" (tags/tags-page)
     "search" (search/search-page)
     "settings" (settings/settings-page)
-    "editor" (if open-doc-id
-               (editor/document-editor open-doc-id
-                                       :show-back? true
-                                       :on-back store/close-editor!)
-               (documents/documents-page))
     "trash" (trash/trash-page)
     (today/today-page)))
+
+;; Split-screen: one floating editor card per open document id.
+(defn- editor-split-view [ctx doc-ids show-rail?]
+  (m/Row
+   .crossAxisAlignment m.CrossAxisAlignment/stretch
+   .children
+   (into []
+         (map-indexed
+          (fn [idx id]
+            (let [is-first? (zero? idx)]
+              (m/Expanded
+               ;; Stable identity per pane so Row diff does not reuse the wrong editor.
+               .key (m/ValueKey id)
+               .child
+               (m/Container
+                .margin (m.EdgeInsets/only
+                         .top 8.0
+                         .bottom 8.0
+                         .right 8.0
+                         .left (if (and is-first? (not show-rail?)) 8.0 0.0))
+                .decoration (m/BoxDecoration
+                             .color t/surface
+                             .borderRadius (m.BorderRadius/circular 24.0)
+                             .boxShadow (t/card-shadow))
+                .child
+                (m/ClipRRect
+                 .borderRadius (m.BorderRadius/circular 24.0)
+                 .child (m/Theme
+                         .data (.copyWith (m.Theme/of ctx)
+                                          .scaffoldBackgroundColor m.Colors/transparent)
+                         .child
+                         (editor/document-editor id
+                                                 :show-back? true
+                                                 ;; Defer state update until after the current layout frame.
+                                                 :on-back #(async/Future.microtask
+                                                            (fn [] (store/close-editor! nil id)))))))))))
+          doc-ids)))
 
 (defn desktop-shell []
   (f/widget
    :context ctx
-   :watch [{:keys [selected-nav-id open-document-id]} store/app-ui-state]
-   (let [show-rail? (not= selected-nav-id "editor")
+   :watch [{:keys [selected-nav-id open-document-ids open-document-id]} store/app-ui-state]
+   (let [show-rail? true
+         is-editor? (= selected-nav-id "editor")
+         doc-ids (if (seq open-document-ids) open-document-ids (when open-document-id [open-document-id]))
          content
          (m/AnimatedSwitcher
           .duration (dc/Duration. .milliseconds 250)
@@ -47,29 +82,30 @@
           .transitionBuilder (fn [^m/Widget child ^m/Animation animation]
                                (m/FadeTransition .opacity animation .child child))
           .child
-          (m/Container
-           .key (m/ValueKey (str selected-nav-id "-" open-document-id))
-           .child (body-for selected-nav-id open-document-id)))]
+          (m/KeyedSubtree
+           ;; Do not re-run switcher animation when only a split pane closes.
+           .key (m/ValueKey (if is-editor? "editor-views" (str selected-nav-id "-" open-document-id)))
+           .child
+           (if is-editor?
+             (editor-split-view ctx doc-ids show-rail?)
+             (body-for selected-nav-id open-document-id))))]
      (sync-toast/sync-toast-host
       (m/Scaffold
        .backgroundColor t/surface-2
        .body
        (m/Row
         .children
-        (cond-> []
-          show-rail?
-          (conj (side-nav/side-navigation-rail))
-
-          :always
-          (conj
-           (m/Expanded
-            .child
+        [(side-nav/side-navigation-rail)
+         (m/Expanded
+          .child
+          (if is-editor?
+            content
             (m/Container
              .margin (m.EdgeInsets/only
                       .top 8.0
                       .bottom 8.0
                       .right 8.0
-                      .left (if show-rail? 0.0 8.0))
+                      .left 0.0)
              .decoration (m/BoxDecoration
                           .color t/surface
                           .borderRadius (m.BorderRadius/circular 24.0)
@@ -79,4 +115,4 @@
                      .child (m/Theme
                              .data (.copyWith (m.Theme/of ctx)
                                               .scaffoldBackgroundColor m.Colors/transparent)
-                             .child content))))))))))))
+                             .child content)))))]))))))

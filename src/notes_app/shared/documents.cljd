@@ -1,6 +1,7 @@
 (ns notes-app.shared.documents
   "Shared documents list + nested-folder drill-down. Chrome (AppBar / FAB) stays on each platform."
   (:require ["package:flutter/material.dart" :as m]
+            ["package:flutter/services.dart" :as s]
             ["package:mongol/mongol.dart" :as mgl]
             [cljd.flutter :as f]
             [components.menu :as menu]
@@ -13,6 +14,12 @@
             [notes-app.shared.rename-dialog :as rename]
             [notes-app.theme :as t]
             [notes-app.ui :as ui]))
+
+(defn- split-modifier-pressed? []
+  (let [kb s.HardwareKeyboard/instance]
+    (or (.-isAltPressed kb)
+        (.-isMetaPressed kb)       ;; Mac Cmd
+        (.-isControlPressed kb)))) ;; Win/Linux Ctrl
 
 (defn- doc-tile [ctx row]
   (let [d (:document row)
@@ -47,7 +54,7 @@
           .onTap (fn []
                    (if has-children?
                      (store/set-parent-doc! id display)
-                     (store/open-document! id))))))
+                     (store/open-document! id nil (split-modifier-pressed?)))))))
 
        ;; Floating menu: top-right overlay, does not shrink the title
        (m/Positioned

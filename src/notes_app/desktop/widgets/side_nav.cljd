@@ -6,7 +6,7 @@
             [notes-app.state.store :as store]
             [notes-app.theme :as t]))
 
-;; 🌟 优化 1：加宽侧边栏，为竖排蒙古文提供充足空间
+;; Wider rail so vertical Mongolian labels have room.
 (def ^:private rail-width 88.0)
 
 (def ^:private tabs
@@ -50,7 +50,7 @@
                   .backgroundColor t/danger
                   .child icon-w)
                  icon-w)]
-    ;; 🌟 优化 2：现代化的“药丸”风格选中状态
+    ;; Pill-style selected state.
     (m/Container
      .margin (m.EdgeInsets/symmetric .horizontal 12.0 .vertical 4.0)
      .child
@@ -84,11 +84,16 @@
 
 (defn side-navigation-rail []
   (f/widget
-   :watch [{:keys [selected-nav-id sync-status auth-token sync-enabled]} store/app-ui-state]
-   (let [sync-error? (and sync-enabled auth-token (not= auth-token "") (= sync-status :error))]
+   :watch [{:keys [selected-nav-id editor-return-nav sync-status auth-token sync-enabled]}
+           store/app-ui-state]
+   (let [sync-error? (and sync-enabled auth-token (not= auth-token "") (= sync-status :error))
+         ;; While editing, highlight the page we came from (usually documents).
+         active-nav (if (= selected-nav-id "editor")
+                      (or editor-return-nav "documents")
+                      selected-nav-id)]
      (m/Container
       .width rail-width
-      .color m.Colors/transparent ;; 融入底层 Scaffold 的背景
+      .color m.Colors/transparent
       .child
       (m/Column
        .crossAxisAlignment m.CrossAxisAlignment/center
@@ -105,7 +110,7 @@
            .children
            (mapv (fn [tab]
                    (nav-item tab
-                             (= (:id tab) selected-nav-id)
+                             (= (:id tab) active-nav)
                              sync-error?
                              #(store/set-nav! (:id tab))))
                  tabs))))])))))
