@@ -27,30 +27,44 @@
                is-daily? m.Icons/calendar_today
                has-children? m.Icons/folder_outlined
                :else m.Icons/description_outlined)]
-    (m/Center
-     .child
-     (ui/note-card
-      (m/Center
-       .child
-       (mgl/MongolListTile
-        .leading (ui/icon-chip icon accent)
-        .title (mgl/MongolText display
-                               .style (t/mongol-style
-                                       :size 18.0
-                                       :weight (if is-daily? m.FontWeight/bold m.FontWeight/normal)))
-        .subtitle (when has-parent?
-                    (mgl/MongolText "nested"
-                                    .style (t/mongol-style :size 12.0 :color t/ink-faint)))
-        .onTap (fn []
-                 (if has-children?
-                   (store/set-parent-doc! id display)
-                   (store/open-document! id)))
-        .trailing
+    (ui/note-card
+     (m/Stack
+      .children
+      [;; Base: same two-column MongolListTile as search (no trailing)
+       (m/Positioned.fill
+        .child
+        (m/Center
+         .child
+         (mgl/MongolListTile
+          .leading (ui/icon-chip icon accent)
+          .title (mgl/MongolText display
+                                 .style (t/mongol-style
+                                         :size 16.0
+                                         :weight (if is-daily? m.FontWeight/bold m.FontWeight/w600)))
+          .subtitle (when has-parent?
+                      (mgl/MongolText "nested"
+                                      .style (t/mongol-style :size 12.0 :color t/ink-muted)))
+          .onTap (fn []
+                   (if has-children?
+                     (store/set-parent-doc! id display)
+                     (store/open-document! id))))))
+
+       ;; Floating menu: top-right overlay, does not shrink the title
+       (m/Positioned
+        .top 6.0
+        .right 6.0
+        .child
         (menu/custom-popup-menu
          {:trigger-builder
           (fn [show-menu]
             (m/IconButton
-             .icon (m/Icon m.Icons/more_horiz .color t/ink-faint)
+             .icon (m/Icon m.Icons/more_horiz .size 18.0 .color t/ink-muted)
+             .padding m.EdgeInsets/zero
+             .constraints (m/BoxConstraints .minWidth 28.0 .minHeight 28.0)
+             .style (m/IconButton.styleFrom
+                     .backgroundColor (t/fade t/ink 0.04)
+                     .shape (m/RoundedRectangleBorder
+                             .borderRadius (m.BorderRadius/circular 8.0)))
              .onPressed show-menu))
           :bg-color t/surface
           :border-radius 16.0
@@ -96,11 +110,10 @@
                                  (.then (fn [path]
                                           (export/show-export-result! ctx path)))
                                  (.catchError (fn [_]
-                                                (export/show-export-result! ctx nil)))))}]})))
-      :accent-color (when is-daily? t/secondary)
-      :width (if (platform/desktop?) :auto 120.0)
-      :margin (if (platform/desktop?) (m.EdgeInsets/zero) (m.EdgeInsets/only .right 16.0))))))
-
+                                                (export/show-export-result! ctx nil)))))}]}))])
+     :accent-color (when is-daily? t/secondary)
+     :width (if (platform/desktop?) :auto 120.0)
+     :margin (if (platform/desktop?) (m.EdgeInsets/zero) (m.EdgeInsets/only .right 16.0)))))
 (defn- make-load-more-scroll [!limit !docs]
   (let [ctrl (m/ScrollController.)]
     (.addListener ctrl
@@ -141,9 +154,9 @@
               .controller scroll-ctrl
               .physics (m/BouncingScrollPhysics.)
               .padding (m.EdgeInsets/all 24.0)
-              .gridDelegate (m/SliverGridDelegateWithMaxCrossAxisExtent
-                             .maxCrossAxisExtent 220.0
-                             .mainAxisExtent 280.0
+              .gridDelegate (m/SliverGridDelegateWithFixedCrossAxisCount
+                             .crossAxisCount 2
+                             .mainAxisExtent 160.0
                              .mainAxisSpacing 24.0
                              .crossAxisSpacing 24.0)
               .itemCount (count display-docs-vec)

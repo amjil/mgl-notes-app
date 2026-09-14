@@ -40,8 +40,9 @@
       .leading (ui/icon-chip m.Icons/tag t/tertiary :bg-color t/tertiary-soft)
       .title (mgl/MongolText (str "#" (:tag row))
                              .style (t/mongol-style
-                                     :size 18.0
+                                     :size 16.0
                                      :color t/tertiary
+                                     :weight m.FontWeight/w600
                                      :italic? true))
       .subtitle (mgl/MongolText
                  (str (:doc-count row) " notes • " (:ref-count row) " refs")
@@ -54,33 +55,23 @@
 (defn- ref-card [row]
   (m/Center
    .child
-   (m/GestureDetector
-    .onTap #(when (:document-id row)
-              (store/open-document! (:document-id row) (:block-id row)))
-    .child
-    (ui/note-card
-     (m/Padding
-      .padding (m.EdgeInsets/all 12.0)
-      .child
-      (m/Column
-       .crossAxisAlignment m.CrossAxisAlignment/center
-       .children
-       [(mgl/MongolText
-         (display-doc-title (:document-title row))
-         .textAlign mgl.MongolTextAlign/top
-         .style (t/mongol-style :size 14.0 :weight m.FontWeight/bold :color t/primary))
-        (m/SizedBox .height 10.0)
-        (m/Expanded
-         .child
-         (m/Center
-          .child
-          (mgl/MongolText
-           (preview-text (:block-text row))
-           .textAlign mgl.MongolTextAlign/top
-           .style (t/mongol-style :size 13.0 :color t/ink-muted))))]))
-     :width (if (platform/desktop?) :auto 120.0)
-     :margin (if (platform/desktop?) (m.EdgeInsets/zero) (m.EdgeInsets/only .right 16.0))))))
-
+   (ui/note-card
+    (m/Center
+     .child
+     (mgl/MongolListTile
+      .leading (ui/icon-chip m.Icons/description_outlined t/primary)
+      .title (mgl/MongolText
+              (display-doc-title (:document-title row))
+              .style (t/mongol-style :size 16.0 :weight m.FontWeight/w600))
+      .subtitle (when (:block-text row)
+                  (mgl/MongolText
+                   (preview-text (:block-text row))
+                   .style (t/mongol-style :size 13.0 :color t/ink-muted)))
+      .onTap (fn []
+               (when (:document-id row)
+                 (store/open-document! (:document-id row) (:block-id row))))))
+    :width (if (platform/desktop?) :auto 120.0)
+    :margin (if (platform/desktop?) (m.EdgeInsets/zero) (m.EdgeInsets/only .right 16.0)))))
 (defn- make-load-more-scroll [!limit !data-list]
   (let [ctrl (m/ScrollController.)]
     (.addListener ctrl
@@ -154,8 +145,8 @@
              .physics (m/BouncingScrollPhysics.)
              .padding (m.EdgeInsets/all 24.0)
              .gridDelegate (m/SliverGridDelegateWithMaxCrossAxisExtent
-                            .maxCrossAxisExtent 220.0
-                            .mainAxisExtent 280.0
+                            .maxCrossAxisExtent 280.0
+                            .mainAxisExtent 160.0
                             .mainAxisSpacing 24.0
                             .crossAxisSpacing 24.0)
              .itemCount (count refs-vec)
@@ -206,8 +197,8 @@
               .physics (m/BouncingScrollPhysics.)
               .padding (m.EdgeInsets/all 24.0)
               .gridDelegate (m/SliverGridDelegateWithMaxCrossAxisExtent
-                             .maxCrossAxisExtent 220.0
-                             .mainAxisExtent 280.0
+                             .maxCrossAxisExtent 280.0
+                             .mainAxisExtent 160.0
                              .mainAxisSpacing 24.0
                              .crossAxisSpacing 24.0)
               .itemCount (count tags-vec)

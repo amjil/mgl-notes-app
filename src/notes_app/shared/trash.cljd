@@ -35,6 +35,64 @@
                  (-> (doc/hard-delete! id)
                      (.then (fn [_] (sync/schedule-push!)))))))))
 
+(defn- trash-tile [ctx d desktop?]
+  (let [id (:id d)
+        title (if (empty? (:title d)) "Untitled" (:title d))]
+    (m/KeyedSubtree
+     .key (m/ValueKey id)
+     .child
+     (m/Center
+      .child
+      (ui/note-card
+       (m/Stack
+        .children
+        [;; Base: clean two-column layout (icon + title)
+         (m/Positioned.fill
+          .child
+          (m/Center
+           .child
+           (mgl/MongolListTile
+            .leading (ui/icon-chip m.Icons/delete_outline t/danger :bg-color t/danger-soft)
+            .title (mgl/MongolText title
+                                   .style (t/mongol-style :size 16.0 :color t/ink-muted))
+            .subtitle (mgl/MongolText "Deleted"
+                                      .style (t/mongol-style :size 12.0 :color t/danger)))))
+
+         ;; Floating actions: restore + delete forever at top-right
+         (m/Positioned
+          .top 6.0
+          .right 6.0
+          .child
+          (m/Column
+           .mainAxisSize m.MainAxisSize/min
+           .children
+           [(m/IconButton
+             .icon (m/Icon m.Icons/restore .color t/success .size 18.0)
+             .padding m.EdgeInsets/zero
+             .constraints (m/BoxConstraints .minWidth 28.0 .minHeight 28.0)
+             .style (m/IconButton.styleFrom
+                     .backgroundColor (t/fade t/success 0.08)
+                     .shape (m/RoundedRectangleBorder
+                             .borderRadius (m.BorderRadius/circular 8.0)))
+             .tooltip "Restore"
+             .onPressed (fn []
+                          (-> (doc/restore! id)
+                              (.then (fn [_] (sync/schedule-push!))))))
+            (m/SizedBox .height 6.0)
+            (m/IconButton
+             .icon (m/Icon m.Icons/delete_forever .color t/danger .size 18.0)
+             .padding m.EdgeInsets/zero
+             .constraints (m/BoxConstraints .minWidth 28.0 .minHeight 28.0)
+             .style (m/IconButton.styleFrom
+                     .backgroundColor (t/fade t/danger 0.08)
+                     .shape (m/RoundedRectangleBorder
+                             .borderRadius (m.BorderRadius/circular 8.0)))
+             .tooltip "Delete Forever"
+             .onPressed #(confirm-hard-delete! ctx id))]))])
+       :accent-color t/danger
+       :width (if desktop? :auto 120.0)
+       :margin (if desktop? (m.EdgeInsets/zero) (m.EdgeInsets/only .right 16.0)))))))
+
 (defn trash-body []
   (f/widget
    :context ctx
@@ -55,48 +113,15 @@
            .physics (m/BouncingScrollPhysics.)
            .padding (m.EdgeInsets/all 24.0)
            .gridDelegate (m/SliverGridDelegateWithMaxCrossAxisExtent
-                          .maxCrossAxisExtent 220.0
-                          .mainAxisExtent 280.0
+                          .maxCrossAxisExtent 280.0
+                          .mainAxisExtent 160.0
                           .mainAxisSpacing 24.0
                           .crossAxisSpacing 24.0)
            .itemCount (count deleted-docs)
            .itemBuilder
            (fn [_ idx]
-             (let [d (nth deleted-docs idx)
-                   id (:id d)
-                   title (if (empty? (:title d)) "Untitled" (:title d))]
-               (m/KeyedSubtree
-                .key (m/ValueKey id)
-                .child
-                (m/Center
-                 .child
-                 (ui/note-card
-                  (m/Center
-                   .child
-                   (mgl/MongolListTile
-                    .leading (ui/icon-chip m.Icons/delete_outline t/danger :bg-color t/danger-soft)
-                    .title (mgl/MongolText title
-                                           .style (t/mongol-style :size 18.0 :color t/ink-muted))
-                    .subtitle (mgl/MongolText "Deleted"
-                                              .style (t/mongol-style :size 12.0 :color t/danger))
-                    .trailing
-                    (m/Column
-                     .mainAxisSize m.MainAxisSize/min
-                     .mainAxisAlignment m.MainAxisAlignment/spaceEvenly
-                     .children
-                     [(m/IconButton
-                       .icon (m/Icon m.Icons/restore .color t/success .size 22.0)
-                       .tooltip "Restore"
-                       .onPressed (fn []
-                                    (-> (doc/restore! id)
-                                        (.then (fn [_] (sync/schedule-push!))))))
-                      (m/IconButton
-                       .icon (m/Icon m.Icons/delete_forever .color t/danger .size 22.0)
-                       .tooltip "Delete Forever"
-                       .onPressed #(confirm-hard-delete! ctx id))])))
-                  :accent-color t/danger
-                  :width :auto
-                  :margin (m.EdgeInsets/zero)))))))
+             (let [d (nth deleted-docs idx)]
+               (trash-tile ctx d true))))
           (m/ListView.builder
            .scrollDirection m.Axis/horizontal
            .physics (m/BouncingScrollPhysics.)
@@ -104,35 +129,5 @@
            .itemCount (count deleted-docs)
            .itemBuilder
            (fn [_ idx]
-             (let [d (nth deleted-docs idx)
-                   id (:id d)
-                   title (if (empty? (:title d)) "Untitled" (:title d))]
-               (m/Center
-                .child
-                (ui/note-card
-                 (m/Center
-                  .child
-                  (mgl/MongolListTile
-                   .leading (ui/icon-chip m.Icons/delete_outline t/danger :bg-color t/danger-soft)
-                   .title (mgl/MongolText title
-                                          .style (t/mongol-style :size 18.0 :color t/ink-muted))
-                   .subtitle (mgl/MongolText "Deleted"
-                                             .style (t/mongol-style :size 12.0 :color t/danger))
-                   .trailing
-                   (m/Column
-                    .mainAxisSize m.MainAxisSize/min
-                    .mainAxisAlignment m.MainAxisAlignment/spaceEvenly
-                    .children
-                    [(m/IconButton
-                      .icon (m/Icon m.Icons/restore .color t/success .size 22.0)
-                      .tooltip "Restore"
-                      .onPressed (fn []
-                                   (-> (doc/restore! id)
-                                       (.then (fn [_] (sync/schedule-push!))))))
-                     (m/IconButton
-                      .icon (m/Icon m.Icons/delete_forever .color t/danger .size 22.0)
-                      .tooltip "Delete Forever"
-                      .onPressed #(confirm-hard-delete! ctx id))])))
-                 :accent-color t/danger
-                 :width 120.0
-                 :margin (m.EdgeInsets/only .right 16.0)))))))))])))
+             (let [d (nth deleted-docs idx)]
+               (trash-tile ctx d false)))))))])))
