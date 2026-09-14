@@ -8,6 +8,7 @@
    :last-sync-op-id "last_sync_op_id"
    :user-name "user_name"
    :show-daily-only "show_daily_only"
+   :show-backlinks "show_backlinks"
    :sync-enabled "sync_enabled"
    :auth-token "auth_token"
    :auth-email "auth_email"
@@ -36,6 +37,9 @@
          :auth-email nil
          :workspace-id nil}))
 
+;; Desktop references panel open/collapsed — global across documents.
+(defonce !show-backlinks (atom true))
+
 (defn- new-uuid []
   (str (random-uuid)))
 
@@ -55,6 +59,8 @@
         last-sync-op-id (or (.getString prefs (:last-sync-op-id pref-keys)) "")
         user-name (or (.getString prefs (:user-name pref-keys)) "")
         show-daily-only? (or (.getBool prefs (:show-daily-only pref-keys)) false)
+        show-backlinks-pref (.getBool prefs (:show-backlinks pref-keys))
+        show-backlinks? (if (nil? show-backlinks-pref) true show-backlinks-pref)
         auth-token (.getString prefs (:auth-token pref-keys))
         auth-email (.getString prefs (:auth-email pref-keys))
         workspace-id (.getString prefs (:workspace-id pref-keys))
@@ -77,7 +83,8 @@
            :sync-enabled sync-enabled?
            :auth-token auth-token
            :auth-email auth-email
-           :workspace-id workspace-id)))
+           :workspace-id workspace-id)
+    (reset! !show-backlinks show-backlinks?)))
 
 (defn set-nav! [nav-id]
   (swap! app-ui-state assoc :selected-nav-id nav-id))
@@ -248,3 +255,14 @@
 
 (defn toggle-show-daily-only! []
   (set-show-daily-only! (not (:show-daily-only @app-ui-state))))
+
+(defn set-show-backlinks! [open?]
+  (let [v (boolean open?)]
+    (reset! !show-backlinks v)
+    (-> (.getInstance sp/SharedPreferences)
+        (.then (fn [prefs]
+                 (.setBool prefs (:show-backlinks pref-keys) v))))
+    nil))
+
+(defn toggle-show-backlinks! []
+  (set-show-backlinks! (not @!show-backlinks)))

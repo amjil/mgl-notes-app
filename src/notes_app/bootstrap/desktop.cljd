@@ -3,11 +3,17 @@
    No virtual-keyboard input-control."
   (:require ["package:flutter/foundation.dart" :as foundation :refer [kIsWeb]]
             [ime-core.fst-engine :as fst]
-            [ime-core.next-word :as next-word]))
+            [ime-core.next-word :as next-word]
+            [shared-ime.overlay-view :as overlay]))
 
 (defn init!
   "Load IME dictionaries used by mgl-block-editor desktop overlay."
   []
+  ;; Library default candidate size (26) is too large next to body text (16).
+  (overlay/set-overlay-style!
+   {:candidate-font-size 16.0
+    :index-font-size 10.0
+    :page-font-size 10.0})
   (when-not kIsWeb
     (await (fst/ensure-loaded))
     (await (next-word/ensure-loaded)))
