@@ -3,7 +3,8 @@
             ["package:mgl_notes_app/database.dart" :as drift]
             ["package:drift/drift.dart" :as d]
             ["dart:async" :as async]
-            ["dart:convert" :as convert]))
+            ["dart:convert" :as convert]
+            [clojure.string :as str]))
 
 (defonce db (atom nil))
 
@@ -222,32 +223,38 @@
 
 (defn search-documents-and-blocks [query]
   (if-let [^drift/AppDatabase database @db]
-    (let [like (str "%" query "%")]
-      (-> (.get
-           (.customSelect
-            database
-            (str "SELECT d.id as document_id, d.title as document_title, "
-                 "b.id as block_id, b.text as block_text, 'block' as hit "
-                 "FROM blocks b "
-                 "INNER JOIN documents d ON d.id = b.document_id "
-                 "WHERE b.deleted_at IS NULL AND d.deleted_at IS NULL "
-                 "AND b.text LIKE ? "
-                 "UNION ALL "
-                 "SELECT d.id, d.title, NULL, NULL, 'title' "
-                 "FROM documents d "
-                 "WHERE d.deleted_at IS NULL AND d.title LIKE ? "
-                 "LIMIT 100")
-            .variables [(d/Variable. like) (d/Variable. like)]
-            .readsFrom #{(.-documents database) (.-blocks database)}))
-          (.then (fn [rows]
-                   (mapv (fn [row]
-                           (let [data (.-data row)]
-                             {:document-id (get data "document_id")
-                              :document-title (get data "document_title")
-                              :block-id (get data "block_id")
-                              :block-text (get data "block_text")
-                              :hit (get data "hit")}))
-                         rows)))))
+    (let [;; 过滤掉引号以防 FTS 语法报错，并在末尾追加通配符 * 支持前缀与模糊分词
+          safe-q (str/trim (str/replace query #"\"" ""))
+          match-query (str "\"" safe-q "\"*")]
+      (if (= safe-q "")
+        (async/Future.value [])
+        (-> (.get
+             (.customSelect
+              database
+              ;; 核心查询重构：
+              ;; 1. 直接查询虚拟倒排表 search_index
+              ;; 2. 用 MATCH 替代 LIKE，支持精准断词
+              ;; 3. 用内置算法 bm25 算分，将匹配度最高的笔记排在最上面
+              (str "SELECT s.document_id as document_id, d.title as document_title, "
+                   "CASE WHEN s.block_id = 'title' THEN NULL ELSE s.block_id END as block_id, "
+                   "s.text as block_text, "
+                   "CASE WHEN s.block_id = 'title' THEN 'title' ELSE 'block' END as hit "
+                   "FROM search_index s "
+                   "INNER JOIN documents d ON d.id = s.document_id "
+                   "WHERE s.search_index MATCH ? "
+                   "ORDER BY bm25(s.search_index) "
+                   "LIMIT 100")
+              .variables [(d/Variable. match-query)]
+              .readsFrom #{(.-documents database) (.-blocks database)}))
+            (.then (fn [rows]
+                     (mapv (fn [row]
+                             (let [data (.-data row)]
+                               {:document-id (get data "document_id")
+                                :document-title (get data "document_title")
+                                :block-id (get data "block_id")
+                                :block-text (get data "block_text")
+                                :hit (get data "hit")}))
+                           rows))))))
     (async/Future.value [])))
 
 ;; ---------------------------------------------------------------------------

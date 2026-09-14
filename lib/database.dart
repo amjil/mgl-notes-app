@@ -98,13 +98,67 @@ class AppDatabase extends _$AppDatabase {
   AppDatabase() : super(impl.connect());
 
   @override
-  int get schemaVersion => 3;
+  int get schemaVersion => 4; // 升级版本到 4
+
+  // 核心逻辑：定义 FTS5 虚拟表和自动同步的 SQLite 触发器
+  Future<void> _createFts(Migrator m) async {
+    // 1. 创建 unicode61 分词器的全文索引虚拟表
+    await m.issueCustomQuery('''
+      CREATE VIRTUAL TABLE IF NOT EXISTS search_index USING fts5(
+        document_id UNINDEXED,
+        block_id UNINDEXED,
+        text,
+        tokenize='unicode61'
+      );
+    ''');
+
+    // 2. 绑定文档(Documents)触发器，实时同步标题
+    await m.issueCustomQuery('''
+      CREATE TRIGGER IF NOT EXISTS documents_ai AFTER INSERT ON documents
+      WHEN new.deleted_at IS NULL BEGIN
+        INSERT INTO search_index(document_id, block_id, text) VALUES (new.id, 'title', new.title);
+      END;
+    ''');
+    await m.issueCustomQuery('''
+      CREATE TRIGGER IF NOT EXISTS documents_au AFTER UPDATE ON documents BEGIN
+        DELETE FROM search_index WHERE document_id = old.id AND block_id = 'title';
+        INSERT INTO search_index(document_id, block_id, text)
+        SELECT new.id, 'title', new.title WHERE new.deleted_at IS NULL;
+      END;
+    ''');
+    await m.issueCustomQuery('''
+      CREATE TRIGGER IF NOT EXISTS documents_ad AFTER DELETE ON documents BEGIN
+        DELETE FROM search_index WHERE document_id = old.id AND block_id = 'title';
+      END;
+    ''');
+
+    // 3. 绑定段落(Blocks)触发器，实时同步正文内容
+    await m.issueCustomQuery('''
+      CREATE TRIGGER IF NOT EXISTS blocks_ai AFTER INSERT ON blocks
+      WHEN new.deleted_at IS NULL BEGIN
+        INSERT INTO search_index(document_id, block_id, text) VALUES (new.document_id, new.id, new.text);
+      END;
+    ''');
+    await m.issueCustomQuery('''
+      CREATE TRIGGER IF NOT EXISTS blocks_au AFTER UPDATE ON blocks BEGIN
+        DELETE FROM search_index WHERE block_id = old.id;
+        INSERT INTO search_index(document_id, block_id, text)
+        SELECT new.document_id, new.id, new.text WHERE new.deleted_at IS NULL;
+      END;
+    ''');
+    await m.issueCustomQuery('''
+      CREATE TRIGGER IF NOT EXISTS blocks_ad AFTER DELETE ON blocks BEGIN
+        DELETE FROM search_index WHERE block_id = old.id;
+      END;
+    ''');
+  }
 
   @override
   MigrationStrategy get migration {
     return MigrationStrategy(
       onCreate: (Migrator m) async {
         await m.createAll();
+        await _createFts(m); // 全新安装时自动建立 FTS
       },
       onUpgrade: (Migrator m, int from, int to) async {
         if (from < 2) {
@@ -112,6 +166,17 @@ class AppDatabase extends _$AppDatabase {
         }
         if (from < 3) {
           await m.createTable(assets);
+        }
+        if (from < 4) { // 老用户升级时：建立 FTS 并回填所有历史数据
+          await _createFts(m);
+          await m.issueCustomQuery('''
+            INSERT INTO search_index(document_id, block_id, text)
+            SELECT id, 'title', title FROM documents WHERE deleted_at IS NULL;
+          ''');
+          await m.issueCustomQuery('''
+            INSERT INTO search_index(document_id, block_id, text)
+            SELECT document_id, id, text FROM blocks WHERE deleted_at IS NULL;
+          ''');
         }
       },
     );
