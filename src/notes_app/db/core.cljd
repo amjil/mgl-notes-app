@@ -283,6 +283,30 @@
                                 vec))))))
     (async/Future.value nil)))
 
+;; ---------------------------------------------------------------------------
+;; Tag cache (for #tag autocomplete)
+;; ---------------------------------------------------------------------------
+(defonce !tag-cache (atom []))
+
+(defn cached-tags []
+  @!tag-cache)
+
+(defn refresh-tags!
+  "Reload all unique tags into the autocomplete cache."
+  []
+  (if-let [^drift/AppDatabase database @db]
+    (let [q (doto (.select database (.-blockLinks database))
+              (.where (fn [t] (.equals (.-linkType t) "tag"))))]
+      (-> (.get q)
+          (.then (fn [rows]
+                   (reset! !tag-cache
+                           (->> rows
+                                (map #(.-targetId %))
+                                (remove #(or (nil? %) (= % "")))
+                                distinct
+                                vec))))))
+    (async/Future.value nil)))
+
 (defn find-document-by-title
   "Exact title match among non-deleted documents (first by updated_at desc)."
   [title]

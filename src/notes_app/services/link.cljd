@@ -88,12 +88,13 @@
 (defn rebuild-links-for-rows!
   "Rebuild link index for a seq of {:id :text} rows (after local persist)."
   [rows]
-  (reduce (fn [fut row]
-            (.then fut
-                   (fn [_]
-                     (rebuild-links-for-block! (:id row) (:text row)))))
-          (async/Future.value nil)
-          rows))
+  (-> (reduce (fn [fut row]
+                (.then fut
+                       (fn [_]
+                         (rebuild-links-for-block! (:id row) (:text row)))))
+              (async/Future.value nil)
+              rows)
+      (.then (fn [_] (db/refresh-tags!)))))
 
 (defn clear-links-for-ids!
   [ids]
@@ -174,6 +175,28 @@
         (->> scored
              (sort-by :score)
              (map :title)
+             (take 20)
+             vec)))))
+
+(defn tag-suggestions
+  "Filter and rank tags for `#` autocomplete (sync; uses tag cache).
+   Limits to 20 results to avoid UI rendering lag."
+  [query]
+  (let [q (str/lower-case (str/trim (or query "")))
+        tags (or (db/cached-tags) [])]
+    (if (str/blank? q)
+      (vec (take 20 tags))
+      (let [scored (keep (fn [t]
+                           (let [low-t (str/lower-case t)]
+                             (cond
+                               (= low-t q) {:tag t :score 1}
+                               (str/starts-with? low-t q) {:tag t :score 2}
+                               (str/includes? low-t q) {:tag t :score 3}
+                               :else nil)))
+                         tags)]
+        (->> scored
+             (sort-by :score)
+             (map :tag)
              (take 20)
              vec)))))
 

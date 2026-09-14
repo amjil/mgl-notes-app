@@ -27,6 +27,7 @@
       (.then (fn [_] (db/refresh-document-titles!)))
       ;; Local derived index — covers migration + text already on disk before first edit.
       (.then (fn [_] (link/reindex-all-links!)))
+      (.then (fn [_] (db/refresh-tags!)))
       (.then (fn [_] (daily/ensure-today!)))
       (.then (fn [_]
                (life/register!)

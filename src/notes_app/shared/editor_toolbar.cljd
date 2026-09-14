@@ -21,7 +21,9 @@
             :else t/ink-muted)
    .onPressed on-tap))
 
-(defn- insert-image-from-picker! [!state active-id]
+(defn insert-image-from-picker!
+  "Pick an image asset and convert the active block into an `:image` block."
+  [!state active-id]
   (-> (asset/pick-and-create! :image-only? true)
       (.then (fn [asset-id]
                (when asset-id
@@ -37,7 +39,9 @@
                    :after-selection nil))
                  (sync/schedule-push!))))))
 
-(defn- insert-attachment-from-picker! [!state active-id]
+(defn insert-attachment-from-picker!
+  "Pick a file asset and convert the active block into an `:attachment` block."
+  [!state active-id]
   (-> (asset/pick-and-create!)
       (.then (fn [asset-id]
                (when asset-id

@@ -100,16 +100,34 @@
                        :blockquote :list-item :ordered-list-item :task :callout :toggle}
    :on-link-tap link/handle-link-tap!
    :link-suggestions link/link-suggestions
+   :tag-suggestions link/tag-suggestions
+   :slash-commands
+   [{:label "Text" :icon m.Icons/notes :type :paragraph}
+    {:label "Heading 1" :icon m.Icons/title :type :heading-1}
+    {:label "Heading 2" :icon m.Icons/format_size :type :heading-2}
+    {:label "Heading 3" :icon m.Icons/text_fields :type :heading-3}
+    {:label "To-do List" :icon m.Icons/check_box :type :task}
+    {:label "Bulleted List" :icon m.Icons/format_list_bulleted :type :list-item}
+    {:label "Numbered List" :icon m.Icons/format_list_numbered :type :ordered-list-item}
+    {:label "Quote" :icon m.Icons/format_quote :type :blockquote}
+    {:label "Callout" :icon m.Icons/lightbulb_outline :type :callout}
+    {:label "Divider" :icon m.Icons/horizontal_rule :type :divider}
+    {:label "Image" :icon m.Icons/image
+     :action :insert-image
+     :handler (fn [!state block-id] (tb/insert-image-from-picker! !state block-id))}
+    {:label "Attachment" :icon m.Icons/attach_file
+     :action :insert-attachment
+     :handler (fn [!state block-id] (tb/insert-attachment-from-picker! !state block-id))}]
    :link-autocomplete-style
    {:background t/surface
     :border-color t/outline
     :divider-color (t/fade t/outline-strong 0.85)
     :splash-color (t/fade t/primary 0.10)
-    :highlight-color (t/fade t/primary 0.06)
+    :highlight-color t/primary-soft
     :text-style (t/mongol-style :size 15.0 :color t/ink :weight m.FontWeight/w500)
     :empty-style (t/mongol-style :size 14.0 :color t/ink-faint)
     :max-width 240.0
-    :max-height 220.0
+    :max-height 240.0
     :item-height 188.0
     :item-min-width 44.0
     :elevation 6.0
