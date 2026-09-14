@@ -1,5 +1,5 @@
 (ns notes-app.desktop.shell
-  "Desktop app chrome: left NavigationRail + content pane."
+  "Desktop app chrome: Modern floating content pane with NavigationRail."
   (:require ["package:flutter/material.dart" :as m]
             ["dart:core" :as dc]
             [cljd.flutter :as f]
@@ -40,19 +40,39 @@
    (let [show-rail? (not= selected-nav-id "editor")
          content
          (m/AnimatedSwitcher
-          .duration (dc/Duration. .milliseconds 200)
+          .duration (dc/Duration. .milliseconds 250)
+          .switchInCurve m.Curves/easeOut
+          .switchOutCurve m.Curves/easeIn
+          .transitionBuilder (fn [^m/Widget child ^m/Animation animation]
+                               (m/FadeTransition .opacity animation .child child))
           .child
           (m/Container
            .key (m/ValueKey (str selected-nav-id "-" open-document-id))
            .child (body-for selected-nav-id open-document-id)))]
      (sync-toast/sync-toast-host
       (m/Scaffold
-       .backgroundColor t/bg
+       ;; 🌟 优化 3：将 Scaffold 底色设为侧边栏的底色
+       .backgroundColor t/surface-2
        .body
        (if show-rail?
          (m/Row
           .children
           [(side-nav/side-navigation-rail)
-           (m/VerticalDivider .width 1.0 .thickness 1.0 .color t/outline)
-           (m/Expanded .child content)])
-         content))))))
+           (m/Expanded
+            .child
+            ;; 🌟 优化 4：主内容区悬浮卡片效果
+            (m/Container
+             .margin (m.EdgeInsets/only .top 8.0 .bottom 8.0 .right 8.0)
+             .decoration (m/BoxDecoration
+                          .color t/bg
+                          .borderRadius (m.BorderRadius/circular 24.0)
+                          .boxShadow [(m/BoxShadow
+                                       .color (t/fade t/ink 0.04)
+                                       .blurRadius 16.0
+                                       .offset (m/Offset -2.0 4.0))])
+             .child (m/ClipRRect
+                     .borderRadius (m.BorderRadius/circular 24.0)
+                     .child content)))])
+         
+         ;; 如果全屏显示编辑器（隐藏导航栏），则不留边距
+         (m/Container .color t/bg .child content)))))))

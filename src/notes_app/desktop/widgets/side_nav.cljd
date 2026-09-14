@@ -1,33 +1,34 @@
 (ns notes-app.desktop.widgets.side-nav
-  "Desktop navigation rail — branded, compact, vertical Mongolian labels."
+  "Desktop navigation rail - branded, spacious, vertical Mongolian labels."
   (:require [cljd.flutter :as f]
             ["package:flutter/material.dart" :as m]
             ["package:mongol/mongol.dart" :as mgl]
             [notes-app.state.store :as store]
             [notes-app.theme :as t]))
 
-(def ^:private rail-width 56.0)
+;; 🌟 优化 1：加宽侧边栏，为竖排蒙古文提供充足空间
+(def ^:private rail-width 88.0)
 
 (def ^:private tabs
-  [{:id "today" :icon m.Icons/wb_sunny_outlined :selected-icon m.Icons/wb_sunny :label "ᠥᠨᠦᠳᠦᠷ"}
-   {:id "documents" :icon m.Icons/folder_outlined :selected-icon m.Icons/folder :label "ᠪᠠᠷᠢᠮᠲᠠ"}
-   {:id "tasks" :icon m.Icons/check_box_outlined :selected-icon m.Icons/check_box :label "ᠠᠵᠢᠯ"}
-   {:id "graph" :icon m.Icons/hub_outlined :selected-icon m.Icons/hub :label "ᠰᠦᠯᠵᠢᠶ᠎ᠡ"}
-   {:id "tags" :icon m.Icons/tag_outlined :selected-icon m.Icons/tag :label "ᠲᠡᠮᠳᠡᠭ"}
-   {:id "search" :icon m.Icons/search :selected-icon m.Icons/search :label "ᠬᠠᠢᠬᠤ"}
-   {:id "trash" :icon m.Icons/delete_outline :selected-icon m.Icons/delete :label "ᠬᠣᠭ᠎ᠤᠨ ᠰᠠᠪᠠ"}
-   {:id "settings" :icon m.Icons/settings_outlined :selected-icon m.Icons/settings :label "ᠲᠣᠬᠢᠷᠠᠭᠤᠯᠭ᠎ᠠ"}])
+  [{:id "today" :icon m.Icons/wb_sunny_outlined :selected-icon m.Icons/wb_sunny :label "Өнөөдөр"}
+   {:id "documents" :icon m.Icons/folder_outlined :selected-icon m.Icons/folder :label "Тэмдэглэл"}
+   {:id "tasks" :icon m.Icons/check_box_outlined :selected-icon m.Icons/check_box :label "Даалгавар"}
+   {:id "graph" :icon m.Icons/hub_outlined :selected-icon m.Icons/hub :label "График"}
+   {:id "tags" :icon m.Icons/tag_outlined :selected-icon m.Icons/tag :label "Шошго"}
+   {:id "search" :icon m.Icons/search :selected-icon m.Icons/search :label "Хайх"}
+   {:id "trash" :icon m.Icons/delete_outline :selected-icon m.Icons/delete :label "Хогийн сав"}
+   {:id "settings" :icon m.Icons/settings_outlined :selected-icon m.Icons/settings :label "Тохиргоо"}])
 
 (defn- brand-mark []
   (m/Padding
-   .padding (m.EdgeInsets/only .top 16.0 .bottom 8.0)
+   .padding (m.EdgeInsets/only .top 24.0 .bottom 16.0)
    .child
    (m/Container
-    .width 36.0
-    .height 36.0
+    .width 42.0
+    .height 42.0
     .decoration (m/BoxDecoration
                  .color t/primary
-                 .borderRadius (m.BorderRadius/circular 12.0)
+                 .borderRadius (m.BorderRadius/circular 14.0)
                  .boxShadow [(m/BoxShadow
                               .color (t/fade t/primary 0.35)
                               .blurRadius 12.0
@@ -36,12 +37,12 @@
     (m/Center
      .child (m/Icon m.Icons/edit_note_rounded
                     .color m.Colors/white
-                    .size 20.0)))))
+                    .size 24.0)))))
 
 (defn- nav-item [{:keys [icon selected-icon label id]} selected? sync-error? on-tap]
   (let [active? selected?
         icon-w (m/Icon (if active? selected-icon icon)
-                       .size 22.0
+                       .size 24.0
                        .color (if active? t/primary t/ink-muted))
         marked (if (and sync-error? (= id "settings"))
                  (m/Badge
@@ -49,34 +50,36 @@
                   .backgroundColor t/danger
                   .child icon-w)
                  icon-w)]
-    (m/Padding
-     .padding (m.EdgeInsets/symmetric .horizontal 4.0 .vertical 3.0)
+    ;; 🌟 优化 2：现代化的“药丸”风格选中状态
+    (m/Container
+     .margin (m.EdgeInsets/symmetric .horizontal 12.0 .vertical 4.0)
      .child
      (m/InkWell
       .onTap on-tap
-      .borderRadius (m.BorderRadius/circular 12.0)
+      .borderRadius (m.BorderRadius/circular 16.0)
       .child
       (m/AnimatedContainer
-       .duration (dart:core/Duration. .milliseconds 180)
-       .padding (m.EdgeInsets/symmetric .vertical 8.0 .horizontal 2.0)
+       .duration (dart:core/Duration. .milliseconds 200)
+       .curve m.Curves/easeInOut
+       .padding (m.EdgeInsets/symmetric .vertical 14.0 .horizontal 4.0)
        .decoration (m/BoxDecoration
                     .color (if active? t/primary-soft m.Colors/transparent)
-                    .borderRadius (m.BorderRadius/circular 12.0))
+                    .borderRadius (m.BorderRadius/circular 16.0))
        .child
        (m/Column
         .mainAxisSize m.MainAxisSize/min
         .crossAxisAlignment m.CrossAxisAlignment/center
         .children
         [marked
-         (m/SizedBox .height 6.0)
+         (m/SizedBox .height 8.0)
          (mgl/MongolText
           label
           .maxLines (int 1)
           .softWrap false
           .textAlign mgl.MongolTextAlign/center
           .style (t/mongol-style
-                  :size 13.0
-                  :weight (if active? m.FontWeight/w600 m.FontWeight/normal)
+                  :size 14.0
+                  :weight (if active? m.FontWeight/bold m.FontWeight/w500)
                   :color (if active? t/primary t/ink-muted)))]))))))
 
 (defn side-navigation-rail []
@@ -85,7 +88,7 @@
    (let [sync-error? (and sync-enabled auth-token (not= auth-token "") (= sync-status :error))]
      (m/Container
       .width rail-width
-      .color t/surface-2
+      .color m.Colors/transparent ;; 融入底层 Scaffold 的背景
       .child
       (m/Column
        .crossAxisAlignment m.CrossAxisAlignment/center
@@ -94,7 +97,8 @@
         (m/Expanded
          .child
          (m/SingleChildScrollView
-          .padding (m.EdgeInsets/only .top 4.0 .bottom 16.0)
+          .padding (m.EdgeInsets/only .top 8.0 .bottom 24.0)
+          .physics (m/BouncingScrollPhysics.)
           .child
           (m/Column
            .crossAxisAlignment m.CrossAxisAlignment/stretch
