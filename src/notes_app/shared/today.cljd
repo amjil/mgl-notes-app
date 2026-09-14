@@ -1,9 +1,13 @@
 (ns notes-app.shared.today
-  "Shared daily-note session + editor pane. Date chrome stays on each platform."
+  "Shared daily-note session + editor pane + Heatmap. Date chrome stays on each platform."
   (:require ["package:flutter/material.dart" :as m]
+            ["package:mongol/mongol.dart" :as mgl]
             ["dart:core" :as dc]
+            [cljd.flutter :as f]
+            [notes-app.db.core :as db]
             [notes-app.services.daily :as daily]
             [notes-app.editor.view :as editor]
+            [notes-app.theme :as t]
             [notes-app.ui :as ui]))
 
 (defn make-session
@@ -25,6 +29,84 @@
      :!doc-id !doc-id
      :load-date! load-date!}))
 
+(defn- build-heatmap-data [stats]
+  (let [now (dc/DateTime.now)
+        days (mapv (fn [i]
+                     (let [dt (.subtract now (dc/Duration. .days i))
+                           d-str (daily/date->title dt)
+                           count (get stats d-str 0)]
+                       {:date dt :title d-str :count count}))
+                   (reverse (range 364)))]
+    (partition-all 7 days)))
+
+(defn- heatmap-cell [{:keys [date title count]} on-tap]
+  (let [color (cond
+                (zero? count) t/surface-2
+                (< count 5)   (t/fade t/secondary 0.3)
+                (< count 15)  (t/fade t/secondary 0.6)
+                :else         t/secondary)]
+    (m/Tooltip
+     .message (str title " : " count " blocks")
+     .child
+     (m/InkWell
+      .onTap #(on-tap date)
+      .borderRadius (m.BorderRadius/circular 4.0)
+      .child
+      (m/Container
+       .width 14.0
+       .height 14.0
+       .margin (m.EdgeInsets/all 2.0)
+       .decoration (m/BoxDecoration
+                    .color color
+                    .borderRadius (m.BorderRadius/circular 4.0)))))))
+
+(defn heatmap-panel [!current-date load-date!]
+  (f/widget
+   :watch [stats (stream (map (fn [x] (or x {}))) :as-values (db/watch-daily-stats))]
+   (let [weeks (build-heatmap-data (or stats {}))
+         reversed-weeks (reverse weeks)]
+     (m/Container
+      .height 160.0
+      .padding (m.EdgeInsets/symmetric .horizontal 24.0 .vertical 16.0)
+      .decoration (m/BoxDecoration
+                   .color t/surface
+                   .border (m/Border .bottom (m/BorderSide .color t/outline .width 1.0)))
+      .child
+      (m/Row
+       .children
+       [(m/Column
+         .crossAxisAlignment m.CrossAxisAlignment/center
+         .mainAxisAlignment m.MainAxisAlignment/center
+         .children
+         [(ui/icon-chip m.Icons/local_fire_department t/secondary :size 24.0)
+          (m/SizedBox .height 12.0)
+          (m/Expanded
+           .child (mgl/MongolText "Өдрийн тэмдэглэл"
+                                  .style (t/mongol-style :size 16.0 :weight m.FontWeight/bold)))])
+        (m/VerticalDivider .color t/outline .width 32.0)
+
+        (m/Expanded
+         .child
+         (m/ListView.builder
+          .scrollDirection m.Axis/horizontal
+          .reverse true
+          .physics (m/BouncingScrollPhysics.)
+          .itemCount (count reversed-weeks)
+          .itemBuilder
+          (fn [_ idx]
+            (let [week (nth reversed-weeks idx)]
+              (m/Column
+               .mainAxisSize m.MainAxisSize/min
+               .children
+               (mapv (fn [day]
+                       (m/KeyedSubtree
+                        .key (m/ValueKey (:title day))
+                        .child (heatmap-cell day
+                                             (fn [dt]
+                                               (reset! !current-date dt)
+                                               (load-date! dt)))))
+                     week))))))])))))
+
 (defn editor-pane
   [doc-id & {:keys [show-backlinks? !read-only?] :or {show-backlinks? true}}]
   (if doc-id
@@ -35,4 +117,4 @@
                                     :embedded? true
                                     :show-backlinks? show-backlinks?
                                     :!read-only? !read-only?))
-    (ui/empty-state m.Icons/wb_sunny_outlined "Loading…")))
+    (ui/empty-state m.Icons/wb_sunny_outlined "Loading...")))

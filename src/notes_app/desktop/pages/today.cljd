@@ -5,6 +5,7 @@
             [notes-app.shared.today :as today]
             [notes-app.services.daily :as daily]
             [notes-app.services.export :as export]
+            [notes-app.state.store :as store]
             [notes-app.theme :as t]
             [notes-app.ui :as ui]))
 
@@ -15,9 +16,10 @@
              :refresh-on :never
              :dispose nil]
    :watch [current-date !current-date
-           doc-id !doc-id]
+           doc-id !doc-id
+           {:keys [show-heatmap]} store/app-ui-state]
    (m/Scaffold
-    .backgroundColor t/bg
+    .backgroundColor t/surface
     .appBar
     (ui/page-app-bar
      :title (daily/date->title current-date)
@@ -46,4 +48,10 @@
                              (.catchError (fn [_] (export/show-export-result! ctx nil))))))
         (m/SizedBox.shrink))
       (m/SizedBox .width 8.0)])
-    .body (today/editor-pane doc-id))))
+    .body
+    (m/Column
+     .crossAxisAlignment m.CrossAxisAlignment/stretch
+     .children
+     (cond-> []
+       (not= false show-heatmap) (conj (today/heatmap-panel !current-date load-date!))
+       :always                   (conj (m/Expanded .child (today/editor-pane doc-id))))))))

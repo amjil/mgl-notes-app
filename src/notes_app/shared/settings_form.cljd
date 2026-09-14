@@ -238,7 +238,7 @@
   (f/widget
    :context ctx
    :watch [{:keys [user-name sync-base-url device-id last-sync-time sync-enabled
-                   sync-status sync-message auth-email auth-token]} store/app-ui-state]
+                   sync-status sync-message auth-email auth-token show-heatmap]} store/app-ui-state]
    :let [logged-in? (and auth-token (not= auth-token ""))
          status-text (str (name (or sync-status :idle))
                           (when sync-message (str " — " sync-message)))
@@ -298,6 +298,14 @@
        .padding (m.EdgeInsets/all 16.0)
        .children
        [(setting/settings-section "Account" account-items)
+
+     (setting/settings-section
+      "Display"
+      [{:title "Show Daily Heatmap"
+        :subtitle "Display contribution graph on the Today page"
+        :leading m.Icons/local_fire_department
+        :value (store/show-heatmap?)
+        :on-changed #(store/set-show-heatmap! %)}])
 
      (setting/settings-section
       "Sync"
