@@ -1,0 +1,105 @@
+(ns notes-app.editor.preview-popover
+  "Hover preview card manager using Overlay API and vertical Mongolian layout."
+  (:require ["package:flutter/material.dart" :as m]
+            ["package:mongol/mongol.dart" :as mgl]
+            ["dart:async" :as async]
+            [cljd.flutter :as f]
+            [notes-app.db.core :as db]
+            [notes-app.theme :as t]))
+
+(defonce !current-overlay (atom nil))
+(defonce !hover-timer (atom nil))
+(defonce !hover-title (atom nil))
+
+(defn hide-preview! []
+  (when-let [t @!hover-timer] (.cancel ^async/Timer t))
+  (reset! !hover-timer nil)
+  (reset! !hover-title nil)
+  (when-let [^m/OverlayEntry entry @!current-overlay]
+    (.remove entry)
+    (reset! !current-overlay nil)))
+
+(defn- preview-card [title]
+  (f/widget
+   :watch [blocks (db/get-document-preview title)]
+   (m/Container
+    .width 260.0
+    .height 340.0
+    .padding (m.EdgeInsets/all 20.0)
+    .decoration (m/BoxDecoration
+                 .color t/surface
+                 .borderRadius (m.BorderRadius/circular 16.0)
+                 .boxShadow (t/card-shadow))
+    .child
+    (m/Row
+     .crossAxisAlignment m.CrossAxisAlignment/stretch
+     .children
+     [(m/Column
+       .crossAxisAlignment m.CrossAxisAlignment/center
+       .mainAxisSize m.MainAxisSize/min
+       .children
+       [(m/Icon m.Icons/description_outlined .color t/primary .size 20.0)
+        (m/SizedBox .height 12.0)
+        (m/Expanded
+         .child
+         (mgl/MongolText title
+                         .style (t/mongol-style :size 18.0 :weight m.FontWeight/bold :color t/ink)))])
+      (m/VerticalDivider .color t/outline .width 24.0)
+      (m/Expanded
+       .child
+       (cond
+         (nil? blocks)
+         (m/Center
+          .child (m/SizedBox
+                  .width 20.0 .height 20.0
+                  .child (m/CircularProgressIndicator
+                          .strokeWidth 2.0 .color t/primary)))
+
+         (empty? blocks)
+         (m/Center
+          .child (mgl/MongolText "Хоосон байна..."
+                                 .style (t/mongol-style :size 14.0 :color t/ink-faint)))
+
+         :else
+         (m/ListView.builder
+          .scrollDirection m.Axis/horizontal
+          .physics (m/BouncingScrollPhysics.)
+          .itemCount (count blocks)
+          .itemBuilder
+          (fn [_ idx]
+            (m/Padding
+             .padding (m.EdgeInsets/only .right 16.0)
+             .child
+             (mgl/MongolText (nth blocks idx)
+                             .style (t/mongol-style :size 14.0 :color t/ink-muted)))))))]))))
+
+(defn show-preview! [ctx title ^m/Offset pos]
+  (when (and ctx title (not= title ""))
+    ;; Same title already pending/showing — keep timer/overlay (onHover fires often).
+    (when (not= title @!hover-title)
+      (hide-preview!)
+      (reset! !hover-title title)
+      (reset! !hover-timer
+              (async/Timer. (dart:core/Duration. .milliseconds 500)
+                            (fn []
+                              (let [screen-sz (m.MediaQuery/sizeOf ctx)
+                                    sw (.-width screen-sz)
+                                    sh (.-height screen-sz)
+                                    cw 260.0
+                                    ch 340.0
+                                    px (.-dx pos)
+                                    py (.-dy pos)
+                                    left (if (> (+ px cw 24.0) sw) (- px cw 12.0) (+ px 16.0))
+                                    top (if (> (+ py ch 24.0) sh) (- sh ch 24.0) (+ py 16.0))
+                                    entry (m/OverlayEntry
+                                           .builder
+                                           (fn [_]
+                                             (m/Positioned
+                                              .left left
+                                              .top top
+                                              .child
+                                              (m/Material
+                                               .type m.MaterialType/transparency
+                                               .child (preview-card title)))))]
+                                (reset! !current-overlay entry)
+                                (.insert (m/Overlay.of ctx) entry))))))))

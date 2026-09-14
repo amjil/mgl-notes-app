@@ -20,6 +20,8 @@
             [notes-app.services.link :as link]
             [notes-app.plugins.image :as img-plugin]
             [notes-app.plugins.attachment :as attach-plugin]
+            [notes-app.editor.preview-popover :as popover]
+            [block-editor.utils.highlighter :as highlighter]
             [notes-app.platform :as platform]
             [notes-app.state.store :as store]
             [notes-app.theme :as t]
@@ -84,7 +86,7 @@
 ;; Editor config
 ;; =============================================================================
 
-(defn- make-editor-config []
+(defn- make-editor-config [ctx]
   {:block-plugins
    [(img-plugin/image-plugin)
     (attach-plugin/attachment-plugin)
@@ -99,6 +101,13 @@
    :text-block-types #{:paragraph :heading-1 :heading-2 :heading-3
                        :blockquote :list-item :ordered-list-item :task :callout :toggle}
    :on-link-tap link/handle-link-tap!
+   :on-link-hover (fn [title ^m/Offset pos is-hovering?]
+                    (if is-hovering?
+                      (popover/show-preview! ctx title pos)
+                      (popover/hide-preview!)))
+   ;; Resolve [[wikilinks]] under the cursor for hover (Mongol ignores TextSpan.onEnter).
+   :wiki-link-at highlighter/wiki-link-at
+   :wiki-target-at highlighter/wiki-target-at
    :link-suggestions link/link-suggestions
    :tag-suggestions link/tag-suggestions
    :slash-commands
@@ -140,8 +149,6 @@
        :heading-3 (t/mongol-style :size 20.0 :weight m/FontWeight.w600)
        :task (t/mongol-style :size 18.0)
        (t/mongol-style :size 18.0 :color t/ink-muted)))})
-
-(def notes-editor-config (make-editor-config))
 
 ;; =============================================================================
 ;; Document Outline (TOC)
@@ -358,10 +365,11 @@
   [document-id session ctx show-back? on-back embedded? show-backlinks? !read-only?]
   (let [{:keys [!state !snapshot !title !save-timer]} session
         !read-only? (or !read-only? (atom false))
-        cfg notes-editor-config
+        cfg (make-editor-config ctx)
 
         cleanup!
         (fn [_]
+          (popover/hide-preview!)
           (when-let [t @!save-timer] (.cancel ^async/Timer t))
           (try
             (bridge/persist-diff! document-id @!state !snapshot)

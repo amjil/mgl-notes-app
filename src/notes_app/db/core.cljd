@@ -374,3 +374,25 @@
                                [d-str c]))))
                    rows))))
     (async/Stream.empty)))
+
+;; ---------------------------------------------------------------------------
+;; Document Preview (For Hover Popover)
+;; ---------------------------------------------------------------------------
+(defn get-document-preview
+  "Fetch the first 3 blocks of a document by title for the hover preview card."
+  [title]
+  (if-let [^drift/AppDatabase database @db]
+    (-> (.get
+         (.customSelect database
+          (str "SELECT b.text FROM documents d "
+               "INNER JOIN blocks b ON b.document_id = d.id "
+               "WHERE d.title = ? AND d.deleted_at IS NULL AND b.deleted_at IS NULL "
+               "ORDER BY b.order_index ASC LIMIT 3")
+          .variables [(d/Variable. title)]
+          .readsFrom #{(.-documents database) (.-blocks database)}))
+        (.then (fn [rows]
+                 (into []
+                       (keep #(let [txt (get (.-data %) "text")]
+                                (when-not (str/blank? txt) txt))
+                             rows)))))
+    (async/Future.value [])))
