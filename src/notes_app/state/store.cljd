@@ -49,6 +49,18 @@
 (defn toggle-show-toc! []
   (swap! !show-toc not))
 
+;; Global Command Palette open/collapsed.
+(defonce !show-palette (atom false))
+
+(defn toggle-palette! []
+  (swap! !show-palette not))
+
+(defn close-palette! []
+  (reset! !show-palette false))
+
+(defn open-palette! []
+  (reset! !show-palette true))
+
 (defn- new-uuid []
   (str (random-uuid)))
 

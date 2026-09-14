@@ -1,11 +1,13 @@
 (ns notes-app.desktop.shell
   "Desktop app chrome: Modern floating content pane with NavigationRail and Split-Screen."
   (:require ["package:flutter/material.dart" :as m]
+            ["package:flutter/services.dart" :as s]
             ["dart:core" :as dc]
             ["dart:async" :as async]
             [cljd.flutter :as f]
             [notes-app.state.store :as store]
             [notes-app.desktop.widgets.side-nav :as side-nav]
+            [notes-app.desktop.widgets.command-palette :as palette]
             [notes-app.desktop.pages.today :as today]
             [notes-app.desktop.pages.documents :as documents]
             [notes-app.desktop.pages.tasks :as tasks]
@@ -89,30 +91,46 @@
            (if is-editor?
              (editor-split-view ctx doc-ids show-rail?)
              (body-for selected-nav-id open-document-id))))]
-     (sync-toast/sync-toast-host
-      (m/Scaffold
-       .backgroundColor t/surface-2
-       .body
-       (m/Row
-        .children
-        [(side-nav/side-navigation-rail)
-         (m/Expanded
-          .child
-          (if is-editor?
-            content
-            (m/Container
-             .margin (m.EdgeInsets/only
-                      .top 8.0
-                      .bottom 8.0
-                      .right 8.0
-                      .left 0.0)
-             .decoration (m/BoxDecoration
-                          .color t/surface
-                          .borderRadius (m.BorderRadius/circular 24.0)
-                          .boxShadow (t/card-shadow))
-             .child (m/ClipRRect
-                     .borderRadius (m.BorderRadius/circular 24.0)
-                     .child (m/Theme
-                             .data (.copyWith (m.Theme/of ctx)
-                                              .scaffoldBackgroundColor m.Colors/transparent)
-                             .child content)))))]))))))
+     ;; Capture Cmd/Ctrl+K globally, overlay palette on top of the shell.
+     (m/Focus
+      .autofocus true
+      .onKeyEvent
+      (fn [_ ^s/KeyEvent event]
+        (let [kb s.HardwareKeyboard/instance
+              is-cmd? (or (.-isMetaPressed kb) (.-isControlPressed kb))
+              is-k? (= (.-logicalKey event) s.LogicalKeyboardKey/keyK)]
+          (if (and is-cmd? is-k? (instance? s/KeyDownEvent event))
+            (do (store/toggle-palette!)
+                m.KeyEventResult/handled)
+            m.KeyEventResult/ignored)))
+      .child
+      (m/Stack
+       .children
+       [(sync-toast/sync-toast-host
+         (m/Scaffold
+          .backgroundColor t/surface-2
+          .body
+          (m/Row
+           .children
+           [(side-nav/side-navigation-rail)
+            (m/Expanded
+             .child
+             (if is-editor?
+               content
+               (m/Container
+                .margin (m.EdgeInsets/only
+                         .top 8.0
+                         .bottom 8.0
+                         .right 8.0
+                         .left 0.0)
+                .decoration (m/BoxDecoration
+                             .color t/surface
+                             .borderRadius (m.BorderRadius/circular 24.0)
+                             .boxShadow (t/card-shadow))
+                .child (m/ClipRRect
+                        .borderRadius (m.BorderRadius/circular 24.0)
+                        .child (m/Theme
+                                .data (.copyWith (m.Theme/of ctx)
+                                                 .scaffoldBackgroundColor m.Colors/transparent)
+                                .child content)))))])))
+        (palette/palette-overlay)])))))
