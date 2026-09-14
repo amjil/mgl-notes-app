@@ -1,5 +1,5 @@
 (ns notes-app.shared.graph
-  "Force-directed knowledge graph — Isolate Physics + Pure Canvas High-Performance Edition."
+  "Force-directed knowledge graph - Isolate Physics + Filters & Orphan Discovery."
   (:require ["package:flutter/material.dart" :as m]
             ["package:mongol/mongol.dart" :as mgl]
             ["dart:async" :as async]
@@ -20,21 +20,29 @@
 ;; -----------------------------------------------------------------------------
 ;; Physics Engine (Pure functional design for Isolate)
 ;; -----------------------------------------------------------------------------
-
-(defn- init-nodes [raw-nodes]
+(defn- init-nodes 
+  "初始化节点坐标。保留已有节点的 x/y/vx/vy 以防止过滤时发生剧烈闪烁。"
+  [raw-nodes current-nodes]
   (let [n (count raw-nodes)]
     (if (zero? n)
       {}
       (let [radius (* (math/sqrt n) 60.0)
-            step (/ (* 2.0 math/pi) n)]
+            step (/ (* 2.0 math/pi) n)
+            ids (keys raw-nodes)]
         (into {}
               (map-indexed
-               (fn [idx [id data]]
-                 (let [angle (* idx step)
-                       x (+ center (* radius (math/cos angle)))
-                       y (+ center (* radius (math/sin angle)))]
-                   [id (assoc data :x x :y y :vx 0.0 :vy 0.0)])))
-              raw-nodes)))))
+               (fn [idx id]
+                 (let [data (get raw-nodes id)
+                       cur (get current-nodes id)]
+                   (if cur
+                     ;; 保留已有位置和动能
+                     [id (assoc data :x (:x cur) :y (:y cur) :vx (:vx cur) :vy (:vy cur))]
+                     ;; 新节点环形初始化
+                     (let [angle (* idx step)
+                           x (+ center (* radius (math/cos angle)))
+                           y (+ center (* radius (math/sin angle)))]
+                       [id (assoc data :x x :y y :vx 0.0 :vy 0.0)]))))
+               ids))))))
 
 (defn- add-force [disp id fx fy]
   (let [cur (get disp id)]
@@ -50,7 +58,6 @@
         progress (/ (double current-tick) (double physics-ticks))
         alpha (* 0.1 (- 1.0 progress))
         friction 0.7
-
         ids (vec (keys nodes))
         n (count ids)]
     (if (or (zero? n) (< alpha 0.001))
@@ -103,7 +110,6 @@
              forces
              edges)
             forces (persistent! forces)]
-
         (reduce-kv
          (fn [acc id n]
            (if (:fixed? n)
@@ -116,30 +122,23 @@
                (assoc acc id (assoc n :x nx :y ny :vx vx :vy vy)))))
          nodes nodes)))))
 
-;; -----------------------------------------------------------------------------
-;; Background Isolate Entry Point
-;; -----------------------------------------------------------------------------
-
 (defn physics-isolate-entry [^iso/SendPort main-port]
   (let [iso-port (iso/ReceivePort.)
         !state (atom {:nodes {} :edges [] :running? false :ticks 0 :timer nil})]
-    ;; Handshake: Give the Main thread our private mailbox
     (.send main-port {:type :init :port (.-sendPort iso-port)})
-
-    ;; Listen for commands from the Main thread
     (.listen iso-port
              (fn [msg]
                (let [m-type (:type msg)]
                  (case m-type
                    :start
                    (do
+                     ;; 🌟 收到 start 指令时，将 ticks 重置为 0，图谱会重新受力舒展
                      (swap! !state assoc
                             :nodes (:nodes msg)
                             :edges (:edges msg)
                             :running? true
                             :ticks 0)
                      (when-let [t (:timer @!state)] (.cancel ^async/Timer t))
-                     ;; Run physics loop completely decoupled from UI thread
                      (swap! !state assoc :timer
                             (async/Timer.periodic
                              (dart:core/Duration. .milliseconds 16)
@@ -153,28 +152,24 @@
                                    (do
                                      (.cancel t)
                                      (swap! !state assoc :running? false :timer nil)
-                                     nil)))))) 
+                                     nil))))))
                      nil)
-
-                   ;; Interactive drag syncing from UI
                    :drag
                    (do
                      (swap! !state update-in [:nodes (:id msg)]
                             assoc :x (:x msg) :y (:y msg) :fixed? (:fixed? msg))
                      nil)
-
                    :stop
                    (do
                      (swap! !state assoc :running? false)
                      (when-let [t (:timer @!state)] (.cancel ^async/Timer t))
                      nil)
                    nil))))
-    nil)) 
+    nil))
 
 ;; -----------------------------------------------------------------------------
-;; Helpers
+;; Helpers & Filters
 ;; -----------------------------------------------------------------------------
-
 (defn- view-scale [^m/TransformationController ctrl]
   (try
     (.getMaxScaleOnAxis ^m/Matrix4 (.-value ctrl))
@@ -198,14 +193,52 @@
                     (conj acc [id dist]))
                   acc))
               []
-              nodes)]
-    (when (seq hits)
+              nodes)]    (when (seq hits)
       (first (first (sort-by second hits))))))
 
-;; -----------------------------------------------------------------------------
-;; Canvas painter
-;; -----------------------------------------------------------------------------
+(defn- apply-filters-and-restart! 
+  "根据开关过滤数据，标出孤岛，并让后台引擎重新开始受力计算"
+  [!nodes !edges !raw-data !show-tags? !highlight-orphans? !iso-send]
+  (let [raw @!raw-data
+        show-tags? @!show-tags?
+        highlight? @!highlight-orphans?
+        all-nodes (:nodes raw {})
+        all-edges (:edges raw [])
+        
+        ;; 1. 过滤标签相关的边
+        active-edges (if show-tags?
+                       all-edges
+                       (filterv #(not= (:type %) "tag") all-edges))
+        
+        ;; 2. 过滤标签节点
+        active-nodes (if show-tags?
+                       all-nodes
+                       (reduce-kv (fn [acc k v]
+                                    (if (= (:type v) "tag") acc (assoc acc k v)))
+                                  {} all-nodes))
+        
+        ;; 3. 获取所有有关联的节点 ID，剩下的自然就是“孤岛”
+        connected (into #{} (mapcat (juxt :source :target) active-edges))
+        
+        ;; 4. 标记孤岛节点
+        active-nodes (reduce-kv (fn [acc id n]
+                                  (let [orphan? (not (contains? connected id))]
+                                    (assoc acc id (assoc n 
+                                                         :orphan? orphan?
+                                                         :highlight-orphan? (and highlight? orphan?)))))
+                                {} active-nodes)
+        
+        ;; 5. 继承当前正在运动的坐标，防止画布剧烈重置
+        next-nodes (init-nodes active-nodes @!nodes)]
+    
+    (reset! !nodes next-nodes)
+    (reset! !edges active-edges)
+    (when-let [p @!iso-send]
+      (.send ^iso/SendPort p {:type :start :nodes next-nodes :edges active-edges}))))
 
+;; -----------------------------------------------------------------------------
+;; Canvas Painter
+;; -----------------------------------------------------------------------------
 (defn- paint-label [^m/Canvas canvas cx cy label color]
   (let [text-span (m/TextSpan
                    .text label
@@ -214,7 +247,7 @@
                                           :color color))
         painter (mgl/MongolTextPainter
                  .text text-span
-                 .ellipsis "…"
+                 .ellipsis "..."
                  .maxLines (int 1))]
     (try
       (.layout painter .maxHeight 140.0)
@@ -261,14 +294,19 @@
                          edge-paint))))
         (doseq [[id n] nodes]
           (let [tag? (= (:type n) "tag")
-                color (if tag? t/tertiary t/primary)
+                highlight? (:highlight-orphan? n) ;; 🌟 判断是否需要高亮孤岛
+                color (cond
+                        highlight? t/warning
+                        tag? t/tertiary
+                        :else t/primary)
                 cx (:x n)
                 cy (:y n)
                 label (if tag? (str "#" id) (str id))]
-            (set! (.-color halo) (t/fade color 0.15))
+            ;; 🌟 孤岛高亮时，光晕和核心圆点都会变大
+            (set! (.-color halo) (t/fade color (if highlight? 0.3 0.15)))
             (set! (.-color fill) color)
-            (.drawCircle canvas (m/Offset. cx cy) 18.0 halo)
-            (.drawCircle canvas (m/Offset. cx cy) 7.0 fill)
+            (.drawCircle canvas (m/Offset. cx cy) (if highlight? 24.0 18.0) halo)
+            (.drawCircle canvas (m/Offset. cx cy) (if highlight? 9.0 7.0) fill)
             (paint-label canvas cx cy label color))))
       nil)
     (shouldRepaint [_ _] true)))
@@ -276,27 +314,20 @@
 ;; -----------------------------------------------------------------------------
 ;; Session & Main Widget
 ;; -----------------------------------------------------------------------------
-
-(defn- start-graph! [!nodes !edges !iso-send !alive? !loaded?]
+(defn- start-graph! [!nodes !edges !raw-data !show-tags? !highlight-orphans? !iso-send !alive? !loaded?]
   (reset! !alive? true)
   (-> (link/get-graph-data)
-      (.then (fn [{:keys [nodes edges]}]
+      (.then (fn [data]
                (when @!alive?
-                 (reset! !edges (or edges []))
-                 (let [init-n (init-nodes (or nodes {}))]
-                   (reset! !nodes init-n)
-                   (reset! !loaded? true)
-                   ;; Keep trying to communicate with Isolate until its port is ready
-                   (letfn [(try-start []
-                             (if @!iso-send
-                               (do
-                                 (.send ^iso/SendPort @!iso-send
-                                        {:type :start :nodes init-n :edges edges})
-                                 nil)
-                               (when @!alive?
-                                 (async/Timer. (dart:core/Duration. .milliseconds 50) try-start)
-                                 nil)))]
-                     (try-start))))))
+                 (reset! !raw-data data)
+                 (reset! !loaded? true)
+                 (letfn [(try-start []
+                           (if @!iso-send
+                             (apply-filters-and-restart! !nodes !edges !raw-data !show-tags? !highlight-orphans? !iso-send)
+                             (when @!alive?
+                               (async/Timer. (dart:core/Duration. .milliseconds 50) try-start)
+                               nil)))]
+                   (try-start)))))
       (.catchError (fn [_]
                      (when @!alive?
                        (reset! !loaded? true))
@@ -306,37 +337,35 @@
 (defn- make-session []
   (let [!nodes (atom {})
         !edges (atom [])
+        !raw-data (atom {:nodes {} :edges []})
+        !show-tags? (atom true)
+        !highlight-orphans? (atom false)
         !dragged-node (atom nil)
         !drag-moved? (atom false)
         !pan-enabled? (atom true)
         !alive? (atom true)
         !loaded? (atom false)
-
         !iso (atom nil)
         !iso-send (atom nil)
         main-port (iso/ReceivePort.)
-
         viewer-ctrl (let [mx (m/Matrix4.identity)]
                       (.translate mx -1600.0 -1600.0)
                       (m/TransformationController. mx))]
-
-    ;; Setup mailbox for main thread to receive coordinates from Isolate
     (.listen main-port
              (fn [msg]
                (case (:type msg)
                  :init (reset! !iso-send (:port msg))
                  :update (reset! !nodes (:nodes msg))
                  nil)))
-
-    ;; Spawn the background Isolate!
     (-> (iso/Isolate.spawn physics-isolate-entry (.-sendPort main-port))
         (.then (fn [isolate]
                  (reset! !iso isolate))))
-
-    (start-graph! !nodes !edges !iso-send !alive? !loaded?)
-
+    (start-graph! !nodes !edges !raw-data !show-tags? !highlight-orphans? !iso-send !alive? !loaded?)
     {:!nodes !nodes
      :!edges !edges
+     :!raw-data !raw-data
+     :!show-tags? !show-tags?
+     :!highlight-orphans? !highlight-orphans?
      :!dragged-node !dragged-node
      :!drag-moved? !drag-moved?
      :!pan-enabled? !pan-enabled?
@@ -354,101 +383,154 @@
     (.kill ^iso/Isolate i .priority iso/Isolate.immediate))
   (.dispose ^m/TransformationController viewer-ctrl))
 
+(defn- filter-toggle [label active? active-color on-tap]
+  (m/InkWell
+   .onTap on-tap
+   .borderRadius (m.BorderRadius/circular 12.0)
+   .child
+   (m/AnimatedContainer
+    .duration (dart:core/Duration. .milliseconds 200)
+    .padding (m.EdgeInsets/symmetric .horizontal 12.0 .vertical 8.0)
+    .decoration (m/BoxDecoration
+                 .color (if active? (t/fade active-color 0.12) m.Colors/transparent)
+                 .borderRadius (m.BorderRadius/circular 12.0)
+                 .border (m/Border.all .color (if active? active-color t/outline) .width 1.0))
+    .child
+    (m/Row
+     .mainAxisSize m.MainAxisSize/min
+     .children
+     [(m/Icon (if active? m.Icons/check_circle m.Icons/circle_outlined)
+              .size 16.0
+              .color (if active? active-color t/ink-muted))
+      (m/SizedBox .width 8.0)
+      (mgl/MongolText label
+                      .style (t/mongol-style :size 14.0
+                                             :color (if active? active-color t/ink-muted)
+                                             :weight (if active? m.FontWeight/w600 m.FontWeight/normal)))]))))
+
 (defn graph-body []
   (f/widget
-   :managed [{:keys [!nodes !edges !dragged-node !drag-moved? !pan-enabled?
+   :managed [{:keys [!nodes !edges !raw-data !show-tags? !highlight-orphans? 
+                     !dragged-node !drag-moved? !pan-enabled?
                      !loaded? !iso-send viewer-ctrl] :as session} (make-session)
              :dispose dispose-session!]
    :watch [nodes !nodes
            edges !edges
            pan-enabled? !pan-enabled?
-           loaded? !loaded?]
+           loaded? !loaded?
+           show-tags? !show-tags?
+           highlight-orphans? !highlight-orphans?]
    (m/SafeArea
     .child
     (cond
       (not loaded?)
       (ui/loading)
-      (empty? nodes)
+      
+      ;; 区分：数据库里本来就没连线，还是被过滤面板全隐藏了
+      (and (empty? nodes) (empty? (:nodes @!raw-data)))
       (ui/empty-state m.Icons/hub_outlined "No graph connections yet")
+      
       :else
-      (m/InteractiveViewer
-       .transformationController viewer-ctrl
-       .panEnabled pan-enabled?
-       .scaleEnabled pan-enabled?
-       .constrained false
-       .minScale 0.1
-       .maxScale 3.0
-       .boundaryMargin (m.EdgeInsets/all 4000.0)
-       .child
-       (m/Listener
-        .behavior m.HitTestBehavior/translucent
-        .onPointerDown
-        (fn [^m/PointerDownEvent e]
-          (let [pos (.-localPosition e)
-                scale (max 0.1 (view-scale viewer-ctrl))
-                id (find-node (.-dx pos) (.-dy pos) @!nodes (/ hit-radius scale))]
-            (reset! !drag-moved? false)
-            (if id
-              (do (reset! !pan-enabled? false)
-                  (reset! !dragged-node id)
-                  (let [n (get @!nodes id)
-                        new-n (assoc n :fixed? true)]
-                    (swap! !nodes assoc id new-n)
-                    ;; Bidirectional sync: Tell isolate a drag has locked this node!
-                    (when-let [p @!iso-send]
-                      (.send ^iso/SendPort p {:type :drag :id id :x (:x new-n) :y (:y new-n) :fixed? true}))))
-              (reset! !pan-enabled? true))
-            nil))
-        .onPointerMove
-        (fn [^m/PointerMoveEvent e]
-          (when-let [id @!dragged-node]
-            (let [delta (.-localDelta e)
-                  dx (.-dx delta)
-                  dy (.-dy delta)]
-              (when (or (> (if (neg? dx) (- dx) dx) 1.5)
-                        (> (if (neg? dy) (- dy) dy) 1.5))
-                (reset! !drag-moved? true))
-              (let [n (get @!nodes id)
-                    nx (+ (:x n) dx)
-                    ny (+ (:y n) dy)]
-                (swap! !nodes assoc id (assoc n :x nx :y ny))
-                ;; Inform Isolate about dragging coordinates
-                (when-let [p @!iso-send]
-                  (.send ^iso/SendPort p {:type :drag :id id :x nx :y ny :fixed? true})))))
-          nil)
-        .onPointerUp
-        (fn [^m/PointerUpEvent _]
-          (let [id @!dragged-node
-                moved? @!drag-moved?]
-            (when id
+      (m/Stack
+       .children
+       [(m/InteractiveViewer
+         .transformationController viewer-ctrl
+         .panEnabled pan-enabled?
+         .scaleEnabled pan-enabled?
+         .constrained false
+         .minScale 0.1
+         .maxScale 3.0
+         .boundaryMargin (m.EdgeInsets/all 4000.0)
+         .child
+         (m/Listener
+          .behavior m.HitTestBehavior/translucent
+          .onPointerDown
+          (fn [^m/PointerDownEvent e]
+            (let [pos (.-localPosition e)
+                  scale (max 0.1 (view-scale viewer-ctrl))
+                  id (find-node (.-dx pos) (.-dy pos) @!nodes (/ hit-radius scale))]
+              (reset! !drag-moved? false)
+              (if id
+                (do (reset! !pan-enabled? false)
+                    (reset! !dragged-node id)
+                    (let [n (get @!nodes id)
+                          new-n (assoc n :fixed? true)]
+                      (swap! !nodes assoc id new-n)
+                      (when-let [p @!iso-send]
+                        (.send ^iso/SendPort p {:type :drag :id id :x (:x new-n) :y (:y new-n) :fixed? true}))))
+                (reset! !pan-enabled? true))
+              nil))
+          .onPointerMove
+          (fn [^m/PointerMoveEvent e]
+            (when-let [id @!dragged-node]
+              (let [delta (.-localDelta e)
+                    dx (.-dx delta)
+                    dy (.-dy delta)]
+                (when (or (> (if (neg? dx) (- dx) dx) 1.5)
+                          (> (if (neg? dy) (- dy) dy) 1.5))
+                  (reset! !drag-moved? true))
+                (let [n (get @!nodes id)
+                      nx (+ (:x n) dx)
+                      ny (+ (:y n) dy)]
+                  (swap! !nodes assoc id (assoc n :x nx :y ny))
+                  (when-let [p @!iso-send]
+                    (.send ^iso/SendPort p {:type :drag :id id :x nx :y ny :fixed? true})))))
+            nil)
+          .onPointerUp
+          (fn [^m/PointerUpEvent _]
+            (let [id @!dragged-node
+                  moved? @!drag-moved?]
+              (when id
+                (let [n (get @!nodes id)]
+                  (swap! !nodes assoc id (assoc n :fixed? false))
+                  (when-let [p @!iso-send]
+                    (.send ^iso/SendPort p {:type :drag :id id :x (:x n) :y (:y n) :fixed? false})))
+                (reset! !dragged-node nil)
+                (when-not moved?
+                  (link/open-or-create-by-title! id)))
+              (reset! !pan-enabled? true)
+              (reset! !drag-moved? false))
+            nil)
+          .onPointerCancel
+          (fn [^m/PointerCancelEvent _]
+            (when-let [id @!dragged-node]
               (let [n (get @!nodes id)]
                 (swap! !nodes assoc id (assoc n :fixed? false))
-                ;; Release Isolate lock
                 (when-let [p @!iso-send]
                   (.send ^iso/SendPort p {:type :drag :id id :x (:x n) :y (:y n) :fixed? false})))
-              (reset! !dragged-node nil)
-              (when-not moved?
-                (link/open-or-create-by-title! id)))
+              (reset! !dragged-node nil))
             (reset! !pan-enabled? true)
-            (reset! !drag-moved? false))
-          nil)
-        .onPointerCancel
-        (fn [^m/PointerCancelEvent _]
-          (when-let [id @!dragged-node]
-            (let [n (get @!nodes id)]
-              (swap! !nodes assoc id (assoc n :fixed? false))
-              (when-let [p @!iso-send]
-                (.send ^iso/SendPort p {:type :drag :id id :x (:x n) :y (:y n) :fixed? false})))
-            (reset! !dragged-node nil))
-          (reset! !pan-enabled? true)
-          (reset! !drag-moved? false)
-          nil)
-        .child
-        (m/Container
-         .width canvas-size
-         .height canvas-size
-         .color t/bg
+            (reset! !drag-moved? false)
+            nil)
+          .child
+          (m/Container
+           .width canvas-size
+           .height canvas-size
+           .color m.Colors/transparent
+           .child
+           (m/CustomPaint
+            .size (m/Size. canvas-size canvas-size)
+            .painter (graph-painter nodes edges)))))
+        
+        ;; 🌟 悬浮过滤控制台 (右上角)
+        (m/Positioned
+         .top 24.0
+         .right 24.0
          .child
-         (m/CustomPaint
-          .size (m/Size. canvas-size canvas-size)
-          .painter (graph-painter nodes edges)))))))))
+         (m/Container
+          .padding (m.EdgeInsets/all 8.0)
+          .decoration (m/BoxDecoration
+                       .color (t/fade t/surface 0.95)
+                       .borderRadius (m.BorderRadius/circular 16.0)
+                       .boxShadow (t/card-shadow))
+          .child
+          (m/Row
+           .mainAxisSize m.MainAxisSize/min
+           .children
+           [(filter-toggle "Шошго" show-tags? t/tertiary
+                           #(do (swap! !show-tags? not)
+                                (apply-filters-and-restart! !nodes !edges !raw-data !show-tags? !highlight-orphans? !iso-send)))
+            (m/SizedBox .width 8.0)
+            (filter-toggle "Ганц" highlight-orphans? t/warning
+                           #(do (swap! !highlight-orphans? not)
+                                (apply-filters-and-restart! !nodes !edges !raw-data !show-tags? !highlight-orphans? !iso-send)))])))])))))
