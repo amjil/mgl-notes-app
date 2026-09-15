@@ -46,20 +46,33 @@
             document-id
             :on-promoted editor/invalidate-session!)))]))))))
 
-(defn- with-doc-title! [document-id f]
+(defn- with-doc! [document-id f]
   (-> (db/get-document document-id)
       (.then (fn [d]
-               (f (if d (or (.-title d) "") ""))))))
+               (f (when d
+                    {:title (or (.-title d) "")
+                     :type (or (.-type d) "normal")}))))))
 
 (defn editor-page []
-  (let [!preview? (atom true)]
+  (let [!preview? (atom true)
+        !doc-type (atom nil)]
     (f/widget
      :context ctx
      :get [m/Navigator]
      :watch [{:keys [open-document-id]} store/app-ui-state
-             preview? !preview?]
+             preview? !preview?
+             doc-type !doc-type]
      :managed [route-token (nav/editor-route-opened!)
-               :dispose nav/editor-route-closed!]
+               :dispose nav/editor-route-closed!
+               _ (do
+                   (reset! !doc-type nil)
+                   (when open-document-id
+                     (with-doc! open-document-id
+                       (fn [doc]
+                         (reset! !doc-type (when doc (:type doc))))))
+                   nil)
+               :refresh-on [open-document-id]
+               :dispose nil]
      (m/Scaffold
       .backgroundColor t/bg
       .resizeToAvoidBottomInset false
@@ -77,37 +90,43 @@
        .actions
        (if-not open-document-id
          []
-         [(m/IconButton
-           .icon (m/Icon (if preview?
-                           m.Icons/edit_outlined
-                           m.Icons/visibility_outlined))
-           .tooltip (if preview? "Edit" "Preview")
-           .onPressed #(swap! !preview? not))
-          (m/IconButton
-           .icon (m/Icon m.Icons/account_tree_outlined)
-           .tooltip "Backlinks"
-           .onPressed #(with-doc-title!
-                         open-document-id
-                         (fn [title]
-                           (show-backlinks-modal! ctx title open-document-id))))
-          (m/IconButton
-           .icon (m/Icon m.Icons/file_download_outlined)
-           .tooltip "Export HTML"
-           .onPressed (fn []
-                        (-> (export/export-document-to-file! open-document-id)
-                            (.then (fn [path] (export/show-export-result! ctx path)))
-                            (.catchError (fn [_] (export/show-export-result! ctx nil))))))
-          (m/IconButton
-           .icon (m/Icon m.Icons/drive_file_rename_outline)
-           .onPressed #(with-doc-title!
-                         open-document-id
-                         (fn [title]
-                           (rename/rename-dialog
-                            ctx title
-                            (fn [tit]
-                              (doc/rename! open-document-id tit)
-                              (editor/sync-session-title! open-document-id tit)
-                              (db/refresh-document-titles!))))))]))
+         (into []
+               (remove nil?
+                       [(m/IconButton
+                         .icon (m/Icon (if preview?
+                                         m.Icons/edit_outlined
+                                         m.Icons/visibility_outlined))
+                         .tooltip (if preview? "Edit" "Preview")
+                         .onPressed #(swap! !preview? not))
+                        (m/IconButton
+                         .icon (m/Icon m.Icons/account_tree_outlined)
+                         .tooltip "Backlinks"
+                         .onPressed #(with-doc!
+                                       open-document-id
+                                       (fn [doc]
+                                         (when doc
+                                           (show-backlinks-modal!
+                                            ctx (:title doc) open-document-id)))))
+                        (m/IconButton
+                         .icon (m/Icon m.Icons/file_download_outlined)
+                         .tooltip "Export HTML"
+                         .onPressed (fn []
+                                      (-> (export/export-document-to-file! open-document-id)
+                                          (.then (fn [path] (export/show-export-result! ctx path)))
+                                          (.catchError (fn [_] (export/show-export-result! ctx nil))))))
+                        (when (and doc-type (not= doc-type "daily"))
+                          (m/IconButton
+                           .icon (m/Icon m.Icons/drive_file_rename_outline)
+                           .onPressed #(with-doc!
+                                         open-document-id
+                                         (fn [doc]
+                                           (when (and doc (not= (:type doc) "daily"))
+                                             (rename/rename-dialog
+                                              ctx (:title doc)
+                                              (fn [tit]
+                                                (doc/rename! open-document-id tit)
+                                                (editor/sync-session-title! open-document-id tit)
+                                                (db/refresh-document-titles!))))))))]))))
       .body
       (if-not open-document-id
         (ui/empty-state m.Icons/edit_note "No document")

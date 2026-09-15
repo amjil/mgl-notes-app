@@ -260,6 +260,7 @@
                               {:!state (atom initial)
                                :!snapshot (atom (bridge/snapshot-from-state initial))
                                :!title (atom (if doc (or (.-title doc) "") ""))
+                               :doc-type (if doc (or (.-type doc) "normal") "normal")
                                :!save-timer (atom nil)}))))))
       (.catchError (fn [e]
                      (dart:core/print (str "load-session! failed: " e))
@@ -296,6 +297,11 @@
   (when-let [s (get @!sessions document-id)]
     (reset! (:!title s) (or title ""))))
 
+(defn allow-rename?
+  "False for daily journals — titles are date-bound."
+  [document-id]
+  (not= (:doc-type (get @!sessions document-id)) "daily"))
+
 (defn- cancel-save-timer! [session]
   (when-let [t @(:!save-timer session)]
     (.cancel ^async/Timer t)
@@ -330,6 +336,9 @@
                                       (bridge/snapshot-from-state initial))
                               (reset! (:!title session)
                                       (if doc (or (.-title doc) "") ""))
+                              (swap! !sessions assoc document-id
+                                     (assoc session :doc-type
+                                            (if doc (or (.-type doc) "normal") "normal")))
                               true))))))
       (.catchError (fn [e]
                      (dart:core/print (str "reload-session! failed: " e))
@@ -353,23 +362,25 @@
                           (db/refresh-document-titles!))))
 
 (defn- doc-title-leading
-  "Vertical document title that scrolls with the block list."
+  "Vertical document title that scrolls with the block list.
+   When `on-tap` is nil the title is display-only (e.g. daily notes)."
   [!title on-tap]
   (f/widget
    :watch [title !title]
-   (m/Align
-    .alignment m.Alignment/topCenter
-    .child
-    (m/InkWell
-     .onTap on-tap
-     .child
-     (m/Padding
-      .padding (m.EdgeInsets/only .right 20.0)
+   (let [label
+         (m/Padding
+          .padding (m.EdgeInsets/only .right 20.0)
+          .child
+          (mgl/MongolText
+           (let [t (or title "")]
+             (if (empty? t) "Untitled" t))
+           .style (t/mongol-style :size 28.0 :weight m.FontWeight/bold)))]
+     (m/Align
+      .alignment m.Alignment/topCenter
       .child
-      (mgl/MongolText
-       (let [t (or title "")]
-         (if (empty? t) "Untitled" t))
-       .style (t/mongol-style :size 28.0 :weight m.FontWeight/bold)))))))
+      (if on-tap
+        (m/InkWell .onTap on-tap .child label)
+        label)))))
 
 (defn- export-html! [ctx !state !title]
   (-> (export/export-state-to-file! @!state @!title)
@@ -382,8 +393,9 @@
 
 (defn- editor-chrome
   [document-id session ctx show-back? on-back embedded? show-backlinks? !read-only?]
-  (let [{:keys [!state !snapshot !title !save-timer]} session
+  (let [{:keys [!state !snapshot !title !save-timer doc-type]} session
         !read-only? (or !read-only? (atom false))
+        allow-rename? (not= doc-type "daily")
         cfg (make-editor-config ctx)
 
         cleanup!
@@ -416,7 +428,8 @@
             :read-only? read-only?
             :leading-widget (doc-title-leading
                              !title
-                             #(show-rename! ctx document-id !title))
+                             (when allow-rename?
+                               #(show-rename! ctx document-id !title)))
             ;; Mobile pages already mount a full-width keyboard via `kw/wrap`.
             ;; Leaving wrap-ime? true stacks a second virtual keyboard.
             :wrap-ime? (not (platform/mobile?)))]
@@ -503,31 +516,34 @@
               .actions
               (let [can-undo? (boolean (seq (get-in current-state [:history :undo-stack])))
                     can-redo? (boolean (seq (get-in current-state [:history :redo-stack])))]
-                [(m/IconButton
-                  .icon (m/Icon m.Icons/format_list_bulleted)
-                  .tooltip "Document Outline"
-                  .onPressed #(store/toggle-show-toc!))
-                 (m/IconButton
-                  .icon (m/Icon m.Icons/undo)
-                  .tooltip "Undo"
-                  .onPressed (when can-undo? #(history/undo! !state)))
-                 (m/IconButton
-                  .icon (m/Icon m.Icons/redo)
-                  .tooltip "Redo"
-                  .onPressed (when can-redo? #(history/redo! !state)))
-                 (m/IconButton
-                  .icon (m/Icon (if show-refs?
-                                  m.Icons/chevron_right
-                                  m.Icons/account_tree_outlined))
-                  .tooltip "Backlinks"
-                  .onPressed toggle-refs!)
-                 (m/IconButton
-                  .icon (m/Icon m.Icons/file_download_outlined)
-                  .tooltip "Export HTML"
-                  .onPressed #(export-html! ctx !state !title))
-                 (m/IconButton
-                  .icon (m/Icon m.Icons/drive_file_rename_outline)
-                  .onPressed #(show-rename! ctx document-id !title))]))
+                (into []
+                      (remove nil?
+                              [(m/IconButton
+                                .icon (m/Icon m.Icons/format_list_bulleted)
+                                .tooltip "Document Outline"
+                                .onPressed #(store/toggle-show-toc!))
+                               (m/IconButton
+                                .icon (m/Icon m.Icons/undo)
+                                .tooltip "Undo"
+                                .onPressed (when can-undo? #(history/undo! !state)))
+                               (m/IconButton
+                                .icon (m/Icon m.Icons/redo)
+                                .tooltip "Redo"
+                                .onPressed (when can-redo? #(history/redo! !state)))
+                               (m/IconButton
+                                .icon (m/Icon (if show-refs?
+                                                m.Icons/chevron_right
+                                                m.Icons/account_tree_outlined))
+                                .tooltip "Backlinks"
+                                .onPressed toggle-refs!)
+                               (m/IconButton
+                                .icon (m/Icon m.Icons/file_download_outlined)
+                                .tooltip "Export HTML"
+                                .onPressed #(export-html! ctx !state !title))
+                               (when allow-rename?
+                                 (m/IconButton
+                                  .icon (m/Icon m.Icons/drive_file_rename_outline)
+                                  .onPressed #(show-rename! ctx document-id !title)))]))))
              .body (m/SafeArea .child body-row)))))))))
 
 ;; =============================================================================

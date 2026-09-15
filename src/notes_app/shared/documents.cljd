@@ -76,48 +76,52 @@
           :bg-color t/surface
           :border-radius 16.0
           :menu-width 380.0
-          :items [{:type :item
-                   :title "Edit"
-                   :leading m.Icons/edit_note
-                   :leading-color t/success
-                   :on-tap #(store/open-document! id)}
-                  {:type :item
-                   :title "Delete"
-                   :leading m.Icons/delete
-                   :leading-color t/danger
-                   :on-tap #(doc/soft-delete! id)}
-                  {:type :divider}
-                  {:type :item
-                   :title "New Sub-doc"
-                   :leading m.Icons/post_add
-                   :leading-color t/primary
-                   :on-tap (fn []
-                             (store/set-parent-doc! id display)
-                             (-> (doc/create! {:title "" :type "normal" :parent-id id})
-                                 (.then (fn [new-id]
-                                          (when new-id (store/open-document! new-id))))
-                                 (.catchError (fn [_] nil))))}
-                  {:type :item
-                   :title "Rename"
-                   :leading m.Icons/edit
-                   :leading-color t/ink-muted
-                   :on-tap #(rename/rename-dialog ctx title
-                                                  (fn [tit] (doc/rename! id tit)))}
-                  {:type :item
-                   :title "Move"
-                   :leading m.Icons/drive_file_move_outlined
-                   :leading-color t/secondary
-                   :on-tap #(move/move-dialog ctx id (:parentId d) nil)}
-                  {:type :item
-                   :title "Export HTML"
-                   :leading m.Icons/file_download_outlined
-                   :leading-color t/primary
-                   :on-tap (fn []
-                             (-> (export/export-document-to-file! id)
-                                 (.then (fn [path]
-                                          (export/show-export-result! ctx path)))
-                                 (.catchError (fn [_]
-                                                (export/show-export-result! ctx nil)))))}]}))])
+          :items (into []
+                       (remove nil?
+                               [{:type :item
+                                 :title "Edit"
+                                 :leading m.Icons/edit_note
+                                 :leading-color t/success
+                                 :on-tap #(store/open-document! id)}
+                                {:type :item
+                                 :title "Delete"
+                                 :leading m.Icons/delete
+                                 :leading-color t/danger
+                                 :on-tap #(doc/soft-delete! id)}
+                                {:type :divider}
+                                {:type :item
+                                 :title "New Sub-doc"
+                                 :leading m.Icons/post_add
+                                 :leading-color t/primary
+                                 :on-tap (fn []
+                                           (store/set-parent-doc! id display)
+                                           (-> (doc/create! {:title "" :type "normal" :parent-id id})
+                                               (.then (fn [new-id]
+                                                        (when new-id (store/open-document! new-id))))
+                                               (.catchError (fn [_] nil))))}
+                                ;; Daily journal titles are date-bound — no rename.
+                                (when-not is-daily?
+                                  {:type :item
+                                   :title "Rename"
+                                   :leading m.Icons/edit
+                                   :leading-color t/ink-muted
+                                   :on-tap #(rename/rename-dialog ctx title
+                                                                  (fn [tit] (doc/rename! id tit)))})
+                                {:type :item
+                                 :title "Move"
+                                 :leading m.Icons/drive_file_move_outlined
+                                 :leading-color t/secondary
+                                 :on-tap #(move/move-dialog ctx id (:parentId d) nil)}
+                                {:type :item
+                                 :title "Export HTML"
+                                 :leading m.Icons/file_download_outlined
+                                 :leading-color t/primary
+                                 :on-tap (fn []
+                                           (-> (export/export-document-to-file! id)
+                                               (.then (fn [path]
+                                                        (export/show-export-result! ctx path)))
+                                               (.catchError (fn [_]
+                                                              (export/show-export-result! ctx nil)))))}]))}))])
      :accent-color (when is-daily? t/secondary)
      :width (if (platform/desktop?) :auto 120.0)
      :margin (if (platform/desktop?) (m.EdgeInsets/zero) (m.EdgeInsets/only .right 16.0)))))
