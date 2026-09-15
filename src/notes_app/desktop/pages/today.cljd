@@ -5,26 +5,54 @@
             [notes-app.shared.today :as today]
             [notes-app.services.daily :as daily]
             [notes-app.services.export :as export]
-            [notes-app.state.store :as store]
             [notes-app.theme :as t]
-            [notes-app.ui :as ui]))
+            [notes-app.ui :as ui]
+            [notes-app.db.core :as db]
+            [notes-app.state.store :as store]))
+
+(defn- auto-advance-selection!
+  "If a selected card left the due queue, move to the next one.
+   Does nothing when nothing is selected yet (right pane stays empty)."
+  [view-mode due-cards !selected-card]
+  (when (= view-mode :flashcards)
+    (when-let [sel @!selected-card]
+      (let [valid? (some #(= (:id %) (:block-id sel)) due-cards)]
+        (cond
+          (and (not valid?) (seq due-cards))
+          (let [{:keys [id document-id]} (first due-cards)]
+            (swap! store/app-ui-state assoc :focus-block-id id)
+            (reset! !selected-card {:doc-id document-id :block-id id}))
+
+          (not valid?)
+          (reset! !selected-card nil))))))
 
 (defn today-page []
   (f/widget
    :context ctx
    :managed [{:keys [!current-date !doc-id load-date!]} (today/make-session)
              :refresh-on :never
+             :dispose nil
+             !view-mode (atom :daily)
+             :dispose nil
+             !selected-card (atom nil)
              :dispose nil]
    :watch [current-date !current-date
            doc-id !doc-id
+           view-mode !view-mode
+           due-cards (stream (map #(or % [])) :as-values (db/watch-due-flashcards))
            {:keys [show-heatmap]} store/app-ui-state]
+   ;; Clear selection in diary mode; auto-advance only after a rated card drops out
+   :let [_ (do
+             (when (and (= view-mode :daily) @!selected-card)
+               (reset! !selected-card nil))
+             (auto-advance-selection! view-mode due-cards !selected-card))]
    (m/Scaffold
     .backgroundColor t/surface
     .appBar
     (ui/page-app-bar
      :title (daily/date->title current-date)
      :actions
-     [(today/review-deck-btn)
+     [(today/review-deck-btn !view-mode)
       (ui/action-btn m.Icons/chevron_left "Previous day"
                      (fn []
                        (let [prev-day (.subtract current-date (dc/Duration. .days 1))]
@@ -54,5 +82,14 @@
      .crossAxisAlignment m.CrossAxisAlignment/stretch
      .children
      (cond-> []
-       (not= false show-heatmap) (conj (today/heatmap-panel !current-date load-date!))
-       :always                   (conj (m/Expanded .child (today/editor-pane doc-id))))))))
+       ;; Daily mode + heatmap enabled
+       (and show-heatmap (= view-mode :daily))
+       (conj (today/heatmap-panel !current-date load-date!))
+
+       ;; Daily mode: full diary editor
+       (= view-mode :daily)
+       (conj (m/Expanded .child (today/editor-pane doc-id)))
+
+       ;; Flashcards mode: split list + source note
+       (= view-mode :flashcards)
+       (conj (m/Expanded .child (today/review-split-pane due-cards !selected-card))))))))

@@ -5,7 +5,6 @@
             ["dart:core" :as dc]
             [clojure.string :as str]
             [cljd.flutter :as f]
-            [components.menu :as menu]
             [notes-app.db.core :as db]
             [notes-app.services.daily :as daily]
             [notes-app.editor.view :as editor]
@@ -87,7 +86,6 @@
            .child (mgl/MongolText "Өдрийн тэмдэглэл"
                                   .style (t/mongol-style :size 16.0 :weight m.FontWeight/bold)))])
         (m/VerticalDivider .color t/outline .width 32.0)
-
         (m/Expanded
          .child
          (m/ListView.builder
@@ -111,53 +109,41 @@
                      week))))))])))))
 
 (defn review-deck-btn
-  "App-bar button with due-count badge. Opens a menu of due flashcards."
-  []
+  "App-bar toggle between daily diary and immersive flashcard review."
+  [!view-mode]
   (f/widget
-   :watch [due-cards (stream (map #(or % [])) :as-values (db/watch-due-flashcards))]
+   :watch [due-cards (stream (map #(or % [])) :as-values (db/watch-due-flashcards))
+           mode !view-mode]
    (let [n (count due-cards)
          due? (pos? n)
-         items (if due?
-                 (mapv
-                  (fn [card]
-                    (let [q (if (str/blank? (:text card)) "..." (:text card))]
-                      {:type :item
-                       :title q
-                       :leading m.Icons/help_outline
-                       :leading-color t/warning
-                       :title-style (t/mongol-style :size 14.0 :weight m.FontWeight/w600)
-                       :on-tap #(store/open-document! (:document-id card) (:id card) true)}))
-                  due-cards)
-                 [{:type :item
-                   :title "No flashcards due"
-                   :title-style (t/mongol-style :size 13.0 :color t/ink-faint)}])]
-     (menu/custom-popup-menu
-      {:offset-y 8.0
-       :border-radius 12.0
-       :bg-color t/surface
-       :menu-width 200.0
-       :items items
-       :trigger-builder
-       (fn [show-menu]
-         (m/Tooltip
-          .message (if due? (str n " due") "No flashcards due")
-          .child
-          (m/InkWell
-           .onTap show-menu
-           .borderRadius (m.BorderRadius/circular 8.0)
-           .child
-           (m/Badge
-            .isLabelVisible due?
-            .label (m/Text (str n)
-                           .style (m/TextStyle .fontSize 10.0 .color m.Colors/white
-                                               .fontWeight m.FontWeight/bold))
-            .backgroundColor t/warning
-            .child
-            (m/Padding
-             .padding (m.EdgeInsets/all 8.0)
-             .child
-             (m/Icon m.Icons/psychology
-                     .color (if due? t/warning t/ink-faint)))))))}))))
+         flashcards? (= mode :flashcards)
+         can-tap? (or flashcards? due?)]
+     (m/Tooltip
+      .message (cond
+                 flashcards? "Back to diary"
+                 due?        (str n " due")
+                 :else       "No flashcards due")
+      .child
+      (m/InkWell
+       .onTap (when can-tap?
+                #(swap! !view-mode (fn [m] (if (= m :daily) :flashcards :daily))))
+       .borderRadius (m.BorderRadius/circular 8.0)
+       .child
+       (m/Badge
+        .isLabelVisible (and due? (not flashcards?))
+        .label (m/Text (str n)
+                       .style (m/TextStyle .fontSize 10.0 .color m.Colors/white
+                                           .fontWeight m.FontWeight/bold))
+        .backgroundColor t/warning
+        .child
+        (m/Padding
+         .padding (m.EdgeInsets/all 8.0)
+         .child
+         (m/Icon (if flashcards? m.Icons/edit_note m.Icons/psychology)
+                 .color (cond
+                          flashcards? t/primary
+                          due?        t/warning
+                          :else       t/ink-faint)))))))))
 
 (defn editor-pane
   [doc-id & {:keys [show-backlinks? !read-only?] :or {show-backlinks? true}}]
@@ -170,3 +156,72 @@
                                     :show-backlinks? show-backlinks?
                                     :!read-only? !read-only?))
     (ui/empty-state m.Icons/wb_sunny_outlined "Loading...")))
+
+(defn- select-card! [!selected-card {:keys [id document-id]}]
+  (swap! store/app-ui-state assoc :focus-block-id id)
+  (reset! !selected-card {:doc-id document-id :block-id id}))
+
+(defn- review-card-tile [card selected? on-tap]
+  (let [{:keys [text document-title]} card
+        q (if (str/blank? text) "..." text)
+        title (if (str/blank? document-title) "Untitled" document-title)]
+    ;; Fixed height: vertical ListView gives h=Infinity, which MongolListTile rejects
+    (m/Padding
+     .padding (m.EdgeInsets/only .bottom 12.0)
+     .child
+     (m/SizedBox
+      .height 160.0
+      .child
+      (ui/note-card
+       (m/Center
+        .child
+        (mgl/MongolListTile
+         .leading (ui/icon-chip m.Icons/psychology t/warning)
+         .title (mgl/MongolText q
+                                .maxLines (int 3)
+                                .style (t/mongol-style :size 16.0
+                                                       :weight (if selected? m.FontWeight/bold m.FontWeight/w600)))
+         .subtitle (mgl/MongolText title
+                                   .style (t/mongol-style :size 12.0 :color t/ink-muted))
+         .onTap on-tap))
+       :accent-color (when selected? t/warning)
+       :width 160.0
+       :margin (m.EdgeInsets/zero))))))
+
+;; Left due-card list + right source-note editor (scrolls via focus-block-id)
+(defn review-split-pane [due-cards !selected-card]
+  (if (empty? due-cards)
+    (ui/empty-state m.Icons/done_all "Бүх картыг давтсан байна")
+    (f/widget
+     :watch [sel !selected-card]
+     (m/Row
+      .crossAxisAlignment m.CrossAxisAlignment/stretch
+      .children
+      [;; Left sidebar — same note-card chrome as the documents list
+       (m/Container
+        .width 192.0
+        .decoration (m/BoxDecoration
+                     .color t/surface-2
+                     .border (m/Border .right (m/BorderSide .color t/outline .width 1.0)))
+        .child
+        (m/ListView.builder
+         .physics (m/BouncingScrollPhysics.)
+         .padding (m.EdgeInsets/symmetric .horizontal 16.0 .vertical 16.0)
+         .itemCount (count due-cards)
+         .itemBuilder
+         (fn [_ idx]
+           (let [{:keys [id] :as card} (nth due-cards idx)
+                 selected? (= (:block-id sel) id)]
+             (m/KeyedSubtree
+              .key (m/ValueKey id)
+              .child (review-card-tile card selected?
+                                       #(select-card! !selected-card card)))))))
+
+       ;; Right: empty until the user picks a card
+       (m/Expanded
+        .child
+        (if-let [doc-id (:doc-id sel)]
+          (m/KeyedSubtree
+           .key (m/ValueKey (str doc-id ":" (:block-id sel)))
+           .child (editor-pane doc-id :show-backlinks? false))
+          (ui/empty-state m.Icons/touch_app "Зүүн талаас карт сонгоно уу")))]))))
