@@ -1,6 +1,11 @@
 (ns notes-app.main
   (:require ["package:flutter/material.dart" :as m]
             ["package:flutter/foundation.dart" :as foundation :refer [kIsWeb]]
+            ["package:flutter/services.dart" :as s]
+            ["package:window_manager/window_manager.dart" :as wm]
+            ["package:hotkey_manager/hotkey_manager.dart" :as hm]
+            ["package:tray_manager/tray_manager.dart" :as tm]
+            ["dart:io" :as io]
             [cljd.flutter :as f]
             [ime-core.remote-api :as remote]
             [notes-app.platform :as platform]
@@ -40,6 +45,98 @@
                      (dart:core/print (str "Startup failed: " e))
                      (reset! !boot {:status :error :message (str e)})))))
 
+;; Close → hide to tray (do not kill the process).
+(def ^:private window-listener
+  (reify ^:mixin wm/WindowListener
+    (onWindowClose [_]
+      (.hide wm/windowManager)
+      (store/close-quick-entry!))))
+
+(def ^:private tray-listener
+  (reify ^:mixin tm/TrayListener
+    (onTrayIconMouseDown [_]
+      (store/close-quick-entry!)
+      (-> (.show wm/windowManager)
+          (.then (fn [_] (.focus wm/windowManager))))
+      nil)
+    (onTrayIconRightMouseDown [_]
+      (.popUpContextMenu tm/trayManager)
+      nil)
+    (onTrayMenuItemClick [_ item]
+      (case (.-key item)
+        "show"
+        (do (store/close-quick-entry!)
+            (-> (.show wm/windowManager)
+                (.then (fn [_] (.focus wm/windowManager))))
+            nil)
+        "quit"
+        (do (-> (.setPreventClose wm/windowManager false)
+                (.then (fn [_] (.destroy wm/windowManager)))
+                (.then (fn [_] (io/exit 0))))
+            nil)
+        nil))))
+
+(defn- init-global-hotkey! []
+  (let [hk (hm/HotKey
+            .key s.PhysicalKeyboardKey/space
+            .modifiers [hm.HotKeyModifier/alt])]
+    (-> (.register hm/hotKeyManager hk
+                   .keyDownHandler
+                   (fn [_]
+                     (-> (.isVisible wm/windowManager)
+                         (.then (fn [visible?]
+                                  (if visible?
+                                    (do (.hide wm/windowManager)
+                                        (store/close-quick-entry!))
+                                    (do (.show wm/windowManager)
+                                        (.focus wm/windowManager)
+                                        (store/open-quick-entry!))))))
+                     ;; keyDownHandler is void — do not return the Future.
+                     nil)))))
+
+(defn- init-system-tray! []
+  (let [icon-path (if (platform/windows?)
+                    "assets/tray/icon.ico"
+                    "assets/tray/icon.png")
+        menu (tm/Menu
+              .items [(tm/MenuItem .key "show" .label "Open Notes")
+                      (tm/MenuItem .key "quit" .label "Quit")])]
+    (.addListener tm/trayManager tray-listener)
+    (-> (.setIcon tm/trayManager icon-path)
+        (.then (fn [_] (.setContextMenu tm/trayManager menu)))
+        (.catchError (fn [e]
+                       (dart:core/print (str "tray init failed: " e)))))
+    nil))
+
+(defn- init-desktop-window! []
+  (-> (.ensureInitialized wm/windowManager)
+      (.then (fn [_]
+               (let [opts (wm/WindowOptions
+                           .size (m/Size 1200.0 800.0)
+                           .center true
+                           .skipTaskbar true
+                           .backgroundColor m.Colors/transparent
+                           .titleBarStyle wm.TitleBarStyle/hidden)]
+                 (.addListener wm/windowManager window-listener)
+                 (.setPreventClose wm/windowManager true)
+                 (.waitUntilReadyToShow wm/windowManager opts
+                                        (fn []
+                                          (.show wm/windowManager)
+                                          (.focus wm/windowManager)
+                                          ;; waitUntilReadyToShow callback is void.
+                                          nil)))))
+      (.catchError (fn [e]
+                     (dart:core/print (str "window_manager init failed: " e)))))
+  nil)
+
+(defn- init-desktop-lifecycle! []
+  (init-desktop-window!)
+  (-> (.unregisterAll hm/hotKeyManager)
+      (.then (fn [_] (init-global-hotkey!)))
+      (.catchError (fn [e]
+                     (dart:core/print (str "hotkey init failed: " e)))))
+  (init-system-tray!))
+
 (defn main []
   (m/WidgetsFlutterBinding.ensureInitialized)
 
@@ -54,6 +151,9 @@
   (if (platform/desktop?)
     (desktop-boot/init!)
     (mobile-boot/init!))
+
+  (when (platform/native-desktop?)
+    (init-desktop-lifecycle!))
 
   (boot!)
 

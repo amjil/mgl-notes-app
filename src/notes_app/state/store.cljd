@@ -61,6 +61,15 @@
 (defn open-palette! []
   (reset! !show-palette true))
 
+;; Global Quick Entry (Alt+Space flash note capsule).
+(defonce !quick-entry-mode (atom false))
+
+(defn open-quick-entry! []
+  (reset! !quick-entry-mode true))
+
+(defn close-quick-entry! []
+  (reset! !quick-entry-mode false))
+
 (defn- new-uuid []
   (str (random-uuid)))
 

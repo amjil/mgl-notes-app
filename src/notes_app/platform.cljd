@@ -15,5 +15,18 @@
   []
   (or kIsWeb (not (mobile?))))
 
+(defn native-desktop?
+  "True macOS / Windows / Linux (excludes web — native plugins only)."
+  []
+  (when-not kIsWeb
+    (let [p foundation/defaultTargetPlatform]
+      (or (= p foundation.TargetPlatform/macOS)
+          (= p foundation.TargetPlatform/windows)
+          (= p foundation.TargetPlatform/linux)))))
+
+(defn windows? []
+  (and (not kIsWeb)
+       (= foundation/defaultTargetPlatform foundation.TargetPlatform/windows)))
+
 (defn web? []
   kIsWeb)

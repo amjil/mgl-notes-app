@@ -1,13 +1,19 @@
 (ns notes-app.desktop.shell
-  "Desktop app chrome: Modern floating content pane with NavigationRail and Split-Screen."
+  "Desktop app chrome: Modern floating content pane with NavigationRail and Quick Entry."
   (:require ["package:flutter/material.dart" :as m]
             ["package:flutter/services.dart" :as s]
+            ["package:window_manager/window_manager.dart" :as wm]
+            ["package:mongol/mongol.dart" :as mgl]
             ["dart:core" :as dc]
             ["dart:async" :as async]
+            ["dart:ui" :as ui]
+            [clojure.string :as str]
             [cljd.flutter :as f]
+            [shared-ime.controller :as ime-ctrl]
             [notes-app.state.store :as store]
             [notes-app.desktop.widgets.side-nav :as side-nav]
             [notes-app.desktop.widgets.command-palette :as palette]
+            [notes-app.desktop.widgets.keyboard :as keyboard]
             [notes-app.desktop.pages.today :as today]
             [notes-app.desktop.pages.documents :as documents]
             [notes-app.desktop.pages.tasks :as tasks]
@@ -18,8 +24,10 @@
             [notes-app.editor.view :as editor]
             [notes-app.desktop.pages.trash :as trash]
             [notes-app.shared.sync-toast :as sync-toast]
-            [notes-app.theme :as t]))
-
+            [notes-app.theme :as t]
+            [notes-app.db.core :as db]
+            [notes-app.services.daily :as daily]
+            [notes-app.services.block :as block]))
 (defn- body-for [nav-id open-doc-id]
   (case nav-id
     "today" (today/today-page)
@@ -69,10 +77,301 @@
                                                             (fn [] (store/close-editor! nil id)))))))))))
           doc-ids)))
 
+(defn- append-quick-note!
+  "Append `text` as a new paragraph on today's daily note."
+  [text]
+  (-> (daily/ensure-daily! (dc/DateTime.now))
+      (.then (fn [doc-id]
+               (when doc-id
+                 (-> (db/get-blocks doc-id)
+                     (.then (fn [rows]
+                              (let [max-order (if (seq rows)
+                                                (apply max (map #(.-orderIndex %) rows))
+                                                0.0)]
+                                (block/create!
+                                 {:document-id doc-id
+                                  :type "paragraph"
+                                  :text text
+                                  :order-index (+ (double max-order) 1000.0)}))))))))))
+
+(defn- hide-quick-entry! []
+  (store/close-quick-entry!)
+  (.hide wm/windowManager)
+  nil)
+
+(defn- sync-quick-caret!
+  "Anchor IME candidates to the right edge of the writing column."
+  [^m/GlobalKey field-key]
+  (when-let [ctx (.-currentContext field-key)]
+    (try
+      (let [^m/RenderBox rb (.findRenderObject ctx)
+            origin (.localToGlobal rb m.Offset/zero)
+            sz (.-size rb)
+            ;; Slightly inside the field so the panel sits next to the writing columns.
+            pos (m/Offset (+ (.-dx origin) (.-width sz) 12.0)
+                          (+ (.-dy origin) 16.0))]
+        (ime-ctrl/update-caret-offset! pos))
+      (catch Exception _)))
+  nil)
+
+(defn- delete-in-quick-ctrl!
+  "Delete selection or one grapheme before the caret (readOnly field fallback)."
+  [^m/TextEditingController ctrl]
+  (let [text (.-text ctrl)
+        sel (.-selection ctrl)
+        base (max 0 (.-baseOffset sel))
+        ext (max 0 (.-extentOffset sel))
+        start (min base ext)
+        end (max base ext)]
+    (if (not= start end)
+      (set! (.-value ctrl)
+            (m/TextEditingValue
+             .text (str (subs text 0 start) (subs text end))
+             .selection (m/TextSelection.collapsed .offset start)))
+      (when (> start 0)
+        (set! (.-value ctrl)
+              (m/TextEditingValue
+               .text (str (subs text 0 (dec start)) (subs text end))
+               .selection (m/TextSelection.collapsed .offset (dec start)))))))
+  nil)
+
+(defn- insert-space-in-quick-ctrl!
+  [^m/TextEditingController ctrl]
+  (let [text (.-text ctrl)
+        sel (.-selection ctrl)
+        base (max 0 (.-baseOffset sel))
+        ext (max 0 (.-extentOffset sel))
+        start (min base ext)
+        end (max base ext)]
+    (set! (.-value ctrl)
+          (m/TextEditingValue
+           .text (str (subs text 0 start) " " (subs text end))
+           .selection (m/TextSelection.collapsed .offset (inc start)))))
+  nil)
+
+(defn- submit-quick-note! [^m/TextEditingController ctrl]
+  (let [text (.-text ctrl)]
+    (when-not (str/blank? text)
+      (append-quick-note! text))
+    (hide-quick-entry!))
+  nil)
+
+(defn- shortcut-chip [label]
+  (m/Container
+   .padding (m.EdgeInsets/symmetric .horizontal 8.0 .vertical 4.0)
+   .decoration (m/BoxDecoration
+                .color (t/fade t/ink 0.06)
+                .borderRadius (m.BorderRadius/circular 6.0)
+                .border (m/Border.all .color (t/fade t/outline-strong 0.8) .width 1.0))
+   .child
+   (m/Text label
+           .style (m/TextStyle
+                   .fontSize 11.0
+                   .fontWeight m.FontWeight/w600
+                   .color t/ink-muted
+                   .letterSpacing 0.2))))
+
+(defn quick-entry-overlay []
+  (f/widget
+   :managed [ctrl (m/TextEditingController.) :dispose .dispose
+             field-key (m/GlobalKey.) :dispose nil
+             focus
+             (let [n (m/FocusNode.)]
+               (.addListener
+                n
+                (fn []
+                  (if (.-hasFocus n)
+                    (do
+                      (s/SystemChannels.textInput.invokeMethod "TextInput.hide")
+                      (ime-ctrl/register-client!
+                       {:owner ctrl
+                        :replace-text!
+                        (fn [delete-len insert-str]
+                          (let [text (.-text ctrl)
+                                sel (.-selection ctrl)
+                                offset (max 0 (.-extentOffset sel))
+                                start-idx (max 0 (- offset delete-len))
+                                new-text (str (subs text 0 start-idx)
+                                              insert-str
+                                              (subs text offset))]
+                            (set! (.-value ctrl)
+                                  (m/TextEditingValue
+                                   .text new-text
+                                   .selection (m/TextSelection.collapsed
+                                               .offset (+ start-idx (count insert-str)))))
+                            (sync-quick-caret! field-key)))
+                        :update-caret! #(sync-quick-caret! field-key)
+                        :get-context-text!
+                        (fn []
+                          (let [text (.-text ctrl)
+                                sel (.-selection ctrl)
+                                offset (max 0 (.-extentOffset sel))]
+                            (subs text 0 offset)))})
+                      (-> m/WidgetsBinding.instance
+                          (.addPostFrameCallback
+                           (fn [_] (sync-quick-caret! field-key)))))
+                    (when (identical? (:owner @ime-ctrl/!active-client) ctrl)
+                      (ime-ctrl/unregister-client!)))))
+               n)
+             :dispose .dispose]
+   :bg-watcher ([_ ctrl]
+                (sync-quick-caret! field-key)
+                nil)
+   (let [rail
+         (m/Container
+          .width 72.0
+          .decoration (m/BoxDecoration
+                       .gradient (m/LinearGradient
+                                  .begin m.Alignment/topCenter
+                                  .end m.Alignment/bottomCenter
+                                  .colors [(t/fade t/secondary 0.18)
+                                           (t/fade t/primary 0.10)])
+                       .borderRadius (m.BorderRadius/only
+                                      .topLeft (m.Radius/circular 28.0)
+                                      .bottomLeft (m.Radius/circular 28.0)))
+          .child
+          (m/Column
+           .mainAxisAlignment m.MainAxisAlignment/center
+           .children
+           [(m/Container
+             .width 44.0
+             .height 44.0
+             .decoration (m/BoxDecoration
+                          .color (t/fade t/surface 0.92)
+                          .shape m.BoxShape/circle
+                          .boxShadow [(m/BoxShadow
+                                       .color (t/fade t/secondary 0.25)
+                                       .blurRadius 12.0
+                                       .offset (m/Offset 0.0 4.0))])
+             .child (m/Center .child (m/Icon m.Icons/bolt_rounded
+                                             .color t/secondary
+                                             .size 26.0)))
+            (m/SizedBox .height 20.0)
+            (mgl/MongolText "Гялс"
+                            .style (t/mongol-style :size 15.0
+                                                   :weight m.FontWeight/w600
+                                                   :color t/ink-muted))]))
+         writer
+         (m/Expanded
+          .child
+          (m/Padding
+           .padding (m.EdgeInsets/fromLTRB 20.0 20.0 20.0 16.0)
+           .child
+           (m/Column
+            .crossAxisAlignment m.CrossAxisAlignment/stretch
+            .children
+            [(m/Row
+              .children
+              [(m/Expanded
+                .child
+                (m/Text "Quick note"
+                        .style (m/TextStyle
+                                .fontSize 13.0
+                                .fontWeight m.FontWeight/w600
+                                .color t/ink-muted
+                                .letterSpacing 0.4)))
+               (shortcut-chip "↵ Save")
+               (m/SizedBox .width 6.0)
+               (shortcut-chip "Esc")])
+             (m/SizedBox .height 12.0)
+             (m/Expanded
+              .child
+              (m/Container
+               .key field-key
+               .decoration (m/BoxDecoration
+                            .color (t/fade t/primary-soft 0.35)
+                            .borderRadius (m.BorderRadius/circular 18.0)
+                            .border (m/Border.all
+                                     .color (t/fade t/primary 0.18)
+                                     .width 1.0))
+               .padding (m.EdgeInsets/symmetric .horizontal 16.0 .vertical 14.0)
+               .child
+               (m/Focus
+                .onKeyEvent
+                (fn [_ ^s/KeyEvent event]
+                  (let [ime-res (ime-ctrl/handle-key-event event)]
+                    (cond
+                      (= ime-res m.KeyEventResult/handled)
+                      ime-res
+
+                      (not (instance? s/KeyDownEvent event))
+                      m.KeyEventResult/ignored
+
+                      (= (.-logicalKey event) s.LogicalKeyboardKey/escape)
+                      (do (hide-quick-entry!)
+                          m.KeyEventResult/handled)
+
+                      (= (.-logicalKey event) s.LogicalKeyboardKey/enter)
+                      (do (submit-quick-note! ctrl)
+                          m.KeyEventResult/handled)
+
+                      ;; readOnly field: IME ignores backspace/space when not composing
+                      (= (.-logicalKey event) s.LogicalKeyboardKey/backspace)
+                      (do (delete-in-quick-ctrl! ctrl)
+                          (sync-quick-caret! field-key)
+                          m.KeyEventResult/handled)
+
+                      (= (.-logicalKey event) s.LogicalKeyboardKey/space)
+                      (do (insert-space-in-quick-ctrl! ctrl)
+                          (sync-quick-caret! field-key)
+                          m.KeyEventResult/handled)
+
+                      :else m.KeyEventResult/ignored)))
+                .child
+                (mgl/MongolTextField
+                 .controller ctrl
+                 .focusNode focus
+                 .readOnly true
+                 .showCursor true
+                 .autofocus true
+                 .maxLines nil
+                 .textAlign mgl.MongolTextAlign/top
+                 .style (t/mongol-style :size 22.0 :color t/ink)
+                 .cursorColor t/primary
+                 .decoration (m/InputDecoration
+                              .border m/InputBorder.none
+                              .hintText "ᠭᠢᠶᠠᠯᠰ ᠲᠡᠮᠳᠡᠭᠯᠡᠬᠦ…"
+                              .hintStyle (t/mongol-style :size 20.0 :color t/ink-faint))))))])))]
+     (m/Stack
+      .children
+      [(m/Positioned.fill
+        .child
+        (m/IgnorePointer
+         .child
+         (m/BackdropFilter
+          .filter (ui/ImageFilter.blur .sigmaX 10.0 .sigmaY 10.0)
+          .child (m/Container .color (t/fade t/ink 0.18)))))
+       (m/Center
+        .child
+        (m/Material
+         .color m.Colors/transparent
+         .elevation 0.0
+         .child
+         (m/Container
+          ;; Portrait-ish capsule: tall for vertical Mongolian columns, not overly wide.
+          .width 400.0
+          .height 440.0
+          .decoration (m/BoxDecoration
+                       .color (t/fade t/surface 0.98)
+                       .borderRadius (m.BorderRadius/circular 28.0)
+                       .border (m/Border.all .color (t/fade t/primary 0.12) .width 1.0)
+                       .boxShadow [(m/BoxShadow
+                                    .color (t/fade t/ink 0.22)
+                                    .blurRadius 40.0
+                                    .offset (m/Offset 0.0 18.0))
+                                   (m/BoxShadow
+                                    .color (t/fade t/primary 0.10)
+                                    .blurRadius 24.0
+                                    .offset (m/Offset 0.0 8.0))])
+          .child
+          (m/Row
+           .crossAxisAlignment m.CrossAxisAlignment/stretch
+           .children [rail writer]))))]))))
 (defn desktop-shell []
   (f/widget
    :context ctx
-   :watch [{:keys [selected-nav-id open-document-ids open-document-id]} store/app-ui-state]
+   :watch [{:keys [selected-nav-id open-document-ids open-document-id]} store/app-ui-state
+           quick-entry-mode store/!quick-entry-mode]
    (let [show-rail? true
          is-editor? (= selected-nav-id "editor")
          doc-ids (if (seq open-document-ids) open-document-ids (when open-document-id [open-document-id]))
@@ -91,46 +390,53 @@
            (if is-editor?
              (editor-split-view ctx doc-ids show-rail?)
              (body-for selected-nav-id open-document-id))))]
-     ;; Capture Cmd/Ctrl+K globally, overlay palette on top of the shell.
-     (m/Focus
-      .autofocus true
-      .onKeyEvent
-      (fn [_ ^s/KeyEvent event]
-        (let [kb s.HardwareKeyboard/instance
-              is-cmd? (or (.-isMetaPressed kb) (.-isControlPressed kb))
-              is-k? (= (.-logicalKey event) s.LogicalKeyboardKey/keyK)]
-          (if (and is-cmd? is-k? (instance? s/KeyDownEvent event))
-            (do (store/toggle-palette!)
-                m.KeyEventResult/handled)
-            m.KeyEventResult/ignored)))
-      .child
-      (m/Stack
-       .children
-       [(sync-toast/sync-toast-host
-         (m/Scaffold
-          .backgroundColor t/surface-2
-          .body
-          (m/Row
-           .children
-           [(side-nav/side-navigation-rail)
-            (m/Expanded
-             .child
-             (if is-editor?
-               content
-               (m/Container
-                .margin (m.EdgeInsets/only
-                         .top 8.0
-                         .bottom 8.0
-                         .right 8.0
-                         .left 0.0)
-                .decoration (m/BoxDecoration
-                             .color t/surface
-                             .borderRadius (m.BorderRadius/circular 24.0)
-                             .boxShadow (t/card-shadow))
-                .child (m/ClipRRect
-                        .borderRadius (m.BorderRadius/circular 24.0)
-                        .child (m/Theme
-                                .data (.copyWith (m.Theme/of ctx)
-                                                 .scaffoldBackgroundColor m.Colors/transparent)
-                                .child content)))))])))
-        (palette/palette-overlay)])))))
+     (keyboard/wrap
+      (m/Scaffold
+       .backgroundColor (if quick-entry-mode m.Colors/transparent t/surface-2)
+       .body
+       (m/Focus
+        .autofocus true
+        .onKeyEvent
+        (fn [_ ^s/KeyEvent event]
+          (let [kb s.HardwareKeyboard/instance
+                is-cmd? (or (.-isMetaPressed kb) (.-isControlPressed kb))
+                is-k? (= (.-logicalKey event) s.LogicalKeyboardKey/keyK)]
+            (if (and is-cmd? is-k? (instance? s/KeyDownEvent event) (not quick-entry-mode))
+              (do (store/toggle-palette!)
+                  m.KeyEventResult/handled)
+              m.KeyEventResult/ignored)))
+        .child
+        (m/Stack
+         .children
+         [(if quick-entry-mode
+            (m/SizedBox.shrink)
+            (sync-toast/sync-toast-host
+             (m/Row
+              .children
+              [(side-nav/side-navigation-rail)
+               (m/Expanded
+                .child
+                (if is-editor?
+                  content
+                  (m/Container
+                   .margin (m.EdgeInsets/only
+                            .top 8.0
+                            .bottom 8.0
+                            .right 8.0
+                            .left 0.0)
+                   .decoration (m/BoxDecoration
+                                .color t/surface
+                                .borderRadius (m.BorderRadius/circular 24.0)
+                                .boxShadow (t/card-shadow))
+                   .child (m/ClipRRect
+                           .borderRadius (m.BorderRadius/circular 24.0)
+                           .child (m/Theme
+                                   .data (.copyWith (m.Theme/of ctx)
+                                                    .scaffoldBackgroundColor m.Colors/transparent)
+                                   .child content)))))])))
+          (if quick-entry-mode
+            (m/SizedBox.shrink)
+            (palette/palette-overlay))
+          (if quick-entry-mode
+            (quick-entry-overlay)
+            (m/SizedBox.shrink))])))))))

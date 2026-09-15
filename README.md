@@ -177,6 +177,84 @@ clj -M:cljd clean
 flutter clean
 ```
 
+### macOS native patches (Swift) — re-apply after `flutter create` / fresh platform dirs
+
+This repo’s synced tree is mainly `src/` + `lib/` (+ `README`, `pubspec`, assets under app control).
+The `macos/` platform folder is **not** kept in sync, so after regenerating macOS runner files you must re-apply the two Swift edits below.
+They are required for **system tray / Alt+Space quick-entry**: keep the process alive when the window hides, and allow a transparent Flutter window.
+
+Also ensure desktop plugins are in `pubspec.yaml`:
+
+```yaml
+window_manager: ^0.5.2
+hotkey_manager: ^0.2.3
+tray_manager: ^0.5.3
+```
+
+Tray icons (already under assets if present): `assets/tray/icon.png`, `assets/tray/icon.ico` — declare them in `flutter.assets`.
+
+After native changes, do a **full restart** (not hot restart):
+
+```bash
+clj -M:cljd flutter -d macos
+```
+
+#### 1. `macos/Runner/AppDelegate.swift`
+
+Do **not** quit when the last window closes (close → hide to tray):
+
+```swift
+import Cocoa
+import FlutterMacOS
+
+@main
+class AppDelegate: FlutterAppDelegate {
+  override func applicationShouldTerminateAfterLastWindowClosed(_ sender: NSApplication) -> Bool {
+    // Keep alive for tray / global hotkey (Alt+Space quick entry).
+    return false
+  }
+
+  override func applicationSupportsSecureRestorableState(_ app: NSApplication) -> Bool {
+    return true
+  }
+}
+```
+
+**Change vs Flutter default:** `applicationShouldTerminateAfterLastWindowClosed` must return `false` (default template returns `true`).
+
+#### 2. `macos/Runner/MainFlutterWindow.swift`
+
+Clear the Flutter view background so `window_manager` transparency works in quick-entry mode:
+
+```swift
+import Cocoa
+import FlutterMacOS
+
+class MainFlutterWindow: NSWindow {
+  override func awakeFromNib() {
+    let flutterViewController = FlutterViewController()
+    // Allow window_manager transparent backgrounds (quick-entry overlay).
+    flutterViewController.backgroundColor = .clear
+    let windowFrame = self.frame
+    self.contentViewController = flutterViewController
+    self.setFrame(windowFrame, display: true)
+
+    RegisterGeneratedPlugins(registry: flutterViewController)
+
+    super.awakeFromNib()
+  }
+}
+```
+
+**Change vs Flutter default:** add `flutterViewController.backgroundColor = .clear` right after creating `FlutterViewController()`.
+
+#### Checklist after regenerating `macos/`
+
+1. Apply the two Swift files above.
+2. `flutter pub get` (and confirm `window_manager` / `hotkey_manager` / `tray_manager` are present).
+3. Confirm tray assets are listed in `pubspec.yaml`.
+4. Full relaunch on macOS; grant **Accessibility** if prompted (global Alt+Space hotkey).
+
 ## Drift code generation
 
 This project uses Drift’s generator for `lib/database.g.dart`.

@@ -11,6 +11,8 @@
     (m/MaterialApp
      .title "Amjil Notes"
      .debugShowCheckedModeBanner false
+     ;; Allow OS desktop to show through during quick-entry mode.
+     .color m.Colors/transparent
      .theme theme/app-theme
      .home (case status
              :ready (shell/desktop-shell)
