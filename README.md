@@ -4,43 +4,62 @@ Traditional Mongolian **vertical-script** notes app. Offline-first: write locall
 
 Built with **Flutter** (UI) and **ClojureDart** (app logic). Data lives in **Drift + SQLite**. Traditional Mongolian IME (virtual keyboard on mobile, desktop overlay) and fonts ship with the app.
 
-V1 targets **desktop**; mobile has a working shell (bottom nav) and will be polished later.
+Desktop is the primary target; mobile shares the same features via a drawer-based shell.
 
 ## Features
 
 ### Notes & daily journal
 
 - **Today** — a daily note is created automatically for the current date (`YYYY-MM-DD`). Flip previous / next day, or jump back to today.
+- **Activity heatmap** on Today (toggle in Settings; on by default).
 - **Documents** — nested pages (parent / child). Drill into a folder-like list, create sub-documents, rename, move, or open the editor.
 - Filter the document list to **calendar notes only**.
-- **Soft delete** → **Trash** (desktop): restore or permanently delete. Trash is not on the mobile tab bar yet.
+- **Soft delete** → **Trash**: restore or permanently delete (desktop side nav and mobile drawer).
+- **Desktop split editors** — open multiple documents side by side; **Alt / Cmd / Ctrl+click** a document to open it in an adjacent pane.
 
 ### Block editor
 
-Vertical Mongolian block editor with a toolbar (and slash-style block conversion):
+Vertical Mongolian block editor with a toolbar (and slash-style block conversion). Block types are extended via app-level **plugins** (`image`, `attachment`, `flashcard`):
 
 | Kind | Blocks |
 | --- | --- |
 | Text | paragraph, heading 1–3, quote, callout, toggle |
 | Lists | bullet, numbered, **task** (checkbox) |
 | Media | image (pick file, resize), attachment (open in external app) |
+| Study | **flashcard** (question = block text; answer = child blocks) |
 | Other | divider, web bookmark, **block embed** |
 
 Paste or type a block reference `((uuid))` to transclude that block (read-only preview; tap to open the source document). **Copy Block Ref** puts `((uuid))` on the clipboard.
 
+Hover a wiki link (~500ms) for a **preview popover** of the target note’s first blocks.
+
 Edits auto-save after ~2 seconds; a final save runs when leaving the editor.
+
+### Flashcards & spaced repetition
+
+- Convert a block to **flashcard** from the toolbar / slash menu.
+- Reveal the answer, then rate **Again / Hard / Good / Easy** (SM-2).
+- Progress is stored on the block’s `data_json` (`repetition`, `interval`, `ease-factor`, `next-review-date`) — no separate table.
+- Today shows a **due review** button with a count badge; open the deck to jump to each card’s source document.
 
 ### Wiki links, tags, backlinks
 
 - `[[Title]]` wiki links and `#tags` are indexed locally from block text.
 - Tap a link to open the target document, or create it if it does not exist.
 - Editor sidebar: **linked references** and **unlinked mentions**; promote an unlinked mention to a real `[[Title]]` link.
+- Dedicated **Tags** page: browse tags (note / mention counts), filter, open the tag page or jump to references.
+- **Graph** view: force-directed map of wiki (and optional tag) links; zoom / drag nodes; click to open or create a document; highlight orphans.
 - The link index is derived locally (not synced as operations). It is rebuilt after local saves and after pull.
 
 ### Tasks & search
 
 - **Tasks** — all open (unchecked) todo blocks across documents; check them off or jump to the source note.
-- **Search** — debounced search over document titles and block text.
+- **Search** — FTS5 full-text search over document titles and block text (`unicode61` tokenizer, bm25 ranking).
+
+### Command palette & quick entry (desktop)
+
+- **Cmd / Ctrl+K** — fuzzy search notes and blocks, or run `>` commands (`>sync`, `>new`, `>today`, `>trash`).
+- **Alt+Space** — system-tray quick entry: transparent overlay; text appends as a new paragraph on **Today’s** note; Enter saves, Esc cancels. Closing the main window hides to the tray (Open / Quit from the tray menu). See [macOS native patches](#macos-native-patches-swift--re-apply-after-flutter-create--fresh-platform-dirs) after regenerating `macos/`.
 
 ### Images, attachments, export, backup
 
@@ -86,30 +105,47 @@ After sync, the app shows a **SnackBar** when a rename happened (e.g. `Title con
 
 ### Input & UI
 
-- Traditional Mongolian **vertical layout** (`mongol`) and **OyunQaganTig** font.
-- **Mobile**: in-app Mongolian virtual keyboard.
-- **Desktop**: global Mongolian IME overlay.
-- Light parchment theme with sky-blue accents. Desktop uses a left rail; mobile uses a bottom bar (Today / Docs / Tasks / Search / Settings).
+- Traditional Mongolian **vertical layout** (`mongol`) and **OyunQaganTig** font (additional fonts may ship under `assets/`).
+- **Mobile**: in-app Mongolian virtual keyboard; **drawer** for Today / Documents / Tasks / Graph / Tags; Search in the AppBar; Trash and Settings as named routes.
+- **Desktop**: global Mongolian IME overlay; left rail — Today → Documents → Tasks → Graph → Tags → Search → Trash → Settings; command palette and tray quick entry as above.
+- Light parchment theme with sky-blue accents.
 
 ## Tech stack
 
 - **Flutter**: cross-platform UI
 - **ClojureDart (cljd)**: `.cljd` sources compiled to Dart
-- **Drift + SQLite**: local persistence
+- **Drift + SQLite**: local persistence (FTS5 search index)
 - **Mongolian**: `mongol`, bundled fonts + FST / IME assets
 
-Local sibling repos (see `deps.edn`): `mgl-components`, `mongol-virtual-keyboard`, `mongol-ime`, `mgl-ime-core`, `mgl-block-editor`, `mgl-richtext-editor`.
+Local sibling packages (see `deps.edn`; keep them next to this repo):
+
+| Package | Local path |
+| --- | --- |
+| `mgl-components` | `../mgl-components` |
+| `mongol-virtual-keyboard` | `../monol-virtual-keyboard` |
+| `mongol-ime` | `../mongol-ime` |
+| `mgl-ime-core` | `../mgl-ime-core` |
+| `mgl-block-editor` | `../mgl-block-editor` |
+| `mgl-richtext-editor` | `../mgl-richtext-editor` |
 
 ## Repository layout (high level)
 
-- `src/notes_app/`: ClojureDart sources  
+- `src/notes_app/` — ClojureDart sources  
   - entry: `notes-app.main` (`src/notes_app/main.cljd`)
-  - `pages/`: Today, documents, editor, tasks, search, trash, settings, desktop/mobile shells
-  - `services/`: documents, blocks, links, daily notes, sync, auth, assets, backup, export
-- `lib/`: Dart / Flutter interop (Drift database)
+  - `bootstrap/` — desktop & mobile boot
+  - `desktop/` — shell, pages, widgets (side nav, command palette, keyboard)
+  - `mobile/` — nav, pages, widgets (drawer)
+  - `editor/` — editor view, bridge, link preview popover
+  - `plugins/` — image, attachment, flashcard block plugins
+  - `shared/` — Today, documents, graph, tags, tasks, search, trash, …
+  - `services/` — documents, blocks, links, daily notes, sync, auth, assets, backup, export, SM-2
+  - `db/` — Drift query helpers (including FTS and due flashcards)
+  - `state/` — app UI store
+- `lib/` — Dart / Flutter interop (Drift database)
   - `lib/database.dart`: tables + migrations
   - `lib/database.g.dart`: generated by Drift (do not edit)
-- `assets/`: fonts, IME data, and the app icon (`assets/icon/`)
+- `assets/` — fonts, IME data, tray icons, app icon (`assets/icon/`)
+- `tool/` — icon rendering scripts
 
 ## Prerequisites
 
@@ -284,11 +320,14 @@ dart run flutter_launcher_icons
 
 ## Database notes
 
-Tables: `documents`, `blocks`, `operations`, `assets`, `block_links`.
+Drift tables: `documents`, `blocks`, `operations`, `assets`, `block_links`.
 
+- **Schema version**: `4` (`lib/database.dart`).
+- **FTS5** virtual table `search_index` (`tokenize61`), kept in sync with documents/blocks via triggers; search uses `MATCH` + bm25.
+- Flashcard SM-2 state lives in **`blocks.data_json`**, not a separate table.
 - **Native (Android/iOS/macOS/Windows/Linux)**: SQLite file is created in the app documents directory as `mgl_notes.db` (see `lib/connection/native.dart`).
 - **Web**: uses Drift WASM (`sqlite3.wasm` + `drift_worker.js`, see `lib/connection/web.dart`).
-- **Schema & migrations**: `schemaVersion` is defined in `lib/database.dart` along with the migration strategy.
+- **Schema & migrations**: `schemaVersion` and the migration strategy are defined in `lib/database.dart`.
 
 ## License
 
