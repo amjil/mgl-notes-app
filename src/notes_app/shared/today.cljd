@@ -3,10 +3,12 @@
   (:require ["package:flutter/material.dart" :as m]
             ["package:mongol/mongol.dart" :as mgl]
             ["dart:core" :as dc]
+            [clojure.string :as str]
             [cljd.flutter :as f]
             [notes-app.db.core :as db]
             [notes-app.services.daily :as daily]
             [notes-app.editor.view :as editor]
+            [notes-app.state.store :as store]
             [notes-app.theme :as t]
             [notes-app.ui :as ui]))
 
@@ -106,6 +108,71 @@
                                                (reset! !current-date dt)
                                                (load-date! dt)))))
                      week))))))])))))
+
+(defn review-deck-btn
+  "App-bar button with due-count badge. Opens a menu of due flashcards."
+  []
+  (f/widget
+   :watch [due-cards (stream (map #(or % [])) :as-values (db/watch-due-flashcards))]
+   (let [n (count due-cards)
+         due? (pos? n)]
+     (m/PopupMenuButton
+      .tooltip (if due? (str n " due") "No flashcards due")
+      ;; Keep clickable so empty state is explainable (not a dead grey control).
+      .enabled true
+      .offset (m/Offset 0.0 8.0)
+      .shape (m/RoundedRectangleBorder
+              .borderRadius (m.BorderRadius/circular 12.0))
+      .onSelected (fn [card]
+                    (when (and card (map? card))
+                      (store/open-document! (:document-id card) (:id card) true)))
+      .itemBuilder
+      (fn [_]
+        (if due?
+          (mapv
+           (fn [card]
+             (let [{:keys [text document-title]} card
+                   q (if (str/blank? text) "..." text)
+                   title (if (str/blank? document-title) "Untitled" document-title)]
+               (m/PopupMenuItem
+                .value card
+                .padding (m.EdgeInsets/symmetric .horizontal 12.0 .vertical 8.0)
+                .child
+                (m/SizedBox
+                 .height 100.0
+                 .child
+                 (m/Row
+                  .mainAxisSize m.MainAxisSize/min
+                  .crossAxisAlignment m.CrossAxisAlignment/start
+                  .children
+                  [(m/Icon m.Icons/help_outline .size 16.0 .color t/warning)
+                   (m/SizedBox .width 10.0)
+                   (mgl/MongolText q
+                                   .style (t/mongol-style :size 14.0
+                                                          :weight m.FontWeight/w600))
+                   (m/SizedBox .width 10.0)
+                   (mgl/MongolText title
+                                   .style (t/mongol-style :size 11.0
+                                                          :color t/ink-faint))])))))
+           due-cards)
+          [(m/PopupMenuItem
+            .enabled false
+            .child
+            (m/Text "No flashcards due"
+                    .style (t/mongol-style :size 13.0 :color t/ink-faint)))]))
+      .child
+      (m/Badge
+       .isLabelVisible due?
+       .label (m/Text (str n)
+                      .style (m/TextStyle .fontSize 10.0 .color m.Colors/white
+                                          .fontWeight m.FontWeight/bold))
+       .backgroundColor t/warning
+       .child
+       (m/Padding
+        .padding (m.EdgeInsets/all 8.0)
+        .child
+        (m/Icon m.Icons/psychology
+                .color (if due? t/warning t/ink-faint))))))))
 
 (defn editor-pane
   [doc-id & {:keys [show-backlinks? !read-only?] :or {show-backlinks? true}}]

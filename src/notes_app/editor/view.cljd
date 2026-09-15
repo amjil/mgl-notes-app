@@ -20,6 +20,9 @@
             [notes-app.services.link :as link]
             [notes-app.plugins.image :as img-plugin]
             [notes-app.plugins.attachment :as attach-plugin]
+            [notes-app.plugins.flashcard :as flashcard-plugin]
+            [notes-app.services.sm2 :as sm2]
+            [block-editor.commands.ops :as ops]
             [notes-app.editor.preview-popover :as popover]
             [block-editor.utils.highlighter :as highlighter]
             [notes-app.platform :as platform]
@@ -90,6 +93,7 @@
   {:block-plugins
    [(img-plugin/image-plugin)
     (attach-plugin/attachment-plugin)
+    (flashcard-plugin/flashcard-plugin)
     {:type :embed
      :render (fn [block-id !state _idx _cfg]
                (let [block (get-in @!state [:blocks block-id])
@@ -99,7 +103,7 @@
                     (let [target-id (get-in block [:data :target-id])]
                       (embed-widget target-id (:id block) !state)))}]
    :text-block-types #{:paragraph :heading-1 :heading-2 :heading-3
-                       :blockquote :list-item :ordered-list-item :task :callout :toggle}
+                       :blockquote :list-item :ordered-list-item :task :callout :toggle :flashcard}
    :on-link-tap link/handle-link-tap!
    :on-link-hover (fn [title ^m/Offset pos is-hovering?]
                     (if is-hovering?
@@ -120,6 +124,16 @@
     {:label "Numbered List" :icon m.Icons/format_list_numbered :type :ordered-list-item}
     {:label "Quote" :icon m.Icons/format_quote :type :blockquote}
     {:label "Callout" :icon m.Icons/lightbulb_outline :type :callout}
+    {:label "Flashcard" :icon m.Icons/quiz
+     :type :flashcard
+     :keywords ["flashcard" "card" "quiz"]
+     :handler (fn [!state block-id]
+                (ops/convert-block! !state block-id :flashcard)
+                (swap! !state update-in [:blocks block-id]
+                       (fn [b]
+                         (assoc b
+                                :collapsed? true
+                                :data (merge sm2/default-state (:data b {}))))))}
     {:label "Divider" :icon m.Icons/horizontal_rule :type :divider}
     {:label "Image" :icon m.Icons/image
      :action :insert-image
@@ -305,7 +319,12 @@
                (-> (db/get-blocks document-id)
                    (.then (fn [block-rows]
                             (let [rows (or block-rows [])
-                                  initial (bridge/rows->editor-state rows)]
+                                  initial (bridge/rows->editor-state rows)
+                                  prev @(:!state session)
+                                  ;; Keep host/editor wiring that reset! would wipe.
+                                  initial (cond-> initial
+                                            (:editor-config prev)
+                                            (assoc :editor-config (:editor-config prev)))]
                               (reset! (:!state session) initial)
                               (reset! (:!snapshot session)
                                       (bridge/snapshot-from-state initial))

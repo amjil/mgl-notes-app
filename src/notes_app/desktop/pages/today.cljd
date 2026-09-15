@@ -24,7 +24,8 @@
     (ui/page-app-bar
      :title (daily/date->title current-date)
      :actions
-     [(ui/action-btn m.Icons/chevron_left "Previous day"
+     [(today/review-deck-btn)
+      (ui/action-btn m.Icons/chevron_left "Previous day"
                      (fn []
                        (let [prev-day (.subtract current-date (dc/Duration. .days 1))]
                          (reset! !current-date prev-day)

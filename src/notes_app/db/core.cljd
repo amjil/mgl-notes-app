@@ -396,3 +396,61 @@
                                 (when-not (str/blank? txt) txt))
                              rows)))))
     (async/Future.value [])))
+
+;; ---------------------------------------------------------------------------
+;; Spaced Repetition (SM-2) Stream
+;; ---------------------------------------------------------------------------
+
+(defn- flashcard-next-review-ms
+  "Read next-review-date from data_json. Bridge stores SM-2 under :data;
+   blank / missing → 0 (due immediately)."
+  [json-str]
+  (if (or (nil? json-str) (and (string? json-str) (str/blank? json-str)))
+    0
+    (try
+      (let [parsed (or (decode-json (str json-str)) {})
+            sm2 (or (:data parsed) parsed)
+            v (:next-review-date sm2 0)]
+        (cond
+          (nil? v) 0
+          (number? v) (long v)
+          (string? v) (try (long (dc/double.parse v)) (catch Exception _ 0))
+          :else 0))
+      (catch Exception _ 0))))
+
+(defn- row-get
+  "Drift customSelect QueryRow keys may be snake_case or as-aliased."
+  [data & ks]
+  (some (fn [k] (get data k)) ks))
+
+(defn watch-due-flashcards
+  "Realtime stream of flashcards whose next-review-date <= now.
+   Each item: {:id :text :document-id :document-title}."
+  []
+  (if-let [^drift/AppDatabase database @db]
+    (stream-handle-error
+     (.map (.watch (.customSelect database
+                                  (str "SELECT b.id AS id, b.text AS text, "
+                                       "b.data_json AS data_json, "
+                                       "b.document_id AS document_id, "
+                                       "d.title AS doc_title "
+                                       "FROM blocks b "
+                                       "INNER JOIN documents d ON b.document_id = d.id "
+                                       "WHERE b.type = 'flashcard' "
+                                       "AND b.deleted_at IS NULL AND d.deleted_at IS NULL")
+                                  .variables []
+                                  .readsFrom #{(.-blocks database) (.-documents database)}))
+           (fn [rows]
+             (let [now (.-millisecondsSinceEpoch (dc/DateTime.now))]
+               (->> rows
+                    (keep (fn [row]
+                            (let [data (.-data row)
+                                  next-date (flashcard-next-review-ms
+                                             (row-get data "data_json" "dataJson"))]
+                              (when (<= next-date now)
+                                {:id (row-get data "id")
+                                 :text (or (row-get data "text" "textContent") "")
+                                 :document-id (row-get data "document_id" "documentId")
+                                 :document-title (or (row-get data "doc_title" "docTitle") "")}))))
+                    vec)))))
+    (async/Stream.empty)))

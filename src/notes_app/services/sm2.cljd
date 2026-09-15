@@ -1,0 +1,89 @@
+(ns notes-app.services.sm2
+  "SM-2 Spaced Repetition Algorithm Engine.
+   Persistence: only memory metadata lives in block :data / data_json.
+   Question = block :content; answer = nested :children.
+
+   Learning-friendly first steps (Anki-like):
+   - Again (q<3): due again in 10 minutes
+   - Hard  (q=3): due again in 1 hour on early reviews, else 1 day
+   - Good / Easy: classic SM-2 day intervals"
+  (:require ["dart:core" :as dc]))
+
+(def default-state
+  "Fresh card: due immediately (next-review-date 0)."
+  {:repetition 0
+   :interval 0
+   :ease-factor 2.5
+   :next-review-date 0})
+
+(def sm2-keys [:repetition :interval :ease-factor :next-review-date])
+
+(defn- days-to-ms [days]
+  (* (long days) 24 60 60 1000))
+
+(defn- minutes-to-ms [minutes]
+  (* (long minutes) 60 1000))
+
+(defn- coerce-ms
+  "Tolerate Dart int/double/string timestamps from JSON."
+  [v]
+  (cond
+    (nil? v) 0
+    (number? v) (long v)
+    (string? v) (try (long (dc/double.parse v)) (catch Exception _ 0))
+    :else 0))
+
+(defn extract-state
+  "Pull SM-2 fields from a block :data map (or nil)."
+  [data]
+  (let [raw (select-keys (or data {}) sm2-keys)]
+    (merge default-state
+           raw
+           (when (contains? raw :next-review-date)
+             {:next-review-date (coerce-ms (:next-review-date raw))}))))
+
+(defn due?
+  "True when next-review-date is missing/0 or <= now."
+  ([state] (due? state (.-millisecondsSinceEpoch (dc/DateTime.now))))
+  ([state now-ms]
+   (<= (coerce-ms (:next-review-date state 0)) (long now-ms))))
+
+(defn review-card
+  "Compute next review state. quality: 0 (forgot) … 5 (perfect)."
+  [{:keys [repetition interval ease-factor] :as state} quality]
+  (let [q (double quality)
+        rep0 (long (or repetition 0))
+        ;; Ease factor; floor at 1.3
+        ef (max 1.3 (+ (double (or ease-factor 2.5))
+                       (- 0.1 (* (- 5.0 q) (+ 0.08 (* (- 5.0 q) 0.02))))))
+        now (.-millisecondsSinceEpoch (dc/DateTime.now))]
+    (cond
+      ;; Again — reset streak, show again soon (same study session)
+      (< q 3.0)
+      {:repetition 0
+       :interval 0
+       :ease-factor ef
+       :next-review-date (+ now (minutes-to-ms 10))}
+
+      ;; Hard — pass with difficulty; keep early cards in today's queue
+      (< q 4.0)
+      (let [rep (inc rep0)]
+        {:repetition rep
+         :interval (max 1 (long (or interval 1)))
+         :ease-factor ef
+         :next-review-date (if (< rep0 2)
+                             (+ now (minutes-to-ms 60))
+                             (+ now (days-to-ms 1)))})
+
+      ;; Good / Easy — classic SM-2 day ladder
+      :else
+      (let [rep (inc rep0)
+            inv (cond
+                  (= q 5.0) (if (= rep 1) 4 (max 4 (.round (* (double (or interval 1)) ef))))
+                  (= rep 1) 1
+                  (= rep 2) 6
+                  :else (.round (* (double (or interval 1)) ef)))]
+        {:repetition rep
+         :interval inv
+         :ease-factor ef
+         :next-review-date (+ now (days-to-ms inv))}))))

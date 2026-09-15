@@ -1,0 +1,178 @@
+(ns notes-app.plugins.flashcard
+  "Flashcard block — Modern UI with smooth transitions and pill buttons.
+   TB-LR layout: question column on the left, vertical control panel on the right."
+  (:require ["package:flutter/material.dart" :as m]
+            ["package:mongol/mongol.dart" :as mgl]
+            ["dart:core" :as dc]
+            [cljd.flutter :as f]
+            [block-editor.widgets.reader :as reader]
+            [block-editor.utils.inline :as inline]
+            [block-editor.utils.history :as history]
+            [rich-editor.commands.transaction :as tx]
+            [notes-app.services.sm2 :as sm2]
+            [notes-app.theme :as t]))
+
+(defn- set-collapsed! [!state id collapsed?]
+  (swap! !state assoc-in [:blocks id :collapsed?] (boolean collapsed?))
+  nil)
+
+(defn- apply-review! [!state id block quality]
+  (let [prev (sm2/extract-state (:data block))
+        next (sm2/review-card prev quality)]
+    (history/record-snapshot! !state)
+    (tx/commit-transaction!
+     !state
+     (tx/make-transaction
+      :ops [(tx/update-data-op id next)]
+      :after-selection nil))
+    (set-collapsed! !state id true)
+    nil))
+
+;; Icon + Mongolian-label pill button
+(defn- rate-btn [label icon color on-tap]
+  (m/InkWell
+   .onTap on-tap
+   .borderRadius (m.BorderRadius/circular 12.0)
+   .child
+   (m/Container
+    .padding (m.EdgeInsets/symmetric .vertical 12.0 .horizontal 8.0)
+    .decoration (m/BoxDecoration
+                 .color (t/fade color 0.1)
+                 .borderRadius (m.BorderRadius/circular 12.0))
+    .child
+    (m/Column
+     .mainAxisSize m.MainAxisSize/min
+     .crossAxisAlignment m.CrossAxisAlignment/center
+     .children
+     [(m/Icon icon .color color .size 20.0)
+      (m/SizedBox .height 8.0)
+      (mgl/MongolText label
+                      .style (t/mongol-style :size 14.0
+                                             :weight m.FontWeight/w600
+                                             :color color))]))))
+
+(defn- eye-btn
+  "Reveal-answer control — sits above the question column."
+  [!state id has-children?]
+  (m/InkWell
+   .onTap #(when has-children? (set-collapsed! !state id false))
+   .borderRadius (m.BorderRadius/circular 12.0)
+   .child
+   (m/Container
+    .padding (m.EdgeInsets/all 10.0)
+    .decoration (m/BoxDecoration
+                 .color (if has-children? (t/fade t/primary 0.08) (t/fade t/ink 0.04))
+                 .borderRadius (m.BorderRadius/circular 12.0)
+                 .border (m/Border.all .color (if has-children? (t/fade t/primary 0.2) m.Colors/transparent) .width 1.0))
+    .child
+    (m/Icon (if has-children? m.Icons/visibility m.Icons/visibility_off)
+            .color (if has-children? t/primary t/ink-faint)
+            .size 22.0))))
+
+(defn- rating-column
+  "Open-state SM-2 rail: close on top, then rating pills top→bottom."
+  [!state id block]
+  (m/Column
+   .mainAxisSize m.MainAxisSize/min
+   .crossAxisAlignment m.CrossAxisAlignment/center
+   .children
+   [(m/IconButton
+     .icon (m/Icon m.Icons/close .color t/ink-faint .size 20.0)
+     .tooltip "ᠬᠠᠷᠢᠭᠤ ᠶᠢ ᠨᠢᠭᠤᠬᠤ" ;; Hide answer
+     .onPressed #(set-collapsed! !state id true))
+    (m/SizedBox .height 8.0)
+    ;; Again
+    (rate-btn "ᠳᠠᠬᠢᠨ" m.Icons/refresh t/danger #(apply-review! !state id block 1))
+    (m/SizedBox .height 8.0)
+    ;; Hard
+    (rate-btn "ᠬᠡᠴᠡᠭᠦ" m.Icons/fitness_center t/warning #(apply-review! !state id block 3))
+    (m/SizedBox .height 8.0)
+    ;; Good
+    (rate-btn "ᠰᠠᠶᠢᠨ" m.Icons/thumb_up_outlined t/success #(apply-review! !state id block 4))
+    (m/SizedBox .height 8.0)
+    ;; Easy
+    (rate-btn "ᠬᠢᠯᠪᠠᠷ" m.Icons/celebration t/primary #(apply-review! !state id block 5))]))
+
+;; Main chrome: eye above question; rating rail on the right when open
+(defn- flashcard-chrome
+  "Question column with eye on top; rating rail slides in on the right when open."
+  [!state id block body]
+  (let [collapsed? (boolean (get block :collapsed? true))
+        has-children? (boolean (seq (:children block [])))
+        question-col
+        (m/Padding
+         .padding (m.EdgeInsets/all 16.0)
+         .child
+         (m/Column
+          .mainAxisSize m.MainAxisSize/min
+          .crossAxisAlignment m.CrossAxisAlignment/start
+          .children
+          [(if collapsed?
+             (m/Padding
+              .padding (m.EdgeInsets/only .bottom 10.0)
+              .child (eye-btn !state id has-children?))
+             (m/SizedBox.shrink))
+           body]))]
+    (m/Container
+     .margin (m.EdgeInsets/only .bottom 16.0 .right 8.0)
+     .decoration (m/BoxDecoration
+                  .color t/surface
+                  .borderRadius (m.BorderRadius/circular 16.0)
+                  .border (m/Border.all .color (t/fade t/primary 0.12) .width 1.0)
+                  .boxShadow [(m/BoxShadow
+                               .color (t/fade t/primary 0.05)
+                               .blurRadius 16.0
+                               .offset (m/Offset 4.0 4.0))])
+     .child
+     (m/Row
+      .mainAxisSize m.MainAxisSize/min
+      .crossAxisAlignment m.CrossAxisAlignment/start
+      .children
+      [question-col
+       ;; Rating rail — AnimatedCrossFade keeps open/close soft
+       (m/AnimatedCrossFade
+        .duration (dc/Duration. .milliseconds 250)
+        .crossFadeState (if collapsed?
+                          m.CrossFadeState/showFirst
+                          m.CrossFadeState/showSecond)
+        .alignment m.Alignment/topCenter
+        .firstChild (m/SizedBox.shrink)
+        .secondChild
+        (m/Container
+         .decoration (m/BoxDecoration
+                      .color (t/fade t/surface-2 0.4)
+                      .borderRadius (m.BorderRadius/only
+                                     .topRight (m.Radius/circular 15.0)
+                                     .bottomRight (m.Radius/circular 15.0)))
+         .padding (m.EdgeInsets/all 12.0)
+         .child (rating-column !state id block)))]))))
+
+(defn- wrap-flashcard
+  [text-widget id !state _root-index block _style _cfg]
+  (f/widget
+   :watch [_! (f/$ (select-keys (get-in (f/<! !state) [:blocks id] {})
+                                [:collapsed? :data :children]))]
+   (let [live (get-in @!state [:blocks id] block)]
+     (flashcard-chrome !state id live text-widget))))
+
+(defn- render-flashcard-read
+  [block base-style on-link-tap !state]
+  (let [clean (inline/strip-properties (or (:content block) ""))
+        body (reader/wiki-mongol-text clean (:content-spans block [])
+                                      (or base-style
+                                          (t/mongol-style :size 16.0
+                                                          :weight m.FontWeight/bold))
+                                      on-link-tap)]
+    (f/widget
+     :watch [_! (f/$ (select-keys (get-in (f/<! !state) [:blocks (:id block)] {})
+                                  [:collapsed? :data :children]))]
+     (let [live (get-in @!state [:blocks (:id block)] block)]
+       (flashcard-chrome !state (:id block) live body)))))
+
+(defn flashcard-plugin
+  "App-level flashcard with modern SM-2 rating controls (vertical Mongolian UI)."
+  []
+  {:type :flashcard
+   :text-block-type? true
+   :text-block-wrapper wrap-flashcard
+   :render-read render-flashcard-read})

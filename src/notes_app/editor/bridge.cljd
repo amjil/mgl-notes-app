@@ -68,6 +68,10 @@
                           base)
                    base (if-let [spans (:content-spans extra)]
                           (assoc base :content-spans spans)
+                          base)
+                   ;; Flashcards always start with the answer folded.
+                   base (if (= ed-type :flashcard)
+                          (assoc base :collapsed? true)
                           base)]
                (assoc acc id base)))
            {}
