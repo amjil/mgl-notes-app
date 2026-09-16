@@ -27,7 +27,6 @@
             [block-editor.commands.ops :as ops]
             [notes-app.editor.preview-popover :as popover]
             [block-editor.utils.highlighter :as highlighter]
-            [notes-app.platform :as platform]
             [notes-app.state.store :as store]
             [notes-app.theme :as t]
             [notes-app.ui :as ui]))
@@ -462,9 +461,9 @@
                              !title
                              (when allow-rename?
                                #(show-rename! ctx document-id !title)))
-            ;; Mobile pages already mount a full-width keyboard via `kw/wrap`.
-            ;; Leaving wrap-ime? true stacks a second virtual keyboard.
-            :wrap-ime? (not (platform/mobile?)))]
+            ;; Both desktop shell and mobile editor page provide input chrome.
+            ;; Letting the editor wrap itself renders a second candidate panel.
+            :wrap-ime? false)]
 
        (f/widget
         :watch [current-state !state

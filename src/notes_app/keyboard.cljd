@@ -10,3 +10,11 @@
   (if (platform/mobile?)
     (mob/wrap main-content)
     (desk/wrap main-content)))
+
+(defn wrap-mobile
+  "Add the mobile virtual keyboard only.
+   Desktop pages already inherit the shell's global IME overlay."
+  [main-content]
+  (if (platform/mobile?)
+    (mob/wrap main-content)
+    main-content))

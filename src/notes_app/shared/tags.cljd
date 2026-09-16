@@ -168,7 +168,7 @@
                  (m/KeyedSubtree
                   .key (m/ValueKey (:block-id row))
                   .child (ref-card row))))))))])
-     (kw/wrap
+     (kw/wrap-mobile
       (m/Row
        .crossAxisAlignment m.CrossAxisAlignment/stretch
        .children

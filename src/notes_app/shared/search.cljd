@@ -45,7 +45,7 @@
      :watch [query !query
              results !results
              search-state !search-state]
-     (kw/wrap
+     (kw/wrap-mobile
       (m/Row
        .children
        [(ui/field-shell

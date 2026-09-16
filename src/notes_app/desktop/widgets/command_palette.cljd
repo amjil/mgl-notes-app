@@ -196,7 +196,7 @@
          (m/Material
           .color m.Colors/transparent
           .child
-          (kw/wrap
+          (kw/wrap-mobile
            (m/Container
             .width 760.0
             .height 480.0
