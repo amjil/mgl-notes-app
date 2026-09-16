@@ -1,32 +1,23 @@
 (ns notes-app.services.publication
   (:require ["dart:async" :as async]
-            ["package:drift/drift.dart" :as d]
             [notes-app.db.core :as db]))
 
 (def provider "nomio")
 
 (defn get-for-document [document-id]
   (if-let [database (db/get-database)]
-    (-> (.get
-         (.customSelect
-          database
-          (str "SELECT id, document_id, provider, remote_id, status, "
-               "published_at, last_synced_at, last_error "
-               "FROM publications WHERE document_id = ? AND provider = ? LIMIT 1")
-          .variables [(d/Variable. document-id) (d/Variable. provider)]
-          .readsFrom #{(.-publications database)}))
+    (-> (.getPublicationForDocument database document-id provider)
         (.then
-         (fn [rows]
-           (when-let [row (first rows)]
-             (let [data (.-data row)]
-               {:id (get data "id")
-                :document-id (get data "document_id")
-                :provider (get data "provider")
-                :remote-id (get data "remote_id")
-                :status (keyword (or (get data "status") "publishing"))
-                :published-at (get data "published_at")
-                :last-synced-at (get data "last_synced_at")
-                :last-error (get data "last_error")})))))
+         (fn [row]
+           (when row
+             {:id (.-id row)
+              :document-id (.-documentId row)
+              :provider (.-provider row)
+              :remote-id (.-remoteId row)
+              :status (keyword (or (.-status row) "publishing"))
+              :published-at (.-publishedAt row)
+              :last-synced-at (.-lastSyncedAt row)
+              :last-error (.-lastError row)}))))
     (async/Future.value nil)))
 
 (defn save!

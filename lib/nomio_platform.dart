@@ -6,6 +6,7 @@ import 'package:app_links/app_links.dart';
 import 'package:crypto/crypto.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 import 'nomio_noop_url.dart'
@@ -17,6 +18,8 @@ class NomioPlatform {
 
   static final AppLinks _appLinks = AppLinks();
   static const FlutterSecureStorage _storage = FlutterSecureStorage();
+  static const MacOsOptions _macOsOptions =
+      MacOsOptions(usesDataProtectionKeychain: false);
   static const WebOptions _webOptions =
       WebOptions(useSessionStorage: true, publicKey: 'NomioSession');
   static final StreamController<String> _links =
@@ -57,16 +60,43 @@ class NomioPlatform {
     );
   }
 
-  static Future<String?> readSecret(String key) {
-    return _storage.read(key: key, webOptions: _webOptions);
+  static Future<String?> readSecret(String key) async {
+    if (kDebugMode) {
+      final preferences = await SharedPreferences.getInstance();
+      return preferences.getString(key);
+    }
+    return await _storage.read(
+      key: key,
+      webOptions: _webOptions,
+      mOptions: _macOsOptions,
+    );
   }
 
-  static Future<void> writeSecret(String key, String value) {
-    return _storage.write(key: key, value: value, webOptions: _webOptions);
+  static Future<void> writeSecret(String key, String value) async {
+    if (kDebugMode) {
+      final preferences = await SharedPreferences.getInstance();
+      await preferences.setString(key, value);
+      return;
+    }
+    await _storage.write(
+      key: key,
+      value: value,
+      webOptions: _webOptions,
+      mOptions: _macOsOptions,
+    );
   }
 
-  static Future<void> deleteSecret(String key) {
-    return _storage.delete(key: key, webOptions: _webOptions);
+  static Future<void> deleteSecret(String key) async {
+    if (kDebugMode) {
+      final preferences = await SharedPreferences.getInstance();
+      await preferences.remove(key);
+      return;
+    }
+    await _storage.delete(
+      key: key,
+      webOptions: _webOptions,
+      mOptions: _macOsOptions,
+    );
   }
 
   static String randomBase64Url(int byteCount) {

@@ -253,6 +253,19 @@ class AppDatabase extends _$AppDatabase {
     return query.watch();
   }
 
+  Future<Publication?> getPublicationForDocument(
+    String documentId,
+    String provider,
+  ) {
+    final query = select(publications)
+      ..where(
+        (t) =>
+            t.documentId.equals(documentId) & t.provider.equals(provider),
+      )
+      ..limit(1);
+    return query.getSingleOrNull();
+  }
+
   Stream<List<TaskWithDocument>> watchUncompletedTasks() {
     final query = select(blocks).join([
       innerJoin(documents, documents.id.equalsExp(blocks.documentId)),

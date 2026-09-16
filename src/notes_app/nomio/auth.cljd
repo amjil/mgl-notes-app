@@ -27,7 +27,7 @@
             (.-keys value))
     (dart/is? value dart:core/List)
     (mapv mapish value)
-    :else {}))
+    :else value))
 
 (defn- decode [resp]
   (try
