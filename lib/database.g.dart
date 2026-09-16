@@ -1456,7 +1456,7 @@ class $BlockLinksTable extends BlockLinks
       'link_type', aliasedName, false,
       type: DriftSqlType.string,
       requiredDuringInsert: false,
-      defaultValue: const Constant('ref'));
+      defaultValue: const Constant('wiki'));
   @override
   List<GeneratedColumn> get $columns => [sourceId, targetId, linkType];
   @override
@@ -2134,6 +2134,454 @@ class AssetsCompanion extends UpdateCompanion<Asset> {
   }
 }
 
+class $PublicationsTable extends Publications
+    with TableInfo<$PublicationsTable, Publication> {
+  @override
+  final GeneratedDatabase attachedDatabase;
+  final String? _alias;
+  $PublicationsTable(this.attachedDatabase, [this._alias]);
+  static const VerificationMeta _idMeta = const VerificationMeta('id');
+  @override
+  late final GeneratedColumn<String> id = GeneratedColumn<String>(
+      'id', aliasedName, false,
+      type: DriftSqlType.string, requiredDuringInsert: true);
+  static const VerificationMeta _documentIdMeta =
+      const VerificationMeta('documentId');
+  @override
+  late final GeneratedColumn<String> documentId = GeneratedColumn<String>(
+      'document_id', aliasedName, false,
+      type: DriftSqlType.string,
+      requiredDuringInsert: true,
+      defaultConstraints: GeneratedColumn.constraintIsAlways(
+          'REFERENCES documents (id) ON DELETE CASCADE'));
+  static const VerificationMeta _providerMeta =
+      const VerificationMeta('provider');
+  @override
+  late final GeneratedColumn<String> provider = GeneratedColumn<String>(
+      'provider', aliasedName, false,
+      type: DriftSqlType.string,
+      requiredDuringInsert: false,
+      defaultValue: const Constant('nomio'));
+  static const VerificationMeta _remoteIdMeta =
+      const VerificationMeta('remoteId');
+  @override
+  late final GeneratedColumn<String> remoteId = GeneratedColumn<String>(
+      'remote_id', aliasedName, true,
+      type: DriftSqlType.string, requiredDuringInsert: false);
+  static const VerificationMeta _statusMeta = const VerificationMeta('status');
+  @override
+  late final GeneratedColumn<String> status = GeneratedColumn<String>(
+      'status', aliasedName, false,
+      type: DriftSqlType.string,
+      requiredDuringInsert: false,
+      defaultValue: const Constant('publishing'));
+  static const VerificationMeta _publishedAtMeta =
+      const VerificationMeta('publishedAt');
+  @override
+  late final GeneratedColumn<DateTime> publishedAt = GeneratedColumn<DateTime>(
+      'published_at', aliasedName, true,
+      type: DriftSqlType.dateTime, requiredDuringInsert: false);
+  static const VerificationMeta _lastSyncedAtMeta =
+      const VerificationMeta('lastSyncedAt');
+  @override
+  late final GeneratedColumn<DateTime> lastSyncedAt = GeneratedColumn<DateTime>(
+      'last_synced_at', aliasedName, true,
+      type: DriftSqlType.dateTime, requiredDuringInsert: false);
+  static const VerificationMeta _lastErrorMeta =
+      const VerificationMeta('lastError');
+  @override
+  late final GeneratedColumn<String> lastError = GeneratedColumn<String>(
+      'last_error', aliasedName, true,
+      type: DriftSqlType.string, requiredDuringInsert: false);
+  @override
+  List<GeneratedColumn> get $columns => [
+        id,
+        documentId,
+        provider,
+        remoteId,
+        status,
+        publishedAt,
+        lastSyncedAt,
+        lastError
+      ];
+  @override
+  String get aliasedName => _alias ?? actualTableName;
+  @override
+  String get actualTableName => $name;
+  static const String $name = 'publications';
+  @override
+  VerificationContext validateIntegrity(Insertable<Publication> instance,
+      {bool isInserting = false}) {
+    final context = VerificationContext();
+    final data = instance.toColumns(true);
+    if (data.containsKey('id')) {
+      context.handle(_idMeta, id.isAcceptableOrUnknown(data['id']!, _idMeta));
+    } else if (isInserting) {
+      context.missing(_idMeta);
+    }
+    if (data.containsKey('document_id')) {
+      context.handle(
+          _documentIdMeta,
+          documentId.isAcceptableOrUnknown(
+              data['document_id']!, _documentIdMeta));
+    } else if (isInserting) {
+      context.missing(_documentIdMeta);
+    }
+    if (data.containsKey('provider')) {
+      context.handle(_providerMeta,
+          provider.isAcceptableOrUnknown(data['provider']!, _providerMeta));
+    }
+    if (data.containsKey('remote_id')) {
+      context.handle(_remoteIdMeta,
+          remoteId.isAcceptableOrUnknown(data['remote_id']!, _remoteIdMeta));
+    }
+    if (data.containsKey('status')) {
+      context.handle(_statusMeta,
+          status.isAcceptableOrUnknown(data['status']!, _statusMeta));
+    }
+    if (data.containsKey('published_at')) {
+      context.handle(
+          _publishedAtMeta,
+          publishedAt.isAcceptableOrUnknown(
+              data['published_at']!, _publishedAtMeta));
+    }
+    if (data.containsKey('last_synced_at')) {
+      context.handle(
+          _lastSyncedAtMeta,
+          lastSyncedAt.isAcceptableOrUnknown(
+              data['last_synced_at']!, _lastSyncedAtMeta));
+    }
+    if (data.containsKey('last_error')) {
+      context.handle(_lastErrorMeta,
+          lastError.isAcceptableOrUnknown(data['last_error']!, _lastErrorMeta));
+    }
+    return context;
+  }
+
+  @override
+  Set<GeneratedColumn> get $primaryKey => {id};
+  @override
+  List<Set<GeneratedColumn>> get uniqueKeys => [
+        {documentId, provider},
+      ];
+  @override
+  Publication map(Map<String, dynamic> data, {String? tablePrefix}) {
+    final effectivePrefix = tablePrefix != null ? '$tablePrefix.' : '';
+    return Publication(
+      id: attachedDatabase.typeMapping
+          .read(DriftSqlType.string, data['${effectivePrefix}id'])!,
+      documentId: attachedDatabase.typeMapping
+          .read(DriftSqlType.string, data['${effectivePrefix}document_id'])!,
+      provider: attachedDatabase.typeMapping
+          .read(DriftSqlType.string, data['${effectivePrefix}provider'])!,
+      remoteId: attachedDatabase.typeMapping
+          .read(DriftSqlType.string, data['${effectivePrefix}remote_id']),
+      status: attachedDatabase.typeMapping
+          .read(DriftSqlType.string, data['${effectivePrefix}status'])!,
+      publishedAt: attachedDatabase.typeMapping
+          .read(DriftSqlType.dateTime, data['${effectivePrefix}published_at']),
+      lastSyncedAt: attachedDatabase.typeMapping.read(
+          DriftSqlType.dateTime, data['${effectivePrefix}last_synced_at']),
+      lastError: attachedDatabase.typeMapping
+          .read(DriftSqlType.string, data['${effectivePrefix}last_error']),
+    );
+  }
+
+  @override
+  $PublicationsTable createAlias(String alias) {
+    return $PublicationsTable(attachedDatabase, alias);
+  }
+}
+
+class Publication extends DataClass implements Insertable<Publication> {
+  final String id;
+  final String documentId;
+  final String provider;
+  final String? remoteId;
+  final String status;
+  final DateTime? publishedAt;
+  final DateTime? lastSyncedAt;
+  final String? lastError;
+  const Publication(
+      {required this.id,
+      required this.documentId,
+      required this.provider,
+      this.remoteId,
+      required this.status,
+      this.publishedAt,
+      this.lastSyncedAt,
+      this.lastError});
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    map['id'] = Variable<String>(id);
+    map['document_id'] = Variable<String>(documentId);
+    map['provider'] = Variable<String>(provider);
+    if (!nullToAbsent || remoteId != null) {
+      map['remote_id'] = Variable<String>(remoteId);
+    }
+    map['status'] = Variable<String>(status);
+    if (!nullToAbsent || publishedAt != null) {
+      map['published_at'] = Variable<DateTime>(publishedAt);
+    }
+    if (!nullToAbsent || lastSyncedAt != null) {
+      map['last_synced_at'] = Variable<DateTime>(lastSyncedAt);
+    }
+    if (!nullToAbsent || lastError != null) {
+      map['last_error'] = Variable<String>(lastError);
+    }
+    return map;
+  }
+
+  PublicationsCompanion toCompanion(bool nullToAbsent) {
+    return PublicationsCompanion(
+      id: Value(id),
+      documentId: Value(documentId),
+      provider: Value(provider),
+      remoteId: remoteId == null && nullToAbsent
+          ? const Value.absent()
+          : Value(remoteId),
+      status: Value(status),
+      publishedAt: publishedAt == null && nullToAbsent
+          ? const Value.absent()
+          : Value(publishedAt),
+      lastSyncedAt: lastSyncedAt == null && nullToAbsent
+          ? const Value.absent()
+          : Value(lastSyncedAt),
+      lastError: lastError == null && nullToAbsent
+          ? const Value.absent()
+          : Value(lastError),
+    );
+  }
+
+  factory Publication.fromJson(Map<String, dynamic> json,
+      {ValueSerializer? serializer}) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return Publication(
+      id: serializer.fromJson<String>(json['id']),
+      documentId: serializer.fromJson<String>(json['documentId']),
+      provider: serializer.fromJson<String>(json['provider']),
+      remoteId: serializer.fromJson<String?>(json['remoteId']),
+      status: serializer.fromJson<String>(json['status']),
+      publishedAt: serializer.fromJson<DateTime?>(json['publishedAt']),
+      lastSyncedAt: serializer.fromJson<DateTime?>(json['lastSyncedAt']),
+      lastError: serializer.fromJson<String?>(json['lastError']),
+    );
+  }
+  @override
+  Map<String, dynamic> toJson({ValueSerializer? serializer}) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return <String, dynamic>{
+      'id': serializer.toJson<String>(id),
+      'documentId': serializer.toJson<String>(documentId),
+      'provider': serializer.toJson<String>(provider),
+      'remoteId': serializer.toJson<String?>(remoteId),
+      'status': serializer.toJson<String>(status),
+      'publishedAt': serializer.toJson<DateTime?>(publishedAt),
+      'lastSyncedAt': serializer.toJson<DateTime?>(lastSyncedAt),
+      'lastError': serializer.toJson<String?>(lastError),
+    };
+  }
+
+  Publication copyWith(
+          {String? id,
+          String? documentId,
+          String? provider,
+          Value<String?> remoteId = const Value.absent(),
+          String? status,
+          Value<DateTime?> publishedAt = const Value.absent(),
+          Value<DateTime?> lastSyncedAt = const Value.absent(),
+          Value<String?> lastError = const Value.absent()}) =>
+      Publication(
+        id: id ?? this.id,
+        documentId: documentId ?? this.documentId,
+        provider: provider ?? this.provider,
+        remoteId: remoteId.present ? remoteId.value : this.remoteId,
+        status: status ?? this.status,
+        publishedAt: publishedAt.present ? publishedAt.value : this.publishedAt,
+        lastSyncedAt:
+            lastSyncedAt.present ? lastSyncedAt.value : this.lastSyncedAt,
+        lastError: lastError.present ? lastError.value : this.lastError,
+      );
+  Publication copyWithCompanion(PublicationsCompanion data) {
+    return Publication(
+      id: data.id.present ? data.id.value : this.id,
+      documentId:
+          data.documentId.present ? data.documentId.value : this.documentId,
+      provider: data.provider.present ? data.provider.value : this.provider,
+      remoteId: data.remoteId.present ? data.remoteId.value : this.remoteId,
+      status: data.status.present ? data.status.value : this.status,
+      publishedAt:
+          data.publishedAt.present ? data.publishedAt.value : this.publishedAt,
+      lastSyncedAt: data.lastSyncedAt.present
+          ? data.lastSyncedAt.value
+          : this.lastSyncedAt,
+      lastError: data.lastError.present ? data.lastError.value : this.lastError,
+    );
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('Publication(')
+          ..write('id: $id, ')
+          ..write('documentId: $documentId, ')
+          ..write('provider: $provider, ')
+          ..write('remoteId: $remoteId, ')
+          ..write('status: $status, ')
+          ..write('publishedAt: $publishedAt, ')
+          ..write('lastSyncedAt: $lastSyncedAt, ')
+          ..write('lastError: $lastError')
+          ..write(')'))
+        .toString();
+  }
+
+  @override
+  int get hashCode => Object.hash(id, documentId, provider, remoteId, status,
+      publishedAt, lastSyncedAt, lastError);
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      (other is Publication &&
+          other.id == this.id &&
+          other.documentId == this.documentId &&
+          other.provider == this.provider &&
+          other.remoteId == this.remoteId &&
+          other.status == this.status &&
+          other.publishedAt == this.publishedAt &&
+          other.lastSyncedAt == this.lastSyncedAt &&
+          other.lastError == this.lastError);
+}
+
+class PublicationsCompanion extends UpdateCompanion<Publication> {
+  final Value<String> id;
+  final Value<String> documentId;
+  final Value<String> provider;
+  final Value<String?> remoteId;
+  final Value<String> status;
+  final Value<DateTime?> publishedAt;
+  final Value<DateTime?> lastSyncedAt;
+  final Value<String?> lastError;
+  final Value<int> rowid;
+  const PublicationsCompanion({
+    this.id = const Value.absent(),
+    this.documentId = const Value.absent(),
+    this.provider = const Value.absent(),
+    this.remoteId = const Value.absent(),
+    this.status = const Value.absent(),
+    this.publishedAt = const Value.absent(),
+    this.lastSyncedAt = const Value.absent(),
+    this.lastError = const Value.absent(),
+    this.rowid = const Value.absent(),
+  });
+  PublicationsCompanion.insert({
+    required String id,
+    required String documentId,
+    this.provider = const Value.absent(),
+    this.remoteId = const Value.absent(),
+    this.status = const Value.absent(),
+    this.publishedAt = const Value.absent(),
+    this.lastSyncedAt = const Value.absent(),
+    this.lastError = const Value.absent(),
+    this.rowid = const Value.absent(),
+  })  : id = Value(id),
+        documentId = Value(documentId);
+  static Insertable<Publication> custom({
+    Expression<String>? id,
+    Expression<String>? documentId,
+    Expression<String>? provider,
+    Expression<String>? remoteId,
+    Expression<String>? status,
+    Expression<DateTime>? publishedAt,
+    Expression<DateTime>? lastSyncedAt,
+    Expression<String>? lastError,
+    Expression<int>? rowid,
+  }) {
+    return RawValuesInsertable({
+      if (id != null) 'id': id,
+      if (documentId != null) 'document_id': documentId,
+      if (provider != null) 'provider': provider,
+      if (remoteId != null) 'remote_id': remoteId,
+      if (status != null) 'status': status,
+      if (publishedAt != null) 'published_at': publishedAt,
+      if (lastSyncedAt != null) 'last_synced_at': lastSyncedAt,
+      if (lastError != null) 'last_error': lastError,
+      if (rowid != null) 'rowid': rowid,
+    });
+  }
+
+  PublicationsCompanion copyWith(
+      {Value<String>? id,
+      Value<String>? documentId,
+      Value<String>? provider,
+      Value<String?>? remoteId,
+      Value<String>? status,
+      Value<DateTime?>? publishedAt,
+      Value<DateTime?>? lastSyncedAt,
+      Value<String?>? lastError,
+      Value<int>? rowid}) {
+    return PublicationsCompanion(
+      id: id ?? this.id,
+      documentId: documentId ?? this.documentId,
+      provider: provider ?? this.provider,
+      remoteId: remoteId ?? this.remoteId,
+      status: status ?? this.status,
+      publishedAt: publishedAt ?? this.publishedAt,
+      lastSyncedAt: lastSyncedAt ?? this.lastSyncedAt,
+      lastError: lastError ?? this.lastError,
+      rowid: rowid ?? this.rowid,
+    );
+  }
+
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    if (id.present) {
+      map['id'] = Variable<String>(id.value);
+    }
+    if (documentId.present) {
+      map['document_id'] = Variable<String>(documentId.value);
+    }
+    if (provider.present) {
+      map['provider'] = Variable<String>(provider.value);
+    }
+    if (remoteId.present) {
+      map['remote_id'] = Variable<String>(remoteId.value);
+    }
+    if (status.present) {
+      map['status'] = Variable<String>(status.value);
+    }
+    if (publishedAt.present) {
+      map['published_at'] = Variable<DateTime>(publishedAt.value);
+    }
+    if (lastSyncedAt.present) {
+      map['last_synced_at'] = Variable<DateTime>(lastSyncedAt.value);
+    }
+    if (lastError.present) {
+      map['last_error'] = Variable<String>(lastError.value);
+    }
+    if (rowid.present) {
+      map['rowid'] = Variable<int>(rowid.value);
+    }
+    return map;
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('PublicationsCompanion(')
+          ..write('id: $id, ')
+          ..write('documentId: $documentId, ')
+          ..write('provider: $provider, ')
+          ..write('remoteId: $remoteId, ')
+          ..write('status: $status, ')
+          ..write('publishedAt: $publishedAt, ')
+          ..write('lastSyncedAt: $lastSyncedAt, ')
+          ..write('lastError: $lastError, ')
+          ..write('rowid: $rowid')
+          ..write(')'))
+        .toString();
+  }
+}
+
 abstract class _$AppDatabase extends GeneratedDatabase {
   _$AppDatabase(QueryExecutor e) : super(e);
   $AppDatabaseManager get managers => $AppDatabaseManager(this);
@@ -2142,12 +2590,13 @@ abstract class _$AppDatabase extends GeneratedDatabase {
   late final $OperationsTable operations = $OperationsTable(this);
   late final $BlockLinksTable blockLinks = $BlockLinksTable(this);
   late final $AssetsTable assets = $AssetsTable(this);
+  late final $PublicationsTable publications = $PublicationsTable(this);
   @override
   Iterable<TableInfo<Table, Object?>> get allTables =>
       allSchemaEntities.whereType<TableInfo<Table, Object?>>();
   @override
   List<DatabaseSchemaEntity> get allSchemaEntities =>
-      [documents, blocks, operations, blockLinks, assets];
+      [documents, blocks, operations, blockLinks, assets, publications];
   @override
   StreamQueryUpdateRules get streamUpdateRules => const StreamQueryUpdateRules(
         [
@@ -2163,6 +2612,13 @@ abstract class _$AppDatabase extends GeneratedDatabase {
                 limitUpdateKind: UpdateKind.delete),
             result: [
               TableUpdate('block_links', kind: UpdateKind.delete),
+            ],
+          ),
+          WritePropagation(
+            on: TableUpdateQuery.onTableName('documents',
+                limitUpdateKind: UpdateKind.delete),
+            result: [
+              TableUpdate('publications', kind: UpdateKind.delete),
             ],
           ),
         ],
@@ -2209,6 +2665,21 @@ final class $$DocumentsTableReferences
         .filter((f) => f.documentId.id.sqlEquals($_itemColumn<String>('id')!));
 
     final cache = $_typedResult.readTableOrNull(_blocksRefsTable($_db));
+    return ProcessedTableManager(
+        manager.$state.copyWith(prefetchedData: cache));
+  }
+
+  static MultiTypedResultKey<$PublicationsTable, List<Publication>>
+      _publicationsRefsTable(_$AppDatabase db) =>
+          MultiTypedResultKey.fromTable(db.publications,
+              aliasName: $_aliasNameGenerator(
+                  db.documents.id, db.publications.documentId));
+
+  $$PublicationsTableProcessedTableManager get publicationsRefs {
+    final manager = $$PublicationsTableTableManager($_db, $_db.publications)
+        .filter((f) => f.documentId.id.sqlEquals($_itemColumn<String>('id')!));
+
+    final cache = $_typedResult.readTableOrNull(_publicationsRefsTable($_db));
     return ProcessedTableManager(
         manager.$state.copyWith(prefetchedData: cache));
   }
@@ -2263,6 +2734,27 @@ class $$DocumentsTableFilterComposer
             $$BlocksTableFilterComposer(
               $db: $db,
               $table: $db.blocks,
+              $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+              joinBuilder: joinBuilder,
+              $removeJoinBuilderFromRootComposer:
+                  $removeJoinBuilderFromRootComposer,
+            ));
+    return f(composer);
+  }
+
+  Expression<bool> publicationsRefs(
+      Expression<bool> Function($$PublicationsTableFilterComposer f) f) {
+    final $$PublicationsTableFilterComposer composer = $composerBuilder(
+        composer: this,
+        getCurrentColumn: (t) => t.id,
+        referencedTable: $db.publications,
+        getReferencedColumn: (t) => t.documentId,
+        builder: (joinBuilder,
+                {$addJoinBuilderToRootComposer,
+                $removeJoinBuilderFromRootComposer}) =>
+            $$PublicationsTableFilterComposer(
+              $db: $db,
+              $table: $db.publications,
               $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
               joinBuilder: joinBuilder,
               $removeJoinBuilderFromRootComposer:
@@ -2365,6 +2857,27 @@ class $$DocumentsTableAnnotationComposer
             ));
     return f(composer);
   }
+
+  Expression<T> publicationsRefs<T extends Object>(
+      Expression<T> Function($$PublicationsTableAnnotationComposer a) f) {
+    final $$PublicationsTableAnnotationComposer composer = $composerBuilder(
+        composer: this,
+        getCurrentColumn: (t) => t.id,
+        referencedTable: $db.publications,
+        getReferencedColumn: (t) => t.documentId,
+        builder: (joinBuilder,
+                {$addJoinBuilderToRootComposer,
+                $removeJoinBuilderFromRootComposer}) =>
+            $$PublicationsTableAnnotationComposer(
+              $db: $db,
+              $table: $db.publications,
+              $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+              joinBuilder: joinBuilder,
+              $removeJoinBuilderFromRootComposer:
+                  $removeJoinBuilderFromRootComposer,
+            ));
+    return f(composer);
+  }
 }
 
 class $$DocumentsTableTableManager extends RootTableManager<
@@ -2378,7 +2891,7 @@ class $$DocumentsTableTableManager extends RootTableManager<
     $$DocumentsTableUpdateCompanionBuilder,
     (Document, $$DocumentsTableReferences),
     Document,
-    PrefetchHooks Function({bool blocksRefs})> {
+    PrefetchHooks Function({bool blocksRefs, bool publicationsRefs})> {
   $$DocumentsTableTableManager(_$AppDatabase db, $DocumentsTable table)
       : super(TableManagerState(
           db: db,
@@ -2443,10 +2956,14 @@ class $$DocumentsTableTableManager extends RootTableManager<
                     $$DocumentsTableReferences(db, table, e)
                   ))
               .toList(),
-          prefetchHooksCallback: ({blocksRefs = false}) {
+          prefetchHooksCallback: (
+              {blocksRefs = false, publicationsRefs = false}) {
             return PrefetchHooks(
               db: db,
-              explicitlyWatchedTables: [if (blocksRefs) db.blocks],
+              explicitlyWatchedTables: [
+                if (blocksRefs) db.blocks,
+                if (publicationsRefs) db.publications
+              ],
               addJoins: null,
               getPrefetchedDataCallback: (items) async {
                 return [
@@ -2458,6 +2975,19 @@ class $$DocumentsTableTableManager extends RootTableManager<
                         managerFromTypedResult: (p0) =>
                             $$DocumentsTableReferences(db, table, p0)
                                 .blocksRefs,
+                        referencedItemsForCurrentItem:
+                            (item, referencedItems) => referencedItems
+                                .where((e) => e.documentId == item.id),
+                        typedResults: items),
+                  if (publicationsRefs)
+                    await $_getPrefetchedData<Document, $DocumentsTable,
+                            Publication>(
+                        currentTable: table,
+                        referencedTable: $$DocumentsTableReferences
+                            ._publicationsRefsTable(db),
+                        managerFromTypedResult: (p0) =>
+                            $$DocumentsTableReferences(db, table, p0)
+                                .publicationsRefs,
                         referencedItemsForCurrentItem:
                             (item, referencedItems) => referencedItems
                                 .where((e) => e.documentId == item.id),
@@ -2480,7 +3010,7 @@ typedef $$DocumentsTableProcessedTableManager = ProcessedTableManager<
     $$DocumentsTableUpdateCompanionBuilder,
     (Document, $$DocumentsTableReferences),
     Document,
-    PrefetchHooks Function({bool blocksRefs})>;
+    PrefetchHooks Function({bool blocksRefs, bool publicationsRefs})>;
 typedef $$BlocksTableCreateCompanionBuilder = BlocksCompanion Function({
   required String id,
   required String documentId,
@@ -3590,6 +4120,327 @@ typedef $$AssetsTableProcessedTableManager = ProcessedTableManager<
     (Asset, BaseReferences<_$AppDatabase, $AssetsTable, Asset>),
     Asset,
     PrefetchHooks Function()>;
+typedef $$PublicationsTableCreateCompanionBuilder = PublicationsCompanion
+    Function({
+  required String id,
+  required String documentId,
+  Value<String> provider,
+  Value<String?> remoteId,
+  Value<String> status,
+  Value<DateTime?> publishedAt,
+  Value<DateTime?> lastSyncedAt,
+  Value<String?> lastError,
+  Value<int> rowid,
+});
+typedef $$PublicationsTableUpdateCompanionBuilder = PublicationsCompanion
+    Function({
+  Value<String> id,
+  Value<String> documentId,
+  Value<String> provider,
+  Value<String?> remoteId,
+  Value<String> status,
+  Value<DateTime?> publishedAt,
+  Value<DateTime?> lastSyncedAt,
+  Value<String?> lastError,
+  Value<int> rowid,
+});
+
+final class $$PublicationsTableReferences
+    extends BaseReferences<_$AppDatabase, $PublicationsTable, Publication> {
+  $$PublicationsTableReferences(super.$_db, super.$_table, super.$_typedResult);
+
+  static $DocumentsTable _documentIdTable(_$AppDatabase db) =>
+      db.documents.createAlias(
+          $_aliasNameGenerator(db.publications.documentId, db.documents.id));
+
+  $$DocumentsTableProcessedTableManager get documentId {
+    final $_column = $_itemColumn<String>('document_id')!;
+
+    final manager = $$DocumentsTableTableManager($_db, $_db.documents)
+        .filter((f) => f.id.sqlEquals($_column));
+    final item = $_typedResult.readTableOrNull(_documentIdTable($_db));
+    if (item == null) return manager;
+    return ProcessedTableManager(
+        manager.$state.copyWith(prefetchedData: [item]));
+  }
+}
+
+class $$PublicationsTableFilterComposer
+    extends Composer<_$AppDatabase, $PublicationsTable> {
+  $$PublicationsTableFilterComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnFilters<String> get id => $composableBuilder(
+      column: $table.id, builder: (column) => ColumnFilters(column));
+
+  ColumnFilters<String> get provider => $composableBuilder(
+      column: $table.provider, builder: (column) => ColumnFilters(column));
+
+  ColumnFilters<String> get remoteId => $composableBuilder(
+      column: $table.remoteId, builder: (column) => ColumnFilters(column));
+
+  ColumnFilters<String> get status => $composableBuilder(
+      column: $table.status, builder: (column) => ColumnFilters(column));
+
+  ColumnFilters<DateTime> get publishedAt => $composableBuilder(
+      column: $table.publishedAt, builder: (column) => ColumnFilters(column));
+
+  ColumnFilters<DateTime> get lastSyncedAt => $composableBuilder(
+      column: $table.lastSyncedAt, builder: (column) => ColumnFilters(column));
+
+  ColumnFilters<String> get lastError => $composableBuilder(
+      column: $table.lastError, builder: (column) => ColumnFilters(column));
+
+  $$DocumentsTableFilterComposer get documentId {
+    final $$DocumentsTableFilterComposer composer = $composerBuilder(
+        composer: this,
+        getCurrentColumn: (t) => t.documentId,
+        referencedTable: $db.documents,
+        getReferencedColumn: (t) => t.id,
+        builder: (joinBuilder,
+                {$addJoinBuilderToRootComposer,
+                $removeJoinBuilderFromRootComposer}) =>
+            $$DocumentsTableFilterComposer(
+              $db: $db,
+              $table: $db.documents,
+              $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+              joinBuilder: joinBuilder,
+              $removeJoinBuilderFromRootComposer:
+                  $removeJoinBuilderFromRootComposer,
+            ));
+    return composer;
+  }
+}
+
+class $$PublicationsTableOrderingComposer
+    extends Composer<_$AppDatabase, $PublicationsTable> {
+  $$PublicationsTableOrderingComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnOrderings<String> get id => $composableBuilder(
+      column: $table.id, builder: (column) => ColumnOrderings(column));
+
+  ColumnOrderings<String> get provider => $composableBuilder(
+      column: $table.provider, builder: (column) => ColumnOrderings(column));
+
+  ColumnOrderings<String> get remoteId => $composableBuilder(
+      column: $table.remoteId, builder: (column) => ColumnOrderings(column));
+
+  ColumnOrderings<String> get status => $composableBuilder(
+      column: $table.status, builder: (column) => ColumnOrderings(column));
+
+  ColumnOrderings<DateTime> get publishedAt => $composableBuilder(
+      column: $table.publishedAt, builder: (column) => ColumnOrderings(column));
+
+  ColumnOrderings<DateTime> get lastSyncedAt => $composableBuilder(
+      column: $table.lastSyncedAt,
+      builder: (column) => ColumnOrderings(column));
+
+  ColumnOrderings<String> get lastError => $composableBuilder(
+      column: $table.lastError, builder: (column) => ColumnOrderings(column));
+
+  $$DocumentsTableOrderingComposer get documentId {
+    final $$DocumentsTableOrderingComposer composer = $composerBuilder(
+        composer: this,
+        getCurrentColumn: (t) => t.documentId,
+        referencedTable: $db.documents,
+        getReferencedColumn: (t) => t.id,
+        builder: (joinBuilder,
+                {$addJoinBuilderToRootComposer,
+                $removeJoinBuilderFromRootComposer}) =>
+            $$DocumentsTableOrderingComposer(
+              $db: $db,
+              $table: $db.documents,
+              $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+              joinBuilder: joinBuilder,
+              $removeJoinBuilderFromRootComposer:
+                  $removeJoinBuilderFromRootComposer,
+            ));
+    return composer;
+  }
+}
+
+class $$PublicationsTableAnnotationComposer
+    extends Composer<_$AppDatabase, $PublicationsTable> {
+  $$PublicationsTableAnnotationComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  GeneratedColumn<String> get id =>
+      $composableBuilder(column: $table.id, builder: (column) => column);
+
+  GeneratedColumn<String> get provider =>
+      $composableBuilder(column: $table.provider, builder: (column) => column);
+
+  GeneratedColumn<String> get remoteId =>
+      $composableBuilder(column: $table.remoteId, builder: (column) => column);
+
+  GeneratedColumn<String> get status =>
+      $composableBuilder(column: $table.status, builder: (column) => column);
+
+  GeneratedColumn<DateTime> get publishedAt => $composableBuilder(
+      column: $table.publishedAt, builder: (column) => column);
+
+  GeneratedColumn<DateTime> get lastSyncedAt => $composableBuilder(
+      column: $table.lastSyncedAt, builder: (column) => column);
+
+  GeneratedColumn<String> get lastError =>
+      $composableBuilder(column: $table.lastError, builder: (column) => column);
+
+  $$DocumentsTableAnnotationComposer get documentId {
+    final $$DocumentsTableAnnotationComposer composer = $composerBuilder(
+        composer: this,
+        getCurrentColumn: (t) => t.documentId,
+        referencedTable: $db.documents,
+        getReferencedColumn: (t) => t.id,
+        builder: (joinBuilder,
+                {$addJoinBuilderToRootComposer,
+                $removeJoinBuilderFromRootComposer}) =>
+            $$DocumentsTableAnnotationComposer(
+              $db: $db,
+              $table: $db.documents,
+              $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+              joinBuilder: joinBuilder,
+              $removeJoinBuilderFromRootComposer:
+                  $removeJoinBuilderFromRootComposer,
+            ));
+    return composer;
+  }
+}
+
+class $$PublicationsTableTableManager extends RootTableManager<
+    _$AppDatabase,
+    $PublicationsTable,
+    Publication,
+    $$PublicationsTableFilterComposer,
+    $$PublicationsTableOrderingComposer,
+    $$PublicationsTableAnnotationComposer,
+    $$PublicationsTableCreateCompanionBuilder,
+    $$PublicationsTableUpdateCompanionBuilder,
+    (Publication, $$PublicationsTableReferences),
+    Publication,
+    PrefetchHooks Function({bool documentId})> {
+  $$PublicationsTableTableManager(_$AppDatabase db, $PublicationsTable table)
+      : super(TableManagerState(
+          db: db,
+          table: table,
+          createFilteringComposer: () =>
+              $$PublicationsTableFilterComposer($db: db, $table: table),
+          createOrderingComposer: () =>
+              $$PublicationsTableOrderingComposer($db: db, $table: table),
+          createComputedFieldComposer: () =>
+              $$PublicationsTableAnnotationComposer($db: db, $table: table),
+          updateCompanionCallback: ({
+            Value<String> id = const Value.absent(),
+            Value<String> documentId = const Value.absent(),
+            Value<String> provider = const Value.absent(),
+            Value<String?> remoteId = const Value.absent(),
+            Value<String> status = const Value.absent(),
+            Value<DateTime?> publishedAt = const Value.absent(),
+            Value<DateTime?> lastSyncedAt = const Value.absent(),
+            Value<String?> lastError = const Value.absent(),
+            Value<int> rowid = const Value.absent(),
+          }) =>
+              PublicationsCompanion(
+            id: id,
+            documentId: documentId,
+            provider: provider,
+            remoteId: remoteId,
+            status: status,
+            publishedAt: publishedAt,
+            lastSyncedAt: lastSyncedAt,
+            lastError: lastError,
+            rowid: rowid,
+          ),
+          createCompanionCallback: ({
+            required String id,
+            required String documentId,
+            Value<String> provider = const Value.absent(),
+            Value<String?> remoteId = const Value.absent(),
+            Value<String> status = const Value.absent(),
+            Value<DateTime?> publishedAt = const Value.absent(),
+            Value<DateTime?> lastSyncedAt = const Value.absent(),
+            Value<String?> lastError = const Value.absent(),
+            Value<int> rowid = const Value.absent(),
+          }) =>
+              PublicationsCompanion.insert(
+            id: id,
+            documentId: documentId,
+            provider: provider,
+            remoteId: remoteId,
+            status: status,
+            publishedAt: publishedAt,
+            lastSyncedAt: lastSyncedAt,
+            lastError: lastError,
+            rowid: rowid,
+          ),
+          withReferenceMapper: (p0) => p0
+              .map((e) => (
+                    e.readTable(table),
+                    $$PublicationsTableReferences(db, table, e)
+                  ))
+              .toList(),
+          prefetchHooksCallback: ({documentId = false}) {
+            return PrefetchHooks(
+              db: db,
+              explicitlyWatchedTables: [],
+              addJoins: <
+                  T extends TableManagerState<
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic>>(state) {
+                if (documentId) {
+                  state = state.withJoin(
+                    currentTable: table,
+                    currentColumn: table.documentId,
+                    referencedTable:
+                        $$PublicationsTableReferences._documentIdTable(db),
+                    referencedColumn:
+                        $$PublicationsTableReferences._documentIdTable(db).id,
+                  ) as T;
+                }
+
+                return state;
+              },
+              getPrefetchedDataCallback: (items) async {
+                return [];
+              },
+            );
+          },
+        ));
+}
+
+typedef $$PublicationsTableProcessedTableManager = ProcessedTableManager<
+    _$AppDatabase,
+    $PublicationsTable,
+    Publication,
+    $$PublicationsTableFilterComposer,
+    $$PublicationsTableOrderingComposer,
+    $$PublicationsTableAnnotationComposer,
+    $$PublicationsTableCreateCompanionBuilder,
+    $$PublicationsTableUpdateCompanionBuilder,
+    (Publication, $$PublicationsTableReferences),
+    Publication,
+    PrefetchHooks Function({bool documentId})>;
 
 class $AppDatabaseManager {
   final _$AppDatabase _db;
@@ -3604,4 +4455,6 @@ class $AppDatabaseManager {
       $$BlockLinksTableTableManager(_db, _db.blockLinks);
   $$AssetsTableTableManager get assets =>
       $$AssetsTableTableManager(_db, _db.assets);
+  $$PublicationsTableTableManager get publications =>
+      $$PublicationsTableTableManager(_db, _db.publications);
 }

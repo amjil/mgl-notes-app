@@ -17,6 +17,8 @@
             [notes-app.db.core :as db]
             [notes-app.services.document :as doc]
             [notes-app.services.export :as export]
+            [notes-app.publishing.nomio :as nomio-publishing]
+            [notes-app.nomio.auth :as nomio-auth]
             [notes-app.services.link :as link]
             [notes-app.plugins.image :as img-plugin]
             [notes-app.plugins.attachment :as attach-plugin]
@@ -249,6 +251,7 @@
 ;; =============================================================================
 
 (defonce ^:private !sessions (atom {}))
+(defonce ^:private !pending-nomio-document (atom nil))
 
 (defn- load-session! [document-id]
   (-> (db/get-document document-id)
@@ -387,6 +390,35 @@
       (.then (fn [path] (export/show-export-result! ctx path)))
       (.catchError (fn [_] (export/show-export-result! ctx nil)))))
 
+(defn- show-message! [ctx message]
+  (.showSnackBar
+   (m/ScaffoldMessenger.of ctx)
+   (m/SnackBar .content (m/Text (str message)))))
+
+(defn- publish-nomio! [ctx document-id]
+  (show-message! ctx "Publishing to Nomio…")
+  (-> (flush-open-sessions!)
+      (.then (fn [_]
+               (nomio-publishing/publish-to-nomio! document-id)))
+      (.then
+       (fn [result]
+         (cond
+           (:ok result)
+           (show-message! ctx "Published to Nomio")
+
+           (:authorizing result)
+           (do
+             (reset! !pending-nomio-document document-id)
+             (show-message! ctx "Complete Nomio login in your browser"))
+
+           :else
+           (show-message! ctx
+                          (str "Nomio publish failed: "
+                               (or (:detail result) (:error result)))))))
+      (.catchError
+       (fn [error]
+         (show-message! ctx (str "Nomio publish failed: " error))))))
+
 ;; =============================================================================
 ;; Core Editor UI
 ;; =============================================================================
@@ -437,9 +469,16 @@
        (f/widget
         :watch [current-state !state
                 title !title
-                show-refs? store/!show-backlinks]
+                show-refs? store/!show-backlinks
+                nomio-state nomio-auth/auth-state]
 
-        (let [_ (when-let [t @!save-timer] (.cancel ^async/Timer t) nil)
+        (let [_ (when (and (= :authenticated (:status nomio-state))
+                           (= document-id @!pending-nomio-document))
+                  (reset! !pending-nomio-document nil)
+                  (async/Timer.
+                   (dart:core/Duration.zero)
+                   #(publish-nomio! ctx document-id)))
+              _ (when-let [t @!save-timer] (.cancel ^async/Timer t) nil)
               _ (reset! !save-timer
                         (async/Timer.
                          (dart:core/Duration. .seconds 2)
@@ -536,6 +575,10 @@
                                                 m.Icons/account_tree_outlined))
                                 .tooltip "Backlinks"
                                 .onPressed toggle-refs!)
+                               (m/IconButton
+                                .icon (m/Icon m.Icons/cloud_upload_outlined)
+                                .tooltip "Publish or update on Nomio"
+                                .onPressed #(publish-nomio! ctx document-id))
                                (m/IconButton
                                 .icon (m/Icon m.Icons/file_download_outlined)
                                 .tooltip "Export HTML"

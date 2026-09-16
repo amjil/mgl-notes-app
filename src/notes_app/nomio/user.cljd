@@ -1,0 +1,10 @@
+(ns notes-app.nomio.user
+  (:require [notes-app.nomio.api :as api]))
+
+(defn get-user []
+  (-> (api/request {:method :get :path "/api/users/me"})
+      (.then (fn [result]
+               (if (:ok result)
+                 (assoc result :user (or (get-in result [:body :user])
+                                         (:body result)))
+                 result)))))

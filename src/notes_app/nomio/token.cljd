@@ -1,0 +1,64 @@
+(ns notes-app.nomio.token
+  (:require ["package:mgl_notes_app/nomio_platform.dart" :as platform]
+            ["dart:async" :as async]
+            [notes-app.db.core :as db]))
+
+(def ^:private token-key "nomio.oauth.tokens.v1")
+(def ^:private state-key "nomio.oauth.pending-state")
+(def ^:private verifier-key "nomio.oauth.pending-verifier")
+
+(defonce !tokens (atom nil))
+
+(defn now-ms []
+  (.-millisecondsSinceEpoch (dart:core/DateTime.now)))
+
+(defn expires-at [expires-in-seconds]
+  (+ (now-ms) (* 1000 (long (or expires-in-seconds 0)))))
+
+(defn valid? []
+  (let [{:keys [access-token expires-at]} @!tokens]
+    (and access-token expires-at (> (- expires-at (now-ms)) 60000))))
+
+(defn access-token []
+  (:access-token @!tokens))
+
+(defn refresh-token []
+  (:refresh-token @!tokens))
+
+(defn save! [tokens]
+  (reset! !tokens tokens)
+  (platform/NomioPlatform.writeSecret token-key (db/encode-json tokens)))
+
+(defn load! []
+  (-> (platform/NomioPlatform.readSecret token-key)
+      (.then
+       (fn [raw]
+         (let [tokens (when raw (db/decode-json raw))]
+           (reset! !tokens tokens)
+           tokens)))
+      (.catchError
+       (fn [_]
+         (reset! !tokens nil)
+         nil))))
+
+(defn clear! []
+  (reset! !tokens nil)
+  (platform/NomioPlatform.deleteSecret token-key))
+
+(defn save-pending! [state verifier]
+  (-> (platform/NomioPlatform.writeSecret state-key state)
+      (.then (fn [_]
+               (platform/NomioPlatform.writeSecret verifier-key verifier)))))
+
+(defn load-pending! []
+  (-> (async/Future.wait
+       [(platform/NomioPlatform.readSecret state-key)
+        (platform/NomioPlatform.readSecret verifier-key)])
+      (.then (fn [[state verifier]]
+               {:state state :verifier verifier}))))
+
+(defn clear-pending! []
+  (-> (async/Future.wait
+       [(platform/NomioPlatform.deleteSecret state-key)
+        (platform/NomioPlatform.deleteSecret verifier-key)])
+      (.then (fn [_] true))))

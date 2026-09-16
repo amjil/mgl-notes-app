@@ -39,8 +39,9 @@
          [(.get (.select database (.-documents database)))
           (.get (.select database (.-blocks database)))
           (.get (.select database (.-assets database)))
-          (.get (.select database (.-operations database)))])
-        (.then (fn [[docs blocks assets operations]]
+          (.get (.select database (.-operations database)))
+          (.get (.select database (.-publications database)))])
+        (.then (fn [[docs blocks assets operations publications]]
                  (let [doc-maps
                        (mapv (fn [d]
                                {:id (.-id d)
@@ -89,15 +90,27 @@
                                 :payload (.-payload o)
                                 :created-at (dt->iso (.-createdAt o))
                                 :synced (boolean (.-synced o))})
-                             operations)]
-                   (db/encode-json {:version 3
+                             operations)
+                       publication-maps
+                       (mapv (fn [p]
+                               {:id (.-id p)
+                                :document-id (.-documentId p)
+                                :provider (.-provider p)
+                                :remote-id (.-remoteId p)
+                                :status (.-status p)
+                                :published-at (dt->iso (.-publishedAt p))
+                                :last-synced-at (dt->iso (.-lastSyncedAt p))
+                                :last-error (.-lastError p)})
+                             publications)]
+                   (db/encode-json {:version 4
                                     :timestamp (dt->iso (db/now))
                                     :last-sync-time (:last-sync-time @store/app-ui-state)
                                     :last-sync-op-id (:last-sync-op-id @store/app-ui-state)
                                     :documents doc-maps
                                     :blocks block-maps
                                     :assets asset-maps
-                                    :operations op-maps})))))
+                                    :operations op-maps
+                                    :publications publication-maps})))))
     (async/Future.value nil)))
 
 (defn- copy-asset-files-for-backup! [json-path assets]
@@ -152,7 +165,8 @@
 (defn- clear-all-content!
   "Wipe local rows so restore matches the backup (no leftover documents/blocks)."
   [^drift/AppDatabase database]
-  (-> (.go (.delete database (.-blockLinks database)))
+  (-> (.go (.delete database (.-publications database)))
+      (.then (fn [_] (.go (.delete database (.-blockLinks database)))))
       (.then (fn [_] (.go (.delete database (.-operations database)))))
       (.then (fn [_] (.go (.delete database (.-blocks database)))))
       (.then (fn [_] (.go (.delete database (.-assets database)))))
@@ -191,6 +205,7 @@
             docs (:documents data [])
             blocks (:blocks data [])
             assets (or (:assets data) [])
+            publications (or (:publications data) [])
             ;; nil = legacy backup without op log → wipe local ops
             ops (when (contains? data :operations)
                   (or (:operations data) []))]
@@ -250,6 +265,26 @@
                                                                          (d/Value ^dc/DateTime (iso->dt (:deleted-at a)))
                                                                          (d/Value nil)))
                                                            .mode d/InsertMode.replace)))
+                                              (doseq [p publications]
+                                                (.insert b (.-publications database)
+                                                         (drift/PublicationsCompanion.insert
+                                                          .id (:id p)
+                                                          .documentId (:document-id p)
+                                                          .provider (d/Value ^String (or (:provider p) "nomio"))
+                                                          .remoteId (if (:remote-id p)
+                                                                      (d/Value ^String (:remote-id p))
+                                                                      (d/Value nil))
+                                                          .status (d/Value ^String (or (:status p) "published"))
+                                                          .publishedAt (if (:published-at p)
+                                                                         (d/Value ^dc/DateTime (iso->dt (:published-at p)))
+                                                                         (d/Value nil))
+                                                          .lastSyncedAt (if (:last-synced-at p)
+                                                                          (d/Value ^dc/DateTime (iso->dt (:last-synced-at p)))
+                                                                          (d/Value nil))
+                                                          .lastError (if (:last-error p)
+                                                                       (d/Value ^String (:last-error p))
+                                                                       (d/Value nil)))
+                                                         .mode d/InsertMode.replace))
                                               (when ops (insert-operations-batch! database b ops))))))
                            (.then (fn [_]
                                     (restore-sync-cursor! data)

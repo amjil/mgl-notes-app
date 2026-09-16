@@ -93,12 +93,36 @@ class BlockLinks extends Table {
   Set<Column> get primaryKey => {sourceId, targetId};
 }
 
-@DriftDatabase(tables: [Documents, Blocks, Operations, BlockLinks, Assets])
-class AppDatabase extends _$AppDatabase {
-  AppDatabase() : super(impl.connect());
+/// Local mapping between a note and its remote publication.
+class Publications extends Table {
+  TextColumn get id => text()();
+  TextColumn get documentId =>
+      text().references(Documents, #id, onDelete: KeyAction.cascade)();
+  TextColumn get provider => text().withDefault(const Constant('nomio'))();
+  TextColumn get remoteId => text().named('remote_id').nullable()();
+  TextColumn get status => text().withDefault(const Constant('publishing'))();
+  DateTimeColumn get publishedAt => dateTime().named('published_at').nullable()();
+  DateTimeColumn get lastSyncedAt =>
+      dateTime().named('last_synced_at').nullable()();
+  TextColumn get lastError => text().named('last_error').nullable()();
 
   @override
-  int get schemaVersion => 4; // 升级版本到 4
+  Set<Column> get primaryKey => {id};
+
+  @override
+  List<Set<Column>> get uniqueKeys => [
+        {documentId, provider},
+      ];
+}
+
+@DriftDatabase(
+  tables: [Documents, Blocks, Operations, BlockLinks, Assets, Publications],
+)
+class AppDatabase extends _$AppDatabase {
+  AppDatabase([QueryExecutor? executor]) : super(executor ?? impl.connect());
+
+  @override
+  int get schemaVersion => 5;
 
   // 核心逻辑：定义 FTS5 虚拟表和自动同步的 SQLite 触发器
   Future<void> _createFts(Migrator m) async {
@@ -156,6 +180,9 @@ class AppDatabase extends _$AppDatabase {
   @override
   MigrationStrategy get migration {
     return MigrationStrategy(
+      beforeOpen: (_) async {
+        await customStatement('PRAGMA foreign_keys = ON');
+      },
       onCreate: (Migrator m) async {
         await m.createAll();
         await _createFts(m); // 全新安装时自动建立 FTS
@@ -177,6 +204,9 @@ class AppDatabase extends _$AppDatabase {
             INSERT INTO search_index(document_id, block_id, text)
             SELECT document_id, id, text FROM blocks WHERE deleted_at IS NULL;
           ''');
+        }
+        if (from < 5) {
+          await m.createTable(publications);
         }
       },
     );

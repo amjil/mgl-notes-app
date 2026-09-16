@@ -1,0 +1,216 @@
+(ns notes-app.publishing.nomio
+  (:require ["dart:async" :as async]
+            [clojure.string :as str]
+            [notes-app.db.core :as db]
+            [notes-app.editor.bridge :as bridge]
+            [notes-app.nomio.articles :as articles]
+            [notes-app.nomio.auth :as auth]
+            [notes-app.nomio.media :as media]
+            [notes-app.services.asset :as asset]
+            [notes-app.services.publication :as publication]))
+
+(defonce ^:private !operations (atom {}))
+
+(defn- ordered-blocks [state]
+  (let [blocks (:blocks state {})
+        !visited (atom #{})]
+    (letfn [(walk [ids parent-id visiting depth]
+              (when (> depth 100)
+                (throw (dart:core/Exception. "Nomio document is too deep")))
+              (mapcat
+               (fn [id]
+                 (cond
+                   (contains? visiting id)
+                   (throw (dart:core/Exception. "Nomio document contains a cycle"))
+
+                   (contains? @!visited id)
+                   []
+
+                   :else
+                   (when-let [block (get blocks id)]
+                     (swap! !visited conj id)
+                     (when (> (count @!visited) 5000)
+                       (throw (dart:core/Exception.
+                               "Nomio document has too many blocks")))
+                     (cons [block parent-id]
+                           (walk (:children block [])
+                                 id
+                                 (conj visiting id)
+                                 (inc depth))))))
+               ids))]
+      (vec (walk (:root state []) "root" #{} 0)))))
+
+(defn- text-payload [block parent-id]
+  (cond-> {:id (:id block)
+           :type (name (or (:type block) :paragraph))
+           :content (or (:content block) "")
+           :children (vec (:children block []))
+           :parent parent-id}
+    (seq (:data block)) (assoc :data (:data block))
+    (seq (:content-spans block)) (assoc :content-spans
+                                        (:content-spans block))))
+
+(defn- image-payload! [block parent-id]
+  (let [asset-id (get-in block [:data :asset-id])
+        remote-url (get-in block [:data :url])
+        base (text-payload block parent-id)]
+    (cond
+      (not (str/blank? remote-url))
+      (async/Future.value
+       (assoc base :type "image"
+              :data (assoc (:data block {}) :url remote-url)))
+
+      (str/blank? asset-id)
+      (async/Future.value nil)
+
+      :else
+      (-> (asset/get-asset asset-id)
+          (.then
+           (fn [row]
+             (if (and row (.-localPath row))
+               (media/upload-media!
+                (.-localPath row) (.-filename row) (.-mimeType row))
+               {:ok false :error :nomio-media-missing})))
+          (.then
+           (fn [result]
+             (if (:ok result)
+               (assoc base :type "image"
+                      :data (-> (:data block {})
+                                (dissoc :asset-id)
+                                (assoc :asset-id (:id result)
+                                       :url (:url result))))
+               (throw
+                (dart:core/Exception.
+                 (str "Image upload failed: "
+                      (or (:detail result) (:error result))))))))))))
+
+(defn- block-payload! [[block parent-id]]
+  (case (:type block)
+    :image (image-payload! block parent-id)
+    :attachment
+    (async/Future.value
+     (-> (text-payload block parent-id)
+         (assoc :type "paragraph"
+                :content (str "[Attachment: "
+                              (or (get-in block [:data :filename]) "file") "]"))
+         (dissoc :data)))
+    :embed
+    (async/Future.value
+     (-> (text-payload block parent-id)
+         (assoc :type "paragraph"
+                :content (str "(("
+                              (or (get-in block [:data :target-id]) "")
+                              "))"))
+         (dissoc :data)))
+    (async/Future.value (text-payload block parent-id))))
+
+(defn- serialize-blocks! [state]
+  (reduce
+   (fn [future item]
+     (.then future
+            (fn [result]
+              (-> (block-payload! item)
+                  (.then (fn [payload]
+                           (if payload
+                             (assoc result (:id payload) payload)
+                             result)))))))
+   (async/Future.value {})
+   (ordered-blocks state)))
+
+(defn- create-or-update! [document-id title document publication]
+  (if-let [remote-id (:remote-id publication)]
+    (articles/update-article! remote-id
+                              {:title title :document document :tags []})
+    (articles/create-article!
+     {:title title
+      :document document
+      :tags []
+      :idempotency-key (str "nomio:" document-id)})))
+
+(defn- perform-publish! [document-id]
+  (-> (publication/save! document-id {:status :publishing})
+      (.then
+       (fn [_]
+         (async/Future.wait
+          [(db/get-document document-id)
+           (db/get-blocks document-id)
+           (publication/get-for-document document-id)])))
+      (.then
+       (fn [[document rows publication]]
+         (if-not document
+           (throw (dart:core/Exception. "Document not found"))
+           (let [title (or (.-title document) "")
+                 state (bridge/rows->editor-state (or rows []))]
+             (-> (serialize-blocks! state)
+                 (.then
+                  (fn [blocks]
+                    (-> (create-or-update!
+                         document-id title
+                         {:root (vec (:root state []))
+                          :blocks blocks}
+                         publication)
+                        (.then
+                         (fn [article-result]
+                           (if-not (:ok article-result)
+                             (throw
+                              (dart:core/Exception.
+                               (str (or (:detail article-result)
+                                        (:error article-result)))))
+                             (let [article-id
+                                   (or (:article-id article-result)
+                                       (:remote-id publication))]
+                               (if-not article-id
+                                 (throw
+                                  (dart:core/Exception.
+                                   "Nomio did not return an article ID"))
+                                 (-> (publication/save!
+                                      document-id
+                                      {:status :publishing
+                                       :remote-id article-id})
+                                     (.then
+                                      (fn [_]
+                                        (articles/publish-article!
+                                         article-id)))
+                                     (.then
+                                      (fn [publish-result]
+                                        (if (:ok publish-result)
+                                          (-> (publication/save!
+                                               document-id
+                                               {:status :published
+                                                :remote-id article-id
+                                                :published? true})
+                                              (.then
+                                               (fn [_]
+                                                 {:ok true
+                                                  :article-id article-id})))
+                                          (throw
+                                           (dart:core/Exception.
+                                            (str (or (:detail publish-result)
+                                                     (:error publish-result))))))))))))))))))))))
+      (.catchError
+       (fn [error]
+         (-> (publication/save!
+              document-id
+              {:status :failed :error (str error)})
+             (.then
+              (fn [_]
+                {:ok false
+                 :error :nomio-publish-failed
+                 :detail (str error)})))))))
+
+(defn publish-to-nomio! [document-id]
+  (if-not (auth/logged-in?)
+    (-> (auth/login!)
+        (.then
+         (fn [result]
+           (if (:ok result)
+             {:ok false :authorizing true :error :nomio-login-required}
+             result))))
+    (if-let [existing (get @!operations document-id)]
+      existing
+      (let [operation
+            (-> (perform-publish! document-id)
+                (.whenComplete
+                 (fn [] (swap! !operations dissoc document-id))))]
+        (swap! !operations assoc document-id operation)
+        operation))))

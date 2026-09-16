@@ -19,6 +19,7 @@
             [notes-app.mobile :as mobile]
             [notes-app.services.sync :as sync]
             [notes-app.services.link :as link]
+            [notes-app.nomio.auth :as nomio-auth]
             [notes-app.services.daily :as daily]))
 
 (defonce ^:private !boot (atom {:status :loading}))
@@ -139,6 +140,8 @@
 
 (defn main []
   (m/WidgetsFlutterBinding.ensureInitialized)
+  ;; Subscribe before rendering so cold-start OAuth callbacks are not lost.
+  (nomio-auth/initialize!)
 
   (when kIsWeb
     ;; Read compile-time --dart-define=API_BASE_URL="https://..." when present.

@@ -1,0 +1,91 @@
+(ns notes-app.nomio.api
+  (:require ["package:http/http.dart" :as http]
+            ["dart:async" :as async]
+            ["dart:convert" :as convert]
+            [notes-app.db.core :as db]
+            [notes-app.nomio.auth :as auth]
+            [notes-app.nomio.config :as config]))
+
+(defn- mapish [value]
+  (cond
+    (map? value) value
+    (dart/is? value dart:core/Map)
+    (reduce (fn [acc ^String k]
+              (assoc acc (keyword k) (mapish (get value k))))
+            {}
+            (.-keys value))
+    (dart/is? value dart:core/List)
+    (mapv mapish value)
+    :else value))
+
+(defn- decode [resp]
+  (try
+    (mapish (convert/jsonDecode (.-body resp)))
+    (catch Exception _ nil)))
+
+(defn- send! [method uri headers body]
+  (let [encoded (when body (db/encode-json body))
+        request
+        (case method
+          :get (http/get uri :headers headers)
+          :put (http/put uri :headers headers :body encoded)
+          :patch (http/patch uri :headers headers :body encoded)
+          :post (http/post uri :headers headers :body (or encoded ""))
+          (async/Future.value nil))]
+    (.timeout request (dart:core/Duration. .seconds 30))))
+
+(declare request)
+
+(defn request
+  ([options] (request options false))
+  ([{:keys [method path body]} retried?]
+   (-> (auth/access-token)
+       (.then
+        (fn [access]
+          (if-not access
+            {:ok false :status 401 :error :nomio-unauthorized}
+            (-> (send!
+                 (or method :get)
+                 (dart:core/Uri.parse (config/api-endpoint path))
+                 {"Accept" "application/json"
+                  "Content-Type" "application/json"
+                  "Authorization" (str "Bearer " access)}
+                 body)
+                (.then
+                 (fn [resp]
+                   (let [status (.-statusCode resp)
+                         decoded (decode resp)]
+                     (cond
+                       (and (= status 401) (not retried?))
+                       (-> (auth/refresh!)
+                           (.then
+                            (fn [result]
+                              (if (:ok result)
+                                (request {:method method :path path :body body} true)
+                                {:ok false :status 401
+                                 :error :nomio-unauthorized}))))
+
+                       (= status 401)
+                       (-> (auth/logout!)
+                           (.then
+                            (fn [_]
+                              {:ok false :status 401
+                               :error :nomio-unauthorized})))
+
+                       (and (>= status 200) (< status 300))
+                       {:ok true :status status :body decoded}
+
+                       (= status 403)
+                       {:ok false :status status :body decoded
+                        :error :nomio-forbidden}
+
+                       (>= status 500)
+                       {:ok false :status status :body decoded
+                        :error :nomio-server-error}
+
+                       :else
+                       {:ok false :status status :body decoded
+                        :error :nomio-request-error}))))))))
+       (.catchError
+        (fn [_]
+          {:ok false :status 0 :error :nomio-network-error})))))

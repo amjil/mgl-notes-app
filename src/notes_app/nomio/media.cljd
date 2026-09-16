@@ -1,0 +1,90 @@
+(ns notes-app.nomio.media
+  (:require ["package:http/http.dart" :as http]
+            ["dart:convert" :as convert]
+            [notes-app.nomio.auth :as auth]
+            [notes-app.nomio.config :as config]))
+
+(defn- mapish [value]
+  (if (dart/is? value dart:core/Map)
+    (reduce (fn [acc ^String k]
+              (assoc acc (keyword k) (mapish (get value k))))
+            {}
+            (.-keys value))
+    (if (dart/is? value dart:core/List)
+      (mapv mapish value)
+      value)))
+
+(defn- decode-streamed [response]
+  (-> (http/Response.fromStream response)
+      (.then
+       (fn [resp]
+         {:status (.-statusCode resp)
+          :body (try
+                  (mapish (convert/jsonDecode (.-body resp)))
+                  (catch Exception _ {}))}))))
+
+(declare upload-media!)
+
+(defn upload-media!
+  ([file-path filename mime-type]
+   (upload-media! file-path filename mime-type false))
+  ([file-path filename mime-type retried?]
+   (-> (auth/access-token)
+       (.then
+        (fn [access]
+          (if-not access
+            {:ok false :error :nomio-unauthorized}
+            (let [request
+                  (http/MultipartRequest.
+                   "POST"
+                   (dart:core/Uri.parse
+                    (config/api-endpoint "/api/v1/assets")))]
+              (. (.-headers request) "[]=" "Authorization"
+                 (str "Bearer " access))
+              (. (.-headers request) "[]=" "Accept" "application/json")
+              (. (.-fields request) "[]=" "mime_type"
+                 (or mime-type "application/octet-stream"))
+              (-> (http/MultipartFile.fromPath
+                   "file" file-path .filename filename)
+                  (.then
+                   (fn [file]
+                     (.add (.-files request) file)
+                     (.send request)))
+                  (.then decode-streamed)
+                  (.then
+                   (fn [{:keys [status body]}]
+                     (cond
+                       (and (= status 401) (not retried?))
+                       (-> (auth/refresh!)
+                           (.then
+                            (fn [result]
+                              (if (:ok result)
+                                (upload-media! file-path filename mime-type true)
+                                {:ok false :error :nomio-unauthorized}))))
+
+                       (= status 401)
+                       (-> (auth/logout!)
+                           (.then (fn [_]
+                                    {:ok false
+                                     :error :nomio-unauthorized})))
+
+                       (and (>= status 200) (< status 300))
+                       (let [media (or (:data body) (:media body) body)]
+                         {:ok true
+                          :media media
+                          :id (:id media)
+                          :url (:url media)})
+
+                       (= status 403)
+                       {:ok false :error :nomio-forbidden
+                        :detail (:error body)}
+
+                       (>= status 500)
+                       {:ok false :error :nomio-server-error
+                        :detail (:error body)}
+
+                       :else
+                       {:ok false :error :nomio-request-error
+                        :detail (:error body)}))))))))
+       (.catchError
+        (fn [_] {:ok false :error :nomio-network-error})))))

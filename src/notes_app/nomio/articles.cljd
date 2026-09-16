@@ -1,0 +1,38 @@
+(ns notes-app.nomio.articles
+  (:require [notes-app.nomio.api :as api]))
+
+(defn- article-result [result]
+  (if (:ok result)
+    (let [body (:body result)
+          article (or (:data body) (:article body) body)]
+      (assoc result
+             :article article
+             :article-id (or (:id article) (:article_id article))))
+    (let [body (:body result)]
+      (assoc result :detail
+             (or (:error body) (:errors body) (:error result))))))
+
+(defn create-article! [{:keys [title document tags idempotency-key]}]
+  (-> (api/request
+       {:method :post
+        :path "/api/v1/contents"
+        :body {:title title
+               :type "article"
+               :document document
+               :tags (or tags [])
+               :idempotency_key idempotency-key}})
+      (.then article-result)))
+
+(defn update-article! [article-id {:keys [title document tags]}]
+  (-> (api/request
+       {:method :patch
+        :path (str "/api/v1/contents/" article-id)
+        :body {:title title :document document :tags (or tags [])}})
+      (.then article-result)))
+
+(defn publish-article! [article-id]
+  (-> (api/request
+       {:method :post
+        :path (str "/api/v1/contents/" article-id "/publish")
+        :body {}})
+      (.then article-result)))

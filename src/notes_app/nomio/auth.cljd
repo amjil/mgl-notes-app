@@ -1,0 +1,316 @@
+(ns notes-app.nomio.auth
+  (:require ["package:http/http.dart" :as http]
+            ["package:mgl_notes_app/nomio_platform.dart" :as platform]
+            ["dart:convert" :as convert]
+            ["dart:async" :as async]
+            [notes-app.nomio.config :as config]
+            [notes-app.nomio.oauth :as oauth]
+            [notes-app.nomio.token :as token]))
+
+(defonce auth-state
+  (atom {:status :logged-out
+         :user nil
+         :access-token nil
+         :access-token-expires-at nil
+         :error nil}))
+
+(defonce ^:private !refresh-operation (atom nil))
+(defonce ^:private !link-subscription (atom nil))
+
+(defn- mapish [value]
+  (cond
+    (map? value) value
+    (dart/is? value dart:core/Map)
+    (reduce (fn [acc ^String k]
+              (assoc acc (keyword k) (mapish (get value k))))
+            {}
+            (.-keys value))
+    (dart/is? value dart:core/List)
+    (mapv mapish value)
+    :else {}))
+
+(defn- decode [resp]
+  (try
+    (mapish (convert/jsonDecode (.-body resp)))
+    (catch Exception _ {})))
+
+(defn- form-post! [url body]
+  (http/post
+   (dart:core/Uri.parse url)
+   :headers {"Content-Type" "application/x-www-form-urlencoded"
+             "Accept" "application/json"}
+   :body body))
+
+(defn- response->tokens [body previous-refresh-token]
+  (let [access-token (:access_token body)
+        refresh-token (or (:refresh_token body) previous-refresh-token)
+        expires-in (or (:expires_in body) 3600)
+        scope (or (:scope body) "")]
+    (when access-token
+      {:access-token access-token
+       :refresh-token refresh-token
+       :expires-at (token/expires-at expires-in)
+       :scope scope})))
+
+(defn- apply-tokens! [tokens]
+  (-> (token/save! tokens)
+      (.then
+       (fn [_]
+         (swap! auth-state assoc
+                :access-token (:access-token tokens)
+                :access-token-expires-at (:expires-at tokens)
+                :error nil)
+         tokens))))
+
+(declare refresh!)
+
+(defn- fetch-user!
+  ([] (fetch-user! false))
+  ([retried?]
+   (if-let [access (token/access-token)]
+     (-> (http/get
+          (dart:core/Uri.parse (config/api-endpoint "/api/v1/auth/me"))
+          :headers {"Accept" "application/json"
+                    "Authorization" (str "Bearer " access)})
+         (.then
+          (fn [resp]
+            (let [status (.-statusCode resp)
+                  body (decode resp)]
+              (cond
+                (and (>= status 200) (< status 300))
+                (let [user (mapish (or (:user body) body))]
+                  (swap! auth-state assoc
+                         :status :authenticated
+                         :user user
+                         :error nil)
+                  {:ok true :user user})
+
+                (and (= status 401) (not retried?))
+                (-> (refresh!)
+                    (.then
+                     (fn [result]
+                       (if (:ok result)
+                         (fetch-user! true)
+                         result))))
+
+                :else
+                (do
+                  (when (= status 401)
+                    (token/clear!)
+                    (swap! auth-state assoc
+                           :status :logged-out
+                           :user nil
+                           :access-token nil
+                           :access-token-expires-at nil))
+                  {:ok false
+                   :status status
+                   :error (if (= status 401)
+                            :nomio-unauthorized
+                            :nomio-server-error)})))))
+         (.catchError
+          (fn [_] {:ok false :error :nomio-network-error})))
+     (async/Future.value {:ok false :error :oauth-token-expired}))))
+
+(defn refresh! []
+  (if-let [existing @!refresh-operation]
+    existing
+    (let [refresh-token (token/refresh-token)]
+      (if-not refresh-token
+        (async/Future.value {:ok false :error :oauth-token-expired})
+        (let [operation
+              (do
+                (swap! auth-state assoc :status :refreshing :error nil)
+                (-> (form-post!
+                     (config/token-endpoint)
+                     (platform/NomioPlatform.refreshTokenBody
+                      config/client-id refresh-token))
+                    (.then
+                     (fn [resp]
+                       (let [status (.-statusCode resp)
+                             body (decode resp)
+                             tokens (when (and (>= status 200) (< status 300))
+                                      (response->tokens body refresh-token))]
+                         (cond
+                           tokens
+                           (-> (apply-tokens! tokens)
+                               (.then (fn [_]
+                                        (swap! auth-state assoc :status :authenticated)
+                                        {:ok true
+                                         :access-token (:access-token tokens)})))
+
+                           (= (:error body) "invalid_grant")
+                           (do
+                             (token/clear!)
+                             (reset! auth-state
+                                     {:status :logged-out
+                                      :user nil
+                                      :access-token nil
+                                      :access-token-expires-at nil
+                                      :error :oauth-invalid-grant})
+                             {:ok false :error :oauth-invalid-grant})
+
+                           :else
+                           (do
+                             (swap! auth-state assoc
+                                    :status :error
+                                    :error :nomio-server-error)
+                             {:ok false :error :nomio-server-error})))))
+                    (.catchError
+                     (fn [_]
+                       (swap! auth-state assoc
+                              :status :error
+                              :error :nomio-network-error)
+                       {:ok false :error :nomio-network-error}))
+                    (.whenComplete (fn [] (reset! !refresh-operation nil)))))]
+          (reset! !refresh-operation operation)
+          operation)))))
+
+(defn access-token []
+  (if (token/valid?)
+    (async/Future.value (token/access-token))
+    (-> (refresh!)
+        (.then (fn [result]
+                 (when (:ok result)
+                   (token/access-token)))))))
+
+(defn current-user []
+  (:user @auth-state))
+
+(defn logged-in? []
+  (= :authenticated (:status @auth-state)))
+
+(defn- exchange-code! [code verifier]
+  (-> (form-post!
+       (config/token-endpoint)
+       (platform/NomioPlatform.authorizationCodeBody
+        config/client-id code config/redirect-uri verifier))
+      (.then
+       (fn [resp]
+         (let [status (.-statusCode resp)
+               body (decode resp)
+               tokens (when (and (>= status 200) (< status 300))
+                        (response->tokens body nil))]
+           (if tokens
+             (-> (apply-tokens! tokens)
+                 (.then (fn [_] (fetch-user!))))
+             {:ok false
+              :error (if (= (:error body) "invalid_grant")
+                       :oauth-invalid-grant
+                       :nomio-server-error)}))))
+      (.catchError
+       (fn [_] {:ok false :error :nomio-network-error}))))
+
+(defn handle-callback! [uri-string]
+  (-> (token/load-pending!)
+      (.then
+       (fn [{:keys [state verifier]}]
+         (let [result (oauth/parse-callback uri-string state)]
+           (if (nil? result)
+             {:ignored true}
+             (do
+               (platform/NomioPlatform.clearOAuthParameters)
+               (-> (token/clear-pending!)
+                 (.then
+                  (fn [_]
+                    (if-let [error (:error result)]
+                      (do
+                        (reset! auth-state
+                                {:status :logged-out
+                                 :user nil
+                                 :access-token nil
+                                 :access-token-expires-at nil
+                                 :error (when-not (= error :oauth-cancelled) error)})
+                        {:ok false :error error})
+                      (-> (exchange-code! (:code result) verifier)
+                          (.then
+                           (fn [exchange-result]
+                             (when-not (:ok exchange-result)
+                               (swap! auth-state assoc
+                                      :status :error
+                                      :error (:error exchange-result)))
+                             exchange-result))))))))))))))
+
+(defn login! []
+  (if-let [error (config/validation-error)]
+    (do
+      (swap! auth-state assoc :status :error :error error)
+      (async/Future.value {:ok false :error error}))
+    (let [{:keys [state verifier url]} (oauth/create-request)]
+      (swap! auth-state assoc :status :authorizing :error nil)
+      (-> (token/save-pending! state verifier)
+          (.then (fn [_]
+                   (platform/NomioPlatform.openAuthorizationUrl url)))
+          (.then
+           (fn [opened?]
+             (if opened?
+               {:ok true :authorizing true}
+               (do
+                 (token/clear-pending!)
+                 (swap! auth-state assoc
+                        :status :error
+                        :error :nomio-browser-error)
+                 {:ok false :error :nomio-browser-error}))))
+          (.catchError
+           (fn [_]
+             (token/clear-pending!)
+             (swap! auth-state assoc
+                    :status :error
+                    :error :nomio-browser-error)
+             {:ok false :error :nomio-browser-error}))))))
+
+(defn logout! []
+  (let [refresh-token (token/refresh-token)
+        revoke (if (and refresh-token (config/configured?))
+                 (form-post!
+                  (config/revoke-endpoint)
+                  (platform/NomioPlatform.revokeTokenBody
+                   config/client-id refresh-token))
+                 (async/Future.value nil))]
+    (-> revoke
+        (.catchError (fn [_] nil))
+        (.then
+         (fn [_]
+           (-> (async/Future.wait [(token/clear!) (token/clear-pending!)])
+               (.then
+                (fn [_]
+                  (reset! auth-state
+                          {:status :logged-out
+                           :user nil
+                           :access-token nil
+                           :access-token-expires-at nil
+                           :error nil})
+                  {:ok true}))))))))
+
+(defn initialize! []
+  (-> (platform/NomioPlatform.initialize)
+      (.then
+       (fn [_]
+         (when-not @!link-subscription
+           (reset! !link-subscription
+                   (.listen platform/NomioPlatform.links
+                            (fn [uri]
+                              (handle-callback! uri)
+                              nil))))
+         (token/load!)))
+      (.then
+       (fn [tokens]
+         (if-not tokens
+           (do
+             (swap! auth-state assoc :status :logged-out)
+             {:ok true :logged-in false})
+           (do
+             (swap! auth-state assoc
+                    :access-token (:access-token tokens)
+                    :access-token-expires-at (:expires-at tokens))
+             (-> (access-token)
+                 (.then
+                  (fn [access]
+                    (if access
+                      (fetch-user!)
+                      {:ok false :error :oauth-token-expired}))))))))
+      (.catchError
+       (fn [_]
+         (swap! auth-state assoc
+                :status :error
+                :error :nomio-initialize-error)
+         {:ok false :error :nomio-initialize-error}))))

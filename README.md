@@ -67,6 +67,103 @@ Edits auto-save after ~2 seconds; a final save runs when leaving the editor.
 - **Export HTML** — standalone vertical-script HTML plus the bundled `OyunQaganTig` font (from Today, the document list, or the editor).
 - **Backup / restore** — export the local database (documents, blocks, assets, **operations**, `last_sync_time`) to JSON; import restores content and the sync log so a logged-in device does not re-push or miss ops. Legacy backups without an op log clear local operations and reset the pull cursor so the next sync reconciles with the cloud.
 
+### Publish to Nomio
+
+Nomio publishing is a separate optional account from cloud sync. It uses the
+system browser with OAuth Authorization Code + PKCE and never asks for a Nomio
+password inside the app. Configure builds with:
+
+```bash
+--dart-define=NOMIO_ISSUER=https://nomio.example.com
+--dart-define=NOMIO_CLIENT_ID=mgl-notes-app
+--dart-define=NOMIO_WEB_REDIRECT_URI=https://notes.example.com/oauth/callback
+```
+
+Native clients use `net.amjil.notes://oauth/callback`. Register every redirect
+URI with Nomio before testing. The editor upload action creates and publishes an
+article the first time, updates that article on later publishes, and uploads
+local images first. Web credentials are scoped to browser session storage.
+Linux packaging must include `libsecret-1-0` and install
+`linux/net.amjil.notes.desktop` as the handler for the custom URI scheme.
+
+#### Native platform changes for Nomio OAuth
+
+The native runner changes below are required in every checkout because only
+`src/` is synchronized by the application source workflow. Re-apply them after
+regenerating Flutter platform directories.
+
+**Android — `android/app/src/main/AndroidManifest.xml`**
+
+- Disable Flutter's built-in deep-link handler for the activity:
+
+```xml
+<meta-data
+    android:name="flutter_deeplinking_enabled"
+    android:value="false" />
+```
+
+- Add this callback intent filter to `MainActivity`:
+
+```xml
+<intent-filter>
+    <action android:name="android.intent.action.VIEW" />
+    <category android:name="android.intent.category.DEFAULT" />
+    <category android:name="android.intent.category.BROWSABLE" />
+    <data
+        android:scheme="net.amjil.notes"
+        android:host="oauth"
+        android:path="/callback" />
+</intent-filter>
+```
+
+**iOS**
+
+- In `ios/Runner/Info.plist`, register `net.amjil.notes` under
+  `CFBundleURLTypes` with URL name `net.amjil.notes.oauth`.
+- Set `FlutterDeepLinkingEnabled` to `false`; the `app_links` plugin owns
+  callback delivery.
+- Add `ios/Runner/Runner.entitlements` with an empty
+  `keychain-access-groups` array so `flutter_secure_storage` can use Keychain.
+- Set `CODE_SIGN_ENTITLEMENTS = Runner/Runner.entitlements` for Debug, Profile,
+  and Release in `ios/Runner.xcodeproj/project.pbxproj`.
+
+**macOS**
+
+- In `macos/Runner/Info.plist`, register the `net.amjil.notes` URL scheme under
+  `CFBundleURLTypes`.
+- Add an empty `keychain-access-groups` array to both
+  `macos/Runner/DebugProfile.entitlements` and
+  `macos/Runner/Release.entitlements`.
+- Keychain entitlements require a valid Apple development signature when
+  building the runner.
+
+**Windows — `windows/runner/main.cpp`**
+
+- Include `app_links/app_links_plugin_c_api.h`.
+- Before creating a new window, call `SendAppLink` when an existing
+  `mgl_notes_app` window is found, then restore and focus that window.
+- Register `net.amjil.notes` under
+  `HKCU\Software\Classes\net.amjil.notes` with `URL Protocol` and an
+  `"<executable>" "%1"` open command. The current implementation performs this
+  registration at application startup.
+
+**Linux**
+
+- In `linux/runner/my_application.cc`, create the GTK application with
+  `G_APPLICATION_HANDLES_COMMAND_LINE | G_APPLICATION_HANDLES_OPEN` so callback
+  URIs are forwarded to `app_links`.
+- Package and install `linux/net.amjil.notes.desktop`; it declares
+  `MimeType=x-scheme-handler/net.amjil.notes` and launches
+  `mgl_notes_app %U`.
+- The build host needs `libsecret-1-dev`; the packaged application needs
+  `libsecret-1-0`.
+
+**Generated plugin registration**
+
+After adding `app_links` and `flutter_secure_storage` to `pubspec.yaml`, run
+`flutter pub get`. Flutter regenerates the Android, Apple, Linux, and Windows
+plugin registrants; do not hand-edit generated registrant files.
+
 ### Account & sync (optional)
 
 Works fully **offline**. Cloud sync is opt-in via Settings:

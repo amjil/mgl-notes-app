@@ -8,6 +8,7 @@
             [notes-app.state.store :as store]
             [notes-app.services.sync :as sync]
             [notes-app.services.auth :as auth]
+            [notes-app.nomio.auth :as nomio]
             [notes-app.services.backup :as backup]
             [notes-app.keyboard :as kw]
             [notes-app.platform :as platform]
@@ -207,6 +208,19 @@
       (.then (fn [_]
                (snack! ctx "Logged out")))))
 
+(defn- nomio-login! [ctx]
+  (-> (nomio/login!)
+      (.then
+       (fn [result]
+         (when-not (:ok result)
+           (snack! ctx (str "Nomio: " (:error result))))))
+      (.catchError
+       (fn [_] (snack! ctx "Could not open Nomio login")))))
+
+(defn- nomio-logout! [ctx]
+  (-> (nomio/logout!)
+      (.then (fn [_] (snack! ctx "Nomio disconnected")))))
+
 (defn- sync-now! [ctx]
   (if-not (store/sync-enabled?)
     (snack! ctx "Cloud sync disabled")
@@ -238,7 +252,8 @@
   (f/widget
    :context ctx
    :watch [{:keys [user-name sync-base-url device-id last-sync-time sync-enabled
-                   sync-status sync-message auth-email auth-token show-heatmap]} store/app-ui-state]
+                   sync-status sync-message auth-email auth-token]} store/app-ui-state
+           nomio-state nomio/auth-state]
    :let [logged-in? (and auth-token (not= auth-token ""))
          status-text (str (name (or sync-status :idle))
                           (when sync-message (str " — " sync-message)))
@@ -285,7 +300,45 @@
              :on-tap #(edit-field-dialog ctx "User" user-name store/update-user-name!)}
             {:title "Device ID"
              :subtitle (or device-id "")
-             :leading m.Icons/devices}])]
+             :leading m.Icons/devices}])
+         nomio-status (:status nomio-state)
+         nomio-user (:user nomio-state)
+         nomio-name (or (:username nomio-user)
+                        (:display_name nomio-user)
+                        (:display-name nomio-user)
+                        "")
+         nomio-items
+         (case nomio-status
+           :authenticated
+           [{:title (if (empty? nomio-name) "Nomio" (str "@" nomio-name))
+             :subtitle "Connected"
+             :leading m.Icons/verified_user_outlined}
+            {:title "Log out of Nomio"
+             :leading m.Icons/link_off
+             :show-arrow? true
+             :on-tap #(nomio-logout! ctx)}]
+
+           :authorizing
+           [{:title "Opening Nomio…"
+             :subtitle "Complete login in your browser"
+             :leading m.Icons/open_in_browser}]
+
+           :refreshing
+           [{:title "Refreshing Nomio session…"
+             :leading m.Icons/sync}]
+
+           :error
+           [{:title "Could not connect to Nomio"
+             :subtitle (str (or (:error nomio-state) "Unknown error"))
+             :leading m.Icons/error_outline
+             :show-arrow? true
+             :on-tap #(nomio-login! ctx)}]
+
+           [{:title "Log in to Nomio"
+             :subtitle "Publish notes with your Nomio account"
+             :leading m.Icons/open_in_browser
+             :show-arrow? true
+             :on-tap #(nomio-login! ctx)}])]
    (m/Row
     .crossAxisAlignment m.CrossAxisAlignment/stretch
     .children
@@ -298,6 +351,8 @@
        .padding (m.EdgeInsets/all 16.0)
        .children
        [(setting/settings-section "Account" account-items)
+
+     (setting/settings-section "Nomio" nomio-items)
 
      (setting/settings-section
       "Display"

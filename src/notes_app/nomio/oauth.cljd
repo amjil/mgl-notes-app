@@ -1,0 +1,47 @@
+(ns notes-app.nomio.oauth
+  (:require ["package:mgl_notes_app/nomio_platform.dart" :as platform]
+            [clojure.string :as str]
+            [notes-app.nomio.config :as config]))
+
+(defn create-request []
+  (let [state (platform/NomioPlatform.randomBase64Url 32)
+        verifier (platform/NomioPlatform.randomBase64Url 64)
+        challenge (platform/NomioPlatform.codeChallenge verifier)
+        url (platform/NomioPlatform.authorizationUrl
+             (config/authorize-endpoint)
+             config/client-id
+             config/redirect-uri
+             (str/join " " config/scopes)
+             state
+             challenge)]
+    {:state state
+     :verifier verifier
+     :url url}))
+
+(defn- expected-callback? [^dart:core/Uri uri]
+  (let [expected (dart:core/Uri.parse config/redirect-uri)]
+    (and (= (.-scheme uri) (.-scheme expected))
+         (= (.-host uri) (.-host expected))
+         (= (.-path uri) (.-path expected)))))
+
+(defn parse-callback [uri-string expected-state]
+  (try
+    (let [uri (dart:core/Uri.parse uri-string)
+          params (.-queryParameters uri)
+          returned-state (get params "state")
+          code (get params "code")
+          oauth-error (get params "error")]
+      (cond
+        (not (expected-callback? uri)) nil
+        (not= returned-state expected-state)
+        {:error :oauth-state-mismatch}
+        (= oauth-error "access_denied")
+        {:error :oauth-cancelled}
+        (and oauth-error (not= oauth-error ""))
+        {:error :oauth-invalid-grant
+         :description (get params "error_description")}
+        (str/blank? code)
+        {:error :oauth-invalid-grant}
+        :else {:code code}))
+    (catch Exception _
+      {:error :oauth-invalid-callback})))

@@ -1,0 +1,51 @@
+(ns notes-app.services.publication
+  (:require ["dart:async" :as async]
+            ["package:drift/drift.dart" :as d]
+            [notes-app.db.core :as db]))
+
+(def provider "nomio")
+
+(defn get-for-document [document-id]
+  (if-let [database (db/get-database)]
+    (-> (.get
+         (.customSelect
+          database
+          (str "SELECT id, document_id, provider, remote_id, status, "
+               "published_at, last_synced_at, last_error "
+               "FROM publications WHERE document_id = ? AND provider = ? LIMIT 1")
+          .variables [(d/Variable. document-id) (d/Variable. provider)]
+          .readsFrom #{(.-publications database)}))
+        (.then
+         (fn [rows]
+           (when-let [row (first rows)]
+             (let [data (.-data row)]
+               {:id (get data "id")
+                :document-id (get data "document_id")
+                :provider (get data "provider")
+                :remote-id (get data "remote_id")
+                :status (keyword (or (get data "status") "publishing"))
+                :published-at (get data "published_at")
+                :last-synced-at (get data "last_synced_at")
+                :last-error (get data "last_error")})))))
+    (async/Future.value nil)))
+
+(defn save!
+  [document-id {:keys [remote-id status published? error]}]
+  (if-let [database (db/get-database)]
+    (let [now (.-millisecondsSinceEpoch (dart:core/DateTime.now))
+          id (str (random-uuid))
+          status-name (name (or status :publishing))
+          published-at (when published? now)]
+      (.customStatement
+       database
+       (str "INSERT INTO publications "
+            "(id, document_id, provider, remote_id, status, published_at, "
+            "last_synced_at, last_error) VALUES (?, ?, ?, ?, ?, ?, ?, ?) "
+            "ON CONFLICT(document_id, provider) DO UPDATE SET "
+            "remote_id = COALESCE(excluded.remote_id, publications.remote_id), "
+            "status = excluded.status, "
+            "published_at = COALESCE(excluded.published_at, publications.published_at), "
+            "last_synced_at = excluded.last_synced_at, "
+            "last_error = excluded.last_error")
+       [id document-id provider remote-id status-name published-at now error]))
+    (async/Future.value nil)))

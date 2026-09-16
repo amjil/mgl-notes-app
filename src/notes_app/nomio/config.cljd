@@ -1,0 +1,44 @@
+(ns notes-app.nomio.config
+  (:require ["package:flutter/foundation.dart" :refer [kIsWeb]]
+            [clojure.string :as str]))
+
+(def issuer
+  (.replaceFirst
+   (dart:core/String.fromEnvironment "NOMIO_ISSUER")
+   (dart:core/RegExp. "/+$")
+   ""))
+
+(def client-id
+  (let [v (dart:core/String.fromEnvironment "NOMIO_CLIENT_ID")]
+    (if (str/blank? v) "mgl-notes-app" v)))
+
+(def native-redirect-uri "net.amjil.notes://oauth/callback")
+
+(def redirect-uri
+  (if kIsWeb
+    (dart:core/String.fromEnvironment "NOMIO_WEB_REDIRECT_URI")
+    native-redirect-uri))
+
+(def scopes
+  ["profile" "articles.write" "media.write"])
+
+(defn endpoint [path]
+  (str issuer path))
+
+(defn authorize-endpoint [] (endpoint "/oauth/authorize"))
+(defn token-endpoint [] (endpoint "/oauth/token"))
+(defn revoke-endpoint [] (endpoint "/oauth/revoke"))
+(defn api-endpoint [path] (endpoint path))
+
+(defn validation-error []
+  (cond
+    (str/blank? issuer) "NOMIO_ISSUER is not configured"
+    (not (str/starts-with? issuer "https://")) "NOMIO_ISSUER must use HTTPS"
+    (str/blank? client-id) "NOMIO_CLIENT_ID is not configured"
+    (str/blank? redirect-uri) "Nomio redirect URI is not configured"
+    (and kIsWeb (not (str/starts-with? redirect-uri "https://")))
+    "NOMIO_WEB_REDIRECT_URI must use HTTPS"
+    :else nil))
+
+(defn configured? []
+  (nil? (validation-error)))
