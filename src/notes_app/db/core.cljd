@@ -355,7 +355,13 @@
   (if-let [^drift/AppDatabase database @db]
     (stream-handle-error
      (.map (.watch (.customSelect database
-                                  (str "SELECT d.title as date_str, COUNT(b.id) as count "
+                                  (str "SELECT d.title as date_str, "
+                                       "CASE "
+                                       "WHEN COUNT(b.id) = 1 "
+                                       "AND TRIM(COALESCE(MAX(b.text), '')) = '' "
+                                       "THEN 0 "
+                                       "ELSE COUNT(b.id) "
+                                       "END as count "
                                        "FROM documents d "
                                        "LEFT JOIN blocks b ON b.document_id = d.id "
                                        "WHERE d.type = 'daily' "

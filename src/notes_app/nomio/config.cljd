@@ -1,5 +1,5 @@
 (ns notes-app.nomio.config
-  (:require ["package:flutter/foundation.dart" :refer [kIsWeb]]
+  (:require ["package:flutter/foundation.dart" :refer [kDebugMode kIsWeb]]
             [clojure.string :as str]))
 
 (def issuer
@@ -30,10 +30,18 @@
 (defn revoke-endpoint [] (endpoint "/oauth/revoke"))
 (defn api-endpoint [path] (endpoint path))
 
+(defn- debug-loopback-issuer? []
+  (and kDebugMode
+       (boolean
+        (re-find #"^http://(localhost|127\.0\.0\.1|\[::1\])(?::\d+)?(?:/|$)"
+                 issuer))))
+
 (defn validation-error []
   (cond
     (str/blank? issuer) "NOMIO_ISSUER is not configured"
-    (not (str/starts-with? issuer "https://")) "NOMIO_ISSUER must use HTTPS"
+    (and (not (str/starts-with? issuer "https://"))
+         (not (debug-loopback-issuer?)))
+    "NOMIO_ISSUER must use HTTPS (except loopback addresses in debug builds)"
     (str/blank? client-id) "NOMIO_CLIENT_ID is not configured"
     (str/blank? redirect-uri) "Nomio redirect URI is not configured"
     (and kIsWeb (not (str/starts-with? redirect-uri "https://")))
