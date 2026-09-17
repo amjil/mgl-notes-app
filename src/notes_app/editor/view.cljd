@@ -135,6 +135,8 @@
                          (assoc b
                                 :collapsed? true
                                 :data (merge sm2/default-state (:data b {}))))))}
+    {:label "Table" :icon m.Icons/table_chart :type :table
+     :keywords ["table" "grid"]}
     {:label "Divider" :icon m.Icons/horizontal_rule :type :divider}
     {:label "Image" :icon m.Icons/image
      :action :insert-image

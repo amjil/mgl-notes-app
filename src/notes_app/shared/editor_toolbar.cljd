@@ -120,6 +120,8 @@
                            #(insert-image-from-picker! !state active-id))
            (toolbar-button m.Icons/attach_file "Attachment" (= block-type :attachment)
                            #(insert-attachment-from-picker! !state active-id))
+           (toolbar-button m.Icons/table_chart "Table" (= block-type :table)
+                           #(ops/convert-block! !state active-id :table))
            (toolbar-button m.Icons/horizontal_rule "Divider" (= block-type :divider)
                            #(ops/convert-block! !state active-id :divider))
            (toolbar-button m.Icons/bookmark_border "Bookmark" (= block-type :bookmark)
