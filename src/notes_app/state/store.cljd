@@ -6,6 +6,7 @@
    :sync-base-url "sync_base_url"
    :last-sync-time "last_sync_time"
    :last-sync-op-id "last_sync_op_id"
+   :last-sync-cursor "last_sync_cursor"
    :user-name "user_name"
    :show-daily-only "show_daily_only"
    :show-backlinks "show_backlinks"
@@ -85,8 +86,14 @@
         base-url (if (or (nil? saved-url) (= saved-url ""))
                    default-sync-base-url
                    saved-url)
-        last-sync (.getString prefs (:last-sync-time pref-keys))
-        last-sync-op-id (or (.getString prefs (:last-sync-op-id pref-keys)) "")
+        cursor (.getString prefs (:last-sync-cursor pref-keys))
+        cursor-sep (if cursor (.indexOf cursor "\n") -1)
+        last-sync (if (>= cursor-sep 0)
+                    (.substring cursor 0 cursor-sep)
+                    (.getString prefs (:last-sync-time pref-keys)))
+        last-sync-op-id (if (>= cursor-sep 0)
+                          (.substring cursor (inc cursor-sep))
+                          (or (.getString prefs (:last-sync-op-id pref-keys)) ""))
         user-name (or (.getString prefs (:user-name pref-keys)) "")
         show-daily-only? (or (.getBool prefs (:show-daily-only pref-keys)) false)
         show-backlinks-pref (.getBool prefs (:show-backlinks pref-keys))
@@ -242,7 +249,7 @@
       (await (.setString prefs (:last-sync-time pref-keys) v)))))
 
 (defn set-last-sync-cursor!
-  "Persist pull cursor tuple `(received_at, op_id)`."
+  "Persist pull cursor tuple `(received_at, op_id)` as one atomic preference."
   [since since-id]
   (let [t (str (or since "0"))
         oid (str (or since-id ""))]
@@ -250,8 +257,7 @@
            :last-sync-time t
            :last-sync-op-id oid)
     (let [prefs (await (.getInstance sp/SharedPreferences))]
-      (await (.setString prefs (:last-sync-time pref-keys) t))
-      (await (.setString prefs (:last-sync-op-id pref-keys) oid)))))
+      (await (.setString prefs (:last-sync-cursor pref-keys) (str t "\n" oid))))))
 
 (defn set-sync-status! [status message]
   (when (= status :error)

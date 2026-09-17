@@ -56,19 +56,22 @@
                      :cover (if cover (d/Value ^String cover) (d/Value nil))
                      :createdAt (d/Value ^dc/DateTime now)
                      :updatedAt (d/Value ^dc/DateTime now))]
-      (-> (.insert (.into database (.-documents database)) companion)
-          (.then (fn [_]
-                   (op/append!
-                    {:entity-type "document"
-                     :entity-id doc-id
-                     :action "document_create"
-                     :payload {:id doc-id
-                               :title (or title "")
-                               :type type
-                               :parent_id parent-id
-                               :icon icon
-                               :cover cover}})))
-          (.then (fn [_] (seed-paragraph! doc-id)))
+      (-> (.transaction
+           database
+           (fn []
+             (-> (.insert (.into database (.-documents database)) companion)
+                 (.then (fn [_]
+                          (op/append!
+                           {:entity-type "document"
+                            :entity-id doc-id
+                            :action "document_create"
+                            :payload {:id doc-id
+                                      :title (or title "")
+                                      :type type
+                                      :parent_id parent-id
+                                      :icon icon
+                                      :cover cover}})))
+                 (.then (fn [_] (seed-paragraph! doc-id))))))
           (.then (fn [_] (db/refresh-document-titles!)))
           (.then (fn [_] doc-id))))
     (async/Future.value nil)))
@@ -93,16 +96,19 @@
             (if (contains? patch :cover)
               (.copyWith c .cover (if cover (d/Value ^String cover) (d/Value nil)))
               c))]
-      (-> (.write q companion)
-          (.then (fn [_]
-                   (op/append!
-                    {:entity-type "document"
-                     :entity-id doc-id
-                     :action "document_update"
-                     :payload (cond-> {}
-                                (contains? patch :title) (assoc :title title)
-                                (contains? patch :icon) (assoc :icon icon)
-                                (contains? patch :cover) (assoc :cover cover))})))
+      (-> (.transaction
+           database
+           (fn []
+             (-> (.write q companion)
+                 (.then (fn [_]
+                          (op/append!
+                           {:entity-type "document"
+                            :entity-id doc-id
+                            :action "document_update"
+                            :payload (cond-> {}
+                                       (contains? patch :title) (assoc :title title)
+                                       (contains? patch :icon) (assoc :icon icon)
+                                       (contains? patch :cover) (assoc :cover cover))}))))))
           (.then (fn [_]
                    (when (contains? patch :title)
                      (db/refresh-document-titles!))
@@ -117,15 +123,18 @@
     (let [now (db/now)
           q (doto (.update database (.-documents database))
               (.where (fn [t] (.equals (.-id t) doc-id))))]
-      (-> (.write q (drift/DocumentsCompanion.
-                     .deletedAt (d/Value ^dc/DateTime now)
-                     .updatedAt (d/Value ^dc/DateTime now)))
-          (.then (fn [_]
-                   (op/append!
-                    {:entity-type "document"
-                     :entity-id doc-id
-                     :action "document_delete"
-                     :payload {:deleted_at (.toIso8601String now)}})))
+      (-> (.transaction
+           database
+           (fn []
+             (-> (.write q (drift/DocumentsCompanion.
+                            .deletedAt (d/Value ^dc/DateTime now)
+                            .updatedAt (d/Value ^dc/DateTime now)))
+                 (.then (fn [_]
+                          (op/append!
+                           {:entity-type "document"
+                            :entity-id doc-id
+                            :action "document_delete"
+                            :payload {:deleted_at (.toIso8601String now)}}))))))
           (.then (fn [_] (db/refresh-document-titles!)))
           (.then (fn [_] true))))
     (async/Future.value false)))
@@ -164,17 +173,20 @@
                (let [now (db/now)
                      q (doto (.update database (.-documents database))
                          (.where (fn [t] (.equals (.-id t) doc-id))))]
-                 (-> (.write q (drift/DocumentsCompanion.
-                                .parentId (if parent-id
-                                            (d/Value ^String parent-id)
-                                            (d/Value nil))
-                                .updatedAt (d/Value ^dc/DateTime now)))
-                     (.then (fn [_]
-                              (op/append!
-                               {:entity-type "document"
-                                :entity-id doc-id
-                                :action "document_move"
-                                :payload {:parent_id parent-id}})))
+                 (-> (.transaction
+                      database
+                      (fn []
+                        (-> (.write q (drift/DocumentsCompanion.
+                                       .parentId (if parent-id
+                                                   (d/Value ^String parent-id)
+                                                   (d/Value nil))
+                                       .updatedAt (d/Value ^dc/DateTime now)))
+                            (.then (fn [_]
+                                     (op/append!
+                                      {:entity-type "document"
+                                       :entity-id doc-id
+                                       :action "document_move"
+                                       :payload {:parent_id parent-id}}))))))
                      (.then (fn [_] true)))))))))
     (async/Future.value false)))
 
@@ -192,15 +204,18 @@
     (let [now (db/now)
           q (doto (.update database (.-documents database))
               (.where (fn [t] (.equals (.-id t) doc-id))))]
-      (-> (.write q (drift/DocumentsCompanion.
-                     .deletedAt (d/Value nil)
-                     .updatedAt (d/Value ^dc/DateTime now)))
-          (.then (fn [_]
-                   (op/append!
-                    {:entity-type "document"
-                     :entity-id doc-id
-                     :action "document_restore"
-                     :payload {}})))
+      (-> (.transaction
+           database
+           (fn []
+             (-> (.write q (drift/DocumentsCompanion.
+                            .deletedAt (d/Value nil)
+                            .updatedAt (d/Value ^dc/DateTime now)))
+                 (.then (fn [_]
+                          (op/append!
+                           {:entity-type "document"
+                            :entity-id doc-id
+                            :action "document_restore"
+                            :payload {}}))))))
           (.then (fn [_] (db/refresh-document-titles!)))
           (.then (fn [_] true))))
     (async/Future.value false)))
@@ -211,12 +226,15 @@
   (if-let [^drift/AppDatabase database (db/get-database)]
     (let [q (doto (.delete database (.-documents database))
               (.where (fn [t] (.equals (.-id t) doc-id))))]
-      (-> (.go q)
-          (.then (fn [_]
-                   (op/append!
-                    {:entity-type "document"
-                     :entity-id doc-id
-                     :action "document_destroy"
-                     :payload {}})))
+      (-> (.transaction
+           database
+           (fn []
+             (-> (.go q)
+                 (.then (fn [_]
+                          (op/append!
+                           {:entity-type "document"
+                            :entity-id doc-id
+                            :action "document_destroy"
+                            :payload {}}))))))
           (.then (fn [_] true))))
     (async/Future.value false)))

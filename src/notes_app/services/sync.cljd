@@ -270,6 +270,12 @@
                                        (let [decoded (convert/jsonDecode (.-body resp))
                                              renames (or (get decoded "title_renames") [])]
                                          (-> (op/mark-synced! (mapv #(.-id %) pushable))
+                                             ;; Persist edits made while the request was in flight
+                                             ;; before a title rename reloads open sessions.
+                                             (.then (fn [_]
+                                                      (if (seq (or renames []))
+                                                        (call-hook !before-pull)
+                                                        (async/Future.value nil))))
                                              (.then (fn [_]
                                                       (apply/apply-push-title-renames! renames)))
                                              (.then (fn [_]
@@ -327,13 +333,17 @@
                                      (-> (apply-remote-ops! items)
                                          (.then
                                           (fn [_]
-                                            (when cursor
-                                              (store/set-last-sync-cursor!
-                                               (:since cursor)
-                                               (:since-id cursor)))
-                                            (if (< n pull-page-size)
-                                              :ok
-                                              (pull-page! (:since cursor) (:since-id cursor)))))))
+                                            (-> (if cursor
+                                                  (store/set-last-sync-cursor!
+                                                   (:since cursor)
+                                                   (:since-id cursor))
+                                                  (async/Future.value nil))
+                                                (.then
+                                                 (fn [_]
+                                                   (if (< n pull-page-size)
+                                                     :ok
+                                                     (pull-page! (:since cursor)
+                                                                 (:since-id cursor))))))))))
 
                                    :else
                                    (do

@@ -5,7 +5,6 @@
             [clojure.set :as cset]
             [notes-app.db.core :as db]
             [notes-app.services.block :as block]
-            [notes-app.services.document :as doc]
             [notes-app.services.link :as link]
             [notes-app.services.sync :as sync]
             [block-editor.utils.persistence :as persist]))
@@ -158,7 +157,7 @@
         (.then (fn [_] (link/rebuild-links-for-rows! link-rows)))
         (.then (fn [_]
                  (reset! !snapshot by-id)
-                 (doc/touch! document-id)))
+                 true))
         (.then (fn [_]
                  (sync/schedule-push!)
                  true))

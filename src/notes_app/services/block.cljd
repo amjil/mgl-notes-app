@@ -32,20 +32,23 @@
                      :orderIndex (double order-index)
                      :createdAt (d/Value ^dc/DateTime now)
                      :updatedAt (d/Value ^dc/DateTime now))]
-      (-> (.insert (.into database (.-blocks database)) companion)
-          (.then (fn [_]
-                   (op/append!
-                    {:entity-type "block"
-                     :entity-id block-id
-                     :action "block_create"
-                     :payload {:id block-id
-                               :document_id document-id
-                               :parent_id parent-id
-                               :type db-type
-                               :text (or text "")
-                               :checked (boolean checked)
-                               :data_json data-json
-                               :order_index order-index}})))
+      (-> (.transaction
+           database
+           (fn []
+             (-> (.insert (.into database (.-blocks database)) companion)
+                 (.then (fn [_]
+                          (op/append!
+                           {:entity-type "block"
+                            :entity-id block-id
+                            :action "block_create"
+                            :payload {:id block-id
+                                      :document_id document-id
+                                      :parent_id parent-id
+                                      :type db-type
+                                      :text (or text "")
+                                      :checked (boolean checked)
+                                      :data_json data-json
+                                      :order_index order-index}}))))))
           (.then (fn [_] block-id))))
     (async/Future.value nil)))
 
@@ -55,15 +58,18 @@
     (let [now (db/now)
           q (doto (.update database (.-blocks database))
               (.where (fn [t] (.equals (.-id t) block-id))))]
-      (-> (.write q (drift/BlocksCompanion.
-                     .checked (d/Value ^bool (boolean checked))
-                     .updatedAt (d/Value ^dc/DateTime now)))
-          (.then (fn [_]
-                   (op/append!
-                    {:entity-type "block"
-                     :entity-id block-id
-                     :action "block_check"
-                     :payload {:checked (boolean checked)}})))
+      (-> (.transaction
+           database
+           (fn []
+             (-> (.write q (drift/BlocksCompanion.
+                            .checked (d/Value ^bool (boolean checked))
+                            .updatedAt (d/Value ^dc/DateTime now)))
+                 (.then (fn [_]
+                          (op/append!
+                           {:entity-type "block"
+                            :entity-id block-id
+                            :action "block_check"
+                            :payload {:checked (boolean checked)}}))))))
           (.then (fn [_] true))))
     (async/Future.value false)))
 
@@ -72,15 +78,18 @@
     (let [now (db/now)
           q (doto (.update database (.-blocks database))
               (.where (fn [t] (.equals (.-id t) block-id))))]
-      (-> (.write q (drift/BlocksCompanion.
-                     .deletedAt (d/Value ^dc/DateTime now)
-                     .updatedAt (d/Value ^dc/DateTime now)))
-          (.then (fn [_]
-                   (op/append!
-                    {:entity-type "block"
-                     :entity-id block-id
-                     :action "block_delete"
-                     :payload {:deleted_at (.toIso8601String now)}})))
+      (-> (.transaction
+           database
+           (fn []
+             (-> (.write q (drift/BlocksCompanion.
+                            .deletedAt (d/Value ^dc/DateTime now)
+                            .updatedAt (d/Value ^dc/DateTime now)))
+                 (.then (fn [_]
+                          (op/append!
+                           {:entity-type "block"
+                            :entity-id block-id
+                            :action "block_delete"
+                            :payload {:deleted_at (.toIso8601String now)}}))))))
           ;; Soft-delete does not cascade FK — clear derived link index.
           (.then (fn [_] (link/clear-links-for-block! block-id)))
           (.then (fn [_] true))))
@@ -155,8 +164,11 @@
 
 (defn- update-existing!
   [^drift/AppDatabase database existing row]
-  (-> (write-row! database row)
-      (.then (fn [_] (emit-change-ops! existing row)))
+  (-> (.transaction
+       database
+       (fn []
+         (-> (write-row! database row)
+             (.then (fn [_] (emit-change-ops! existing row))))))
       (.then (fn [_] :updated))))
 
 (defn upsert-full!

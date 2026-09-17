@@ -286,7 +286,6 @@
                  (if (or (nil? s) (= s :failed))
                    :failed
                    (do
-                     (swap! !sessions assoc document-id s)
                      (reveal-pending-focus! s)
                      s)))))))
 
@@ -349,14 +348,13 @@
                      false))))
 
 (defn reload-open-sessions!
-  "Re-read cached editors from DB after remote apply (in-place, same atoms)."
+  "Re-read cached editors from DB after remote apply (in-place, same atoms).
+   The caller must flush local edits before applying remote changes."
   []
-  (-> (flush-open-sessions!)
-      (.then (fn [_]
-               (reduce (fn [fut [doc-id session]]
-                         (.then fut (fn [_] (reload-session! doc-id session))))
-                       (async/Future.value true)
-                       (vec @!sessions))))))
+  (reduce (fn [fut [doc-id session]]
+            (.then fut (fn [_] (reload-session! doc-id session))))
+          (async/Future.value true)
+          (vec @!sessions)))
 
 (defn- show-rename! [ctx document-id !title]
   (rename/rename-dialog ctx @!title
@@ -444,7 +442,10 @@
 
     (f/widget
 
-     :managed [_ !save-timer :dispose cleanup!]
+     :managed [_ (do
+                   (swap! !sessions assoc document-id session)
+                   !save-timer)
+               :dispose cleanup!]
 
      ;; Build the editor/reader only when preview mode changes — not inside the
      ;; !state watch — so resolved-config / blur cannot mark sibling watches dirty.

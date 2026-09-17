@@ -87,8 +87,11 @@
                      (-> (.isVisible wm/windowManager)
                          (.then (fn [visible?]
                                   (if visible?
-                                    (do (.hide wm/windowManager)
-                                        (store/close-quick-entry!))
+                                    (if @store/!quick-entry-mode
+                                      (do (.hide wm/windowManager)
+                                          (store/close-quick-entry!))
+                                      (do (store/open-quick-entry!)
+                                          (.focus wm/windowManager)))
                                     (do (.show wm/windowManager)
                                         (.focus wm/windowManager)
                                         (store/open-quick-entry!))))))

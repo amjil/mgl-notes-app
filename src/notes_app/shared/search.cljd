@@ -15,6 +15,11 @@
 (defonce !search-state
   (atom {:external-keyboard-delegate nil}))
 
+(defn- cancel-search-timer! [!timer]
+  (when-let [timer @!timer]
+    (.cancel ^async/Timer timer)
+    (reset! !timer nil)))
+
 (defn search-body []
   (let [!query (atom "")
         !results (atom [])
@@ -39,7 +44,8 @@
                                 #(run-search! v))))]
     (f/widget
      :managed [search-ctrl (m/TextEditingController.)
-               search-focus-node (m/FocusNode.)]
+               search-focus-node (m/FocusNode.)
+               _ !timer :dispose cancel-search-timer!]
      :bg-watcher ([^m/TextEditingValue {v .-text} search-ctrl]
                   (schedule-search! (or v "")))
      :watch [query !query

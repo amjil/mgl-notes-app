@@ -16,8 +16,7 @@
 (defn today-title []
   (date->title (dc/DateTime.now)))
 
-(defn ensure-daily!
-  "Return daily Document id for a specific date, creating it if missing."
+(defn- ensure-daily-now!
   [^dc/DateTime dt]
   (let [title (date->title dt)]
     (-> (db/find-daily-by-title title)
@@ -26,6 +25,30 @@
                    (.-id existing)
                    (doc/create! {:title title :type "daily"}))))
         (.catchError (fn [e]
+                       (dart:core/print (str "ensure-daily! failed: " e))
+                       nil)))))
+
+(defonce ^:private !ensure-chain (atom nil))
+
+(defn ensure-daily!
+  "Return the single daily Document id for a date, serializing concurrent creates."
+  [^dc/DateTime dt]
+  (let [previous @!ensure-chain
+        run (fn [_] (ensure-daily-now! dt))
+        chained (if previous
+                  (-> previous
+                      (.catchError (fn [_] nil))
+                      (.then run))
+                  (run nil))]
+    (reset! !ensure-chain chained)
+    (-> chained
+        (.then (fn [result]
+                 (when (identical? @!ensure-chain chained)
+                   (reset! !ensure-chain nil))
+                 result))
+        (.catchError (fn [e]
+                       (when (identical? @!ensure-chain chained)
+                         (reset! !ensure-chain nil))
                        (dart:core/print (str "ensure-daily! failed: " e))
                        nil)))))
 

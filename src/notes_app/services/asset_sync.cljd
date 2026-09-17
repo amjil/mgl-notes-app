@@ -3,6 +3,7 @@
   (:require ["dart:async" :as async]
             ["dart:io" :as io]
             ["package:http/http.dart" :as http]
+            ["package:crypto/crypto.dart" :as crypto]
             ["package:path/path.dart" :as path]
             ["package:path_provider/path_provider.dart" :as pathp]
             ["package:mgl_notes_app/database.dart" :as drift]
@@ -39,6 +40,13 @@
     (if (network-error-msg? msg)
       "Cannot reach sync server"
       (str prefix " error: " (subs msg 0 (min (count msg) 120))))))
+
+(defn- valid-download? [^drift/Asset row bytes]
+  (let [expected-size (.-sizeBytes row)
+        expected-hash (or (.-sha256 row) "")
+        actual-hash (.toString (crypto/sha256.convert bytes))]
+    (and (or (<= expected-size 0) (= expected-size (.-length bytes)))
+         (or (= expected-hash "") (= expected-hash actual-hash)))))
 
 (defn- upload-one! [^drift/Asset row]
   (if-let [base (base-url)]
@@ -112,14 +120,20 @@
 
                        (and (>= (.-statusCode resp) 200)
                             (< (.-statusCode resp) 300))
-                       (-> (assets-dir!)
-                           (.then (fn [dir]
-                                    (let [ext (path/extension (.-filename row))
-                                          dest-path (path/join dir (str (.-id row) ext))
-                                          file (io/File. dest-path)]
-                                      (-> (.writeAsBytes file (.-bodyBytes resp))
-                                          (.then (fn [_]
-                                                   (asset/mark-downloaded! (.-id row) dest-path))))))))
+                       (let [bytes (.-bodyBytes resp)]
+                         (if-not (valid-download? row bytes)
+                           (asset-sync-error!
+                            (str "Asset download integrity check failed ("
+                                 (.-id row) ")"))
+                           (-> (assets-dir!)
+                               (.then (fn [dir]
+                                        (let [ext (path/extension (.-filename row))
+                                              dest-path (path/join dir (str (.-id row) ext))
+                                              file (io/File. dest-path)]
+                                          (-> (.writeAsBytes file bytes)
+                                              (.then (fn [_]
+                                                       (asset/mark-downloaded!
+                                                        (.-id row) dest-path))))))))))
 
                        :else
                        (asset-sync-error!

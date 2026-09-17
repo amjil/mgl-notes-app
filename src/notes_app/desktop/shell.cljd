@@ -2,6 +2,7 @@
   "Desktop app chrome: Modern floating content pane with NavigationRail and Quick Entry."
   (:require ["package:flutter/material.dart" :as m]
             ["package:flutter/services.dart" :as s]
+            ["package:characters/characters.dart" :as chars]
             ["package:window_manager/window_manager.dart" :as wm]
             ["package:mongol/mongol.dart" :as mgl]
             ["dart:core" :as dc]
@@ -129,10 +130,14 @@
              .text (str (subs text 0 start) (subs text end))
              .selection (m/TextSelection.collapsed .offset start)))
       (when (> start 0)
-        (set! (.-value ctrl)
-              (m/TextEditingValue
-               .text (str (subs text 0 (dec start)) (subs text end))
-               .selection (m/TextSelection.collapsed .offset (dec start)))))))
+        (let [range (chars/CharacterRange.at text start)]
+          (.moveBack range)
+          (let [before (.-stringBefore range)
+                new-offset (.-length before)]
+            (set! (.-value ctrl)
+                  (m/TextEditingValue
+                   .text (str before (.-stringAfter range))
+                   .selection (m/TextSelection.collapsed .offset new-offset))))))))
   nil)
 
 (defn- insert-space-in-quick-ctrl!
@@ -170,6 +175,10 @@
                    .fontWeight m.FontWeight/w600
                    .color t/ink-muted
                    .letterSpacing 0.2))))
+
+(defn- unregister-quick-client! [ctrl]
+  (when (identical? (:owner @ime-ctrl/!active-client) ctrl)
+    (ime-ctrl/unregister-client!)))
 
 (defn quick-entry-overlay []
   (f/widget
@@ -213,7 +222,8 @@
                     (when (identical? (:owner @ime-ctrl/!active-client) ctrl)
                       (ime-ctrl/unregister-client!)))))
                n)
-             :dispose .dispose]
+             :dispose .dispose
+             _ime-owner ctrl :dispose unregister-quick-client!]
    :bg-watcher ([_ ctrl]
                 (sync-quick-caret! field-key)
                 nil)

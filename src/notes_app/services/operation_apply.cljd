@@ -48,10 +48,13 @@
   "Apply remote change if local entity is missing or remote created-at >= local updated-at."
   [local-updated-at remote-created-at]
   (let [remote (parse-dt remote-created-at)
-        local local-updated-at]
+        local local-updated-at
+        ;; A badly advanced device clock must not freeze remote updates forever.
+        max-local-time (.add (db/now) (dc/Duration. .minutes 5))]
     (cond
       (nil? local) true
       (nil? remote) true
+      (.isAfter local max-local-time) true
       :else (not (.isAfter local remote)))))
 
 (defn rename-local-doc-title!
@@ -315,11 +318,15 @@
                          (.then (fn [_] (db/refresh-document-titles!)))))))))
     (async/Future.value nil)))
 
-(defn- apply-document-destroy! [entity-id]
+(defn- apply-document-destroy! [entity-id created-at]
   (if-let [^drift/AppDatabase database (db/get-database)]
-    (let [q (doto (.delete database (.-documents database))
-              (.where (fn [t] (.equals (.-id t) entity-id))))]
-      (.go q))
+    (-> (get-doc entity-id)
+        (.then
+         (fn [doc]
+           (when (and doc (lww-ok? (.-updatedAt doc) created-at))
+             (let [q (doto (.delete database (.-documents database))
+                       (.where (fn [t] (.equals (.-id t) entity-id))))]
+               (.go q))))))
     (async/Future.value nil)))
 
 (defn- dispatch-apply! [action eid p created-at]
@@ -328,7 +335,7 @@
     "document_update" (apply-document-update! eid p created-at)
     "document_delete" (apply-document-delete! eid created-at)
     "document_restore" (apply-document-restore! eid created-at)
-    "document_destroy" (apply-document-destroy! eid)
+    "document_destroy" (apply-document-destroy! eid created-at)
     "document_move" (apply-document-move! eid p created-at)
     "block_create" (apply-block-create! eid p created-at)
     "block_update" (apply-block-update! eid p created-at)

@@ -104,18 +104,22 @@
                                                       :localPath (d/Value ^String dest-path)
                                                       :uploadStatus (d/Value "pending")
                                                       :createdAt (d/Value ^dc/DateTime now))]
-                                                 (-> (.insert (.into database (.-assets database)) companion)
-                                                     (.then (fn [_]
-                                                              (op/append!
-                                                               {:entity-type "asset"
-                                                                :entity-id asset-id
-                                                                :action "asset_create"
-                                                                :payload {:id asset-id
-                                                                          :filename filename
-                                                                          :mime_type mime
-                                                                          :size_bytes size
-                                                                          :sha256 hash}})
-                                                              asset-id)))))))))))))))
+                                                 (-> (.transaction
+                                                      database
+                                                      (fn []
+                                                        (-> (.insert (.into database (.-assets database)) companion)
+                                                            (.then
+                                                             (fn [_]
+                                                               (op/append!
+                                                                {:entity-type "asset"
+                                                                 :entity-id asset-id
+                                                                 :action "asset_create"
+                                                                 :payload {:id asset-id
+                                                                           :filename filename
+                                                                           :mime_type mime
+                                                                           :size_bytes size
+                                                                           :sha256 hash}}))))))
+                                                     (.then (fn [_] asset-id)))))))))))))))
     (async/Future.value nil)))
 
 (defn- first-picked-file [result]
@@ -185,15 +189,18 @@
     (let [now (db/now)
           q (doto (.update database (.-assets database))
               (.where (fn [t] (.equals (.-id t) asset-id))))]
-      (-> (.write q (drift/AssetsCompanion.
-                     .deletedAt (d/Value ^dc/DateTime now)
-                     .uploadStatus (d/Value "deleted")))
-          (.then (fn [_]
-                   (op/append!
-                    {:entity-type "asset"
-                     :entity-id asset-id
-                     :action "asset_delete"
-                     :payload {:deleted_at (.toIso8601String now)}})))))
+      (.transaction
+       database
+       (fn []
+         (-> (.write q (drift/AssetsCompanion.
+                        .deletedAt (d/Value ^dc/DateTime now)
+                        .uploadStatus (d/Value "deleted")))
+             (.then (fn [_]
+                      (op/append!
+                       {:entity-type "asset"
+                        :entity-id asset-id
+                        :action "asset_delete"
+                        :payload {:deleted_at (.toIso8601String now)}})))))))
     (async/Future.value nil)))
 
 (defn all-active-assets []

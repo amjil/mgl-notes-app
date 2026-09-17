@@ -359,7 +359,9 @@
                  nil)))
     (-> (iso/Isolate.spawn physics-isolate-entry (.-sendPort main-port))
         (.then (fn [isolate]
-                 (reset! !iso isolate))))
+                 (if @!alive?
+                   (reset! !iso isolate)
+                   (.kill ^iso/Isolate isolate .priority iso/Isolate.immediate)))))
     (start-graph! !nodes !edges !raw-data !show-tags? !highlight-orphans? !iso-send !alive? !loaded?)
     {:!nodes !nodes
      :!edges !edges

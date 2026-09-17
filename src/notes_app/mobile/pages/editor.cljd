@@ -67,9 +67,12 @@
                _ (do
                    (reset! !doc-type nil)
                    (when open-document-id
-                     (with-doc! open-document-id
-                       (fn [doc]
-                         (reset! !doc-type (when doc (:type doc))))))
+                     (let [requested-id open-document-id]
+                       (with-doc! requested-id
+                         (fn [doc]
+                           (when (= requested-id
+                                    (:open-document-id @store/app-ui-state))
+                             (reset! !doc-type (when doc (:type doc))))))))
                    nil)
                :refresh-on [open-document-id]
                :dispose nil]
