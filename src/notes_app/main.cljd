@@ -147,9 +147,12 @@
   (nomio-auth/initialize!)
 
   (when kIsWeb
-    ;; Read compile-time --dart-define=API_BASE_URL="https://..." when present.
+    ;; Same-origin by default so nginx can proxy /api/next_word → 100.64.0.6:3003.
+    ;; Local: --dart-define=API_BASE_URL="http://100.64.0.6:3003"
     (let [env-url (dart:core/String.fromEnvironment "API_BASE_URL")
-          base-url (if (or (nil? env-url) (= env-url "")) "100.64.0.6:3003" env-url)]
+          base-url (if (or (nil? env-url) (= env-url ""))
+                     (.-origin dart:core/Uri.base)
+                     env-url)]
       (remote/set-config! {:base-url base-url
                            :candidate-api-path "/api/next_word/candidates"
                            :next-word-api-path "/api/next_word/list"})))
