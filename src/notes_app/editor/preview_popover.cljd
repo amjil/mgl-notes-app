@@ -73,6 +73,27 @@
              (mgl/MongolText (nth blocks idx)
                              .style (t/mongol-style :size 14.0 :color t/ink-muted)))))))]))))
 
+(defn- overlay-point-and-size
+  "Pointer positions are global. Overlay entries are positioned in the overlay's
+   own coordinates, which differ once an ancestor scales the app."
+  [ctx ^m/Offset pos]
+  (let [fallback (fn []
+                   (let [sz (m.MediaQuery/sizeOf ctx)]
+                     {:pos pos
+                      :width (.-width sz)
+                      :height (.-height sz)}))]
+    (try
+      (let [overlay (m/Overlay.of ctx)
+            box (.findRenderObject (.-context overlay))]
+        (if (and (some? box)
+                 (.-attached ^m/RenderBox box)
+                 (.-hasSize ^m/RenderBox box))
+          {:pos (.globalToLocal ^m/RenderBox box pos)
+           :width (.-width (.-size ^m/RenderBox box))
+           :height (.-height (.-size ^m/RenderBox box))}
+          (fallback)))
+      (catch Exception _ (fallback)))))
+
 (defn show-preview! [ctx title ^m/Offset pos]
   (when (and ctx title (not= title ""))
     ;; Same title already pending/showing — keep timer/overlay (onHover fires often).
@@ -82,9 +103,9 @@
       (reset! !hover-timer
               (async/Timer. (dart:core/Duration. .milliseconds 500)
                             (fn []
-                              (let [screen-sz (m.MediaQuery/sizeOf ctx)
-                                    sw (.-width screen-sz)
-                                    sh (.-height screen-sz)
+                              (let [{:keys [pos width height]} (overlay-point-and-size ctx pos)
+                                    sw width
+                                    sh height
                                     cw 260.0
                                     ch 340.0
                                     px (.-dx pos)
