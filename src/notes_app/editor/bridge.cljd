@@ -19,6 +19,19 @@
 (defn- decode-data-json [s]
   (or (db/decode-json s) {}))
 
+(defn- stringify-table-cells
+  "decode-json keywordizes every map key, so \"0,0\" becomes :0,0 and the
+   table grid (which looks up string coordinates) renders blank."
+  [data]
+  (if (map? (:cells data))
+    (update data :cells
+            (fn [cells]
+              (reduce-kv (fn [acc k v]
+                           (assoc acc (if (keyword? k) (name k) (str k)) v))
+                         {}
+                         cells)))
+    data))
+
 (defn rows->editor-state
   "Convert Drift Block rows into editor {:root :blocks …} state."
   [rows]
@@ -59,11 +72,14 @@
                           base)
                    base (if-let [d (:data extra)]
                           (update base :data merge
-                                  (if (map? d) d
-                                      (reduce (fn [a ^String k]
-                                                (assoc a (keyword k) (get d k)))
-                                              {}
-                                              (.-keys d))))
+                                  (let [decoded (if (map? d) d
+                                                    (reduce (fn [a ^String k]
+                                                              (assoc a (keyword k) (get d k)))
+                                                            {}
+                                                            (.-keys d)))]
+                                    (if (= ed-type :table)
+                                      (stringify-table-cells decoded)
+                                      decoded)))
                           base)
                    base (if-let [spans (:content-spans extra)]
                           (assoc base :content-spans spans)
