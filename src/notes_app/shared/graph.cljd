@@ -6,6 +6,7 @@
             ["dart:isolate" :as iso]
             ["dart:math" :as math]
             [cljd.flutter :as f]
+            [notes-app.platform :as platform]
             [notes-app.services.link :as link]
             [notes-app.theme :as t]
             [notes-app.ui :as ui]))
@@ -196,9 +197,29 @@
               nodes)]    (when (seq hits)
       (first (first (sort-by second hits))))))
 
+(defn- run-local-physics!
+  "Step the simulation on the UI isolate. Flutter web has no Isolate.spawn."
+  [!nodes !edges !timer !ticks !alive?]
+  (when-let [t @!timer] (.cancel ^async/Timer t))
+  (reset! !ticks 0)
+  (reset! !timer
+          (async/Timer.periodic
+           (dart:core/Duration. .milliseconds 16)
+           (fn [^async/Timer t]
+             (let [ticks @!ticks]
+               (if (and @!alive? (< ticks physics-ticks))
+                 (do
+                   (swap! !nodes #(step-physics % @!edges ticks))
+                   (swap! !ticks inc)
+                   nil)
+                 (do
+                   (.cancel t)
+                   (reset! !timer nil)
+                   nil)))))))
+
 (defn- apply-filters-and-restart!
-  "Apply toggle filters, mark orphans, and restart the isolate physics engine."
-  [!nodes !edges !raw-data !show-tags? !highlight-orphans? !iso-send]
+  "Apply toggle filters, mark orphans, and restart layout."
+  [!nodes !edges !raw-data !show-tags? !highlight-orphans? restart-physics!]
   (let [raw @!raw-data
         show-tags? @!show-tags?
         highlight? @!highlight-orphans?
@@ -233,8 +254,7 @@
     
     (reset! !nodes next-nodes)
     (reset! !edges active-edges)
-    (when-let [p @!iso-send]
-      (.send ^iso/SendPort p {:type :start :nodes next-nodes :edges active-edges}))))
+    (restart-physics!)))
 
 ;; -----------------------------------------------------------------------------
 ;; Canvas Painter
@@ -268,6 +288,7 @@
         (.drawRRect canvas bg-rect bg-paint)
         (.drawRRect canvas bg-rect border-paint)
         (.paint painter canvas (m/Offset. tx ty)))
+      (catch Exception _ nil)
       (finally
         (.dispose painter)))))
 
@@ -314,7 +335,7 @@
 ;; -----------------------------------------------------------------------------
 ;; Session & Main Widget
 ;; -----------------------------------------------------------------------------
-(defn- start-graph! [!nodes !edges !raw-data !show-tags? !highlight-orphans? !iso-send !alive? !loaded?]
+(defn- start-graph! [!nodes !edges !raw-data !show-tags? !highlight-orphans? !iso-send !alive? !loaded? restart-physics!]
   (reset! !alive? true)
   (-> (link/get-graph-data)
       (.then (fn [data]
@@ -322,8 +343,9 @@
                  (reset! !raw-data data)
                  (reset! !loaded? true)
                  (letfn [(try-start []
-                           (if @!iso-send
-                             (apply-filters-and-restart! !nodes !edges !raw-data !show-tags? !highlight-orphans? !iso-send)
+                           ;; Web never opens an isolate port; native waits until :init.
+                           (if (or (platform/web?) @!iso-send)
+                             (apply-filters-and-restart! !nodes !edges !raw-data !show-tags? !highlight-orphans? restart-physics!)
                              (when @!alive?
                                (async/Timer. (dart:core/Duration. .milliseconds 50) try-start)
                                nil)))]
@@ -347,22 +369,33 @@
         !loaded? (atom false)
         !iso (atom nil)
         !iso-send (atom nil)
-        main-port (iso/ReceivePort.)
+        !physics-timer (atom nil)
+        !physics-ticks (atom 0)
+        web? (platform/web?)
+        ;; dart:isolate throws UnsupportedError on web (ReceivePort.listen / Isolate.spawn).
+        main-port (when-not web? (iso/ReceivePort.))
+        restart-physics!
+        (fn []
+          (if web?
+            (run-local-physics! !nodes !edges !physics-timer !physics-ticks !alive?)
+            (when-let [p @!iso-send]
+              (.send ^iso/SendPort p {:type :start :nodes @!nodes :edges @!edges}))))
         viewer-ctrl (let [mx (m/Matrix4.identity)]
                       (.translate mx -1600.0 -1600.0)
                       (m/TransformationController. mx))]
-    (.listen main-port
-             (fn [msg]
-               (case (:type msg)
-                 :init (reset! !iso-send (:port msg))
-                 :update (reset! !nodes (:nodes msg))
-                 nil)))
-    (-> (iso/Isolate.spawn physics-isolate-entry (.-sendPort main-port))
-        (.then (fn [isolate]
-                 (if @!alive?
-                   (reset! !iso isolate)
-                   (.kill ^iso/Isolate isolate .priority iso/Isolate.immediate)))))
-    (start-graph! !nodes !edges !raw-data !show-tags? !highlight-orphans? !iso-send !alive? !loaded?)
+    (when main-port
+      (.listen ^iso/ReceivePort main-port
+               (fn [msg]
+                 (case (:type msg)
+                   :init (reset! !iso-send (:port msg))
+                   :update (reset! !nodes (:nodes msg))
+                   nil)))
+      (-> (iso/Isolate.spawn physics-isolate-entry (.-sendPort ^iso/ReceivePort main-port))
+          (.then (fn [isolate]
+                   (if @!alive?
+                     (reset! !iso isolate)
+                     (.kill ^iso/Isolate isolate .priority iso/Isolate.immediate))))))
+    (start-graph! !nodes !edges !raw-data !show-tags? !highlight-orphans? !iso-send !alive? !loaded? restart-physics!)
     {:!nodes !nodes
      :!edges !edges
      :!raw-data !raw-data
@@ -375,12 +408,16 @@
      :!loaded? !loaded?
      :!iso !iso
      :!iso-send !iso-send
+     :!physics-timer !physics-timer
+     :restart-physics! restart-physics!
      :main-port main-port
      :viewer-ctrl viewer-ctrl}))
 
-(defn- dispose-session! [{:keys [!alive? !iso main-port viewer-ctrl]}]
+(defn- dispose-session! [{:keys [!alive? !iso !physics-timer main-port viewer-ctrl]}]
   (reset! !alive? false)
-  (.close ^iso/ReceivePort main-port)
+  (when-let [t @!physics-timer] (.cancel ^async/Timer t))
+  (when main-port
+    (.close ^iso/ReceivePort main-port))
   (when-let [i @!iso]
     (.kill ^iso/Isolate i .priority iso/Isolate.immediate))
   (.dispose ^m/TransformationController viewer-ctrl))
@@ -414,7 +451,7 @@
   (f/widget
    :managed [{:keys [!nodes !edges !raw-data !show-tags? !highlight-orphans? 
                      !dragged-node !drag-moved? !pan-enabled?
-                     !loaded? !iso-send viewer-ctrl] :as session} (make-session)
+                     !loaded? !iso-send restart-physics! viewer-ctrl] :as session} (make-session)
              :dispose dispose-session!]
    :watch [nodes !nodes
            edges !edges
@@ -531,8 +568,8 @@
            .children
            [(filter-toggle "Шошго" show-tags? t/tertiary
                            #(do (swap! !show-tags? not)
-                                (apply-filters-and-restart! !nodes !edges !raw-data !show-tags? !highlight-orphans? !iso-send)))
+                                (apply-filters-and-restart! !nodes !edges !raw-data !show-tags? !highlight-orphans? restart-physics!)))
             (m/SizedBox .width 8.0)
             (filter-toggle "Ганц" highlight-orphans? t/warning
                            #(do (swap! !highlight-orphans? not)
-                                (apply-filters-and-restart! !nodes !edges !raw-data !show-tags? !highlight-orphans? !iso-send)))])))])))))
+                                (apply-filters-and-restart! !nodes !edges !raw-data !show-tags? !highlight-orphans? restart-physics!)))])))])))))
