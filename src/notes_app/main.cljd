@@ -3,6 +3,7 @@
             ["package:flutter/foundation.dart" :as foundation :refer [kIsWeb]]
             ["package:flutter/services.dart" :as s]
             ["package:window_manager/window_manager.dart" :as wm]
+            ["package:screen_retriever/screen_retriever.dart" :as sr]
             ["package:hotkey_manager/hotkey_manager.dart" :as hm]
             ["package:tray_manager/tray_manager.dart" :as tm]
             ["dart:io" :as io]
@@ -112,23 +113,62 @@
                        (dart:core/print (str "tray init failed: " e)))))
     nil))
 
+(defn- fit-to-work-area
+  "Keep a preferred edge inside the monitor work area."
+  [preferred work-edge]
+  (min (double preferred) (* (double work-edge) 0.92)))
+
+(defn- build-window-options [work]
+  (let [windows? (platform/windows?)
+        ;; 1200x800 overflows short logical heights (1080p at 150%+). Centered,
+        ;; the caption sits above the screen, so min/max and the top/bottom
+        ;; resize edges are unreachable. `work` is the area inside the taskbar.
+        w (cond
+            (and windows? work) (fit-to-work-area 1200.0 (.-width work))
+            windows? 960.0
+            :else 1200.0)
+        h (cond
+            (and windows? work) (fit-to-work-area 800.0 (.-height work))
+            windows? 600.0
+            :else 800.0)]
+    (wm/WindowOptions
+     .size (m/Size w h)
+     .minimumSize (m/Size (min 640.0 w) (min 420.0 h))
+     .center true
+     .title "Amjil Notes"
+     ;; Windows needs a taskbar button so minimize can be restored.
+     .skipTaskbar (not windows?)
+     .backgroundColor m.Colors/transparent
+     ;; Hidden caption on Windows removes min/max and the top resize border.
+     .titleBarStyle (if windows?
+                      wm.TitleBarStyle/normal
+                      wm.TitleBarStyle/hidden)
+     .windowButtonVisibility true)))
+
+(defn- window-options []
+  (-> (.getPrimaryDisplay sr/screenRetriever)
+      (.then (fn [display]
+               (build-window-options (or (.-visibleSize display) (.-size display)))))
+      (.catchError (fn [e]
+                     (dart:core/print (str "display size failed: " e))
+                     (build-window-options nil)))))
+
 (defn- init-desktop-window! []
   (-> (.ensureInitialized wm/windowManager)
-      (.then (fn [_]
-               (let [opts (wm/WindowOptions
-                           .size (m/Size 1200.0 800.0)
-                           .center true
-                           .skipTaskbar true
-                           .backgroundColor m.Colors/transparent
-                           .titleBarStyle wm.TitleBarStyle/hidden)]
-                 (.addListener wm/windowManager window-listener)
-                 (.setPreventClose wm/windowManager true)
-                 (.waitUntilReadyToShow wm/windowManager opts
-                                        (fn []
-                                          (.show wm/windowManager)
-                                          (.focus wm/windowManager)
-                                          ;; waitUntilReadyToShow callback is void.
-                                          nil)))))
+      (.then (fn [_] (window-options)))
+      (.then (fn [opts]
+               (.addListener wm/windowManager window-listener)
+               (.setPreventClose wm/windowManager true)
+               (.waitUntilReadyToShow wm/windowManager opts
+                                      (fn []
+                                        (when (platform/windows?)
+                                          (.setResizable wm/windowManager true)
+                                          (.setMinimizable wm/windowManager true)
+                                          (.setMaximizable wm/windowManager true))
+                                        (.show wm/windowManager)
+                                        (.focus wm/windowManager)
+                                        ;; waitUntilReadyToShow callback is void.
+                                        nil))))
       (.catchError (fn [e]
                      (dart:core/print (str "window_manager init failed: " e)))))
   nil)

@@ -6,7 +6,7 @@
             [notes-app.ui :as ui]))
 
 ;; Matches the browser zoom level this UI was tuned against (70%).
-(def ^:private web-ui-scale 0.7)
+(def ^:private ui-scale 0.7)
 
 (defn- grow-insets
   "Map view insets into the enlarged logical surface used by web density."
@@ -17,11 +17,16 @@
    (/ (.-right insets) scale)
    (/ (.-bottom insets) scale)))
 
-(defn- with-web-density
-  "Lay the web app out larger, then paint it at `web-ui-scale`.
+(defn- compact-density?
+  "Web and Windows share the tighter density tuned at browser zoom 70%."
+  []
+  (or (platform/web?) (platform/windows?)))
+
+(defn- with-compact-density
+  "Lay the app out larger, then paint it at `ui-scale`.
    Same density as browser zoom 70%, including fonts, buttons, and spacing."
   [^m/BuildContext _ctx child]
-  (if-not (and (platform/web?) (some? child))
+  (if-not (and (compact-density?) (some? child))
     child
     (m/LayoutBuilder
      .builder
@@ -34,7 +39,7 @@
             .builder
             (fn [^m/BuildContext mq-ctx]
               (let [mq (m.MediaQuery/of mq-ctx)
-                    scale web-ui-scale
+                    scale ui-scale
                     w (/ max-w scale)
                     h (/ max-h scale)]
                 (m/FittedBox
@@ -65,7 +70,7 @@
      ;; Allow OS desktop to show through during quick-entry mode.
      .color m.Colors/transparent
      .theme theme/app-theme
-     .builder (fn [ctx child] (with-web-density ctx child))
+     .builder (fn [ctx child] (with-compact-density ctx child))
      .home (case status
              :ready (shell/desktop-shell)
              :error (ui/boot-error-screen message retry!)
