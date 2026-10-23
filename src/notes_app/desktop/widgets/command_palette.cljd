@@ -15,8 +15,6 @@
             [rich-editor.components.text-field :as custom-tf]
             [notes-app.services.document :as doc]))
 
-(defonce !palette-tf-state (atom {:external-keyboard-delegate nil}))
-
 (defn- cancel-timer! [!timer]
   (when-let [timer @!timer]
     (.cancel ^async/Timer timer)))
@@ -128,7 +126,7 @@
      (m/Expanded
       .child
       (custom-tf/text-field
-       !palette-tf-state
+       kw/!palette-tf-state
        {:controller ctrl
         :focus-node focus
         :autofocus true
@@ -151,7 +149,7 @@
                 !timer (atom nil) :dispose cancel-timer!
                 ctrl (m/TextEditingController.) :dispose .dispose
                 focus (m/FocusNode.) :dispose .dispose
-                _ (kw/sync-ime-delegate! !palette-tf-state)]
+                _ (kw/sync-ime-delegate! kw/!palette-tf-state)]
       :let [run-search!
             (fn [q]
               (if (str/starts-with? q ">")

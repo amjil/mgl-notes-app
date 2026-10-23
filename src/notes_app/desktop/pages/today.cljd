@@ -52,7 +52,7 @@
     (ui/page-app-bar
      :title (daily/date->title current-date)
      :actions
-     [(today/review-deck-btn !view-mode)
+     [(today/review-deck-btn !view-mode due-cards)
       (ui/action-btn m.Icons/chevron_left "Previous day"
                      (fn []
                        (let [prev-day (.subtract current-date (dc/Duration. .days 1))]

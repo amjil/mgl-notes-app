@@ -110,10 +110,9 @@
 
 (defn review-deck-btn
   "App-bar toggle between daily diary and immersive flashcard review."
-  [!view-mode]
+  [!view-mode due-cards]
   (f/widget
-   :watch [due-cards (stream (map #(or % [])) :as-values (db/watch-due-flashcards))
-           mode !view-mode]
+   :watch [mode !view-mode]
    (let [n (count due-cards)
          due? (pos? n)
          flashcards? (= mode :flashcards)

@@ -29,6 +29,9 @@
 (defonce !move-search-tf-state
   (atom {:external-keyboard-delegate nil}))
 
+(defonce !palette-tf-state
+  (atom {:external-keyboard-delegate nil}))
+
 (defonce !active-editor-states (atom #{}))
 
 (defn sync-ime-delegate! [!state]
@@ -41,7 +44,8 @@
 (defn- sync-dialog-states! []
   (apply-ime-mode! !search-tf-state)
   (apply-ime-mode! !rename-tf-state)
-  (apply-ime-mode! !move-search-tf-state))
+  (apply-ime-mode! !move-search-tf-state)
+  (apply-ime-mode! !palette-tf-state))
 
 (defn- reattach-open-editors! []
   (doseq [!st @!active-editor-states]
