@@ -406,13 +406,22 @@
         .autofocus true
         .onKeyEvent
         (fn [_ ^s/KeyEvent event]
-          (let [kb s.HardwareKeyboard/instance
-                is-cmd? (or (.-isMetaPressed kb) (.-isControlPressed kb))
-                is-k? (= (.-logicalKey event) s.LogicalKeyboardKey/keyK)]
-            (if (and is-cmd? is-k? (instance? s/KeyDownEvent event) (not quick-entry-mode))
-              (do (store/toggle-palette!)
-                  m.KeyEventResult/handled)
-              m.KeyEventResult/ignored)))
+          (if (instance? s/KeyDownEvent event)
+            (let [kb (.-instance s/HardwareKeyboard)
+                  is-cmd? (or (.-isMetaPressed kb) (.-isControlPressed kb))
+                  is-shift? (.-isShiftPressed kb)
+                  k (.-logicalKey event)]
+              (cond
+                (and is-cmd? (not is-shift?) (= k s.LogicalKeyboardKey/keyK))
+                (do (store/toggle-palette!)
+                    m.KeyEventResult/handled)
+
+                (and is-cmd? is-shift? (= k s.LogicalKeyboardKey/keyM))
+                (do (store/toggle-use-builtin-ime!)
+                    m.KeyEventResult/handled)
+
+                :else m.KeyEventResult/ignored))
+            m.KeyEventResult/ignored))
         .child
         (m/Stack
          .children
