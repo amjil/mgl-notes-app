@@ -1,0 +1,20 @@
+(ns notes-app.shared.ime-icons
+  "IME toggle icons — web `flutter build web` tree-shakes MaterialIcons unless
+   both glyphs appear as static `Icon` widgets (not runtime `if` on IconData)."
+  (:require ["package:flutter/material.dart" :as m]))
+
+(def builtin-ime-icon m.Icons/keyboard_alt_outlined)
+(def system-ime-icon m.Icons/keyboard_hide_outlined)
+
+(defn toggle-icon
+  "Both Material icons stay in the web font subset; visibility toggles with Offstage."
+  [builtin?]
+  (m/Stack
+   .alignment m.Alignment/center
+   .children
+   [(m/Offstage
+     .offstage (not (boolean builtin?))
+     .child (m/Icon builtin-ime-icon))
+    (m/Offstage
+     .offstage (boolean builtin?)
+     .child (m/Icon system-ime-icon))]))

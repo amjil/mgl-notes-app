@@ -14,7 +14,6 @@
             [notes-app.state.store :as store]
             [notes-app.desktop.widgets.side-nav :as side-nav]
             [notes-app.desktop.widgets.command-palette :as palette]
-            [notes-app.desktop.widgets.keyboard :as keyboard]
             [notes-app.desktop.pages.today :as today]
             [notes-app.desktop.pages.documents :as documents]
             [notes-app.desktop.pages.tasks :as tasks]
@@ -400,11 +399,10 @@
            (if is-editor?
              (editor-split-view ctx doc-ids show-rail?)
              (body-for selected-nav-id open-document-id))))]
-     (keyboard/wrap
-      (m/Scaffold
-       .backgroundColor (if quick-entry-mode m.Colors/transparent t/surface-2)
-       .body
-       (m/Focus
+     (m/Scaffold
+      .backgroundColor (if quick-entry-mode m.Colors/transparent t/surface-2)
+      .body
+      (m/Focus
         .autofocus true
         .onKeyEvent
         (fn [_ ^s/KeyEvent event]
@@ -449,4 +447,4 @@
             (palette/palette-overlay))
           (if quick-entry-mode
             (quick-entry-overlay)
-            (m/SizedBox.shrink))])))))))
+            (m/SizedBox.shrink))]))))))

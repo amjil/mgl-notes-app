@@ -77,8 +77,8 @@
   "Search for a new parent. Calls on-done with true/false after move attempt."
   [ctx doc-id current-parent-id on-done]
   (let [!docs (atom nil)
-        !query (atom "")
-        !search-state (atom {:external-keyboard-delegate nil})]
+        !query (atom "")]
+    (kw/sync-ime-delegate! kw/!move-search-tf-state)
     (-> (db/list-active-documents)
         (.then (fn [docs] (reset! !docs (or docs []))))
         (.catchError (fn [_] (reset! !docs []))))
@@ -93,7 +93,7 @@
                      (reset! !query (or v "")))
         :watch [docs !docs
                 query !query
-                search-state !search-state]
+                search-state kw/!move-search-tf-state]
         (let [id->doc (into {} (map (juxt :id identity) (or docs [])))
               id->parent (into {} (map (juxt :id :parent-id) (or docs [])))
               forbidden (into #{}
@@ -116,7 +116,7 @@
               .children
               [(ui/field-shell
                 (custom-tf/text-field
-                 !search-state
+                 kw/!move-search-tf-state
                  {:controller search-ctrl
                   :focus-node search-focus
                   :hint "Search parent…"

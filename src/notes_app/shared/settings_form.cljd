@@ -46,6 +46,7 @@
    (fn [c]
      (f/widget
       :managed [!ime-state (atom {:external-keyboard-delegate nil})
+                _ (kw/sync-ime-delegate! !ime-state)
                 controller (m/TextEditingController .text (or current-value ""))
                 focus-node (m/FocusNode)]
       (kw/wrap
@@ -252,7 +253,8 @@
   (f/widget
    :context ctx
    :watch [{:keys [user-name sync-base-url device-id last-sync-time sync-enabled
-                   sync-status sync-message auth-email auth-token]} store/app-ui-state
+                   sync-status sync-message auth-email auth-token show-heatmap
+                   use-builtin-ime]} store/app-ui-state
            nomio-state nomio/auth-state]
    :let [logged-in? (and auth-token (not= auth-token ""))
          status-text (str (name (or sync-status :idle))
@@ -359,8 +361,13 @@
       [{:title "Show Daily Heatmap"
         :subtitle "Display contribution graph on the Today page"
         :leading m.Icons/local_fire_department
-        :value (store/show-heatmap?)
-        :on-changed #(store/set-show-heatmap! %)}])
+        :value (boolean show-heatmap)
+        :on-changed #(store/set-show-heatmap! %)}
+       {:title "Built-in Mongolian IME"
+        :subtitle "Use built-in keyboard instead of system IME"
+        :leading m.Icons/keyboard_alt_outlined
+        :value (boolean use-builtin-ime)
+        :on-changed #(store/set-use-builtin-ime! %)}])
 
      (setting/settings-section
       "Sync"

@@ -12,9 +12,6 @@
             [notes-app.theme :as t]
             [notes-app.ui :as ui]))
 
-(defonce !search-state
-  (atom {:external-keyboard-delegate nil}))
-
 (defn- cancel-search-timer! [!timer]
   (when-let [timer @!timer]
     (.cancel ^async/Timer timer)
@@ -50,13 +47,13 @@
                   (schedule-search! (or v "")))
      :watch [query !query
              results !results
-             search-state !search-state]
+             search-state kw/!search-tf-state]
      (kw/wrap-mobile
       (m/Row
        .children
        [(ui/field-shell
          (custom-tf/text-field
-          !search-state
+          kw/!search-tf-state
           {:controller search-ctrl
            :on-changed (fn [v] (schedule-search! (or v "")))
            :focus-node search-focus-node

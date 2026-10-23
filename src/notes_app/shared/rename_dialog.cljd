@@ -17,7 +17,7 @@
    .builder
    (fn [c]
      (f/widget
-      :managed [!ime-state (atom {:external-keyboard-delegate nil})
+      :managed [_ (kw/sync-ime-delegate! kw/!rename-tf-state)
                 controller (m/TextEditingController .text (or current-title ""))
                 focus-node (m/FocusNode)]
       (kw/wrap
@@ -35,7 +35,7 @@
           .children
           [(ui/field-shell
             (custom-tf/text-field
-             !ime-state
+             kw/!rename-tf-state
              {:controller controller
               :focus-node focus-node
               :autofocus true

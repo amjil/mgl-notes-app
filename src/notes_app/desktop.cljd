@@ -1,6 +1,7 @@
 (ns notes-app.desktop
   (:require ["package:flutter/material.dart" :as m]
             [notes-app.desktop.shell :as shell]
+            [notes-app.desktop.widgets.keyboard :as keyboard]
             [notes-app.platform :as platform]
             [notes-app.theme :as theme]
             [notes-app.ui :as ui]))
@@ -70,7 +71,10 @@
      ;; Allow OS desktop to show through during quick-entry mode.
      .color m.Colors/transparent
      .theme theme/app-theme
-     .builder (fn [ctx child] (with-compact-density ctx child))
+     ;; IME overlay must sit outside the FittedBox scale transform so caret
+     ;; globals match Positioned coordinates (see shared-ime.overlay-view).
+     .builder (fn [ctx child]
+                (keyboard/wrap (with-compact-density ctx child)))
      .home (case status
              :ready (shell/desktop-shell)
              :error (ui/boot-error-screen message retry!)

@@ -150,7 +150,8 @@
                 !sel-idx (atom 0) :dispose nil
                 !timer (atom nil) :dispose cancel-timer!
                 ctrl (m/TextEditingController.) :dispose .dispose
-                focus (m/FocusNode.) :dispose .dispose]
+                focus (m/FocusNode.) :dispose .dispose
+                _ (kw/sync-ime-delegate! !palette-tf-state)]
       :let [run-search!
             (fn [q]
               (if (str/starts-with? q ">")

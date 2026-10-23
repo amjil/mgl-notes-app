@@ -5,6 +5,7 @@
             [virtual-keyboard.input-control :as input-control]
             [virtual-keyboard.keyboard :as vk]
             [virtual-keyboard.options :as vk-options]
+            [notes-app.state.store :as store]
             [notes-app.theme :as t]))
 
 (def info
@@ -28,22 +29,24 @@
   (vk/keyboard {:custom-fns {}}))
 
 (defn wrap
-  "Wrap main content with the native Mongolian virtual keyboard."
+  "Wrap main content with the native Mongolian virtual keyboard when built-in IME is on."
   [main-content]
   (f/widget
-   :let [kb-info info]
-   :bind {:info kb-info}
-   ;; Keep the keyboard (and editor) above the home indicator. `.top false`
-   ;; because host pages already consume the status-bar inset via AppBar.
-   (m/SafeArea
-    .top false
-    .child
-    (m/Column
-     .children
-     [(m/Expanded
+   :watch [{:keys [use-builtin-ime]} store/app-ui-state]
+   (if use-builtin-ime
+     (f/widget
+      :let [kb-info info]
+      :bind {:info kb-info}
+      (m/SafeArea
+       .top false
        .child
-       (m/Stack
+       (m/Column
         .children
-        [main-content
-         (candidates)]))
-      (bar)]))))
+        [(m/Expanded
+          .child
+          (m/Stack
+           .children
+           [main-content
+            (candidates)]))
+         (bar)])))
+     main-content)))

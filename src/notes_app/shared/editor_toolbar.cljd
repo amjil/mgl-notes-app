@@ -10,6 +10,8 @@
             [notes-app.services.asset :as asset]
             [notes-app.services.sync :as sync]
             [notes-app.services.sm2 :as sm2]
+            [notes-app.state.store :as store]
+            [notes-app.shared.ime-icons :as ime-icons]
             [notes-app.theme :as t]))
 
 (defn- toolbar-button [icon tooltip is-active? on-tap]
@@ -65,8 +67,10 @@
   [!state cfg]
   (f/widget
    :context ctx
-   :watch [state-val !state]
+   :watch [state-val !state
+           {:keys [use-builtin-ime]} store/app-ui-state]
    (let [active-id (:active-block-id state-val)
+         builtin-ime? (boolean use-builtin-ime)
          block (get-in state-val [:blocks active-id])
          block-type (:type block :paragraph)
          can-undo? (boolean (seq (get-in state-val [:history :undo-stack])))
@@ -164,6 +168,12 @@
                                                      .content (m/Text "Block reference copied to clipboard!"
                                                                       .style (m/TextStyle .fontFamily "OyunQaganTig"))
                                                      .duration (dart:core/Duration .seconds 2))))))))
+           (m/VerticalDivider .indent 12.0 .endIndent 12.0 .width 16.0)
+           (m/IconButton
+            .icon (ime-icons/toggle-icon builtin-ime?)
+            .tooltip (if builtin-ime? "Built-in IME (Tap to switch)" "System IME (Tap to switch)")
+            .color (if builtin-ime? t/primary t/ink-muted)
+            .onPressed #(store/toggle-use-builtin-ime!))
            (m/SizedBox .width 16.0)]))
         (m/Row
          .mainAxisAlignment m.MainAxisAlignment/center

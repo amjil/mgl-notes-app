@@ -29,7 +29,9 @@
             [block-editor.utils.highlighter :as highlighter]
             [notes-app.state.store :as store]
             [notes-app.theme :as t]
-            [notes-app.ui :as ui]))
+            [notes-app.shared.ime-icons :as ime-icons]
+            [notes-app.ui :as ui]
+            [notes-app.keyboard :as kb]))
 
 ;; =============================================================================
 ;; Block Transclusion (Embed) Widget
@@ -432,6 +434,7 @@
         cleanup!
         (fn [_]
           (popover/hide-preview!)
+          (kb/unregister-editor-state! !state)
           (when-let [t @!save-timer] (.cancel ^async/Timer t))
           (try
             (bridge/persist-diff! document-id @!state !snapshot)
@@ -443,6 +446,7 @@
     (f/widget
 
      :managed [_ (do
+                   (kb/sync-ime-delegate! !state)
                    (swap! !sessions assoc document-id session)
                    !save-timer)
                :dispose cleanup!]
@@ -472,7 +476,8 @@
         :watch [current-state !state
                 title !title
                 show-refs? store/!show-backlinks
-                nomio-state nomio-auth/auth-state]
+                nomio-state nomio-auth/auth-state
+                {:keys [use-builtin-ime]} store/app-ui-state]
 
         (let [_ (when (and (= :authenticated (:status nomio-state))
                            (= document-id @!pending-nomio-document))
@@ -556,13 +561,21 @@
                          nil)
               .actions
               (let [can-undo? (boolean (seq (get-in current-state [:history :undo-stack])))
-                    can-redo? (boolean (seq (get-in current-state [:history :redo-stack])))]
+                    can-redo? (boolean (seq (get-in current-state [:history :redo-stack])))
+                    builtin-ime? (boolean use-builtin-ime)]
                 (into []
                       (remove nil?
                               [(m/IconButton
                                 .icon (m/Icon m.Icons/format_list_bulleted)
                                 .tooltip "Document Outline"
                                 .onPressed #(store/toggle-show-toc!))
+                               (m/IconButton
+                                .icon (ime-icons/toggle-icon builtin-ime?)
+                                .color (if builtin-ime? t/primary t/ink-muted)
+                                .tooltip (if builtin-ime?
+                                           "Built-in Mongolian IME (Tap for System IME)"
+                                           "System IME (Tap for Built-in Mongolian IME)")
+                                .onPressed #(store/toggle-use-builtin-ime!))
                                (m/IconButton
                                 .icon (m/Icon m.Icons/undo)
                                 .tooltip "Undo"

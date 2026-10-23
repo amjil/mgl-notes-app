@@ -21,7 +21,8 @@
             [notes-app.services.sync :as sync]
             [notes-app.services.link :as link]
             [notes-app.nomio.auth :as nomio-auth]
-            [notes-app.services.daily :as daily]))
+            [notes-app.services.daily :as daily]
+            [notes-app.keyboard :as kb]))
 
 (defonce ^:private !boot (atom {:status :loading}))
 
@@ -31,6 +32,7 @@
   (reset! !boot {:status :loading})
   (-> (db/initialize-database!)
       (.then (fn [_] (store/load-prefs!)))
+      (.then (fn [_] (kb/init-ime!)))
       (.then (fn [_] (db/refresh-document-titles!)))
       ;; Local derived index — covers migration + text already on disk before first edit.
       (.then (fn [_] (link/reindex-all-links!)))

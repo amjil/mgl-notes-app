@@ -1,8 +1,14 @@
 (ns notes-app.desktop.widgets.keyboard
   "Desktop global IME overlay wrapper."
-  (:require [shared-ime.overlay-view :as overlay]))
+  (:require [cljd.flutter :as f]
+            [shared-ime.overlay-view :as overlay]
+            [notes-app.state.store :as store]))
 
 (defn wrap
-  "Wrap content with the shared desktop IME overlay."
+  "Wrap content with the shared desktop IME overlay when built-in IME is enabled."
   [main-content]
-  (overlay/ime-global-wrapper main-content))
+  (f/widget
+   :watch [{:keys [use-builtin-ime]} store/app-ui-state]
+   (if (false? use-builtin-ime)
+     main-content
+     (overlay/ime-global-wrapper main-content))))

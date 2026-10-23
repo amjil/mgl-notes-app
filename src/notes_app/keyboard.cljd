@@ -1,8 +1,73 @@
 (ns notes-app.keyboard
-  "Platform dispatcher: mobile virtual keyboard vs desktop IME overlay."
+  "Platform IME chrome (wrap) + shared delegate atoms for editors and dialogs."
   (:require [notes-app.platform :as platform]
+            [notes-app.state.store :as store]
             [notes-app.desktop.widgets.keyboard :as desk]
-            [notes-app.mobile.widgets.keyboard :as mob]))
+            [notes-app.mobile.widgets.keyboard :as mob]
+            [shared-ime.controller :as ime-ctrl]
+            [rich-editor.services.ime-service :as ime]
+            [virtual-keyboard.input-control :as input-control]))
+
+(defn- builtin-ime-enabled? []
+  (:use-builtin-ime @store/app-ui-state true))
+
+(defn- apply-ime-mode! [!state]
+  (if (builtin-ime-enabled?)
+    (swap! !state #(-> %
+                       (dissoc :prefer-system-ime?)
+                       (assoc :external-keyboard-delegate ime-ctrl/default-keyboard-delegate)))
+    (swap! !state #(-> %
+                       (assoc :prefer-system-ime? true)
+                       (assoc :external-keyboard-delegate nil)))))
+
+(defonce !search-tf-state
+  (atom {:external-keyboard-delegate nil}))
+
+(defonce !rename-tf-state
+  (atom {:external-keyboard-delegate nil}))
+
+(defonce !move-search-tf-state
+  (atom {:external-keyboard-delegate nil}))
+
+(defonce !active-editor-states (atom #{}))
+
+(defn sync-ime-delegate! [!state]
+  (swap! !active-editor-states conj !state)
+  (apply-ime-mode! !state))
+
+(defn unregister-editor-state! [!state]
+  (swap! !active-editor-states disj !state))
+
+(defn- sync-dialog-states! []
+  (apply-ime-mode! !search-tf-state)
+  (apply-ime-mode! !rename-tf-state)
+  (apply-ime-mode! !move-search-tf-state))
+
+(defn- reattach-open-editors! []
+  (doseq [!st @!active-editor-states]
+    (let [block-id (:active-block-id @!st)]
+      (ime/detach! !st)
+      (when block-id
+        (ime/attach! !st block-id)))))
+
+(defn init-ime! []
+  (sync-dialog-states!)
+  (when (platform/mobile?)
+    (if (builtin-ime-enabled?)
+      (input-control/set-control)
+      (input-control/restore-control)))
+  (add-watch store/app-ui-state ::ime-switch
+             (fn [_ _ old-s new-s]
+               (when (not= (:use-builtin-ime old-s) (:use-builtin-ime new-s))
+                 (sync-dialog-states!)
+                 (doseq [!st @!active-editor-states]
+                   (apply-ime-mode! !st))
+                 (reattach-open-editors!)
+                 (when (platform/mobile?)
+                   (if (:use-builtin-ime new-s)
+                     (input-control/set-control)
+                     (input-control/restore-control))))))
+  nil)
 
 (defn wrap
   "Wrap content with the platform-appropriate input chrome."
