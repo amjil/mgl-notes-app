@@ -17,9 +17,9 @@
    .builder
    (fn [c]
      (f/widget
-      :managed [_ (kw/sync-ime-delegate! kw/!rename-tf-state)
-                controller (m/TextEditingController .text (or current-title ""))
-                focus-node (m/FocusNode)]
+      :managed [_ (kw/sync-ime-delegate! kw/!rename-tf-state) :dispose nil
+                controller (m/TextEditingController .text (or current-title "")) :dispose .dispose
+                focus-node (m/FocusNode) :dispose .dispose]
       (kw/wrap
        (dialog/vertical-custom-dialog
         {:title "Rename"

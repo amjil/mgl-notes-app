@@ -19,47 +19,47 @@
    (/ (.-bottom insets) scale)))
 
 (defn- compact-density?
-  "Web and Windows share the tighter density tuned at browser zoom 70%."
+  "All desktop targets use the tighter density tuned at browser zoom 70%."
   []
-  (or (platform/web?) (platform/windows?)))
+  (platform/desktop?))
 
 (defn- with-compact-density
   "Lay the app out larger, then paint it at `ui-scale`.
-   Same density as browser zoom 70%, including fonts, buttons, and spacing."
-  [^m/BuildContext _ctx child]
+   Uniform scale for fonts, icons, Material buttons, padding, and spacing."
+  [^m/BuildContext ctx child]
   (if-not (and (compact-density?) (some? child))
     child
-    (m/LayoutBuilder
-     .builder
-     (fn [_ ^m/BoxConstraints constraints]
-       (let [max-w (.-maxWidth constraints)
-             max-h (.-maxHeight constraints)]
-         (if-not (and (.isFinite max-w) (.isFinite max-h) (> max-w 0.0) (> max-h 0.0))
-           child
-           (m/Builder
-            .builder
-            (fn [^m/BuildContext mq-ctx]
-              (let [mq (m.MediaQuery/of mq-ctx)
-                    scale ui-scale
-                    w (/ max-w scale)
-                    h (/ max-h scale)]
-                (m/FittedBox
-                 .fit m.BoxFit/fill
-                 .alignment m.Alignment/topLeft
-                 .clipBehavior m.Clip/hardEdge
-                 .child
-                 (m/SizedBox
-                  .width w
-                  .height h
-                  .child
-                  (m/MediaQuery
-                   .data (.copyWith mq
-                                    .size (m/Size w h)
-                                    .padding (grow-insets (.-padding mq) scale)
-                                    .viewPadding (grow-insets (.-viewPadding mq) scale)
-                                    .viewInsets (grow-insets (.-viewInsets mq) scale)
-                                    .systemGestureInsets (grow-insets (.-systemGestureInsets mq) scale))
-                   .child child))))))))))))
+    (let [mq (m/MediaQuery.of ctx)
+          scale ui-scale
+          max-w (.-width (.-size mq))
+          max-h (.-height (.-size mq))
+          w (/ max-w scale)
+          h (/ max-h scale)]
+      (if-not (and (> max-w 0.0) (> max-h 0.0))
+        child
+        (m/ClipRect
+         .child
+         (m/SizedBox
+          .width max-w
+          .height max-h
+          .child
+          (m/FittedBox
+           .fit m.BoxFit/fill
+           .alignment m.Alignment/topLeft
+           .clipBehavior m.Clip/hardEdge
+           .child
+           (m/SizedBox
+            .width w
+            .height h
+            .child
+            (m/MediaQuery
+             .data (.copyWith mq
+                              .size (m/Size w h)
+                              .padding (grow-insets (.-padding mq) scale)
+                              .viewPadding (grow-insets (.-viewPadding mq) scale)
+                              .viewInsets (grow-insets (.-viewInsets mq) scale)
+                              .systemGestureInsets (grow-insets (.-systemGestureInsets mq) scale))
+             .child child)))))))))
 
 (defn app
   "Desktop MaterialApp. `boot-state` is {:status :ready|:error|:loading :message ?}."

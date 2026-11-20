@@ -268,7 +268,14 @@
                                        (and (>= (.-statusCode resp) 200)
                                             (< (.-statusCode resp) 300))
                                        (let [decoded (convert/jsonDecode (.-body resp))
-                                             renames (or (get decoded "title_renames") [])]
+                                             renames (or (get decoded "title_renames") [])
+                                             rejected (or (get decoded "rejected") 0)
+                                             ;; Rejected ops are permanently invalid server-side;
+                                             ;; clear them locally with accepted/skipped so the queue
+                                             ;; cannot block. See server API.md push contract.
+                                             status-msg (if (and (number? rejected) (pos? rejected))
+                                                          (str "Push OK (" rejected " rejected)")
+                                                          "Push OK")]
                                          (-> (op/mark-synced! (mapv #(.-id %) pushable))
                                              ;; Persist edits made while the request was in flight
                                              ;; before a title rename reloads open sessions.
@@ -284,7 +291,7 @@
                                                         (call-hook !after-remote-apply)
                                                         (async/Future.value nil))))
                                              (.then (fn [_]
-                                                      (store/set-sync-status! :ok "Push OK")
+                                                      (store/set-sync-status! :ok status-msg)
                                                       :ok))))
 
                                        :else
