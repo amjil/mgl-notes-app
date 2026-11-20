@@ -1,5 +1,7 @@
 (ns notes-app.state.store
-  (:require ["package:shared_preferences/shared_preferences.dart" :as sp]))
+  (:require ["package:shared_preferences/shared_preferences.dart" :as sp]
+            ["package:mgl_notes_app/nomio_platform.dart" :as platform]
+            [clojure.string :as str]))
 
 (def ^:private pref-keys
   {:device-id "device_id"
@@ -13,11 +15,59 @@
    :show-heatmap "show_heatmap"
    :use-builtin-ime "use_builtin_ime"
    :sync-enabled "sync_enabled"
+   ;; Legacy plaintext key — migrated to auth-token-secret-key then removed.
    :auth-token "auth_token"
    :auth-email "auth_email"
    :workspace-id "workspace_id"})
 
+(def ^:private auth-token-secret-key "sync.auth.token.v1")
+
 (def default-sync-base-url "http://127.0.0.1:4001")
+
+(defn- loopback-http-url?
+  "True for http(s)://localhost|127.0.0.1|[::1] with optional port."
+  [url]
+  (boolean
+   (re-find #"^https?://(localhost|127\.0\.0\.1|\[::1\])(?::\d+)?(?:/|$)"
+            (str (or url "")))))
+
+(defn sync-url-security-warning
+  "Nil when URL is blank, HTTPS, or loopback; else a short cleartext-token warning."
+  [url]
+  (let [u (str/trim (str (or url "")))]
+    (cond
+      (str/blank? u) nil
+      (str/starts-with? u "https://") nil
+      (loopback-http-url? u) nil
+      (str/starts-with? u "http://")
+      "HTTP sync sends your auth token in cleartext — use HTTPS"
+      :else
+      "Sync URL should use https://")))
+
+(defn- load-auth-token!
+  "Read JWT from secure storage. Migrate legacy SharedPreferences value once."
+  [prefs]
+  (let [secure (await (platform/NomioPlatform.readSecret auth-token-secret-key))
+        legacy (.getString prefs (:auth-token pref-keys))]
+    (cond
+      (and secure (not= secure ""))
+      (do
+        (when (and legacy (not= legacy ""))
+          (await (.remove prefs (:auth-token pref-keys))))
+        secure)
+
+      (and legacy (not= legacy ""))
+      (do
+        (await (platform/NomioPlatform.writeSecret auth-token-secret-key legacy))
+        (await (.remove prefs (:auth-token pref-keys)))
+        legacy)
+
+      :else nil)))
+
+(defn- persist-auth-token! [token]
+  (if (and token (not= token ""))
+    (platform/NomioPlatform.writeSecret auth-token-secret-key token)
+    (platform/NomioPlatform.deleteSecret auth-token-secret-key)))
 
 (defonce app-ui-state
   (atom {:selected-nav-id "today"
@@ -104,7 +154,7 @@
         show-heatmap? (if (nil? show-heatmap-pref) true show-heatmap-pref)
         builtin-ime-pref (.getBool prefs (:use-builtin-ime pref-keys))
         use-builtin-ime? (if (nil? builtin-ime-pref) true builtin-ime-pref)
-        auth-token (.getString prefs (:auth-token pref-keys))
+        auth-token (await (load-auth-token! prefs))
         auth-email (.getString prefs (:auth-email pref-keys))
         workspace-id (.getString prefs (:workspace-id pref-keys))
         logged-in? (and auth-token (not= auth-token ""))
@@ -207,7 +257,9 @@
          :workspace-id workspace-id
          :user-name (or display-name (:user-name @app-ui-state) ""))
   (let [prefs (await (.getInstance sp/SharedPreferences))]
-    (await (.setString prefs (:auth-token pref-keys) (or token "")))
+    (await (persist-auth-token! token))
+    ;; Drop any leftover plaintext copy from older builds.
+    (await (.remove prefs (:auth-token pref-keys)))
     (await (.setString prefs (:auth-email pref-keys) (or email "")))
     (await (.setString prefs (:workspace-id pref-keys) (or workspace-id "")))
     (when (and display-name (not= display-name ""))
@@ -220,6 +272,7 @@
          :auth-email nil
          :workspace-id nil)
   (let [prefs (await (.getInstance sp/SharedPreferences))]
+    (await (persist-auth-token! nil))
     (await (.remove prefs (:auth-token pref-keys)))
     (await (.remove prefs (:auth-email pref-keys)))
     (await (.remove prefs (:workspace-id pref-keys)))))

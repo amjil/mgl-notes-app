@@ -1,5 +1,7 @@
 (ns notes-app.lifecycle
-  "Shared app lifecycle: resume Pull / pause Push for both platforms."
+  "Shared app lifecycle: resume Pull / background Push for both platforms.
+   Ignores `inactive` (notification shade, transient focus loss) so desktop
+   and mobile do not push on every blur."
   (:require ["package:flutter/material.dart" :as m]
             [notes-app.services.sync :as sync]))
 
@@ -10,10 +12,10 @@
     (= state m/AppLifecycleState.resumed)
     (sync/on-app-resume!)
 
+    ;; paused / hidden / detached = truly backgrounded. Not inactive.
     (or (= state m/AppLifecycleState.paused)
         (= state m/AppLifecycleState.hidden)
-        (= state m/AppLifecycleState.detached)
-        (= state m/AppLifecycleState.inactive))
+        (= state m/AppLifecycleState.detached))
     (sync/on-app-pause!)
 
     :else nil))

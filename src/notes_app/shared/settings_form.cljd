@@ -193,10 +193,16 @@
          (.then (fn [res]
                   (if (:ok res)
                     (do
-                      (snack! ctx (or (:message res) "Check your email"))
-                      (async/Timer.
-                       (dart:core/Duration. .milliseconds 50)
-                       #(open-reset-dialog! ctx (or (:reset-token res) "")))
+                      (snack! ctx (or (:message res)
+                                      "Check your email for a reset link"))
+                      ;; Only auto-open reset when the server exposes a token
+                      ;; (dev/test). Production never returns reset_token — user
+                      ;; pastes it via "Reset with token".
+                      (when-let [token (:reset-token res)]
+                        (when (not= token "")
+                          (async/Timer.
+                           (dart:core/Duration. .milliseconds 50)
+                           #(open-reset-dialog! ctx token))))
                       res)
                     (do (snack! ctx (or (:error res) "Request failed"))
                         res))))))))
@@ -379,11 +385,17 @@
         :value (boolean sync-enabled)
         :on-changed #(toggle-sync-enabled! % logged-in?)}
        {:title "Sync URL"
-        :subtitle (or sync-base-url store/default-sync-base-url)
+        :subtitle (let [url (or sync-base-url store/default-sync-base-url)
+                        warn (store/sync-url-security-warning url)]
+                    (if warn (str url " — " warn) url))
         :leading m.Icons/link
         :show-arrow? true
-        :on-tap #(edit-field-dialog ctx "Sync URL" sync-base-url
-                                    store/update-sync-base-url!)}
+        :on-tap #(edit-field-dialog
+                  ctx "Sync URL" sync-base-url
+                  (fn [url]
+                    (store/update-sync-base-url! url)
+                    (when-let [w (store/sync-url-security-warning url)]
+                      (snack! ctx w))))}
        {:title "Sync status"
         :subtitle status-text
         :leading (if (= sync-status :error)

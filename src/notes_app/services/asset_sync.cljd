@@ -52,7 +52,8 @@
   (if-let [base (base-url)]
     (if-not (store/logged-in?)
       (async/Future.value nil)
-      (let [local (.-localPath row)]
+      (let [local (.-localPath row)
+            label (or (.-filename row) (.-id row))]
         (if (and local (.existsSync (io/File. local)))
           (let [uri (dart:core/Uri.parse (str base "/api/assets/upload"))
                 req (http/MultipartRequest. "POST" uri)
@@ -74,37 +75,51 @@
                                         (= (.-statusCode resp) 401)
                                         (do
                                           (store/clear-auth-session!)
-                                          (asset-sync-error! "Session expired — log in again"))
+                                          (asset-sync-error! "Session expired — log in again")
+                                          :unauthorized)
 
                                         (and (>= (.-statusCode resp) 200)
                                              (< (.-statusCode resp) 300))
-                                        (asset/mark-uploaded! (.-id row))
+                                        (-> (asset/mark-uploaded! (.-id row))
+                                            (.then (fn [_] :uploaded)))
 
                                         :else
-                                        (asset-sync-error!
-                                         (str "Asset upload failed: HTTP "
-                                              (.-statusCode resp)
-                                              " ("
-                                              (.-id row)
-                                              ")")))))
+                                        (do
+                                          (asset-sync-error!
+                                           (str "Asset upload failed: HTTP "
+                                                (.-statusCode resp)
+                                                " ("
+                                                (.-id row)
+                                                ")"))
+                                          :error))))
                              (.catchError (fn [e]
                                             (asset-sync-error!
-                                             (exception->asset-msg "Asset upload" e)))))))))
-          (async/Future.value nil))))
+                                             (exception->asset-msg "Asset upload" e))
+                                            :error)))))))
+          (do
+            (asset-sync-error!
+             (str "Local asset file missing — cannot upload (" label ")"))
+            (store/emit-sync-toast!
+             (str "Missing attachment file: " label))
+            (async/Future.value :missing)))))
     (async/Future.value nil)))
 
 (defn upload-pending!
-  "Upload all assets with upload_status=pending."
+  "Upload all assets with upload_status=pending.
+   Returns Future of a seq of per-asset results (`:uploaded` `:missing` …)."
   []
   (if-let [^drift/AppDatabase database (db/get-database)]
     (-> (.getPendingUploadAssets database)
         (.then (fn [rows]
                  (reduce (fn [fut row]
-                           (.then fut (fn [_] (upload-one! row))))
-                         (async/Future.value nil)
+                           (.then fut
+                                  (fn [acc]
+                                    (-> (upload-one! row)
+                                        (.then (fn [r]
+                                                 (conj acc r)))))))
+                         (async/Future.value [])
                          (or rows [])))))
-    (async/Future.value nil)))
-
+    (async/Future.value [])))
 (defn- download-one! [^drift/Asset row]
   (if-let [base (base-url)]
     (if-not (store/logged-in?)

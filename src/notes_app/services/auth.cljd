@@ -1,6 +1,7 @@
 (ns notes-app.services.auth
   "Auth API client: register / login / logout / password reset."
   (:require ["package:http/http.dart" :as http]
+            ["package:flutter/foundation.dart" :refer [kDebugMode]]
             ["dart:convert" :as convert]
             ["dart:async" :as async]
             [notes-app.db.core :as db]
@@ -42,13 +43,15 @@
    (if-let [base (base-url)]
      (let [uri (dart:core/Uri.parse (str base path))
            encoded (db/encode-json body)]
-       (dart:core/print (str "[auth] POST " uri))
+       (when kDebugMode
+         (dart:core/print (str "[auth] POST " path)))
        (-> (http/post uri :headers (auth-headers token) :body encoded)
            (.then (fn [resp]
                     {:status (.-statusCode resp)
                      :body (mapish (decode-body resp))}))
            (.catchError (fn [e]
-                          (dart:core/print (str "[auth] POST failed: " e))
+                          (when kDebugMode
+                            (dart:core/print (str "[auth] POST failed: " e)))
                           {:status 0
                            :body {:error (str "Cannot reach sync server (" base ")")
                                   :detail (str e)}}))))
@@ -144,19 +147,39 @@
                   :errors (or (:errors body) (get body "errors"))})))))
 
 (defn me!
+  "Validate the stored session. Clears auth on 401. Network errors leave the
+   session intact so offline launch still works."
   []
-  (let [token (:auth-token @store/app-ui-state)]
-    (if-not token
-      (async/Future.value {:ok false :error "not logged in"})
-      (-> (http/get (dart:core/Uri.parse (str (base-url) "/api/auth/me"))
+  (let [token (:auth-token @store/app-ui-state)
+        base (base-url)]
+    (cond
+      (not (and token (not= token "")))
+      (async/Future.value {:ok false :error :not-logged-in})
+
+      (nil? base)
+      (async/Future.value {:ok false :error :no-url})
+
+      :else
+      (-> (http/get (dart:core/Uri.parse (str base "/api/auth/me"))
                     :headers (auth-headers token))
           (.then (fn [resp]
-                   (let [body (mapish (decode-body resp))]
-                     (if (and (>= (.-statusCode resp) 200)
-                              (< (.-statusCode resp) 300))
-                       {:ok true :user (mapish (or (:user body) (get body "user")))}
+                   (let [status (.-statusCode resp)
+                         body (mapish (decode-body resp))]
+                     (cond
+                       (and (>= status 200) (< status 300))
+                       {:ok true
+                        :user (mapish (or (:user body) (get body "user") {}))}
+
+                       (= status 401)
                        (do
-                         (when (= (.-statusCode resp) 401)
-                           (store/clear-auth-session!))
-                         {:ok false :error "unauthorized"})))))))))
+                         (store/clear-auth-session!)
+                         {:ok false :error :unauthorized})
+
+                       :else
+                       {:ok false :error (or (:error body) (get body "error")
+                                             (str "me failed: " status))}))))
+          (.catchError (fn [e]
+                         (when kDebugMode
+                           (dart:core/print (str "[auth] me! failed: " e)))
+                         {:ok false :error :network :detail (str e)}))))))
 

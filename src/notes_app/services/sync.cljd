@@ -303,9 +303,13 @@
     (let [base (base-url)]
       (store/set-sync-status! :syncing "Push…")
       (-> (asset-sync/upload-pending!)
-          (.then (fn [_] (op/get-unsynced)))
+          (.then (fn [upload-results]
+                   (-> (op/get-unsynced)
+                       (.then (fn [ops]
+                                {:ops ops
+                                 :upload-results (or upload-results [])})))))
           (.then
-           (fn [ops]
+           (fn [{:keys [ops upload-results]}]
              (let [ops (or ops [])]
                (if (empty? ops)
                  (do
@@ -317,7 +321,10 @@
                         (let [pushable (or pushable [])]
                           (if (empty? pushable)
                             (do
-                              (store/set-sync-status! :ok "Waiting for asset upload")
+                              (if (some #(= % :missing) upload-results)
+                                (store/set-sync-status!
+                                 :error "Local asset file missing — cannot upload")
+                                (store/set-sync-status! :ok "Waiting for asset upload"))
                               :waiting-assets)
                             (let [body (db/encode-json (mapv operation->wire pushable))
                                   uri (dart:core/Uri.parse (str base "/api/sync/push"))]
@@ -577,6 +584,12 @@
     (pull!)))
 
 (defn on-app-pause!
+  "Flush open editors, then push. Without flush, a pending debounce save can
+   leave the newest keystrokes out of the background push."
   []
   (when (and (base-url) (store/sync-enabled?) (store/logged-in?))
-    (push!)))
+    (-> (call-hook !before-pull)
+        (.then (fn [_] (push!)))
+        (.catchError (fn [e]
+                       (dart:core/print (str "[sync] pause flush/push failed: " e))
+                       nil)))))

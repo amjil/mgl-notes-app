@@ -1,7 +1,8 @@
 (ns notes-app.editor.view
   "Document editor — elegantly managed state, persistence, and performance.
    Uses f/widget's :managed [:dispose] hook for safe teardown and final save.
-   Caches the editor-body outside f/widget to prevent unnecessary subtree rebuilds."
+   Autosave / embed convert / Nomio retry run in :bg-watcher (not :watch).
+   Caches the editor-body outside the UI :watch to limit subtree rebuilds."
   (:require ["package:flutter/material.dart" :as m]
             ["package:mongol/mongol.dart" :as mgl]
             ["dart:async" :as async]
@@ -420,6 +421,54 @@
        (fn [error]
          (show-message! ctx (str "Nomio publish failed: " error))))))
 
+(defn- schedule-autosave!
+  "Debounce persist only when content differs from the last snapshot.
+   Selection-only changes must not cancel a pending dirty save."
+  [document-id !state !snapshot !save-timer state]
+  (when (not= (bridge/snapshot-from-state state) @!snapshot)
+    (when-let [t @!save-timer] (.cancel ^async/Timer t) nil)
+    (reset! !save-timer
+            (async/Timer.
+             (dart:core/Duration. .seconds 2)
+             #(bridge/persist-diff! document-id @!state !snapshot))))
+  nil)
+
+(defn- find-embed-conversions
+  "Paragraphs whose entire content is `((uuid))` → `[block-id target-id]`."
+  [state]
+  (keep (fn [[id b]]
+          (when (= (:type b) :paragraph)
+            (let [content (str/trim (or (:content b) ""))]
+              (when-let [match (re-matches #"^\(\((.+)\)\)$" content)]
+                [id (second match)]))))
+        (:blocks state)))
+
+(defn- convert-embed-paragraphs!
+  "Turn `((uuid))` paragraphs into embed blocks. Safe to call outside build."
+  [!state read-only?]
+  (when-not read-only?
+    (when-let [embeds (seq (find-embed-conversions @!state))]
+      (history/record-snapshot! !state)
+      (swap! !state
+             (fn [s]
+               (reduce (fn [acc [id target-id]]
+                         (update-in acc [:blocks id]
+                                    assoc :type :embed
+                                    :data {:target-id target-id}
+                                    :content ""))
+                       s
+                       embeds)))))
+  nil)
+
+(defn- maybe-retry-nomio-publish!
+  "After OAuth completes, resume the publish that was waiting on login."
+  [ctx document-id nomio-state]
+  (when (and (= :authenticated (:status nomio-state))
+             (= document-id @!pending-nomio-document))
+    (reset! !pending-nomio-document nil)
+    (publish-nomio! ctx document-id))
+  nil)
+
 ;; =============================================================================
 ;; Core Editor UI
 ;; =============================================================================
@@ -440,7 +489,7 @@
             (bridge/persist-diff! document-id @!state !snapshot)
             (catch Exception _ nil))
           (invalidate-session! document-id)
-          (dart:core/print (str "🧹 [Editor] Teardown & final save for doc: " document-id))
+          (dart:core/print (str "[Editor] Teardown & final save for doc: " document-id))
           nil)]
 
     (f/widget
@@ -450,6 +499,25 @@
                    (swap! !sessions assoc document-id session)
                    !save-timer)
                :dispose cleanup!]
+
+     ;; Side effects live in :bg-watcher (no rebuild). Never schedule timers or
+     ;; mutate state inside :watch — that postponed autosave on every paint.
+     :bg-watcher ([state !state]
+                  (schedule-autosave! document-id !state !snapshot !save-timer state)
+                  ;; Defer swap! so immediate subscribe during mount is safe.
+                  (when (and (not @!read-only?) (seq (find-embed-conversions state)))
+                    (async/Timer.
+                     (dart:core/Duration.zero)
+                     #(convert-embed-paragraphs! !state @!read-only?)))
+                  nil)
+
+     :bg-watcher ([nomio-state nomio-auth/auth-state]
+                  (when (and (= :authenticated (:status nomio-state))
+                             (= document-id @!pending-nomio-document))
+                    (async/Timer.
+                     (dart:core/Duration.zero)
+                     #(maybe-retry-nomio-publish! ctx document-id nomio-state)))
+                  nil)
 
      ;; Build the editor/reader only when preview mode changes — not inside the
      ;; !state watch — so resolved-config / blur cannot mark sibling watches dirty.
@@ -476,46 +544,9 @@
         :watch [current-state !state
                 title !title
                 show-refs? store/!show-backlinks
-                nomio-state nomio-auth/auth-state
                 {:keys [use-builtin-ime]} store/app-ui-state]
 
-        (let [_ (when (and (= :authenticated (:status nomio-state))
-                           (= document-id @!pending-nomio-document))
-                  (reset! !pending-nomio-document nil)
-                  (async/Timer.
-                   (dart:core/Duration.zero)
-                   #(publish-nomio! ctx document-id)))
-              _ (when-let [t @!save-timer] (.cancel ^async/Timer t) nil)
-              _ (reset! !save-timer
-                        (async/Timer.
-                         (dart:core/Duration. .seconds 2)
-                         #(bridge/persist-diff! document-id current-state !snapshot)))
-
-              ;; Auto Embed Converter logic: find paragraphs that exactly match ((uuid))
-              blocks (:blocks current-state)
-              embeds-to-convert
-              (keep (fn [[id b]]
-                      (when (= (:type b) :paragraph)
-                        (let [content (str/trim (or (:content b) ""))]
-                          (when-let [match (re-matches #"^\(\((.+)\)\)$" content)]
-                            [id (second match)]))))
-                    blocks)
-
-              ;; Apply conversions asynchronously to avoid mutating state during render
-              _ (when (and (not read-only?) (seq embeds-to-convert))
-                  (async/Timer.
-                   (dart:core/Duration.zero)
-                   (fn []
-                     (history/record-snapshot! !state)
-                     (swap! !state
-                            (fn [s]
-                              (reduce (fn [acc [id target-id]]
-                                        (update-in acc [:blocks id]
-                                                   assoc :type :embed :data {:target-id target-id} :content ""))
-                                      s
-                                      embeds-to-convert))))))
-
-              show-strip? (and show-backlinks? (not= (or title "") ""))
+        (let [show-strip? (and show-backlinks? (not= (or title "") ""))
               toggle-refs! #(store/toggle-show-backlinks!)
               body-row
               (m/Row
@@ -603,7 +634,6 @@
                                   .icon (m/Icon m.Icons/drive_file_rename_outline)
                                   .onPressed #(show-rename! ctx document-id !title)))]))))
              .body (m/SafeArea .child body-row)))))))))
-
 ;; =============================================================================
 ;; Public widget
 ;; =============================================================================

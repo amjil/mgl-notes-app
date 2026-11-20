@@ -19,6 +19,7 @@
             [notes-app.desktop :as desktop]
             [notes-app.mobile :as mobile]
             [notes-app.services.sync :as sync]
+            [notes-app.services.auth :as auth]
             [notes-app.services.link :as link]
             [notes-app.nomio.auth :as nomio-auth]
             [notes-app.services.daily :as daily]
@@ -43,12 +44,15 @@
                (sync/set-editor-hooks!
                 editor/flush-open-sessions!
                 editor/reload-open-sessions!)
+               ;; Validate JWT before first pull; 401 clears the session.
+               ;; Network errors keep the session so offline launch still works.
+               (auth/me!)))
+      (.then (fn [_]
                (sync/on-app-start!)
                (reset! !boot {:status :ready})))
       (.catchError (fn [e]
                      (dart:core/print (str "Startup failed: " e))
                      (reset! !boot {:status :error :message (str e)})))))
-
 ;; Close → hide to tray (do not kill the process).
 (def ^:private window-listener
   (reify ^:mixin wm/WindowListener
