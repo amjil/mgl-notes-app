@@ -2,6 +2,7 @@
   (:require ["package:http/http.dart" :as http]
             ["dart:convert" :as convert]
             ["dart:async" :as async]
+            [clojure.string :as str]
             [notes-app.db.core :as db]
             [notes-app.state.store :as store]
             [notes-app.services.operation :as op]
@@ -9,7 +10,6 @@
             [notes-app.services.asset :as asset]
             [notes-app.services.asset-sync :as asset-sync]
             [notes-app.services.title-conflict :as title-conflict]))
-
 (defonce ^:private !push-timer (atom nil))
 (defonce ^:private !force-push-timer (atom nil)) ;; Max-wait force-push timer.
 (defonce ^:private !pull-timer (atom nil))
@@ -38,6 +38,54 @@
 (defn- flush-conflict-toast! []
   (when-let [msg (title-conflict/format-toast (store/take-pending-title-conflicts!))]
     (store/emit-sync-toast! msg)))
+
+(defn- json-int
+  "Coerce a JSON number field to a non-negative int, else nil."
+  [v]
+  (when (number? v)
+    (let [n (int v)]
+      (when (>= n 0) n))))
+
+(defn- parse-rejections
+  "Normalize push `rejections` to [{:id :reason} …]."
+  [decoded]
+  (let [raw (or (get decoded "rejections") [])]
+    (into []
+          (keep (fn [r]
+                  (let [id (str (or (get r "id") (:id r) ""))
+                        reason (str (or (get r "reason") (:reason r) "rejected"))]
+                    (when (not= id "")
+                      {:id id :reason reason})))
+                raw))))
+
+(defn- format-rejection-toast
+  "Short user-visible summary of permanently cleared push rejections."
+  [rejected-n rejections]
+  (cond
+    (and (number? rejected-n) (pos? rejected-n) (seq rejections))
+    (let [n (count rejections)
+          sample (->> rejections
+                      (take 3)
+                      (map (fn [{:keys [id reason]}]
+                             (str (subs id 0 (min 8 (count id))) "…" " (" reason ")")))
+                      (str/join ", "))
+          more (when (> n 3) (str " +" (- n 3) " more"))]
+      (str "Push dropped " n " invalid op(s): " sample (or more "")))
+
+    (and (number? rejected-n) (pos? rejected-n))
+    (str "Push dropped " rejected-n " invalid op(s)")
+
+    :else nil))
+(defn- push-response-accounted?
+  "True when accepted+skipped+rejected matches the batch size we sent."
+  [decoded batch-size]
+  (let [accepted (json-int (get decoded "accepted"))
+        skipped (json-int (or (get decoded "skipped") 0))
+        rejected (json-int (or (get decoded "rejected") 0))]
+    (and (some? accepted)
+         (some? skipped)
+         (some? rejected)
+         (= (+ accepted skipped rejected) batch-size))))
 
 (defn- base-url []
   (let [u (:sync-base-url @store/app-ui-state)]
@@ -86,13 +134,33 @@
         {:since (op-cursor-time it)
          :since-id (op-cursor-id it)}))))
 
-(defn- apply-remote-ops! [items]
-  (reduce (fn [fut item]
-            (.then fut
-                   (fn [_]
-                     (apply/apply-operation! (wire->op-map item)))))
-          (async/Future.value nil)
-          (or items [])))
+(defn- apply-remote-ops!
+  "Apply remote ops in order.
+   Returns Future of `{:status :ok|:error :last-cursor :error}`.
+   On hard failure stops immediately; `:last-cursor` is the last op that
+   applied (or soft-skipped) so pull can advance past successful ops without
+   skipping the failed one."
+  [items]
+  (reduce
+   (fn [fut item]
+     (.then fut
+            (fn [{:keys [status] :as acc}]
+              (if (= status :error)
+                acc
+                (let [op-map (wire->op-map item)
+                      cursor {:since (op-cursor-time item)
+                              :since-id (op-cursor-id item)}]
+                  (-> (apply/apply-operation! op-map)
+                      (.then (fn [_]
+                               (assoc acc :last-cursor cursor)))
+                      (.catchError
+                       (fn [e]
+                         (dart:core/print
+                          (str "[sync] apply failed for " (:id op-map)
+                               " (" (:action op-map) "): " e))
+                         (assoc acc :status :error :error e)))))))))
+   (async/Future.value {:status :ok :last-cursor nil :error nil})
+   (or items [])))
 
 (defn- parse-pull-items [body]
   (let [decoded (convert/jsonDecode body)]
@@ -269,31 +337,50 @@
                                             (< (.-statusCode resp) 300))
                                        (let [decoded (convert/jsonDecode (.-body resp))
                                              renames (or (get decoded "title_renames") [])
-                                             rejected (or (get decoded "rejected") 0)
+                                             pushable-ids (mapv #(.-id %) pushable)
+                                             rejected-n (or (json-int (get decoded "rejected")) 0)
+                                             rejections (parse-rejections decoded)
                                              ;; Rejected ops are permanently invalid server-side;
-                                             ;; clear them locally with accepted/skipped so the queue
-                                             ;; cannot block. See server API.md push contract.
-                                             status-msg (if (and (number? rejected) (pos? rejected))
-                                                          (str "Push OK (" rejected " rejected)")
+                                             ;; clear them with accepted/skipped so the queue cannot
+                                             ;; block. See server API.md push contract.
+                                             ;; Refuse to clear the queue if counts do not cover the
+                                             ;; whole batch — avoids silent loss on a bad response.
+                                             status-msg (if (pos? rejected-n)
+                                                          (str "Push OK (" rejected-n " rejected)")
                                                           "Push OK")]
-                                         (-> (op/mark-synced! (mapv #(.-id %) pushable))
-                                             ;; Persist edits made while the request was in flight
-                                             ;; before a title rename reloads open sessions.
-                                             (.then (fn [_]
-                                                      (if (seq (or renames []))
-                                                        (call-hook !before-pull)
-                                                        (async/Future.value nil))))
-                                             (.then (fn [_]
-                                                      (apply/apply-push-title-renames! renames)))
-                                             (.then (fn [_]
-                                                      (flush-conflict-toast!)
-                                                      (if (seq (or renames []))
-                                                        (call-hook !after-remote-apply)
-                                                        (async/Future.value nil))))
-                                             (.then (fn [_]
-                                                      (store/set-sync-status! :ok status-msg)
-                                                      :ok))))
-
+                                         (if-not (push-response-accounted? decoded (count pushable-ids))
+                                           (do
+                                             (dart:core/print
+                                              (str "[sync] push response counts mismatch; "
+                                                   "leaving ops unsynced for retry. body="
+                                                   (.-body resp)))
+                                             (store/set-sync-status!
+                                              :error "Push response incomplete — will retry")
+                                             :error)
+                                           (-> (op/mark-synced! pushable-ids)
+                                               ;; Persist edits made while the request was in flight
+                                               ;; before a title rename reloads open sessions.
+                                               (.then (fn [_]
+                                                        (if (seq (or renames []))
+                                                          (call-hook !before-pull)
+                                                          (async/Future.value nil))))
+                                               (.then (fn [_]
+                                                        (apply/apply-push-title-renames! renames)))
+                                               (.then (fn [_]
+                                                        (flush-conflict-toast!)
+                                                        (doseq [{:keys [id reason]} rejections]
+                                                          (dart:core/print
+                                                           (str "[sync] push rejected " id
+                                                                ": " reason)))
+                                                        (when-let [msg (format-rejection-toast
+                                                                        rejected-n rejections)]
+                                                          (store/emit-sync-toast! msg))
+                                                        (if (seq (or renames []))
+                                                          (call-hook !after-remote-apply)
+                                                          (async/Future.value nil))))
+                                               (.then (fn [_]
+                                                        (store/set-sync-status! :ok status-msg)
+                                                        :ok)))))
                                        :else
                                        (do
                                          (store/set-sync-status!
@@ -334,23 +421,43 @@
                                    (and (>= (.-statusCode resp) 200) (< (.-statusCode resp) 300))
                                    (let [items (parse-pull-items (.-body resp))
                                          n (count items)
-                                         cursor (last-item-cursor items)]
-                                     (when (pos? n)
-                                       (reset! applied? true))
+                                         page-cursor (last-item-cursor items)]
                                      (-> (apply-remote-ops! items)
                                          (.then
-                                          (fn [_]
-                                            (-> (if cursor
-                                                  (store/set-last-sync-cursor!
-                                                   (:since cursor)
-                                                   (:since-id cursor))
-                                                  (async/Future.value nil))
-                                                (.then
-                                                 (fn [_]
-                                                   (if (< n pull-page-size)
-                                                     :ok
-                                                     (pull-page! (:since cursor)
-                                                                 (:since-id cursor))))))))))
+                                          (fn [{:keys [status last-cursor error]}]
+                                            (if (= status :ok)
+                                              (do
+                                                (when (pos? n)
+                                                  (reset! applied? true))
+                                                ;; Advance only after the whole page applied.
+                                                (-> (if page-cursor
+                                                      (store/set-last-sync-cursor!
+                                                       (:since page-cursor)
+                                                       (:since-id page-cursor))
+                                                      (async/Future.value nil))
+                                                    (.then
+                                                     (fn [_]
+                                                       (if (< n pull-page-size)
+                                                         :ok
+                                                         (pull-page! (:since page-cursor)
+                                                                     (:since-id page-cursor)))))))
+                                              ;; Partial page failure: advance past ops that did
+                                              ;; apply so retries start at the failed op, not the
+                                              ;; beginning of the page. Never skip the failure.
+                                              (do
+                                                (when last-cursor
+                                                  (reset! applied? true))
+                                                (-> (if last-cursor
+                                                      (store/set-last-sync-cursor!
+                                                       (:since last-cursor)
+                                                       (:since-id last-cursor))
+                                                      (async/Future.value nil))
+                                                    (.then
+                                                     (fn [_]
+                                                       (store/set-sync-status!
+                                                        :error
+                                                        (humanize-exception "Pull apply" error))
+                                                       :error)))))))))
 
                                    :else
                                    (do

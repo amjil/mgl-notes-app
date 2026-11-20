@@ -378,10 +378,13 @@
        items))))
 
 (defn apply-operation!
-  "Idempotently apply one remote Operation. Skips ops from this device and already-seen ids."
+  "Idempotently apply one remote Operation. Skips ops from this device and already-seen ids.
+   Hard failures (DB/exceptions) reject the Future — caller must not advance the pull
+   cursor past this op. Soft skips (unknown action, missing entity-id) still record the
+   op id so a stuck cursor cannot block the queue forever."
   [{:keys [id device-id entity-type entity-id action payload created-at] :as op-map}]
   (if-not (and id action)
-    (async/Future.value nil)
+    (async/Future.value :skipped-invalid)
     (if (= device-id (store/device-id))
       (-> (op/insert-remote-op! op-map)
           (.then (fn [_] :skipped-own)))
@@ -394,8 +397,16 @@
                        (if-not eid
                          (do
                            (dart:core/print (str "Skip op without entity-id: " id " " action))
-                           (op/insert-remote-op! op-map))
+                           (-> (op/insert-remote-op! op-map)
+                               (.then (fn [_] :skipped-no-entity))))
                          (-> (dispatch-apply! action eid p created-at)
+                             ;; Only mark seen after a successful apply (or soft unknown).
                              (.then (fn [_]
                                       (op/insert-remote-op! (assoc op-map :entity-id eid))))
-                             (.then (fn [_] :applied))))))))))))
+                             (.then (fn [_] :applied))
+                             ;; Do not insert-remote-op! on failure — retry on next pull.
+                             (.catchError
+                              (fn [e]
+                                (dart:core/print
+                                 (str "[apply] " action " " eid " failed: " e))
+                                (throw e)))))))))))))
